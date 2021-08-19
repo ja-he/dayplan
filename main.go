@@ -1,13 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"math"
 	"os"
 	"sort"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -20,27 +21,27 @@ type timestamp struct {
 }
 
 func newTimestamp(s string) *timestamp {
-  components := strings.Split(s, ":")
-  if len(components) != 2 {
-    log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
-  }
-  hStr := components[0]
-  mStr := components[1]
-  if len(hStr) != 2 || len(mStr) != 2 {
-    log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
-  }
-  h, err := strconv.Atoi(hStr)
-  if err != nil {
-    log.Fatalf("error converting hour string '%s' to a number", hStr)
-  }
-  m, err := strconv.Atoi(hStr)
-  if err != nil {
-    log.Fatalf("error converting minute string '%s' to a number", mStr)
-  }
-  if h < 0 || h > 23 || m < 0 || m > 59 {
-    log.Fatalf("error with string-to-timestamp conversion: one of the yielded values illegal (%d) (%d)", h, m)
-  }
-  return &timestamp{h,m}
+	components := strings.Split(s, ":")
+	if len(components) != 2 {
+		log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
+	}
+	hStr := components[0]
+	mStr := components[1]
+	if len(hStr) != 2 || len(mStr) != 2 {
+		log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
+	}
+	h, err := strconv.Atoi(hStr)
+	if err != nil {
+		log.Fatalf("error converting hour string '%s' to a number", hStr)
+	}
+	m, err := strconv.Atoi(mStr)
+	if err != nil {
+		log.Fatalf("error converting minute string '%s' to a number", mStr)
+	}
+	if h < 0 || h > 23 || m < 0 || m > 59 {
+		log.Fatalf("error with string-to-timestamp conversion: one of the yielded values illegal (%d) (%d)", h, m)
+	}
+	return &timestamp{h, m}
 }
 
 func (a timestamp) toString() string {
@@ -74,7 +75,7 @@ func (t timestamp) snap(res int) timestamp {
 	} else {
 		t.minute = closestMinute
 	}
-  return t
+	return t
 }
 
 func (t timestamp) offset(o timeOffset) timestamp {
@@ -93,7 +94,7 @@ func (t timestamp) offset(o timeOffset) timestamp {
 			t.hour -= 1
 		}
 	}
-  return t
+	return t
 }
 
 func timeForDistance(dist int) timeOffset {
@@ -106,7 +107,7 @@ func timeForDistance(dist int) timeOffset {
 	return timeOffset{timestamp{minutes / 60, minutes % 60}, add}
 }
 func toY(t timestamp) int {
-	return ((t.hour * resolution - scrollOffset) + (t.minute / (60 / resolution)))
+	return ((t.hour*resolution - scrollOffset) + (t.minute / (60 / resolution)))
 }
 func past(a, b timestamp) bool {
 	if a.hour > b.hour {
@@ -127,6 +128,24 @@ type event struct {
 	cat        category
 }
 
+func newEvent(s string) *event {
+	var e event
+
+	args := strings.SplitN(s, "|", 4)
+	startString := args[0]
+	endString := args[1]
+	catString := args[2]
+	nameString := args[3]
+
+	e.start = *newTimestamp(startString)
+	e.end = *newTimestamp(endString)
+
+	e.name = nameString
+	e.cat.name = catString
+
+	return &e
+}
+
 func eventMove(e *event, dist int) {
 	timeOffset := timeForDistance(dist)
 	e.start = e.start.offset(timeOffset).snap(resolution)
@@ -134,10 +153,10 @@ func eventMove(e *event, dist int) {
 }
 func eventResize(e *event, dist int) {
 	timeOffset := timeForDistance(dist)
-  newEnd := e.end.offset(timeOffset).snap(resolution)
-  if past(newEnd, e.start) {
-	  e.end = newEnd
-  }
+	newEnd := e.end.offset(timeOffset).snap(resolution)
+	if past(newEnd, e.start) {
+		e.end = newEnd
+	}
 }
 
 type ByStart []event
@@ -148,6 +167,10 @@ func (a ByStart) Less(i, j int) bool { return past(a[j].start, a[i].start) }
 
 type model struct {
 	events []event
+}
+
+func (m *model) addEvent(e event) {
+	m.events = append(m.events, e)
 }
 
 type rect struct {
@@ -236,12 +259,12 @@ func drawEvents(tv termview, m model) {
 				drawBox(tv.screen, selStyle, p.x, p.y+p.h-1, p.w, 1)
 				drawText(tv.screen, p.x, p.y, p.w, p.h, style, e.name)
 				drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, style, e.start.toString())
-			  drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.end.toString())
+				drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.end.toString())
 			} else {
 				drawBox(tv.screen, selStyle, p.x, p.y, p.w, p.h)
 				drawText(tv.screen, p.x, p.y, p.w, p.h, selStyle, e.name)
 				drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, selStyle, e.start.toString())
-			  drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.end.toString())
+				drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.end.toString())
 			}
 		}
 	}
@@ -305,6 +328,15 @@ func initScreen() tcell.Screen {
 
 // MAIN
 func main() {
+	filename := os.Args[1]
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("cannot read file '%s'", filename)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+
 	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 
 	var tv termview
@@ -316,17 +348,22 @@ func main() {
 	tv.screen.Clear()
 	tv.categoryStyling = make(map[category]tcell.Style)
 	tv.positions = make(map[event]rect)
-	tv.categoryStyling[category{"work"}] = tcell.StyleDefault.Background(tcell.Color220).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"leisure"}] = tcell.StyleDefault.Background(tcell.Color154).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"misc"}] = tcell.StyleDefault.Background(tcell.Color197).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"work"}]        = tcell.StyleDefault.Background(tcell.Color196).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"leisure"}]     = tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"misc"}]        = tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"programming"}] = tcell.StyleDefault.Background(tcell.Color226).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"cooking"}]     = tcell.StyleDefault.Background(tcell.Color212).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"eating"}]      = tcell.StyleDefault.Background(tcell.Color224).Foreground(tcell.ColorReset)
 	tv.eventviewOffset = 10
 	tv.eventviewWidth = 80
 
+	defer tv.screen.Fini()
+
 	var m model
-	m.events = append(m.events, event{timestamp{9, 00}, timestamp{10, 00}, "lmao", category{"work"}})
-	m.events = append(m.events, event{timestamp{9, 30}, timestamp{9, 45}, "haha", category{"leisure"}})
-	m.events = append(m.events, event{timestamp{9, 30}, timestamp{10, 45}, "haha", category{"misc"}})
-	m.events = append(m.events, event{timestamp{11, 00}, timestamp{13, 00}, "misc2", category{"misc"}})
+	for scanner.Scan() {
+		s := scanner.Text()
+		m.addEvent(*newEvent(s))
+	}
 
 	for {
 		tv.screen.Show()
