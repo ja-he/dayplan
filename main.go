@@ -6,6 +6,8 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strings"
+	"strconv"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -15,6 +17,30 @@ var scrollOffset = 8 * resolution
 
 type timestamp struct {
 	hour, minute int
+}
+
+func newTimestamp(s string) *timestamp {
+  components := strings.Split(s, ":")
+  if len(components) != 2 {
+    log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
+  }
+  hStr := components[0]
+  mStr := components[1]
+  if len(hStr) != 2 || len(mStr) != 2 {
+    log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
+  }
+  h, err := strconv.Atoi(hStr)
+  if err != nil {
+    log.Fatalf("error converting hour string '%s' to a number", hStr)
+  }
+  m, err := strconv.Atoi(hStr)
+  if err != nil {
+    log.Fatalf("error converting minute string '%s' to a number", mStr)
+  }
+  if h < 0 || h > 23 || m < 0 || m > 59 {
+    log.Fatalf("error with string-to-timestamp conversion: one of the yielded values illegal (%d) (%d)", h, m)
+  }
+  return &timestamp{h,m}
 }
 
 func (a timestamp) toString() string {
