@@ -258,19 +258,19 @@ func drawEvents(tv termview, m model) {
 		p := tv.positions[e]
 		if tv.hovered.e == nil || *tv.hovered.e != e {
 			drawBox(tv.screen, style, p.x, p.y, p.w, p.h)
-			drawText(tv.screen, p.x, p.y, p.w, p.h, style, e.name)
+			drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, style, e.name)
 			drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, style, e.start.toString())
 			drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, style, e.end.toString())
 		} else {
 			if tv.hovered.resize {
 				drawBox(tv.screen, style, p.x, p.y, p.w, p.h-1)
 				drawBox(tv.screen, selStyle, p.x, p.y+p.h-1, p.w, 1)
-				drawText(tv.screen, p.x, p.y, p.w, p.h, style, e.name)
+				drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, style, e.name)
 				drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, style, e.start.toString())
 				drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.end.toString())
 			} else {
 				drawBox(tv.screen, selStyle, p.x, p.y, p.w, p.h)
-				drawText(tv.screen, p.x, p.y, p.w, p.h, selStyle, e.name)
+				drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, selStyle, e.name)
 				drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, selStyle, e.start.toString())
 				drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.end.toString())
 			}
