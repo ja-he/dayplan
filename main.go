@@ -235,6 +235,9 @@ func drawTimeline(s tcell.Screen) {
 	hour := scrollOffset / resolution
 
 	for row := 0; row <= height; row++ {
+		if hour >= 24 {
+			break
+		}
 		style := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
 		if row == nowRow {
 			style = style.Background(tcell.ColorRed)
@@ -425,12 +428,21 @@ func main() {
 				case resizing:
 					eventResize(tv.editedEvent, tv.cursorY-oldY)
 				}
+			} else if button == tcell.WheelUp {
+				newHourOffset := ((scrollOffset / resolution) - 1)
+				if newHourOffset >= 0 {
+					scrollOffset = newHourOffset * resolution
+				}
+			} else if button == tcell.WheelDown {
+				newHourOffset := ((scrollOffset / resolution) + 1)
+				if newHourOffset <= 24 {
+					scrollOffset = newHourOffset * resolution
+				}
 			} else {
 				tv.editState = none
 				sort.Sort(ByStart(m.events))
 				tv.hovered = getHoveredEvent(tv, m)
 			}
-
 		}
 
 		drawTimeline(tv.screen)
