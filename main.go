@@ -205,6 +205,7 @@ type termview struct {
 	hovered                         eventHoverState
 	editState                       editState
 	editedEvent                     *event
+	status                          string
 }
 
 func drawText(s tcell.Screen, x, y, w, h int, style tcell.Style, text string) {
@@ -242,6 +243,13 @@ func drawBox(screen tcell.Screen, style tcell.Style, x, y, w, h int) {
 		}
 	}
 }
+
+func drawStatus(tv termview) {
+	statusOffset := tv.eventviewOffset + tv.eventviewWidth + 2
+	_, screenHeight := tv.screen.Size()
+	drawText(tv.screen, statusOffset, screenHeight-2, 100, 1, tcell.StyleDefault, tv.status)
+}
+
 func drawEvents(tv termview, m model) {
 	selStyle := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
 	for _, e := range m.events {
@@ -356,6 +364,7 @@ func main() {
 	tv.categoryStyling[category{"eating"}]      = tcell.StyleDefault.Background(tcell.Color224).Foreground(tcell.ColorReset)
 	tv.eventviewOffset = 10
 	tv.eventviewWidth = 80
+	tv.status = "initial status msg"
 
 	defer tv.screen.Fini()
 
@@ -412,5 +421,6 @@ func main() {
 		drawTimeline(tv.screen)
 		computeRects(tv, m)
 		drawEvents(tv, m)
+		drawStatus(tv)
 	}
 }
