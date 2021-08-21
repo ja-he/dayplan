@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -226,13 +227,24 @@ func drawText(s tcell.Screen, x, y, w, h int, style tcell.Style, text string) {
 func drawTimeline(s tcell.Screen) {
 	_, height := s.Size()
 
+	now := time.Now()
+	h := now.Hour()
+	m := now.Minute()
+	nowRow := (h * resolution) - scrollOffset + (m / (60 / resolution))
+
 	hour := scrollOffset / resolution
 
 	for row := 0; row <= height; row++ {
+		style := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
+		if row == nowRow {
+			style = style.Background(tcell.ColorRed)
+		}
 		if row%resolution == 0 {
-			tStr := timestamp{hour, 0}.toString()
-			drawText(s, 1, row, 8, 1, tcell.StyleDefault.Foreground(tcell.ColorLightGray), tStr)
+			tStr := fmt.Sprintf("   %s  ", timestamp{hour, 0}.toString())
+			drawText(s, 0, row, 10, 1, style, tStr)
 			hour++
+		} else {
+			drawText(s, 0, row, 10, 1, style, "          ")
 		}
 	}
 }
