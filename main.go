@@ -14,7 +14,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-var resolution = 6
+var resolution = 12
 var scrollOffset = 8 * resolution
 
 type timestamp struct {
