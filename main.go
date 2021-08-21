@@ -356,12 +356,13 @@ func main() {
 	tv.screen.Clear()
 	tv.categoryStyling = make(map[category]tcell.Style)
 	tv.positions = make(map[event]rect)
-	tv.categoryStyling[category{"work"}]        = tcell.StyleDefault.Background(tcell.Color196).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"leisure"}]     = tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"misc"}]        = tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"work"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"leisure"}] = tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"misc"}] = tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset)
 	tv.categoryStyling[category{"programming"}] = tcell.StyleDefault.Background(tcell.Color226).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"cooking"}]     = tcell.StyleDefault.Background(tcell.Color212).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"eating"}]      = tcell.StyleDefault.Background(tcell.Color224).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"cooking"}] = tcell.StyleDefault.Background(tcell.Color212).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"fitness"}] = tcell.StyleDefault.Background(tcell.Color208).Foreground(tcell.ColorReset)
+	tv.categoryStyling[category{"eating"}] = tcell.StyleDefault.Background(tcell.Color224).Foreground(tcell.ColorReset)
 	tv.eventviewOffset = 10
 	tv.eventviewWidth = 80
 	tv.status = "initial status msg"
