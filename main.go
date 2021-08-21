@@ -378,6 +378,8 @@ func main() {
 		tv.screen.Show()
 		tv.screen.Clear()
 
+		// TODO: this blocks, meaning if no input is given, the screen doesn't update
+		//       what we might want is an input buffer in another goroutine? idk
 		ev := tv.screen.PollEvent()
 
 		switch ev := ev.(type) {
