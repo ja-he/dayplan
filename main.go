@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"sort"
-	"strconv"
-	"strings"
 	"time"
+
+	"dayplan/model"
+	"dayplan/timestamp"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -17,161 +17,31 @@ import (
 var resolution = 12
 var scrollOffset = 8 * resolution
 
-type timestamp struct {
-	hour, minute int
-}
-
-func newTimestamp(s string) *timestamp {
-	components := strings.Split(s, ":")
-	if len(components) != 2 {
-		log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
-	}
-	hStr := components[0]
-	mStr := components[1]
-	if len(hStr) != 2 || len(mStr) != 2 {
-		log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
-	}
-	h, err := strconv.Atoi(hStr)
-	if err != nil {
-		log.Fatalf("error converting hour string '%s' to a number", hStr)
-	}
-	m, err := strconv.Atoi(mStr)
-	if err != nil {
-		log.Fatalf("error converting minute string '%s' to a number", mStr)
-	}
-	if h < 0 || h > 23 || m < 0 || m > 59 {
-		log.Fatalf("error with string-to-timestamp conversion: one of the yielded values illegal (%d) (%d)", h, m)
-	}
-	return &timestamp{h, m}
-}
-
-func (a timestamp) toString() string {
-	hPrefix := ""
-	mPrefix := ""
-	if a.hour < 10 {
-		hPrefix = "0"
-	}
-	if a.minute < 10 {
-		mPrefix = "0"
-	}
-	return fmt.Sprintf("%s%d:%s%d", hPrefix, a.hour, mPrefix, a.minute)
-}
-
-type timeOffset struct {
-	t   timestamp
-	add bool
-}
-
-func (t timestamp) snap(res int) timestamp {
-	closestMinute := 0
-	for i := 0; i <= 60; i += (60 / res) {
-		distance := math.Abs(float64(i - t.minute))
-		if distance < math.Abs(float64(closestMinute-t.minute)) {
-			closestMinute = i
-		}
-	}
-	if closestMinute == 60 {
-		t.hour += 1
-		t.minute = 0
-	} else {
-		t.minute = closestMinute
-	}
-	return t
-}
-
-func (t timestamp) offset(o timeOffset) timestamp {
-	if o.add {
-		t.hour += o.t.hour
-		t.minute += o.t.minute
-		if t.minute >= 60 {
-			t.minute %= 60
-			t.hour += 1
-		}
-	} else {
-		t.minute -= o.t.minute
-		t.hour -= o.t.hour
-		if t.minute < 0 {
-			t.minute = 60 + t.minute
-			t.hour -= 1
-		}
-	}
-	return t
-}
-
-func timeForDistance(dist int) timeOffset {
+func timeForDistance(dist int) timestamp.TimeOffset {
 	add := true
 	if dist < 0 {
 		dist *= (-1)
 		add = false
 	}
 	minutes := dist * (60 / resolution)
-	return timeOffset{timestamp{minutes / 60, minutes % 60}, add}
+	return timestamp.TimeOffset{T: timestamp.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
 }
-func toY(t timestamp) int {
-	return ((t.hour*resolution - scrollOffset) + (t.minute / (60 / resolution)))
+func eventMove(e *model.Event, dist int) {
+	timeOffset := timeForDistance(dist)
+	e.Start = e.Start.Offset(timeOffset).Snap(resolution)
+	e.End = e.End.Offset(timeOffset).Snap(resolution)
 }
-func past(a, b timestamp) bool {
-	if a.hour > b.hour {
-		return true
-	} else if a.hour == b.hour {
-		return a.minute > b.minute
-	} else {
-		return false
+func eventResize(e *model.Event, dist int) {
+	timeOffset := timeForDistance(dist)
+	newEnd := e.End.Offset(timeOffset).Snap(resolution)
+	if newEnd.IsAfter(e.Start) {
+		e.End = newEnd
 	}
 }
 
-type category struct {
-	name string
-}
-type event struct {
-	start, end timestamp
-	name       string
-	cat        category
-}
-
-func newEvent(s string) *event {
-	var e event
-
-	args := strings.SplitN(s, "|", 4)
-	startString := args[0]
-	endString := args[1]
-	catString := args[2]
-	nameString := args[3]
-
-	e.start = *newTimestamp(startString)
-	e.end = *newTimestamp(endString)
-
-	e.name = nameString
-	e.cat.name = catString
-
-	return &e
-}
-
-func eventMove(e *event, dist int) {
-	timeOffset := timeForDistance(dist)
-	e.start = e.start.offset(timeOffset).snap(resolution)
-	e.end = e.end.offset(timeOffset).snap(resolution)
-}
-func eventResize(e *event, dist int) {
-	timeOffset := timeForDistance(dist)
-	newEnd := e.end.offset(timeOffset).snap(resolution)
-	if past(newEnd, e.start) {
-		e.end = newEnd
-	}
-}
-
-type ByStart []event
-
-func (a ByStart) Len() int           { return len(a) }
-func (a ByStart) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByStart) Less(i, j int) bool { return past(a[j].start, a[i].start) }
-
-type model struct {
-	events []event
-}
-
-func (m *model) addEvent(e event) {
-	m.events = append(m.events, e)
+// TODO: make this a TUI method
+func toY(t timestamp.Timestamp) int {
+	return ((t.Hour*resolution - scrollOffset) + (t.Minute / (60 / resolution)))
 }
 
 type rect struct {
@@ -192,20 +62,20 @@ const (
 )
 
 type eventHoverState struct {
-	e      *event
+	e      *model.Event
 	resize bool
 }
-type termview struct {
+type TUI struct {
 	scaleFactor                     int
 	scrollOffset                    int
 	screen                          tcell.Screen
 	cursorX, cursorY                int
 	eventviewOffset, eventviewWidth int
-	categoryStyling                 map[category]tcell.Style
-	positions                       map[event]rect
+	categoryStyling                 map[model.Category]tcell.Style
+	positions                       map[model.Event]rect
 	hovered                         eventHoverState
 	editState                       editState
-	editedEvent                     *event
+	editedEvent                     *model.Event
 	status                          string
 }
 
@@ -243,7 +113,7 @@ func drawTimeline(s tcell.Screen) {
 			style = style.Background(tcell.ColorRed)
 		}
 		if row%resolution == 0 {
-			tStr := fmt.Sprintf("   %s  ", timestamp{hour, 0}.toString())
+			tStr := fmt.Sprintf("   %s  ", timestamp.Timestamp{hour, 0}.ToString())
 			drawText(s, 0, row, 10, 1, style, tStr)
 			hour++
 		} else {
@@ -259,48 +129,48 @@ func drawBox(screen tcell.Screen, style tcell.Style, x, y, w, h int) {
 	}
 }
 
-func drawStatus(tv termview) {
+func drawStatus(tv TUI) {
 	statusOffset := tv.eventviewOffset + tv.eventviewWidth + 2
 	_, screenHeight := tv.screen.Size()
 	drawText(tv.screen, statusOffset, screenHeight-2, 100, 1, tcell.StyleDefault, tv.status)
 }
 
-func drawEvents(tv termview, m model) {
+func drawEvents(tv TUI, m model.Model) {
 	selStyle := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
-	for _, e := range m.events {
-		style := tv.categoryStyling[e.cat]
+	for _, e := range m.Events {
+		style := tv.categoryStyling[e.Cat]
 		// based on event state, draw a box or maybe a smaller one, or ...
 		p := tv.positions[e]
 		if tv.hovered.e == nil || *tv.hovered.e != e {
 			drawBox(tv.screen, style, p.x, p.y, p.w, p.h)
-			drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, style, e.name)
-			drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, style, e.start.toString())
-			drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, style, e.end.toString())
+			drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, style, e.Name)
+			drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, style, e.Start.ToString())
+			drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, style, e.End.ToString())
 		} else {
 			if tv.hovered.resize {
 				drawBox(tv.screen, style, p.x, p.y, p.w, p.h-1)
 				drawBox(tv.screen, selStyle, p.x, p.y+p.h-1, p.w, 1)
-				drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, style, e.name)
-				drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, style, e.start.toString())
-				drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.end.toString())
+				drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, style, e.Name)
+				drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, style, e.Start.ToString())
+				drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.End.ToString())
 			} else {
 				drawBox(tv.screen, selStyle, p.x, p.y, p.w, p.h)
-				drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, selStyle, e.name)
-				drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, selStyle, e.start.toString())
-				drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.end.toString())
+				drawText(tv.screen, p.x+1, p.y, p.w-2, p.h, selStyle, e.Name)
+				drawText(tv.screen, p.x+p.w-5, p.y, 5, 1, selStyle, e.Start.ToString())
+				drawText(tv.screen, p.x+p.w-5, p.y+p.h-1, 5, 1, selStyle, e.End.ToString())
 			}
 		}
 	}
 }
 
-func computeRects(tv termview, m model) {
+func computeRects(tv TUI, m model.Model) {
 	defaultX := tv.eventviewOffset
 	defaultW := tv.eventviewWidth
-	active_stack := make([]event, 0)
-	for _, e := range m.events {
+	active_stack := make([]model.Event, 0)
+	for _, e := range m.Events {
 		// remove all stacked elements that have finished
 		for i := len(active_stack) - 1; i >= 0; i-- {
-			if past(e.start, active_stack[i].end) || e.start == active_stack[i].end {
+			if e.Start.IsAfter(active_stack[i].End) || e.Start == active_stack[i].End {
 				active_stack = active_stack[:i]
 			} else {
 				break
@@ -308,9 +178,9 @@ func computeRects(tv termview, m model) {
 		}
 		active_stack = append(active_stack, e)
 		// based on event state, draw a box or maybe a smaller one, or ...
-		y := toY(e.start)
+		y := toY(e.Start)
 		x := defaultX
-		h := toY(e.end) - y
+		h := toY(e.End) - y
 		w := defaultW
 		for i := 1; i < len(active_stack); i++ {
 			x = x + (w / 2)
@@ -320,15 +190,15 @@ func computeRects(tv termview, m model) {
 	}
 }
 
-func getHoveredEvent(tv termview, m model) eventHoverState {
+func getHoveredEvent(tv TUI, m model.Model) eventHoverState {
 	if tv.cursorX >= tv.eventviewOffset &&
 		tv.cursorX < (tv.eventviewOffset+tv.eventviewWidth) {
-		for i := len(m.events) - 1; i >= 0; i-- {
-			if within(tv.cursorX, tv.cursorY, tv.positions[m.events[i]]) {
-				if tv.cursorY == (tv.positions[m.events[i]].y + tv.positions[m.events[i]].h - 1) {
-					return eventHoverState{&m.events[i], true}
+		for i := len(m.Events) - 1; i >= 0; i-- {
+			if within(tv.cursorX, tv.cursorY, tv.positions[m.Events[i]]) {
+				if tv.cursorY == (tv.positions[m.Events[i]].y + tv.positions[m.Events[i]].h - 1) {
+					return eventHoverState{&m.Events[i], true}
 				} else {
-					return eventHoverState{&m.events[i], false}
+					return eventHoverState{&m.Events[i], false}
 				}
 			}
 		}
@@ -362,32 +232,36 @@ func main() {
 
 	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 
-	var tv termview
+	var tv TUI
 
 	tv.screen = initScreen()
 	tv.screen.SetStyle(defStyle)
 	tv.screen.EnableMouse()
 	tv.screen.EnablePaste()
 	tv.screen.Clear()
-	tv.categoryStyling = make(map[category]tcell.Style)
-	tv.positions = make(map[event]rect)
-	tv.categoryStyling[category{"work"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"leisure"}] = tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"misc"}] = tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"programming"}] = tcell.StyleDefault.Background(tcell.Color226).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"cooking"}] = tcell.StyleDefault.Background(tcell.Color212).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"fitness"}] = tcell.StyleDefault.Background(tcell.Color208).Foreground(tcell.ColorReset)
-	tv.categoryStyling[category{"eating"}] = tcell.StyleDefault.Background(tcell.Color224).Foreground(tcell.ColorReset)
+	tv.categoryStyling = make(map[model.Category]tcell.Style)
+	tv.positions = make(map[model.Event]rect)
+	tv.categoryStyling[model.Category{Name: "work"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "leisure"}] = tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "misc"}] = tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "programming"}] = tcell.StyleDefault.Background(tcell.Color226).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "cooking"}] = tcell.StyleDefault.Background(tcell.Color212).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "fitness"}] = tcell.StyleDefault.Background(tcell.Color208).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "eating"}] = tcell.StyleDefault.Background(tcell.Color224).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "hygiene"}] = tcell.StyleDefault.Background(tcell.Color80).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "cleaning"}] = tcell.StyleDefault.Background(tcell.Color215).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "laundry"}] = tcell.StyleDefault.Background(tcell.Color111).Foreground(tcell.ColorReset)
+	tv.categoryStyling[model.Category{Name: "family"}] = tcell.StyleDefault.Background(tcell.Color122).Foreground(tcell.ColorReset)
 	tv.eventviewOffset = 10
 	tv.eventviewWidth = 80
 	tv.status = "initial status msg"
 
 	defer tv.screen.Fini()
 
-	var m model
+	var m model.Model
 	for scanner.Scan() {
 		s := scanner.Text()
-		m.addEvent(*newEvent(s))
+		m.AddEvent(*model.NewEvent(s))
 	}
 
 	for {
@@ -440,7 +314,7 @@ func main() {
 				}
 			} else {
 				tv.editState = none
-				sort.Sort(ByStart(m.events))
+				sort.Sort(model.ByStart(m.Events))
 				tv.hovered = getHoveredEvent(tv, m)
 			}
 		}
