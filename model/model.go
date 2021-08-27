@@ -46,8 +46,8 @@ func (e *Event) Move(offset timestamp.TimeOffset) {
 }
 
 func (e *Event) Snap(minuteResolution int) {
-  e.Start.Snap(minuteResolution)
-  e.End.Snap(minuteResolution)
+	e.Start.Snap(minuteResolution)
+	e.End.Snap(minuteResolution)
 }
 
 type Model struct {
