@@ -81,10 +81,20 @@ func (t TUIView) EventResize(dist int) {
 	}
 }
 
+func (t TUIView) Render() {
+	t.Screen.Clear()
+	t.DrawTimeline()
+	t.tui.ComputeRects()
+	t.DrawEvents()
+	t.DrawStatus()
+	t.Screen.Show()
+}
+
+// TODO: this is still a big monolith and needs to be broken up / abolished
 func (t TUIView) Run() {
-	for {
-		t.Screen.Show()
-		t.Screen.Clear()
+	for i := 0; i >= 0; i++ {
+		t.tui.Status = fmt.Sprintf("i = %d", i)
+		t.Render()
 
 		// TODO: this blocks, meaning if no input is given, the screen doesn't update
 		//       what we might want is an input buffer in another goroutine? idk
@@ -136,11 +146,6 @@ func (t TUIView) Run() {
 				t.tui.Hovered = t.tui.GetHoveredEvent()
 			}
 		}
-
-		t.DrawTimeline()
-		t.tui.ComputeRects()
-		t.DrawEvents()
-		t.DrawStatus()
 	}
 }
 
