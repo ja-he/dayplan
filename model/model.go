@@ -40,6 +40,16 @@ func (a ByStart) Len() int           { return len(a) }
 func (a ByStart) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByStart) Less(i, j int) bool { return a[j].Start.IsAfter(a[i].Start) }
 
+func (e *Event) Move(offset timestamp.TimeOffset) {
+	e.Start = e.Start.Offset(offset)
+	e.End = e.End.Offset(offset)
+}
+
+func (e *Event) Snap(minuteResolution int) {
+  e.Start.Snap(minuteResolution)
+  e.End.Snap(minuteResolution)
+}
+
 type Model struct {
 	Events []Event
 }
