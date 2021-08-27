@@ -1,4 +1,4 @@
-package tui
+package tui_model
 
 import (
 	"dayplan/model"
@@ -13,7 +13,7 @@ type eventHoverState struct {
 	Resize bool
 }
 
-type TUI struct {
+type TUIModel struct {
 	CursorX, CursorY                int
 	EventviewOffset, EventviewWidth int
 	CategoryStyling                 map[model.Category]tcell.Style
@@ -25,8 +25,8 @@ type TUI struct {
 	ScrollOffset                    int
 }
 
-func NewTUI() *TUI {
-	var t TUI
+func NewTUIModel() *TUIModel {
+	var t TUIModel
 
 	t.CategoryStyling = make(map[model.Category]tcell.Style)
 	t.Positions = make(map[model.Event]util.Rect)
@@ -51,11 +51,11 @@ func NewTUI() *TUI {
 	return &t
 }
 
-func (t *TUI) SetModel(m *model.Model) {
+func (t *TUIModel) SetModel(m *model.Model) {
 	t.Model = m
 }
 
-func (t TUI) ComputeRects() {
+func (t TUIModel) ComputeRects() {
 	defaultX := t.EventviewOffset
 	defaultW := t.EventviewWidth
 	active_stack := make([]model.Event, 0)
@@ -82,7 +82,7 @@ func (t TUI) ComputeRects() {
 	}
 }
 
-func (t TUI) GetHoveredEvent() eventHoverState {
+func (t TUIModel) GetHoveredEvent() eventHoverState {
 	if t.CursorX >= t.EventviewOffset &&
 		t.CursorX < (t.EventviewOffset+t.EventviewWidth) {
 		for i := len(t.Model.Events) - 1; i >= 0; i-- {
@@ -98,6 +98,6 @@ func (t TUI) GetHoveredEvent() eventHoverState {
 	return eventHoverState{nil, false}
 }
 
-func (t TUI) toY(ts timestamp.Timestamp) int {
+func (t TUIModel) toY(ts timestamp.Timestamp) int {
 	return ((ts.Hour*t.Resolution - t.ScrollOffset) + (ts.Minute / (60 / t.Resolution)))
 }

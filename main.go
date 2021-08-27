@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"dayplan/model"
-	"dayplan/termview"
-	"dayplan/tui"
+	"dayplan/tui_model"
+	"dayplan/tui_view"
 )
 
 // MAIN
@@ -26,11 +26,11 @@ func main() {
 		m.AddEvent(*model.NewEvent(s))
 	}
 
-	t := tui.NewTUI()
+	t := tui_model.NewTUIModel()
 	t.SetModel(&m)
 
-	tv := termview.NewTermview(t)
-	defer tv.Screen.Fini()
+	view := tui_view.NewTUIView(t)
+	defer view.Screen.Fini()
 
-	tv.Run()
+	view.Run()
 }

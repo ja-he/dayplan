@@ -1,4 +1,4 @@
-package termview
+package tui_view
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"dayplan/model"
 	"dayplan/timestamp"
-	"dayplan/tui"
+	"dayplan/tui_model"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -23,7 +23,7 @@ const (
 
 // Initialize the screen checking errors and return it, so long as no critical
 // error occurred.
-func (t *Termview) initScreen() {
+func (t *TUIView) initScreen() {
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -34,15 +34,15 @@ func (t *Termview) initScreen() {
 	t.Screen = s
 }
 
-type Termview struct {
+type TUIView struct {
 	Screen      tcell.Screen
-	tui         *tui.TUI
+	tui         *tui_model.TUIModel
 	editState   editState
 	EditedEvent *model.Event
 }
 
-func NewTermview(tui *tui.TUI) *Termview {
-	t := Termview{}
+func NewTUIView(tui *tui_model.TUIModel) *TUIView {
+	t := TUIView{}
 
 	t.initScreen()
 	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
@@ -56,7 +56,7 @@ func NewTermview(tui *tui.TUI) *Termview {
 	return &t
 }
 
-func (t Termview) timeForDistance(dist int) timestamp.TimeOffset {
+func (t TUIView) timeForDistance(dist int) timestamp.TimeOffset {
 	add := true
 	if dist < 0 {
 		dist *= (-1)
@@ -66,13 +66,13 @@ func (t Termview) timeForDistance(dist int) timestamp.TimeOffset {
 	return timestamp.TimeOffset{T: timestamp.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
 }
 
-func (t Termview) EventMove(dist int) {
+func (t TUIView) EventMove(dist int) {
 	e := t.EditedEvent
 	timeOffset := t.timeForDistance(dist)
 	e.Start = e.Start.Offset(timeOffset).Snap(t.tui.Resolution)
 	e.End = e.End.Offset(timeOffset).Snap(t.tui.Resolution)
 }
-func (t Termview) EventResize(dist int) {
+func (t TUIView) EventResize(dist int) {
 	e := t.EditedEvent
 	timeOffset := t.timeForDistance(dist)
 	newEnd := e.End.Offset(timeOffset).Snap(t.tui.Resolution)
@@ -81,7 +81,7 @@ func (t Termview) EventResize(dist int) {
 	}
 }
 
-func (t Termview) Run() {
+func (t TUIView) Run() {
 	for {
 		t.Screen.Show()
 		t.Screen.Clear()
@@ -144,7 +144,7 @@ func (t Termview) Run() {
 	}
 }
 
-func (t Termview) DrawText(x, y, w, h int, style tcell.Style, text string) {
+func (t TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {
 	row := y
 	col := x
 	for _, r := range []rune(text) {
@@ -160,7 +160,7 @@ func (t Termview) DrawText(x, y, w, h int, style tcell.Style, text string) {
 	}
 }
 
-func (t Termview) DrawBox(style tcell.Style, x, y, w, h int) {
+func (t TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
 	for row := y; row < y+h; row++ {
 		for col := x; col < x+w; col++ {
 			t.Screen.SetContent(col, row, ' ', nil, style)
@@ -168,13 +168,13 @@ func (t Termview) DrawBox(style tcell.Style, x, y, w, h int) {
 	}
 }
 
-func (t Termview) DrawStatus() {
+func (t TUIView) DrawStatus() {
 	statusOffset := t.tui.EventviewOffset + t.tui.EventviewWidth + 2
 	_, screenHeight := t.Screen.Size()
 	t.DrawText(statusOffset, screenHeight-2, 100, 1, tcell.StyleDefault, t.tui.Status)
 }
 
-func (t Termview) DrawTimeline() {
+func (t TUIView) DrawTimeline() {
 	_, height := t.Screen.Size()
 
 	now := time.Now()
@@ -205,7 +205,7 @@ func (t Termview) DrawTimeline() {
 	}
 }
 
-func (t Termview) DrawEvents() {
+func (t TUIView) DrawEvents() {
 	selStyle := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
 	for _, e := range t.tui.Model.Events {
 		style := t.tui.CategoryStyling[e.Cat]
