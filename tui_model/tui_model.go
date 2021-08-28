@@ -51,6 +51,16 @@ func NewTUIModel() *TUIModel {
 	return &t
 }
 
+func (t TUIModel) TimeForDistance(dist int) timestamp.TimeOffset {
+	add := true
+	if dist < 0 {
+		dist *= (-1)
+		add = false
+	}
+	minutes := dist * (60 / t.Resolution)
+	return timestamp.TimeOffset{T: timestamp.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
+}
+
 func (t *TUIModel) SetModel(m *model.Model) {
 	t.Model = m
 }

@@ -3,22 +3,12 @@ package tui_view
 import (
 	"fmt"
 	"log"
-	"sort"
 	"time"
 
-	"dayplan/model"
 	"dayplan/timestamp"
 	"dayplan/tui_model"
 
 	"github.com/gdamore/tcell/v2"
-)
-
-type editState int
-
-const (
-	None editState = iota
-	Moving
-	Resizing
 )
 
 // Initialize the screen checking errors and return it, so long as no critical
@@ -35,10 +25,8 @@ func (t *TUIView) initScreen() {
 }
 
 type TUIView struct {
-	Screen      tcell.Screen
-	tui         *tui_model.TUIModel
-	editState   editState
-	EditedEvent *model.Event
+	Screen tcell.Screen
+	Model  *tui_model.TUIModel
 }
 
 func NewTUIView(tui *tui_model.TUIModel) *TUIView {
@@ -51,102 +39,18 @@ func NewTUIView(tui *tui_model.TUIModel) *TUIView {
 	t.Screen.EnablePaste()
 	t.Screen.Clear()
 
-	t.tui = tui
+	t.Model = tui
 
 	return &t
-}
-
-func (t TUIView) timeForDistance(dist int) timestamp.TimeOffset {
-	add := true
-	if dist < 0 {
-		dist *= (-1)
-		add = false
-	}
-	minutes := dist * (60 / t.tui.Resolution)
-	return timestamp.TimeOffset{T: timestamp.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
-}
-
-func (t TUIView) EventMove(dist int) {
-	e := t.EditedEvent
-	timeOffset := t.timeForDistance(dist)
-	e.Start = e.Start.Offset(timeOffset).Snap(t.tui.Resolution)
-	e.End = e.End.Offset(timeOffset).Snap(t.tui.Resolution)
-}
-func (t TUIView) EventResize(dist int) {
-	e := t.EditedEvent
-	timeOffset := t.timeForDistance(dist)
-	newEnd := e.End.Offset(timeOffset).Snap(t.tui.Resolution)
-	if newEnd.IsAfter(e.Start) {
-		e.End = newEnd
-	}
 }
 
 func (t TUIView) Render() {
 	t.Screen.Clear()
 	t.DrawTimeline()
-	t.tui.ComputeRects()
+	t.Model.ComputeRects()
 	t.DrawEvents()
 	t.DrawStatus()
 	t.Screen.Show()
-}
-
-// TODO: this is still a big monolith and needs to be broken up / abolished
-func (t TUIView) Run() {
-	for i := 0; i >= 0; i++ {
-		t.tui.Status = fmt.Sprintf("i = %d", i)
-		t.Render()
-
-		// TODO: this blocks, meaning if no input is given, the screen doesn't update
-		//       what we might want is an input buffer in another goroutine? idk
-		ev := t.Screen.PollEvent()
-
-		switch ev := ev.(type) {
-		case *tcell.EventResize:
-			t.Screen.Sync()
-		case *tcell.EventKey:
-			// TODO: handle keys
-			return
-		case *tcell.EventMouse:
-			// TODO: handle mouse input
-			oldY := t.tui.CursorY
-			t.tui.CursorX, t.tui.CursorY = ev.Position()
-			button := ev.Buttons()
-
-			if button == tcell.Button1 {
-				switch t.editState {
-				case None:
-					hovered := t.tui.GetHoveredEvent()
-					if hovered.Event != nil {
-						t.EditedEvent = hovered.Event
-						if hovered.Resize {
-							t.editState = Resizing
-						} else {
-							t.editState = Moving
-						}
-					}
-				case Moving:
-					t.EditedEvent.Snap(t.tui.Resolution)
-					t.EventMove(t.tui.CursorY - oldY)
-				case Resizing:
-					t.EventResize(t.tui.CursorY - oldY)
-				}
-			} else if button == tcell.WheelUp {
-				newHourOffset := ((t.tui.ScrollOffset / t.tui.Resolution) - 1)
-				if newHourOffset >= 0 {
-					t.tui.ScrollOffset = newHourOffset * t.tui.Resolution
-				}
-			} else if button == tcell.WheelDown {
-				newHourOffset := ((t.tui.ScrollOffset / t.tui.Resolution) + 1)
-				if newHourOffset <= 24 {
-					t.tui.ScrollOffset = newHourOffset * t.tui.Resolution
-				}
-			} else {
-				t.editState = None
-				sort.Sort(model.ByStart(t.tui.Model.Events))
-				t.tui.Hovered = t.tui.GetHoveredEvent()
-			}
-		}
-	}
 }
 
 func (t TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {
@@ -174,9 +78,9 @@ func (t TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
 }
 
 func (t TUIView) DrawStatus() {
-	statusOffset := t.tui.EventviewOffset + t.tui.EventviewWidth + 2
+	statusOffset := t.Model.EventviewOffset + t.Model.EventviewWidth + 2
 	_, screenHeight := t.Screen.Size()
-	t.DrawText(statusOffset, screenHeight-2, 100, 1, tcell.StyleDefault, t.tui.Status)
+	t.DrawText(statusOffset, screenHeight-2, 100, 1, tcell.StyleDefault, t.Model.Status)
 }
 
 func (t TUIView) DrawTimeline() {
@@ -185,12 +89,12 @@ func (t TUIView) DrawTimeline() {
 	now := time.Now()
 	h := now.Hour()
 	m := now.Minute()
-	if t.tui.Resolution == 0 {
+	if t.Model.Resolution == 0 {
 		panic("RES IS ZERO?!")
 	}
-	nowRow := (h * t.tui.Resolution) - t.tui.ScrollOffset + (m / (60 / t.tui.Resolution))
+	nowRow := (h * t.Model.Resolution) - t.Model.ScrollOffset + (m / (60 / t.Model.Resolution))
 
-	hour := t.tui.ScrollOffset / t.tui.Resolution
+	hour := t.Model.ScrollOffset / t.Model.Resolution
 
 	for row := 0; row <= height; row++ {
 		if hour >= 24 {
@@ -200,7 +104,7 @@ func (t TUIView) DrawTimeline() {
 		if row == nowRow {
 			style = style.Background(tcell.ColorRed)
 		}
-		if row%t.tui.Resolution == 0 {
+		if row%t.Model.Resolution == 0 {
 			tStr := fmt.Sprintf("   %s  ", timestamp.Timestamp{Hour: hour, Minute: 0}.ToString())
 			t.DrawText(0, row, 10, 1, style, tStr)
 			hour++
@@ -212,17 +116,17 @@ func (t TUIView) DrawTimeline() {
 
 func (t TUIView) DrawEvents() {
 	selStyle := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
-	for _, e := range t.tui.Model.Events {
-		style := t.tui.CategoryStyling[e.Cat]
+	for _, e := range t.Model.Model.Events {
+		style := t.Model.CategoryStyling[e.Cat]
 		// based on event state, draw a box or maybe a smaller one, or ...
-		p := t.tui.Positions[e]
-		if t.tui.Hovered.Event == nil || *t.tui.Hovered.Event != e {
+		p := t.Model.Positions[e]
+		if t.Model.Hovered.Event == nil || *t.Model.Hovered.Event != e {
 			t.DrawBox(style, p.X, p.Y, p.W, p.H)
 			t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)
 			t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 			t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 		} else {
-			if t.tui.Hovered.Resize {
+			if t.Model.Hovered.Resize {
 				t.DrawBox(style, p.X, p.Y, p.W, p.H-1)
 				t.DrawBox(selStyle, p.X, p.Y+p.H-1, p.W, 1)
 				t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"dayplan/model"
+	"dayplan/tui_controller"
 	"dayplan/tui_model"
 	"dayplan/tui_view"
 )
@@ -26,11 +27,13 @@ func main() {
 		m.AddEvent(*model.NewEvent(s))
 	}
 
-	t := tui_model.NewTUIModel()
-	t.SetModel(&m)
+	tmodel := tui_model.NewTUIModel()
+	tmodel.SetModel(&m)
 
-	view := tui_view.NewTUIView(t)
+	view := tui_view.NewTUIView(tmodel)
 	defer view.Screen.Fini()
 
-	view.Run()
+	controller := tui_controller.NewTUIController(view, tmodel)
+
+	controller.Run()
 }
