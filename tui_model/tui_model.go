@@ -51,7 +51,7 @@ func NewTUIModel() *TUIModel {
 	return &t
 }
 
-func (t TUIModel) TimeForDistance(dist int) timestamp.TimeOffset {
+func (t *TUIModel) TimeForDistance(dist int) timestamp.TimeOffset {
 	add := true
 	if dist < 0 {
 		dist *= (-1)
@@ -65,7 +65,7 @@ func (t *TUIModel) SetModel(m *model.Model) {
 	t.Model = m
 }
 
-func (t TUIModel) ComputeRects() {
+func (t *TUIModel) ComputeRects() {
 	defaultX := t.EventviewOffset
 	defaultW := t.EventviewWidth
 	active_stack := make([]model.Event, 0)
@@ -92,7 +92,7 @@ func (t TUIModel) ComputeRects() {
 	}
 }
 
-func (t TUIModel) GetHoveredEvent() eventHoverState {
+func (t *TUIModel) GetHoveredEvent() eventHoverState {
 	if t.CursorX >= t.EventviewOffset &&
 		t.CursorX < (t.EventviewOffset+t.EventviewWidth) {
 		for i := len(t.Model.Events) - 1; i >= 0; i-- {
@@ -108,6 +108,6 @@ func (t TUIModel) GetHoveredEvent() eventHoverState {
 	return eventHoverState{nil, false}
 }
 
-func (t TUIModel) toY(ts timestamp.Timestamp) int {
+func (t *TUIModel) toY(ts timestamp.Timestamp) int {
 	return ((ts.Hour*t.Resolution - t.ScrollOffset) + (ts.Minute / (60 / t.Resolution)))
 }
