@@ -12,8 +12,13 @@ import (
 )
 
 type TUIView struct {
-	Screen tcell.Screen
-	Model  *tui_model.TUIModel
+	Screen    tcell.Screen
+	Model     *tui_model.TUIModel
+	needsSync bool
+}
+
+func (v *TUIView) NeedsSync() {
+	v.needsSync = true
 }
 
 // Initialize the screen checking errors and return it, so long as no critical
@@ -45,12 +50,18 @@ func NewTUIView(tui *tui_model.TUIModel) *TUIView {
 }
 
 func (t TUIView) Render() {
+
 	t.Screen.Clear()
 	t.DrawTimeline()
 	t.Model.ComputeRects()
 	t.DrawEvents()
 	t.DrawStatus()
-	t.Screen.Show()
+	if t.needsSync {
+		t.needsSync = false
+		t.Screen.Sync()
+	} else {
+		t.Screen.Show()
+	}
 }
 
 func (t TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {

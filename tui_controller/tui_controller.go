@@ -61,7 +61,7 @@ func (t *TUIController) Run() {
 
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
-			t.view.Screen.Sync()
+			t.view.NeedsSync()
 		case *tcell.EventKey:
 			// TODO: handle keys
 			return
