@@ -8,11 +8,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-type eventHoverState struct {
-	Event  *model.Event
-	Resize bool
-}
-
 type TUIModel struct {
 	CursorX, CursorY                int
 	EventviewOffset, EventviewWidth int
@@ -23,6 +18,11 @@ type TUIModel struct {
 	Status                          string
 	Resolution                      int
 	ScrollOffset                    int
+}
+
+type eventHoverState struct {
+	Event  *model.Event
+	Resize bool
 }
 
 func NewTUIModel() *TUIModel {
@@ -63,6 +63,14 @@ func (t *TUIModel) TimeForDistance(dist int) timestamp.TimeOffset {
 
 func (t *TUIModel) SetModel(m *model.Model) {
 	t.Model = m
+}
+
+func (t *TUIModel) TimeAtY(y int) timestamp.Timestamp {
+	minutes := y*(60/t.Resolution) + t.ScrollOffset*(60/t.Resolution)
+
+	ts := timestamp.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
+
+	return ts
 }
 
 func (t *TUIModel) ComputeRects() {

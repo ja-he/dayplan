@@ -11,6 +11,11 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+type TUIView struct {
+	Screen tcell.Screen
+	Model  *tui_model.TUIModel
+}
+
 // Initialize the screen checking errors and return it, so long as no critical
 // error occurred.
 func (t *TUIView) initScreen() {
@@ -22,11 +27,6 @@ func (t *TUIView) initScreen() {
 		log.Fatalf("%+v", err)
 	}
 	t.Screen = s
-}
-
-type TUIView struct {
-	Screen tcell.Screen
-	Model  *tui_model.TUIModel
 }
 
 func NewTUIView(tui *tui_model.TUIModel) *TUIView {
