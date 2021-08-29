@@ -2,10 +2,9 @@ package tui_controller
 
 import (
 	"fmt"
-	"sort"
 
+	"dayplan/hover_state"
 	"dayplan/model"
-	"dayplan/timestamp"
 	"dayplan/tui_model"
 	"dayplan/tui_view"
 
@@ -13,31 +12,29 @@ import (
 )
 
 type TUIController struct {
-	model       *tui_model.TUIModel
-	view        *tui_view.TUIView
-	editState   EditState
-	EditedEvent *model.Event
+	model           *tui_model.TUIModel
+	view            *tui_view.TUIView
+	prevX, prevY    int
+	editState       EditState
+	EditedEvent     model.EventID
+	currentCategory model.Category
+	shouldExit      bool
 }
 
 type EditState int
 
 const (
-	None EditState = iota
-	Moving
-	Resizing
+	None          EditState = 0b00000000
+	Editing       EditState = 0b00000001
+	MouseEditing  EditState = 0b00000010
+	SelectEditing EditState = 0b00000100
+	Moving        EditState = 0b00001000
+	Resizing      EditState = 0b00010000
+	Renaming      EditState = 0b00100000
 )
 
 func (s EditState) toString() string {
-	switch s {
-	case None:
-		return "None"
-	case Moving:
-		return "Moving"
-	case Resizing:
-		return "Resizing"
-	default:
-		return "UNKNOWN / ERR"
-	}
+	return "TODO"
 }
 
 func NewTUIController(view *tui_view.TUIView, model *tui_model.TUIModel) *TUIController {
@@ -45,88 +42,166 @@ func NewTUIController(view *tui_view.TUIView, model *tui_model.TUIModel) *TUICon
 
 	t.model = model
 	t.view = view
+	t.currentCategory.Name = "default"
 
 	return &t
 }
 
-// TODO: this is still a big monolith and needs to be broken up / abolished
-func (t *TUIController) Run() {
-	for i := 0; i >= 0; i++ {
-		t.view.Model.Status = fmt.Sprintf("i = %d", i)
-		t.view.Render()
+func (t *TUIController) endEdit() {
+	t.editState = None
+	t.EditedEvent = 0
+	t.model.Model.UpdateEventOrder()
+}
 
-		// TODO: this blocks, meaning if no input is given, the screen doesn't update
-		//       what we might want is an input buffer in another goroutine? idk
-		ev := t.view.Screen.PollEvent()
+func (t *TUIController) startMouseMove() {
+	t.editState = (MouseEditing | Moving)
+	t.EditedEvent = t.model.Hovered.EventID
+}
 
-		switch ev := ev.(type) {
-		case *tcell.EventResize:
-			t.view.NeedsSync()
-		case *tcell.EventKey:
-			// TODO: handle keys
-			return
-		case *tcell.EventMouse:
-			// TODO: handle mouse input
-			oldY := t.model.CursorY
-			t.model.CursorX, t.model.CursorY = ev.Position()
-			button := ev.Buttons()
+func (t *TUIController) startMouseResize() {
+	t.editState = (MouseEditing | Resizing)
+	t.EditedEvent = t.model.Hovered.EventID
+}
 
-			if button == tcell.Button1 {
-				switch t.editState {
-				case None:
-					hovered := t.model.GetHoveredEvent()
-					if hovered.Event != nil {
-						t.EditedEvent = hovered.Event
-						if hovered.Resize {
-							t.editState = Resizing
-						} else {
-							t.editState = Moving
-						}
-					} else {
-						e := model.Event{Name: "New Event"}
-						e.Start = t.model.TimeAtY(t.model.CursorY)
-						e.End = e.Start.Offset(timestamp.TimeOffset{T: timestamp.Timestamp{Hour: 0, Minute: 5}, Add: true})
-						t.model.Model.AddEvent(e)
-						sort.Sort(model.ByStart(t.model.Model.Events))
-						t.editState = Resizing
-						t.EditedEvent = &e
-					}
-				case Moving:
-					t.EditedEvent.Snap(t.model.Resolution)
-					t.EventMove(t.model.CursorY - oldY)
-				case Resizing:
-					t.EventResize(t.model.CursorY - oldY)
-				}
-			} else if button == tcell.WheelUp {
-				newHourOffset := ((t.model.ScrollOffset / t.model.Resolution) - 1)
-				if newHourOffset >= 0 {
-					t.model.ScrollOffset = newHourOffset * t.model.Resolution
-				}
-			} else if button == tcell.WheelDown {
-				newHourOffset := ((t.model.ScrollOffset / t.model.Resolution) + 1)
-				if newHourOffset <= 24 {
-					t.model.ScrollOffset = newHourOffset * t.model.Resolution
-				}
-			} else {
-				t.editState = None
-				sort.Sort(model.ByStart(t.model.Model.Events))
-				t.model.Hovered = t.model.GetHoveredEvent()
+func (t *TUIController) startMouseEventCreation(cursorPosY int) {
+	// find out cursor time
+	start := t.model.TimeAtY(cursorPosY)
+
+	// create event at time with cat etc.
+	e := model.Event{}
+	e.Cat = t.currentCategory
+	e.Name = "?"
+	e.Start = start
+	e.End = start.OffsetMinutes(+10)
+
+	// give to model, get ID
+	newEventID := t.model.Model.AddEvent(e)
+	t.model.Model.UpdateEventOrder()
+
+	// save ID as edited event
+	t.EditedEvent = newEventID
+
+	// set mode to resizing
+	t.editState = (MouseEditing | Resizing)
+}
+
+func (t *TUIController) handleKeyInput(e *tcell.EventKey) {
+	switch e.Rune() {
+	case 'q':
+		t.shouldExit = true
+	}
+}
+
+func (t *TUIController) updateCursorPos(x, y int) {
+	t.prevX, t.prevY = x, y
+}
+
+func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
+	switch e := ev.(type) {
+	case *tcell.EventKey:
+		t.handleKeyInput(e)
+	case *tcell.EventMouse:
+		// get new position
+		x, y := e.Position()
+		t.updateCursorPos(x, y)
+
+		// TODO: maybe here check where in UI we are, to see if we need to check if
+		//       we're hovering over an event in the event list or a tool in the
+		//       toolbox, etc.
+
+		// if mouse over event, update hover info in tui model
+		t.model.Hovered = t.model.GetEventForPos(x, y)
+
+		// if button clicked, handle
+		buttons := e.Buttons()
+		switch buttons {
+		case tcell.Button1:
+			// we've clicked while not editing
+			// now we need to check where the cursor is and either start event
+			// creation, resizing or moving
+			switch t.model.Hovered.HoverState {
+			case hover_state.None:
+				t.startMouseEventCreation(y)
+			case hover_state.Resize:
+				t.startMouseResize()
+			case hover_state.Move:
+				t.startMouseMove()
 			}
 		}
 	}
 }
 
-func (t *TUIController) EventMove(dist int) {
-	e := t.EditedEvent
-	timeOffset := t.model.TimeForDistance(dist)
-	e.Start = e.Start.Offset(timeOffset).Snap(t.model.Resolution)
-	e.End = e.End.Offset(timeOffset).Snap(t.model.Resolution)
+func (t *TUIController) resizeStep(newY int) {
+	delta := newY - t.prevY
+	offset := t.model.TimeForDistance(delta)
+	event := t.model.Model.GetEvent(t.EditedEvent)
+	event.End = event.End.Offset(offset).Snap(t.model.Resolution)
 }
-func (t *TUIController) EventResize(dist int) {
-	e := t.EditedEvent
-	timeOffset := t.model.TimeForDistance(dist)
-	newEnd := e.End.Offset(timeOffset).Snap(t.model.Resolution)
-	if newEnd.IsAfter(e.Start) {
-		e.End = newEnd
+
+func (t *TUIController) moveStep(newY int) {
+	delta := newY - t.prevY
+	offset := t.model.TimeForDistance(delta)
+	event := t.model.Model.GetEvent(t.EditedEvent)
+	event.Start = event.Start.Offset(offset).Snap(t.model.Resolution)
+	event.End = event.End.Offset(offset).Snap(t.model.Resolution)
+}
+
+func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
+	switch e := ev.(type) {
+	case *tcell.EventMouse:
+		x, y := e.Position()
+
+		buttons := e.Buttons()
+
+		switch buttons {
+		case tcell.Button1:
+			t.resizeStep(y)
+		case tcell.ButtonNone:
+			t.endEdit()
+		}
+
+		t.updateCursorPos(x, y)
+	}
+}
+
+func (t *TUIController) handleMouseMoveEditEvent(ev tcell.Event) {
+	switch e := ev.(type) {
+	case *tcell.EventMouse:
+		x, y := e.Position()
+
+		buttons := e.Buttons()
+
+		switch buttons {
+		case tcell.Button1:
+			t.moveStep(y)
+		case tcell.ButtonNone:
+			t.endEdit()
+		}
+
+		t.updateCursorPos(x, y)
+	}
+}
+
+func (t *TUIController) Run() {
+	for i := 0; i >= 0; i++ {
+		if t.shouldExit {
+			return
+		}
+
+		t.view.Render()
+		t.view.Model.Status = fmt.Sprintf("i = %d", i)
+
+		// TODO: this blocks, meaning if no input is given, the screen doesn't update
+		//       what we might want is an input buffer in another goroutine? idk
+		ev := t.view.Screen.PollEvent()
+
+		switch t.editState {
+		case None:
+			t.handleNoneEditEvent(ev)
+		case (MouseEditing | Resizing):
+			t.handleMouseResizeEditEvent(ev)
+		case (MouseEditing | Moving):
+			t.handleMouseMoveEditEvent(ev)
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package tui_model
 
 import (
+	"dayplan/hover_state"
 	"dayplan/model"
 	"dayplan/timestamp"
 	"dayplan/util"
@@ -8,21 +9,20 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+type hoveredEventInfo struct {
+	EventID    model.EventID
+	HoverState hover_state.HoverState
+}
+
 type TUIModel struct {
-	CursorX, CursorY                int
 	EventviewOffset, EventviewWidth int
 	CategoryStyling                 map[model.Category]tcell.Style
 	Positions                       map[model.Event]util.Rect
-	Hovered                         eventHoverState
+	Hovered                         hoveredEventInfo
 	Model                           *model.Model
 	Status                          string
 	Resolution                      int
 	ScrollOffset                    int
-}
-
-type eventHoverState struct {
-	Event  *model.Event
-	Resize bool
 }
 
 func NewTUIModel() *TUIModel {
@@ -30,6 +30,7 @@ func NewTUIModel() *TUIModel {
 
 	t.CategoryStyling = make(map[model.Category]tcell.Style)
 	t.Positions = make(map[model.Event]util.Rect)
+	t.CategoryStyling[model.Category{Name: "default"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xff00ff)).Foreground(tcell.NewHexColor(0x00ff00))
 	t.CategoryStyling[model.Category{Name: "work"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorReset)
 	t.CategoryStyling[model.Category{Name: "leisure"}] = tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset)
 	t.CategoryStyling[model.Category{Name: "misc"}] = tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset)
@@ -45,7 +46,7 @@ func NewTUIModel() *TUIModel {
 	t.EventviewWidth = 80
 	t.Status = "initial status msg"
 
-	t.Resolution = 12
+	t.Resolution = 6
 	t.ScrollOffset = 8 * t.Resolution
 
 	return &t
@@ -100,20 +101,21 @@ func (t *TUIModel) ComputeRects() {
 	}
 }
 
-func (t *TUIModel) GetHoveredEvent() eventHoverState {
-	if t.CursorX >= t.EventviewOffset &&
-		t.CursorX < (t.EventviewOffset+t.EventviewWidth) {
+// TODO: move to controller?
+func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
+	if x >= t.EventviewOffset &&
+		x < (t.EventviewOffset+t.EventviewWidth) {
 		for i := len(t.Model.Events) - 1; i >= 0; i-- {
-			if t.Positions[t.Model.Events[i]].Contains(t.CursorX, t.CursorY) {
-				if t.CursorY == (t.Positions[t.Model.Events[i]].Y + t.Positions[t.Model.Events[i]].H - 1) {
-					return eventHoverState{&t.Model.Events[i], true}
+			if t.Positions[t.Model.Events[i]].Contains(x, y) {
+				if y == (t.Positions[t.Model.Events[i]].Y + t.Positions[t.Model.Events[i]].H - 1) {
+					return hoveredEventInfo{t.Model.Events[i].ID, hover_state.Resize}
 				} else {
-					return eventHoverState{&t.Model.Events[i], false}
+					return hoveredEventInfo{t.Model.Events[i].ID, hover_state.Move}
 				}
 			}
 		}
 	}
-	return eventHoverState{nil, false}
+	return hoveredEventInfo{0, hover_state.None}
 }
 
 func (t *TUIModel) toY(ts timestamp.Timestamp) int {

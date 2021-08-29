@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"dayplan/hover_state"
 	"dayplan/timestamp"
 	"dayplan/tui_model"
 
@@ -53,7 +54,7 @@ func (t TUIView) Render() {
 
 	t.Screen.Clear()
 	t.DrawTimeline()
-	t.Model.ComputeRects()
+	t.Model.ComputeRects() // TODO: move to controller?
 	t.DrawEvents()
 	t.DrawStatus()
 	if t.needsSync {
@@ -131,19 +132,20 @@ func (t TUIView) DrawEvents() {
 		style := t.Model.CategoryStyling[e.Cat]
 		// based on event state, draw a box or maybe a smaller one, or ...
 		p := t.Model.Positions[e]
-		if t.Model.Hovered.Event == nil || *t.Model.Hovered.Event != e {
+		if t.Model.Hovered.EventID != e.ID {
 			t.DrawBox(style, p.X, p.Y, p.W, p.H)
 			t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)
 			t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 			t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 		} else {
-			if t.Model.Hovered.Resize {
+			switch t.Model.Hovered.HoverState {
+			case hover_state.Resize:
 				t.DrawBox(style, p.X, p.Y, p.W, p.H-1)
 				t.DrawBox(selStyle, p.X, p.Y+p.H-1, p.W, 1)
 				t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)
 				t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
-			} else {
+			case hover_state.Move:
 				t.DrawBox(selStyle, p.X, p.Y, p.W, p.H)
 				t.DrawText(p.X+1, p.Y, p.W-2, p.H, selStyle, e.Name)
 				t.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())

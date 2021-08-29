@@ -80,6 +80,20 @@ func (t Timestamp) Snap(res int) Timestamp {
 	return t
 }
 
+func (t Timestamp) OffsetMinutes(minutes int) Timestamp {
+	o := TimeOffset{}
+	if minutes < 0 {
+		o.Add = false
+		minutes *= (-1)
+	} else {
+		o.Add = true
+	}
+	o.T.Hour = minutes / 60
+	o.T.Minute = minutes % 60
+
+	return t.Offset(o)
+}
+
 func (t Timestamp) Offset(o TimeOffset) Timestamp {
 	if o.Add {
 		t.Hour += o.T.Hour

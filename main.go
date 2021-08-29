@@ -21,7 +21,7 @@ func main() {
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
-	var m model.Model
+  m := *model.NewModel()
 	for scanner.Scan() {
 		s := scanner.Text()
 		m.AddEvent(*model.NewEvent(s))

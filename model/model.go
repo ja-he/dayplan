@@ -1,7 +1,9 @@
 package model
 
 import (
+	"fmt"
 	"strings"
+	"sort"
 
 	"dayplan/timestamp"
 )
@@ -10,7 +12,10 @@ type Category struct {
 	Name string
 }
 
+type EventID int
+
 type Event struct {
+	ID         EventID
 	Start, End timestamp.Timestamp
 	Name       string
 	Cat        Category
@@ -52,8 +57,69 @@ func (e *Event) Snap(minuteResolution int) {
 
 type Model struct {
 	Events []Event
+	idseq  func() EventID
 }
 
-func (m *Model) AddEvent(e Event) {
+func NewModel() *Model {
+	m := Model{}
+	m.idseq = idseq()
+	return &m
+}
+
+func idseq() func() EventID {
+	next := 0
+	return func() EventID {
+		next++
+		return EventID(next)
+	}
+}
+
+func (m *Model) AddEvent(e Event) EventID {
+	e.ID = m.idseq()
 	m.Events = append(m.Events, e)
+	return e.ID
+}
+
+func (m *Model) UpdateEventOrder() {
+  sort.Sort(ByStart(m.Events))
+}
+
+func (m *Model) GetEvent(id EventID) *Event {
+	for i := range m.Events {
+		e := &m.Events[i]
+		if (*e).ID == id {
+			return e
+		}
+	}
+	panic(fmt.Sprintf("error getting event for id '%d' from model", id))
+}
+
+
+
+
+
+
+
+// TODO: obsolete?
+func (m *Model) OffsetEnd(id EventID, offset timestamp.TimeOffset) {
+	e := m.GetEvent(id)
+	e.End = e.End.Offset(offset)
+	if e.Start.IsAfter(e.End) {
+		panic("start after end!")
+	}
+}
+func (m *Model) SetEnd(id EventID, end timestamp.Timestamp) {
+	e := m.GetEvent(id)
+	if e.Start.IsAfter(end) {
+		panic("start after end!")
+	}
+	e.End = end
+}
+func (m *Model) SetTimes(id EventID, start, end timestamp.Timestamp) {
+	if start.IsAfter(end) {
+		panic("start after end!")
+	}
+	e := m.GetEvent(id)
+	e.Start = start
+	e.End = end
 }
