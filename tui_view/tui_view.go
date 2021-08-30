@@ -46,6 +46,9 @@ func NewTUIView(tui *tui_model.TUIModel) *TUIView {
 	t.Screen.Clear()
 
 	t.Model = tui
+	w, h := t.Screen.Size()
+	weather, timeline, tools := 10, 10, 40
+	t.Model.UIDim.Initialize(weather, timeline, tools, w, h)
 
 	return &t
 }
@@ -90,9 +93,14 @@ func (t TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
 }
 
 func (t TUIView) DrawStatus() {
-	statusOffset := t.Model.EventviewOffset + t.Model.EventviewWidth + 2
-	_, screenHeight := t.Screen.Size()
-	t.DrawText(statusOffset, screenHeight-2, 100, 1, tcell.StyleDefault, t.Model.Status)
+	screenW, screenH := t.Model.UIDim.ScreenSize()
+
+	x, y := 0, screenH-t.Model.UIDim.StatusHeight()
+	w, h := screenW, t.Model.UIDim.StatusHeight()
+
+	statusStyle := tcell.StyleDefault.Background(tcell.ColorLightGray).Foreground(tcell.ColorBlack)
+	t.DrawBox(statusStyle, x, y, w, h)
+	t.DrawText(x, y, w, h, statusStyle, t.Model.Status)
 }
 
 func (t TUIView) DrawTimeline() {
@@ -108,6 +116,8 @@ func (t TUIView) DrawTimeline() {
 
 	hour := t.Model.ScrollOffset / t.Model.Resolution
 
+	x := t.Model.UIDim.TimelineOffset()
+	w := t.Model.UIDim.TimelineWidth()
 	for row := 0; row <= height; row++ {
 		if hour >= 24 {
 			break
@@ -118,10 +128,10 @@ func (t TUIView) DrawTimeline() {
 		}
 		if row%t.Model.Resolution == 0 {
 			tStr := fmt.Sprintf("   %s  ", timestamp.Timestamp{Hour: hour, Minute: 0}.ToString())
-			t.DrawText(0, row, 10, 1, style, tStr)
+			t.DrawText(x, row, w, 1, style, tStr)
 			hour++
 		} else {
-			t.DrawText(0, row, 10, 1, style, "          ")
+			t.DrawText(x, row, w, 1, style, "          ")
 		}
 	}
 }

@@ -1,6 +1,8 @@
 package tui_model
 
 import (
+	"fmt"
+
 	"dayplan/hover_state"
 	"dayplan/model"
 	"dayplan/timestamp"
@@ -14,15 +16,51 @@ type hoveredEventInfo struct {
 	HoverState hover_state.HoverState
 }
 
+type UIDims struct {
+	weatherOffset, timelineOffset, eventsOffset, toolsOffset int
+	statusHeight                                             int
+	screenWidth, screenHeight                                int
+}
+
+func (d *UIDims) ScreenSize() (int, int) {
+  return d.screenWidth, d.screenHeight
+}
+
+func (d *UIDims) ScreenResize(width, height int) {
+	if height <= d.statusHeight {
+		panic(fmt.Sprintf("screensize of %d too little with statusline height of %d", height, d.statusHeight))
+	}
+	d.screenWidth = width
+	d.screenHeight = height
+}
+
+func (d *UIDims) Initialize(weatherWidth, timelineWidth, toolsWidth int,
+	screenWidth, screenHeight int) {
+	d.weatherOffset = 0
+	d.timelineOffset = d.weatherOffset + weatherWidth
+	d.eventsOffset = d.timelineOffset + timelineWidth
+	d.toolsOffset = screenWidth - toolsWidth
+	d.statusHeight = 4
+	d.ScreenResize(screenWidth, screenHeight)
+}
+
+func (ui *UIDims) WeatherOffset() int  { return ui.weatherOffset }
+func (ui *UIDims) TimelineOffset() int { return ui.timelineOffset }
+func (ui *UIDims) TimelineWidth() int  { return ui.eventsOffset - ui.timelineOffset }
+func (ui *UIDims) EventsOffset() int   { return ui.eventsOffset }
+func (ui *UIDims) EventsWidth() int    { return (ui.toolsOffset - ui.eventsOffset) }
+func (ui *UIDims) ToolsOffset() int    { return ui.toolsOffset }
+func (ui *UIDims) StatusHeight() int   { return ui.statusHeight }
+
 type TUIModel struct {
-	EventviewOffset, EventviewWidth int
-	CategoryStyling                 map[model.Category]tcell.Style
-	Positions                       map[model.EventID]util.Rect
-	Hovered                         hoveredEventInfo
-	Model                           *model.Model
-	Status                          string
-	Resolution                      int
-	ScrollOffset                    int
+	UIDim           UIDims
+	CategoryStyling map[model.Category]tcell.Style
+	Positions       map[model.EventID]util.Rect
+	Hovered         hoveredEventInfo
+	Model           *model.Model
+	Status          string
+	Resolution      int
+	ScrollOffset    int
 }
 
 func NewTUIModel() *TUIModel {
@@ -42,8 +80,6 @@ func NewTUIModel() *TUIModel {
 	t.CategoryStyling[model.Category{Name: "cleaning"}] = tcell.StyleDefault.Background(tcell.Color215).Foreground(tcell.ColorReset)
 	t.CategoryStyling[model.Category{Name: "laundry"}] = tcell.StyleDefault.Background(tcell.Color111).Foreground(tcell.ColorReset)
 	t.CategoryStyling[model.Category{Name: "family"}] = tcell.StyleDefault.Background(tcell.Color122).Foreground(tcell.ColorReset)
-	t.EventviewOffset = 10
-	t.EventviewWidth = 80
 	t.Status = "initial status msg"
 
 	t.Resolution = 6
@@ -75,8 +111,8 @@ func (t *TUIModel) TimeAtY(y int) timestamp.Timestamp {
 }
 
 func (t *TUIModel) ComputeRects() {
-	defaultX := t.EventviewOffset
-	defaultW := t.EventviewWidth
+	defaultX := t.UIDim.EventsOffset()
+	defaultW := t.UIDim.EventsWidth()
 	active_stack := make([]model.Event, 0)
 	for _, e := range t.Model.Events {
 		// remove all stacked elements that have finished
@@ -103,8 +139,8 @@ func (t *TUIModel) ComputeRects() {
 
 // TODO: move to controller?
 func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
-	if x >= t.EventviewOffset &&
-		x < (t.EventviewOffset+t.EventviewWidth) {
+	if x >= t.UIDim.EventsOffset() &&
+		x < (t.UIDim.EventsOffset()+t.UIDim.EventsWidth()) {
 		for i := len(t.Model.Events) - 1; i >= 0; i-- {
 			if t.Positions[t.Model.Events[i].ID].Contains(x, y) {
 				if y == (t.Positions[t.Model.Events[i].ID].Y + t.Positions[t.Model.Events[i].ID].H - 1) {

@@ -203,5 +203,11 @@ func (t *TUIController) Run() {
 		case (MouseEditing | Moving):
 			t.handleMouseMoveEditEvent(ev)
 		}
+
+		switch ev.(type) {
+		case *tcell.EventResize:
+			t.view.NeedsSync()
+			t.model.UIDim.ScreenResize(t.view.Screen.Size())
+		}
 	}
 }
