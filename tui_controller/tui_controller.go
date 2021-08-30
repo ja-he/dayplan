@@ -1,8 +1,6 @@
 package tui_controller
 
 import (
-	"fmt"
-
 	"dayplan/hover_state"
 	"dayplan/model"
 	"dayplan/tui_model"
@@ -108,26 +106,45 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 		// TODO: maybe here check where in UI we are, to see if we need to check if
 		//       we're hovering over an event in the event list or a tool in the
 		//       toolbox, etc.
+    pane := t.model.UIDim.WhichUIPane(x, y)
+		switch pane {
+		case tui_model.Status:
+			t.model.Status = "Status"
+		case tui_model.Weather:
+			t.model.Status = "Weather"
+		case tui_model.Timeline:
+			t.model.Status = "Timeline"
+		case tui_model.Events:
+			t.model.Status = "Events"
 
-		// if mouse over event, update hover info in tui model
-		t.model.Hovered = t.model.GetEventForPos(x, y)
+			// if mouse over event, update hover info in tui model
+			t.model.Hovered = t.model.GetEventForPos(x, y)
 
-		// if button clicked, handle
-		buttons := e.Buttons()
-		switch buttons {
-		case tcell.Button1:
-			// we've clicked while not editing
-			// now we need to check where the cursor is and either start event
-			// creation, resizing or moving
-			switch t.model.Hovered.HoverState {
-			case hover_state.None:
-				t.startMouseEventCreation(y)
-			case hover_state.Resize:
-				t.startMouseResize()
-			case hover_state.Move:
-				t.startMouseMove()
+			// if button clicked, handle
+			buttons := e.Buttons()
+			switch buttons {
+			case tcell.Button1:
+				// we've clicked while not editing
+				// now we need to check where the cursor is and either start event
+				// creation, resizing or moving
+				switch t.model.Hovered.HoverState {
+				case hover_state.None:
+					t.startMouseEventCreation(y)
+				case hover_state.Resize:
+					t.startMouseResize()
+				case hover_state.Move:
+					t.startMouseMove()
+				}
 			}
+		case tui_model.Tools:
+			t.model.Status = "Tools"
+		default:
+			t.model.Status = "WTF?!"
 		}
+    if pane != tui_model.Events {
+      t.model.ClearHover()
+    }
+
 	}
 }
 
@@ -189,7 +206,7 @@ func (t *TUIController) Run() {
 		}
 
 		t.view.Render()
-		t.view.Model.Status = fmt.Sprintf("i = %d", i)
+		// t.view.Model.Status = fmt.Sprintf("i = %d", i)
 
 		// TODO: this blocks, meaning if no input is given, the screen doesn't update
 		//       what we might want is an input buffer in another goroutine? idk

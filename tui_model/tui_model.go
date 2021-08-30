@@ -16,14 +16,59 @@ type hoveredEventInfo struct {
 	HoverState hover_state.HoverState
 }
 
+type UIPane int
+
+const (
+	Weather UIPane = iota
+	Timeline
+	Events
+	Tools
+	Status
+)
+
 type UIDims struct {
 	weatherOffset, timelineOffset, eventsOffset, toolsOffset int
 	statusHeight                                             int
 	screenWidth, screenHeight                                int
 }
 
+func (d *UIDims) WhichUIPane(x, y int) UIPane {
+	if x < 0 || y < 0 {
+		panic("negative x or y")
+	}
+	if x > d.screenWidth || y > d.screenHeight {
+		panic(fmt.Sprintf("x or y too large (x,y = %d,%d | screen = %d,%d)", x, y, d.screenWidth, d.screenHeight))
+	}
+
+	mainPaneHeight := d.screenHeight - d.StatusHeight()
+
+	statusPane := util.Rect{X: 0, Y: d.StatusOffset(), W: d.screenWidth, H: d.StatusHeight()}
+	weatherPane := util.Rect{X: d.WeatherOffset(), Y: 0, W: d.WeatherWidth(), H: mainPaneHeight}
+	timelinePane := util.Rect{X: d.TimelineOffset(), Y: 0, W: d.TimelineWidth(), H: mainPaneHeight}
+	eventsPane := util.Rect{X: d.EventsOffset(), Y: 0, W: d.EventsWidth(), H: mainPaneHeight}
+	toolsPane := util.Rect{X: d.ToolsOffset(), Y: 0, W: d.ToolsWidth(), H: mainPaneHeight}
+
+	if statusPane.Contains(x, y) {
+		return Status
+	}
+	if weatherPane.Contains(x, y) {
+		return Weather
+	}
+	if timelinePane.Contains(x, y) {
+		return Timeline
+	}
+	if eventsPane.Contains(x, y) {
+		return Events
+	}
+	if toolsPane.Contains(x, y) {
+		return Tools
+	}
+
+	panic(fmt.Sprintf("Unknown UI pos (%d,%d)", x, y))
+}
+
 func (d *UIDims) ScreenSize() (int, int) {
-  return d.screenWidth, d.screenHeight
+	return d.screenWidth, d.screenHeight
 }
 
 func (d *UIDims) ScreenResize(width, height int) {
@@ -45,12 +90,15 @@ func (d *UIDims) Initialize(weatherWidth, timelineWidth, toolsWidth int,
 }
 
 func (ui *UIDims) WeatherOffset() int  { return ui.weatherOffset }
+func (ui *UIDims) WeatherWidth() int   { return ui.timelineOffset - ui.weatherOffset }
 func (ui *UIDims) TimelineOffset() int { return ui.timelineOffset }
 func (ui *UIDims) TimelineWidth() int  { return ui.eventsOffset - ui.timelineOffset }
 func (ui *UIDims) EventsOffset() int   { return ui.eventsOffset }
 func (ui *UIDims) EventsWidth() int    { return (ui.toolsOffset - ui.eventsOffset) }
 func (ui *UIDims) ToolsOffset() int    { return ui.toolsOffset }
+func (ui *UIDims) ToolsWidth() int     { return ui.screenWidth - ui.ToolsOffset() }
 func (ui *UIDims) StatusHeight() int   { return ui.statusHeight }
+func (ui *UIDims) StatusOffset() int   { return ui.screenHeight - ui.statusHeight }
 
 type TUIModel struct {
 	UIDim           UIDims
@@ -137,6 +185,10 @@ func (t *TUIModel) ComputeRects() {
 	}
 }
 
+func NoHoveredEvent() hoveredEventInfo {
+	return hoveredEventInfo{0, hover_state.None}
+}
+
 // TODO: move to controller?
 func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 	if x >= t.UIDim.EventsOffset() &&
@@ -151,7 +203,11 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 			}
 		}
 	}
-	return hoveredEventInfo{0, hover_state.None}
+	return NoHoveredEvent()
+}
+
+func (t *TUIModel) ClearHover() {
+  t.Hovered = NoHoveredEvent()
 }
 
 func (t *TUIModel) toY(ts timestamp.Timestamp) int {
