@@ -139,7 +139,7 @@ func (t TUIView) DrawTimeline() {
 func (t TUIView) DrawEvents() {
 	selStyle := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
 	for _, e := range t.Model.Model.Events {
-		style := t.Model.CategoryStyling[e.Cat]
+		style := t.Model.CategoryStyling.GetStyle(e.Cat)
 		// based on event state, draw a box or maybe a smaller one, or ...
 		p := t.Model.Positions[e.ID]
 		if t.Model.Hovered.EventID != e.ID {

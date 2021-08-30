@@ -8,8 +8,7 @@ import (
 	"dayplan/model"
 	"dayplan/timestamp"
 	"dayplan/util"
-
-	"github.com/gdamore/tcell/v2"
+	"dayplan/category_style"
 )
 
 type hoveredEventInfo struct {
@@ -111,7 +110,7 @@ func (ui *UIDims) StatusOffset() int   { return ui.screenHeight - ui.statusHeigh
 
 type TUIModel struct {
 	UIDim           UIDims
-	CategoryStyling map[model.Category]tcell.Style
+	CategoryStyling category_style.CategoryStyling
 	Positions       map[model.EventID]util.Rect
 	Hovered         hoveredEventInfo
 	Model           *model.Model
@@ -135,20 +134,8 @@ func (t *TUIModel) ScrollDown() {
 func NewTUIModel() *TUIModel {
 	var t TUIModel
 
-	t.CategoryStyling = make(map[model.Category]tcell.Style)
+	t.CategoryStyling = *category_style.DefaultCategoryStyling()
 	t.Positions = make(map[model.EventID]util.Rect)
-	t.CategoryStyling[model.Category{Name: "default"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xff00ff)).Foreground(tcell.NewHexColor(0x00ff00))
-	t.CategoryStyling[model.Category{Name: "work"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "leisure"}] = tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "misc"}] = tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "programming"}] = tcell.StyleDefault.Background(tcell.Color226).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "cooking"}] = tcell.StyleDefault.Background(tcell.Color212).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "fitness"}] = tcell.StyleDefault.Background(tcell.Color208).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "eating"}] = tcell.StyleDefault.Background(tcell.Color224).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "hygiene"}] = tcell.StyleDefault.Background(tcell.Color80).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "cleaning"}] = tcell.StyleDefault.Background(tcell.Color215).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "laundry"}] = tcell.StyleDefault.Background(tcell.Color111).Foreground(tcell.ColorReset)
-	t.CategoryStyling[model.Category{Name: "family"}] = tcell.StyleDefault.Background(tcell.Color122).Foreground(tcell.ColorReset)
 	t.Status = "initial status msg"
 
 	t.Resolution = 6
