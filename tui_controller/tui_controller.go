@@ -103,14 +103,28 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 		x, y := e.Position()
 		t.updateCursorPos(x, y)
 
-    pane := t.model.UIDim.WhichUIPane(x, y)
+		buttons := e.Buttons()
+
+		pane := t.model.UIDim.WhichUIPane(x, y)
 		switch pane {
 		case tui_model.Status:
 			t.model.Status = "Status"
 		case tui_model.Weather:
 			t.model.Status = "Weather"
+			switch buttons {
+			case tcell.WheelUp:
+				t.model.ScrollUp()
+			case tcell.WheelDown:
+				t.model.ScrollDown()
+			}
 		case tui_model.Timeline:
 			t.model.Status = "Timeline"
+			switch buttons {
+			case tcell.WheelUp:
+				t.model.ScrollUp()
+			case tcell.WheelDown:
+				t.model.ScrollDown()
+			}
 		case tui_model.Events:
 			t.model.Status = "Events"
 
@@ -118,7 +132,6 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			t.model.Hovered = t.model.GetEventForPos(x, y)
 
 			// if button clicked, handle
-			buttons := e.Buttons()
 			switch buttons {
 			case tcell.Button1:
 				// we've clicked while not editing
@@ -132,16 +145,19 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				case hover_state.Move:
 					t.startMouseMove()
 				}
+			case tcell.WheelUp:
+				t.model.ScrollUp()
+			case tcell.WheelDown:
+				t.model.ScrollDown()
 			}
 		case tui_model.Tools:
 			t.model.Status = "Tools"
 		default:
 			t.model.Status = "WTF?!"
 		}
-    if pane != tui_model.Events {
-      t.model.ClearHover()
-    }
-
+		if pane != tui_model.Events {
+			t.model.ClearHover()
+		}
 	}
 }
 

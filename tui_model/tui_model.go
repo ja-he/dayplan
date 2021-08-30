@@ -120,6 +120,18 @@ type TUIModel struct {
 	ScrollOffset    int
 }
 
+func (t *TUIModel) ScrollUp() {
+	if t.ScrollOffset > 0 {
+		t.ScrollOffset -= t.Resolution
+	}
+}
+
+func (t *TUIModel) ScrollDown() {
+	if t.ScrollOffset < (23 * t.Resolution) {
+		t.ScrollOffset += t.Resolution
+	}
+}
+
 func NewTUIModel() *TUIModel {
 	var t TUIModel
 
