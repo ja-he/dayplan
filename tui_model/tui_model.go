@@ -2,6 +2,7 @@ package tui_model
 
 import (
 	"fmt"
+	"math"
 
 	"dayplan/hover_state"
 	"dayplan/model"
@@ -161,6 +162,7 @@ func (t *TUIModel) TimeAtY(y int) timestamp.Timestamp {
 func (t *TUIModel) ComputeRects() {
 	defaultX := t.UIDim.EventsOffset()
 	defaultW := t.UIDim.EventsWidth()
+
 	active_stack := make([]model.Event, 0)
 	for _, e := range t.Model.Events {
 		// remove all stacked elements that have finished
@@ -177,10 +179,15 @@ func (t *TUIModel) ComputeRects() {
 		x := defaultX
 		h := t.toY(e.End) - y
 		w := defaultW
-		for i := 1; i < len(active_stack); i++ {
-			x = x + (w / 2)
-			w = w / 2
-		}
+
+		// scale the width by 3/4 for every extra item on the stack, so for one
+		// item stacked underneath the current items width will be (3/4) ** 1 = 75%
+		// of the original width, for four it would be (3/4) ** 4 = (3**4)/(4**4)
+		// or 31.5 % of the width, etc.
+		widthFactor := 0.75
+		w = int(float64(w) * math.Pow(widthFactor, float64(len(active_stack)-1)))
+		x += (defaultW - w)
+
 		t.Positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
 }
@@ -207,7 +214,7 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 }
 
 func (t *TUIModel) ClearHover() {
-  t.Hovered = NoHoveredEvent()
+	t.Hovered = NoHoveredEvent()
 }
 
 func (t *TUIModel) toY(ts timestamp.Timestamp) int {
