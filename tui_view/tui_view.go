@@ -131,7 +131,7 @@ func (t TUIView) DrawEvents() {
 	for _, e := range t.Model.Model.Events {
 		style := t.Model.CategoryStyling[e.Cat]
 		// based on event state, draw a box or maybe a smaller one, or ...
-		p := t.Model.Positions[e]
+		p := t.Model.Positions[e.ID]
 		if t.Model.Hovered.EventID != e.ID {
 			t.DrawBox(style, p.X, p.Y, p.W, p.H)
 			t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)

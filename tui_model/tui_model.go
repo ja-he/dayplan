@@ -17,7 +17,7 @@ type hoveredEventInfo struct {
 type TUIModel struct {
 	EventviewOffset, EventviewWidth int
 	CategoryStyling                 map[model.Category]tcell.Style
-	Positions                       map[model.Event]util.Rect
+	Positions                       map[model.EventID]util.Rect
 	Hovered                         hoveredEventInfo
 	Model                           *model.Model
 	Status                          string
@@ -29,7 +29,7 @@ func NewTUIModel() *TUIModel {
 	var t TUIModel
 
 	t.CategoryStyling = make(map[model.Category]tcell.Style)
-	t.Positions = make(map[model.Event]util.Rect)
+	t.Positions = make(map[model.EventID]util.Rect)
 	t.CategoryStyling[model.Category{Name: "default"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xff00ff)).Foreground(tcell.NewHexColor(0x00ff00))
 	t.CategoryStyling[model.Category{Name: "work"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorReset)
 	t.CategoryStyling[model.Category{Name: "leisure"}] = tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset)
@@ -97,7 +97,7 @@ func (t *TUIModel) ComputeRects() {
 			x = x + (w / 2)
 			w = w / 2
 		}
-		t.Positions[e] = util.Rect{X: x, Y: y, W: w, H: h}
+		t.Positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
 }
 
@@ -106,8 +106,8 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 	if x >= t.EventviewOffset &&
 		x < (t.EventviewOffset+t.EventviewWidth) {
 		for i := len(t.Model.Events) - 1; i >= 0; i-- {
-			if t.Positions[t.Model.Events[i]].Contains(x, y) {
-				if y == (t.Positions[t.Model.Events[i]].Y + t.Positions[t.Model.Events[i]].H - 1) {
+			if t.Positions[t.Model.Events[i].ID].Contains(x, y) {
+				if y == (t.Positions[t.Model.Events[i].ID].Y + t.Positions[t.Model.Events[i].ID].H - 1) {
 					return hoveredEventInfo{t.Model.Events[i].ID, hover_state.Resize}
 				} else {
 					return hoveredEventInfo{t.Model.Events[i].ID, hover_state.Move}
