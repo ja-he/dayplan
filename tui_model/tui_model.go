@@ -76,6 +76,13 @@ func (d *UIDims) ScreenResize(width, height int) {
 	if height <= d.statusHeight {
 		panic(fmt.Sprintf("screensize of %d too little with statusline height of %d", height, d.statusHeight))
 	}
+
+	toolsWidth := d.ToolsWidth()
+	d.toolsOffset = width - toolsWidth
+	if d.toolsOffset >= width {
+		panic("offset > width")
+	}
+
 	d.screenWidth = width
 	d.screenHeight = height
 }
@@ -87,7 +94,8 @@ func (d *UIDims) Initialize(weatherWidth, timelineWidth, toolsWidth int,
 	d.eventsOffset = d.timelineOffset + timelineWidth
 	d.toolsOffset = screenWidth - toolsWidth
 	d.statusHeight = 4
-	d.ScreenResize(screenWidth, screenHeight)
+	d.screenWidth = screenWidth
+	d.screenHeight = screenHeight
 }
 
 func (ui *UIDims) WeatherOffset() int  { return ui.weatherOffset }

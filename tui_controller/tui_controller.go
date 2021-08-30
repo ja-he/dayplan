@@ -103,9 +103,6 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 		x, y := e.Position()
 		t.updateCursorPos(x, y)
 
-		// TODO: maybe here check where in UI we are, to see if we need to check if
-		//       we're hovering over an event in the event list or a tool in the
-		//       toolbox, etc.
     pane := t.model.UIDim.WhichUIPane(x, y)
 		switch pane {
 		case tui_model.Status:
