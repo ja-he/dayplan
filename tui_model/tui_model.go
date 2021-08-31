@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math"
 
+	"dayplan/category_style"
 	"dayplan/hover_state"
 	"dayplan/model"
 	"dayplan/timestamp"
 	"dayplan/util"
-	"dayplan/category_style"
 )
 
 type hoveredEventInfo struct {
@@ -108,6 +108,11 @@ func (ui *UIDims) ToolsWidth() int     { return ui.screenWidth - ui.ToolsOffset(
 func (ui *UIDims) StatusHeight() int   { return ui.statusHeight }
 func (ui *UIDims) StatusOffset() int   { return ui.screenHeight - ui.statusHeight }
 
+type EventEditor struct {
+	Active       bool
+	TmpEventInfo model.Event
+}
+
 type TUIModel struct {
 	UIDim           UIDims
 	CategoryStyling category_style.CategoryStyling
@@ -117,6 +122,7 @@ type TUIModel struct {
 	Status          string
 	Resolution      int
 	ScrollOffset    int
+	EventEditor     EventEditor
 }
 
 func (t *TUIModel) ScrollUp() {
@@ -208,8 +214,9 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 	if x >= t.UIDim.EventsOffset() &&
 		x < (t.UIDim.EventsOffset()+t.UIDim.EventsWidth()) {
 		for i := len(t.Model.Events) - 1; i >= 0; i-- {
-			if t.Positions[t.Model.Events[i].ID].Contains(x, y) {
-				if y == (t.Positions[t.Model.Events[i].ID].Y + t.Positions[t.Model.Events[i].ID].H - 1) {
+			eventPos := t.Positions[t.Model.Events[i].ID]
+			if eventPos.Contains(x, y) {
+				if y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5 {
 					return hoveredEventInfo{t.Model.Events[i].ID, hover_state.Resize}
 				} else {
 					return hoveredEventInfo{t.Model.Events[i].ID, hover_state.Move}

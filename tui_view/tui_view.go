@@ -53,13 +53,41 @@ func NewTUIView(tui *tui_model.TUIModel) *TUIView {
 	return &t
 }
 
+const editorWidth = 80
+const editorHeight = 20
+
+func (t TUIView) GetScreenCenter() (int, int) {
+	w, h := t.Screen.Size()
+	x := w / 2
+	y := h / 2
+	return x, y
+}
+
+func (t TUIView) DrawEditor() {
+	editor := &t.Model.EventEditor
+	style := tcell.StyleDefault.Background(tcell.ColorLightGrey).Foreground(tcell.ColorBlack)
+	if editor.Active {
+		x, y := t.GetScreenCenter()
+		x -= editorWidth / 2
+		y -= editorHeight / 2
+		t.DrawBox(style, x, y, editorWidth, editorHeight)
+		t.DrawText(x+1, y+1, editorWidth-2, 0, style, editor.TmpEventInfo.Name)
+		t.Screen.ShowCursor(x+1+len(editor.TmpEventInfo.Name), y+1)
+	} else {
+		t.Screen.ShowCursor(-1, -1)
+	}
+}
+
 func (t TUIView) Render() {
 
 	t.Screen.Clear()
+
 	t.DrawTimeline()
 	t.Model.ComputeRects() // TODO: move to controller?
 	t.DrawEvents()
 	t.DrawStatus()
+	t.DrawEditor()
+
 	if t.needsSync {
 		t.needsSync = false
 		t.Screen.Sync()

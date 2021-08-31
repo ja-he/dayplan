@@ -1,6 +1,8 @@
 package tui_controller
 
 import (
+	"strconv"
+
 	"dayplan/hover_state"
 	"dayplan/model"
 	"dayplan/tui_model"
@@ -45,9 +47,20 @@ func NewTUIController(view *tui_view.TUIView, model *tui_model.TUIModel) *TUICon
 	return &t
 }
 
+func (t *TUIController) abortEdit() {
+	t.editState = None
+	t.EditedEvent = 0
+	t.model.EventEditor.Active = false
+}
+
 func (t *TUIController) endEdit() {
 	t.editState = None
 	t.EditedEvent = 0
+	if t.model.EventEditor.Active {
+		t.model.EventEditor.Active = false
+		tmp := t.model.EventEditor.TmpEventInfo
+		t.model.Model.GetEvent(tmp.ID).Name = tmp.Name
+	}
 	t.model.Model.UpdateEventOrder()
 }
 
@@ -83,7 +96,7 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 	t.editState = (MouseEditing | Resizing)
 }
 
-func (t *TUIController) handleKeyInput(e *tcell.EventKey) {
+func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Rune() {
 	case 'q':
 		t.shouldExit = true
@@ -94,10 +107,16 @@ func (t *TUIController) updateCursorPos(x, y int) {
 	t.prevX, t.prevY = x, y
 }
 
+func (t *TUIController) startEdit(id model.EventID) {
+	t.model.EventEditor.Active = true
+	t.model.EventEditor.TmpEventInfo = *t.model.Model.GetEvent(id)
+	t.editState = Editing
+}
+
 func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
-		t.handleKeyInput(e)
+		t.handleNoneEditKeyInput(e)
 	case *tcell.EventMouse:
 		// get new position
 		x, y := e.Position()
@@ -133,6 +152,12 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 
 			// if button clicked, handle
 			switch buttons {
+			case tcell.Button2:
+				t.model.Status = "CLICK!"
+				id := t.model.Hovered.EventID
+				if id != 0 {
+					t.startEdit(id)
+				}
 			case tcell.Button1:
 				// we've clicked while not editing
 				// now we need to check where the cursor is and either start event
@@ -194,6 +219,30 @@ func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
 	}
 }
 
+func (t *TUIController) handleEditEvent(ev tcell.Event) {
+	switch e := ev.(type) {
+	case *tcell.EventKey:
+		switch e.Key() {
+		case tcell.KeyEsc:
+			t.abortEdit()
+		case tcell.KeyEnter:
+			t.endEdit()
+		case tcell.KeyBackspace, tcell.KeyBackspace2:
+			textlen := len(t.model.EventEditor.TmpEventInfo.Name)
+			if textlen > 0 {
+				t.model.EventEditor.TmpEventInfo.Name = t.model.EventEditor.TmpEventInfo.Name[:textlen-1]
+			}
+		case tcell.KeyCtrlU:
+			t.model.EventEditor.TmpEventInfo.Name = ""
+		default:
+			rune := e.Rune()
+			if strconv.IsPrint(rune) {
+				t.model.EventEditor.TmpEventInfo.Name += string(rune)
+			}
+		}
+	}
+}
+
 func (t *TUIController) handleMouseMoveEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
@@ -232,6 +281,8 @@ func (t *TUIController) Run() {
 			t.handleMouseResizeEditEvent(ev)
 		case (MouseEditing | Moving):
 			t.handleMouseMoveEditEvent(ev)
+		case (Editing):
+			t.handleEditEvent(ev)
 		}
 
 		switch ev.(type) {
