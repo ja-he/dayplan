@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 func ColorFromHexString(s string) tcell.Color {
@@ -28,14 +29,15 @@ func Darken(color tcell.Color, percentage int) tcell.Color {
 	g := (hex & 0x0000ff00) >> 8
 	b := (hex & 0x000000ff)
 
+	hue, sat, ltn := colorful.Color{R: float64(r) / 255.0, G: float64(g) / 255.0, B: float64(b) / 255.0}.Hsl()
+
 	scalar := float64(percentage) / 100.0
-	newR := int32(float64(r) * scalar)
-	newG := int32(float64(g) * scalar)
-	newB := int32(float64(b) * scalar)
 
-	newHex := (newR << 16) | (newG << 8) | (newB)
+	newColor := colorful.Hsl(hue, sat, ltn*scalar)
+	newR, newG, newB := newColor.RGB255()
 
-	return tcell.NewHexColor(newHex)
+	return tcell.NewHexColor(int32((int32(newR) << 16) | (int32(newG) << 8) | (int32(newB))))
+
 }
 
 func DarkenBG(style tcell.Style, percentage int) tcell.Style {
