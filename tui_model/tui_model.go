@@ -9,6 +9,7 @@ import (
 	"dayplan/model"
 	"dayplan/timestamp"
 	"dayplan/util"
+	"dayplan/weather"
 )
 
 type hoveredEventInfo struct {
@@ -123,6 +124,7 @@ type TUIModel struct {
 	Resolution      int
 	ScrollOffset    int
 	EventEditor     EventEditor
+	Weather         map[timestamp.Timestamp]weather.MyWeather
 }
 
 func (t *TUIModel) ScrollUp() {

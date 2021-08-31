@@ -83,6 +83,7 @@ func (t TUIView) Render() {
 
 	t.Screen.Clear()
 
+	t.DrawWeather()
 	t.DrawTimeline()
 	t.Model.ComputeRects() // TODO: move to controller?
 	t.DrawEvents()
@@ -130,6 +131,21 @@ func (t TUIView) DrawStatus() {
 	statusStyle := tcell.StyleDefault.Background(tcell.ColorLightGray).Foreground(tcell.ColorBlack)
 	t.DrawBox(statusStyle, x, y, w, h)
 	t.DrawText(x, y, w, h, statusStyle, t.Model.Status)
+}
+
+func (t TUIView) DrawWeather() {
+	_, height := t.Screen.Size()
+	weatherStyle := tcell.StyleDefault.Foreground(tcell.ColorLightBlue)
+
+	for y := 0; y < height; y++ {
+		timestamp := t.Model.TimeAtY(y)
+		if timestamp.Minute == 0 {
+			weather, ok := t.Model.Weather[timestamp]
+			if ok {
+				t.DrawText(t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, weather.Info)
+			}
+		}
+	}
 }
 
 func (t TUIView) DrawTimeline() {

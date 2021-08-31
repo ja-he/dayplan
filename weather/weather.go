@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
+	"time"
+
+	"dayplan/timestamp"
 )
 
 type OwmWeather struct {
@@ -40,7 +42,47 @@ type OwmFull struct {
 	Hourly          []OwmHourly `json:"hourly"`
 }
 
-var apiKey = os.Getenv("OWM_API_KEY")
+type MyWeather struct {
+	Info      string
+	TempC     float64
+	Clouds    int
+	WindSpeed float64
+	Humidity  int
+}
+
+func isToday(t time.Time) bool {
+	now := time.Now()
+	thisYear, thisMonth, thisDay := now.Date()
+
+	qYear, qMonth, qDay := t.Date()
+
+	return thisYear == qYear && thisMonth == qMonth && thisDay == qDay
+}
+
+func kelvinToCelsius(kelvin float64) (celsius float64) {
+	return kelvin - 273.15
+}
+
+func GetTodaysWeather(data *[]OwmHourly) map[timestamp.Timestamp]MyWeather {
+	result := make(map[timestamp.Timestamp]MyWeather)
+
+	for i := range *data {
+		hourly := (*data)[i]
+		t := time.Unix(int64(hourly.Dt), 0)
+
+		if isToday(t) {
+			result[timestamp.Timestamp{Hour: t.Hour(), Minute: t.Minute()}] = MyWeather{
+				Info:      hourly.Weather[0].Description,
+				TempC:     kelvinToCelsius(hourly.Temp),
+				Clouds:    hourly.Clouds,
+				WindSpeed: hourly.Wind_speed,
+				Humidity:  hourly.Humidity,
+			}
+		}
+	}
+
+	return result
+}
 
 func GetHourlyInfo(lat, lon, apiKey string) []OwmHourly {
 
