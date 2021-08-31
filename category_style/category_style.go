@@ -1,7 +1,10 @@
 package category_style
 
 import (
+	"strings"
+
 	"dayplan/model"
+	"dayplan/colors"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -10,9 +13,15 @@ type CategoryStyling struct {
 	styles map[model.Category]tcell.Style
 }
 
+func EmptyCategoryStyling() *CategoryStyling {
+	cs := CategoryStyling{}
+	cs.styles = make(map[model.Category]tcell.Style)
+  return &cs
+}
+
 func DefaultCategoryStyling() *CategoryStyling {
 	cs := CategoryStyling{}
-  cs.styles = make(map[model.Category]tcell.Style)
+	cs.styles = make(map[model.Category]tcell.Style)
 
 	cs.styles[model.Category{Name: "default"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xff00ff)).Foreground(tcell.NewHexColor(0x00ff00))
 	cs.styles[model.Category{Name: "work"}] = tcell.StyleDefault.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorReset)
@@ -30,6 +39,31 @@ func DefaultCategoryStyling() *CategoryStyling {
 	return &cs
 }
 
+func StyleFromHex(fg, bg string) tcell.Style {
+	style := tcell.StyleDefault
+	style = style.Foreground(colors.ColorFromHexString(fg))
+	style = style.Background(colors.ColorFromHexString(bg))
+	return style
+}
+
+func (cs *CategoryStyling) AddStyleFromCfg(s string) bool {
+	tokens := strings.SplitN(s, "|", 3)
+	if len(tokens) != 3 {
+		return false
+	}
+
+	name := tokens[0]
+  fgstr := tokens[1][1:]
+  bgstr := tokens[2][1:]
+
+	cat := model.Category{Name: name}
+	style := StyleFromHex(fgstr, bgstr)
+
+	cs.styles[cat] = style
+
+	return true
+}
+
 func (cs *CategoryStyling) GetStyle(c model.Category) tcell.Style {
-  return cs.styles[c]
+	return cs.styles[c]
 }

@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"dayplan/colors"
 	"dayplan/hover_state"
 	"dayplan/timestamp"
 	"dayplan/tui_model"
@@ -165,7 +166,6 @@ func (t TUIView) DrawTimeline() {
 }
 
 func (t TUIView) DrawEvents() {
-	selStyle := tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
 	for _, e := range t.Model.Model.Events {
 		style := t.Model.CategoryStyling.GetStyle(e.Cat)
 		// based on event state, draw a box or maybe a smaller one, or ...
@@ -176,6 +176,7 @@ func (t TUIView) DrawEvents() {
 			t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 			t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 		} else {
+			selStyle := colors.DarkenBG(t.Model.CategoryStyling.GetStyle(e.Cat), 80)
 			switch t.Model.Hovered.HoverState {
 			case hover_state.Resize:
 				t.DrawBox(style, p.X, p.Y, p.W, p.H-1)

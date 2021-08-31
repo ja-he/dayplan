@@ -137,10 +137,10 @@ func (t *TUIModel) ScrollDown() {
 	}
 }
 
-func NewTUIModel() *TUIModel {
+func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	var t TUIModel
 
-	t.CategoryStyling = *category_style.DefaultCategoryStyling()
+	t.CategoryStyling = cs
 	t.Positions = make(map[model.EventID]util.Rect)
 	t.Status = "initial status msg"
 
