@@ -2,8 +2,8 @@ package model
 
 import (
 	"fmt"
-	"strings"
 	"sort"
+	"strings"
 
 	"dayplan/timestamp"
 )
@@ -74,6 +74,22 @@ func idseq() func() EventID {
 	}
 }
 
+func (m *Model) RemoveEvent(id EventID) {
+	if id != 0 {
+		index := -1
+		for i := range m.Events {
+			if m.Events[i].ID == id {
+				index = i
+				break
+			}
+		}
+		if index == -1 {
+			panic(fmt.Sprintf("element with id %d not found", id))
+		}
+		m.Events = append(m.Events[:index], m.Events[index+1:]...)
+	}
+}
+
 func (m *Model) AddEvent(e Event) EventID {
 	e.ID = m.idseq()
 	m.Events = append(m.Events, e)
@@ -81,7 +97,7 @@ func (m *Model) AddEvent(e Event) EventID {
 }
 
 func (m *Model) UpdateEventOrder() {
-  sort.Sort(ByStart(m.Events))
+	sort.Sort(ByStart(m.Events))
 }
 
 func (m *Model) GetEvent(id EventID) *Event {
@@ -93,12 +109,6 @@ func (m *Model) GetEvent(id EventID) *Event {
 	}
 	panic(fmt.Sprintf("error getting event for id '%d' from model", id))
 }
-
-
-
-
-
-
 
 // TODO: obsolete?
 func (m *Model) OffsetEnd(id EventID, offset timestamp.TimeOffset) {

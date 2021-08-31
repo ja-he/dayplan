@@ -152,8 +152,9 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 
 			// if button clicked, handle
 			switch buttons {
+			case tcell.Button3:
+				t.model.Model.RemoveEvent(t.model.Hovered.EventID)
 			case tcell.Button2:
-				t.model.Status = "CLICK!"
 				id := t.model.Hovered.EventID
 				if id != 0 {
 					t.startEdit(id)
