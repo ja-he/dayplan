@@ -48,7 +48,7 @@ func NewTUIView(tui *tui_model.TUIModel) *TUIView {
 
 	t.Model = tui
 	w, h := t.Screen.Size()
-	weather, timeline, tools := 10, 10, 40
+	weather, timeline, tools := 20, 10, 20
 	t.Model.UIDim.Initialize(weather, timeline, tools, w, h)
 
 	return &t
