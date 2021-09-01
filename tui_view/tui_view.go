@@ -57,14 +57,30 @@ func NewTUIView(tui *tui_model.TUIModel) *TUIView {
 const editorWidth = 80
 const editorHeight = 20
 
-func (t TUIView) GetScreenCenter() (int, int) {
+func (t *TUIView) GetScreenCenter() (int, int) {
 	w, h := t.Screen.Size()
 	x := w / 2
 	y := h / 2
 	return x, y
 }
 
-func (t TUIView) DrawEditor() {
+const categoryBoxHeight int = 3
+
+func (t *TUIView) DrawTools() {
+	i := 0
+	for _, styling := range t.Model.CategoryStyling.GetAll() {
+
+		t.DrawBox(styling.Style, t.Model.UIDim.ToolsOffset()+1, (i * categoryBoxHeight), t.Model.UIDim.ToolsWidth()-2, categoryBoxHeight)
+		t.DrawText(t.Model.UIDim.ToolsOffset()+2, 1+(i*categoryBoxHeight), t.Model.UIDim.ToolsWidth()-4, 0, styling.Style, styling.Cat.Name)
+		if t.Model.CurrentCategory == styling.Cat {
+			t.DrawBox(colors.DarkenBG(styling.Style, 50), t.Model.UIDim.ToolsOffset()+t.Model.UIDim.ToolsWidth()-2, (i * categoryBoxHeight), 1, categoryBoxHeight)
+		}
+
+		i++
+	}
+}
+
+func (t *TUIView) DrawEditor() {
 	editor := &t.Model.EventEditor
 	style := tcell.StyleDefault.Background(tcell.ColorLightGrey).Foreground(tcell.ColorBlack)
 	if editor.Active {
@@ -79,7 +95,7 @@ func (t TUIView) DrawEditor() {
 	}
 }
 
-func (t TUIView) Render() {
+func (t *TUIView) Render() {
 
 	t.Screen.Clear()
 
@@ -88,6 +104,7 @@ func (t TUIView) Render() {
 	t.Model.ComputeRects() // TODO: move to controller?
 	t.DrawEvents()
 	t.DrawStatus()
+	t.DrawTools()
 	t.DrawEditor()
 
 	if t.needsSync {
@@ -98,7 +115,7 @@ func (t TUIView) Render() {
 	}
 }
 
-func (t TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {
+func (t *TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {
 	row := y
 	col := x
 	for _, r := range []rune(text) {
@@ -114,7 +131,7 @@ func (t TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {
 	}
 }
 
-func (t TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
+func (t *TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
 	for row := y; row < y+h; row++ {
 		for col := x; col < x+w; col++ {
 			t.Screen.SetContent(col, row, ' ', nil, style)
@@ -122,7 +139,7 @@ func (t TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
 	}
 }
 
-func (t TUIView) DrawStatus() {
+func (t *TUIView) DrawStatus() {
 	screenW, screenH := t.Model.UIDim.ScreenSize()
 
 	x, y := 0, screenH-t.Model.UIDim.StatusHeight()
@@ -133,7 +150,7 @@ func (t TUIView) DrawStatus() {
 	t.DrawText(x, y, w, h, statusStyle, t.Model.Status)
 }
 
-func (t TUIView) DrawWeather() {
+func (t *TUIView) DrawWeather() {
 	_, height := t.Screen.Size()
 	weatherStyle := tcell.StyleDefault.Foreground(tcell.ColorLightBlue)
 
@@ -151,7 +168,7 @@ func (t TUIView) DrawWeather() {
 	}
 }
 
-func (t TUIView) DrawTimeline() {
+func (t *TUIView) DrawTimeline() {
 	_, height := t.Screen.Size()
 
 	now := time.Now()
@@ -184,7 +201,7 @@ func (t TUIView) DrawTimeline() {
 	}
 }
 
-func (t TUIView) DrawEvents() {
+func (t *TUIView) DrawEvents() {
 	for _, e := range t.Model.Model.Events {
 		style := t.Model.CategoryStyling.GetStyle(e.Cat)
 		// based on event state, draw a box or maybe a smaller one, or ...

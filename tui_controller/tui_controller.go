@@ -12,13 +12,12 @@ import (
 )
 
 type TUIController struct {
-	model           *tui_model.TUIModel
-	view            *tui_view.TUIView
-	prevX, prevY    int
-	editState       EditState
-	EditedEvent     model.EventID
-	currentCategory model.Category
-	shouldExit      bool
+	model        *tui_model.TUIModel
+	view         *tui_view.TUIView
+	prevX, prevY int
+	editState    EditState
+	EditedEvent  model.EventID
+	shouldExit   bool
 }
 
 type EditState int
@@ -42,7 +41,7 @@ func NewTUIController(view *tui_view.TUIView, model *tui_model.TUIModel) *TUICon
 
 	t.model = model
 	t.view = view
-	t.currentCategory.Name = "default"
+	t.model.CurrentCategory.Name = "default"
 
 	return &t
 }
@@ -80,7 +79,7 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 
 	// create event at time with cat etc.
 	e := model.Event{}
-	e.Cat = t.currentCategory
+	e.Cat = t.model.CurrentCategory
 	e.Name = "?"
 	e.Start = start
 	e.End = start.OffsetMinutes(+10)

@@ -125,6 +125,7 @@ type TUIModel struct {
 	ScrollOffset    int
 	EventEditor     EventEditor
 	Weather         map[timestamp.Timestamp]weather.MyWeather
+	CurrentCategory model.Category
 }
 
 func (t *TUIModel) ScrollUp() {
