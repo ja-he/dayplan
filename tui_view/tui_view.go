@@ -64,16 +64,17 @@ func (t *TUIView) GetScreenCenter() (int, int) {
 	return x, y
 }
 
-const categoryBoxHeight int = 3
-
 func (t *TUIView) DrawTools() {
 	i := 0
-	for _, styling := range t.Model.CategoryStyling.GetAll() {
 
-		t.DrawBox(styling.Style, t.Model.UIDim.ToolsOffset()+1, (i * categoryBoxHeight), t.Model.UIDim.ToolsWidth()-2, categoryBoxHeight)
-		t.DrawText(t.Model.UIDim.ToolsOffset()+2, 1+(i*categoryBoxHeight), t.Model.UIDim.ToolsWidth()-4, 0, styling.Style, styling.Cat.Name)
+	boxes := t.Model.CalculateCategoryBoxes()
+	for _, styling := range t.Model.CategoryStyling.GetAll() {
+		box := boxes[styling.Cat]
+
+		t.DrawBox(styling.Style, box.X, box.Y, box.W, box.H)
+		t.DrawText(box.X+1, box.Y+1, box.W-2, 0, styling.Style, styling.Cat.Name)
 		if t.Model.CurrentCategory == styling.Cat {
-			t.DrawBox(colors.DarkenBG(styling.Style, 50), t.Model.UIDim.ToolsOffset()+t.Model.UIDim.ToolsWidth()-2, (i * categoryBoxHeight), 1, categoryBoxHeight)
+			t.DrawBox(colors.DarkenBG(styling.Style, 50), box.X+box.W-1, box.Y, 1, box.H)
 		}
 
 		i++

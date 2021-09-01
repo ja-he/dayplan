@@ -230,6 +230,39 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 	return NoHoveredEvent()
 }
 
+const categoryBoxHeight int = 3
+
+func (t *TUIModel) CalculateCategoryBoxes() map[model.Category]util.Rect {
+	m := make(map[model.Category]util.Rect)
+
+	offsetX := 1
+	offsetY := 1
+	gap := 0
+
+	for i, c := range t.CategoryStyling.GetAll() {
+		m[c.Cat] = util.Rect{
+			X: t.UIDim.ToolsOffset() + offsetX,
+			Y: offsetY + (i * categoryBoxHeight) + (i * gap),
+			W: t.UIDim.ToolsWidth() - (2 * offsetX),
+			H: categoryBoxHeight,
+		}
+	}
+
+	return m
+}
+
+func (t *TUIModel) GetCategoryForPos(x, y int) *model.Category {
+	boxes := t.CalculateCategoryBoxes()
+
+	for cat, box := range boxes {
+		if box.Contains(x, y) {
+			return &cat
+		}
+	}
+
+	return nil
+}
+
 func (t *TUIModel) ClearHover() {
 	t.Hovered = NoHoveredEvent()
 }

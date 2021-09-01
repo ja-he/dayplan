@@ -177,6 +177,13 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			}
 		case tui_model.Tools:
 			t.model.Status = "Tools"
+			switch buttons {
+			case tcell.Button1:
+				cat := t.model.GetCategoryForPos(x, y)
+				if cat != nil {
+					t.model.CurrentCategory = *cat
+				}
+			}
 		default:
 			t.model.Status = "WTF?!"
 		}
