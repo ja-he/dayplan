@@ -104,8 +104,8 @@ func (t *TUIView) Render() {
 	t.DrawTimeline()
 	t.Model.ComputeRects() // TODO: move to controller?
 	t.DrawEvents()
-	t.DrawStatus()
 	t.DrawTools()
+	t.DrawStatus()
 	t.DrawEditor()
 
 	if t.needsSync {
