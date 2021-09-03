@@ -55,9 +55,15 @@ func main() {
 		catstyles = *category_style.DefaultCategoryStyling()
 	}
 
+	var owmdata []weather.OwmHourly
+	if argc > 4 {
+		lat := os.Args[3]
+		lon := os.Args[4]
+		owmdata = weather.GetHourlyInfo(lat, lon, owmAPIKey)
+	}
+
 	tmodel := tui_model.NewTUIModel(catstyles)
 	tmodel.SetModel(&m)
-	owmdata := weather.GetHourlyInfo("53.1804", "8.6350", owmAPIKey)
 	tmodel.Weather = weather.GetTodaysWeather(&owmdata)
 
 	view := tui_view.NewTUIView(tmodel)
