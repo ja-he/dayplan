@@ -39,6 +39,15 @@ func NewEvent(s string) *Event {
 	return &e
 }
 
+func (e *Event) toString() string {
+	start := e.Start.ToString()
+	end := e.End.ToString()
+	cat := e.Cat.Name
+	name := e.Name
+
+	return (start + "|" + end + "|" + cat + "|" + name)
+}
+
 type ByStart []Event
 
 func (a ByStart) Len() int           { return len(a) }
@@ -58,6 +67,14 @@ func (e *Event) Snap(minuteResolution int) {
 type Model struct {
 	Events []Event
 	idseq  func() EventID
+}
+
+func (m *Model) ToSlice() []string {
+	var data []string
+	for _, e := range m.Events {
+		data = append(data, e.toString())
+	}
+	return data
 }
 
 func NewModel() *Model {

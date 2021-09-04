@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"dayplan/category_style"
-	"dayplan/model"
 	"dayplan/tui_controller"
 	"dayplan/tui_model"
 	"dayplan/tui_view"
@@ -17,22 +16,12 @@ var owmAPIKey = os.Getenv("OWM_API_KEY")
 
 // MAIN
 func main() {
-	m := *model.NewModel()
+	var h *tui_controller.FileHandler
 
 	argc := len(os.Args)
 	if argc > 1 {
 		filename := os.Args[1]
-		f, err := os.Open(filename)
-		if err != nil {
-			log.Fatalf("cannot read file '%s'", filename)
-		}
-		defer f.Close()
-
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			s := scanner.Text()
-			m.AddEvent(*model.NewEvent(s))
-		}
+		h = tui_controller.NewFileHandler(filename)
 	}
 
 	var catstyles category_style.CategoryStyling
@@ -63,13 +52,12 @@ func main() {
 	}
 
 	tmodel := tui_model.NewTUIModel(catstyles)
-	tmodel.SetModel(&m)
 	tmodel.Weather = weather.GetTodaysWeather(&owmdata)
 
 	view := tui_view.NewTUIView(tmodel)
 	defer view.Screen.Fini()
 
-	controller := tui_controller.NewTUIController(view, tmodel)
+	controller := tui_controller.NewTUIController(view, tmodel, h)
 
 	controller.Run()
 }

@@ -1,6 +1,9 @@
 package tui_controller
 
 import (
+	"bufio"
+	"log"
+	"os"
 	"strconv"
 
 	"dayplan/hover_state"
@@ -11,6 +14,47 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+type FileHandler struct {
+	filename string
+}
+
+func NewFileHandler(filename string) *FileHandler {
+	f := FileHandler{filename: filename}
+	return &f
+}
+
+func (h *FileHandler) Write(m *model.Model) {
+	f, err := os.OpenFile(h.filename, os.O_TRUNC|os.O_WRONLY, 0644)
+	defer f.Close()
+	if err != nil {
+		log.Fatalf("cannot read file '%s'", h.filename)
+	}
+
+	writer := bufio.NewWriter(f)
+	defer writer.Flush()
+	for _, line := range m.ToSlice() {
+		_, _ = writer.WriteString(line + "\n")
+	}
+}
+
+func (h *FileHandler) Read() *model.Model {
+	m := model.NewModel()
+
+	f, err := os.Open(h.filename)
+	if err != nil {
+		log.Fatalf("cannot read file '%s'", h.filename)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		s := scanner.Text()
+		m.AddEvent(*model.NewEvent(s))
+	}
+
+	return m
+}
+
 type TUIController struct {
 	model        *tui_model.TUIModel
 	view         *tui_view.TUIView
@@ -18,6 +62,7 @@ type TUIController struct {
 	editState    EditState
 	EditedEvent  model.EventID
 	shouldExit   bool
+	FileHandler  *FileHandler
 }
 
 type EditState int
@@ -36,10 +81,18 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewTUIController(view *tui_view.TUIView, model *tui_model.TUIModel) *TUIController {
+func NewTUIController(view *tui_view.TUIView, tmodel *tui_model.TUIModel, filehandler *FileHandler) *TUIController {
 	t := TUIController{}
 
-	t.model = model
+	t.FileHandler = filehandler
+
+	t.model = tmodel
+	if t.FileHandler == nil {
+		t.model.Model = &model.Model{}
+	} else {
+		t.model.Model = t.FileHandler.Read()
+	}
+
 	t.view = view
 	t.model.CurrentCategory.Name = "default"
 
@@ -99,7 +152,13 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Rune() {
 	case 'q':
 		t.shouldExit = true
+	case 'w':
+		t.writeModel()
 	}
+}
+
+func (t *TUIController) writeModel() {
+	t.FileHandler.Write(t.model.Model)
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
