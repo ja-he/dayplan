@@ -117,14 +117,32 @@ func (m *Model) UpdateEventOrder() {
 	sort.Sort(ByStart(m.Events))
 }
 
-func (m *Model) GetEvent(id EventID) *Event {
+func (m *Model) getEvent(id EventID, getFollowing bool) []*Event {
 	for i := range m.Events {
 		e := &m.Events[i]
 		if (*e).ID == id {
-			return e
+			if getFollowing {
+				fromID := []*Event{}
+				for j := i; j < len(m.Events); j++ {
+					fromID = append(fromID, &m.Events[j])
+				}
+				return fromID
+			} else {
+				return []*Event{e}
+			}
 		}
 	}
 	panic(fmt.Sprintf("error getting event for id '%d' from model", id))
+}
+
+func (m *Model) GetEvent(id EventID) *Event {
+	e := m.getEvent(id, false)[0]
+	return e
+}
+
+func (m *Model) GetEventsFrom(id EventID) []*Event {
+	f := m.getEvent(id, true)
+	return f
 }
 
 // TODO: obsolete?

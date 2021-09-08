@@ -56,13 +56,14 @@ func (h *FileHandler) Read() *model.Model {
 }
 
 type TUIController struct {
-	model        *tui_model.TUIModel
-	view         *tui_view.TUIView
-	prevX, prevY int
-	editState    EditState
-	EditedEvent  model.EventID
-	shouldExit   bool
-	FileHandler  *FileHandler
+	model         *tui_model.TUIModel
+	view          *tui_view.TUIView
+	prevX, prevY  int
+	editState     EditState
+	EditedEvent   model.EventID
+	shouldExit    bool
+	movePropagate bool
+	FileHandler   *FileHandler
 }
 
 type EditState int
@@ -227,6 +228,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				case hover_state.Resize:
 					t.startMouseResize()
 				case hover_state.Move:
+					t.movePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove()
 				}
 			case tcell.WheelUp:
@@ -260,9 +262,17 @@ func (t *TUIController) resizeStep(newY int) {
 func (t *TUIController) moveStep(newY int) {
 	delta := newY - t.prevY
 	offset := t.model.TimeForDistance(delta)
-	event := t.model.Model.GetEvent(t.EditedEvent)
-	event.Start = event.Start.Offset(offset).Snap(t.model.Resolution)
-	event.End = event.End.Offset(offset).Snap(t.model.Resolution)
+	if t.movePropagate {
+		following := t.model.Model.GetEventsFrom(t.EditedEvent)
+		for _, ptr := range following {
+			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.Resolution)
+			ptr.End = ptr.End.Offset(offset).Snap(t.model.Resolution)
+		}
+	} else {
+		event := t.model.Model.GetEvent(t.EditedEvent)
+		event.Start = event.Start.Offset(offset).Snap(t.model.Resolution)
+		event.End = event.End.Offset(offset).Snap(t.model.Resolution)
+	}
 }
 
 func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
