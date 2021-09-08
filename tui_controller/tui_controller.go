@@ -156,6 +156,9 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.Status = "writing..."
 		t.writeModel()
 		t.model.Status = "written!"
+	case 'c':
+		// TODO: all that's needed to clear model (appropriately)?
+		t.model.Model = model.NewModel()
 	}
 }
 
