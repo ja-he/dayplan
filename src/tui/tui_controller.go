@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"dayplan/model"
+	"dayplan/src/model"
 
 	"github.com/gdamore/tcell/v2"
 )

@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"dayplan/category_style"
-	"dayplan/tui"
-	"dayplan/weather"
+	"dayplan/src/category_style"
+	"dayplan/src/tui"
+	"dayplan/src/weather"
 )
 
 var owmAPIKey = os.Getenv("OWM_API_KEY")

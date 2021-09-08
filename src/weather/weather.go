@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"dayplan/model"
+	"dayplan/src/model"
 )
 
 type OwmWeather struct {

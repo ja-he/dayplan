@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"math"
 
-	"dayplan/category_style"
-	"dayplan/model"
-	"dayplan/util"
-	"dayplan/weather"
+	"dayplan/src/category_style"
+	"dayplan/src/model"
+	"dayplan/src/util"
+	"dayplan/src/weather"
 )
 
 type hoveredEventInfo struct {

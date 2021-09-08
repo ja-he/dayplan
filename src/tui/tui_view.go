@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"dayplan/colors"
-	"dayplan/model"
+	"dayplan/src/colors"
+	"dayplan/src/model"
 
 	"github.com/gdamore/tcell/v2"
 )
