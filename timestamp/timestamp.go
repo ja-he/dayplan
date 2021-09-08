@@ -6,10 +6,18 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Timestamp struct {
 	Hour, Minute int
+}
+
+func NewTimestampFromGotime(time time.Time) *Timestamp {
+	t := Timestamp{}
+	t.Hour = time.Hour()
+	t.Minute = time.Minute()
+	return &t
 }
 
 func NewTimestamp(s string) *Timestamp {
