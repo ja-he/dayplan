@@ -153,7 +153,9 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	case 'q':
 		t.shouldExit = true
 	case 'w':
+		t.model.Status = "writing..."
 		t.writeModel()
+		t.model.Status = "written!"
 	}
 }
 
