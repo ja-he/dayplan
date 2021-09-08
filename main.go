@@ -6,9 +6,7 @@ import (
 	"os"
 
 	"dayplan/category_style"
-	"dayplan/tui_controller"
-	"dayplan/tui_model"
-	"dayplan/tui_view"
+	"dayplan/tui"
 	"dayplan/weather"
 )
 
@@ -16,12 +14,12 @@ var owmAPIKey = os.Getenv("OWM_API_KEY")
 
 // MAIN
 func main() {
-	var h *tui_controller.FileHandler
+	var h *tui.FileHandler
 
 	argc := len(os.Args)
 	if argc > 1 {
 		filename := os.Args[1]
-		h = tui_controller.NewFileHandler(filename)
+		h = tui.NewFileHandler(filename)
 	}
 
 	var catstyles category_style.CategoryStyling
@@ -51,13 +49,13 @@ func main() {
 		owmdata = weather.GetHourlyInfo(lat, lon, owmAPIKey)
 	}
 
-	tmodel := tui_model.NewTUIModel(catstyles)
+	tmodel := tui.NewTUIModel(catstyles)
 	tmodel.Weather = weather.GetTodaysWeather(&owmdata)
 
-	view := tui_view.NewTUIView(tmodel)
+	view := tui.NewTUIView(tmodel)
 	defer view.Screen.Fini()
 
-	controller := tui_controller.NewTUIController(view, tmodel, h)
+	controller := tui.NewTUIController(view, tmodel, h)
 
 	controller.Run()
 }

@@ -1,4 +1,4 @@
-package timestamp
+package model
 
 import (
 	"fmt"

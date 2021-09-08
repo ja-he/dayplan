@@ -1,20 +1,18 @@
-package tui_model
+package tui
 
 import (
 	"fmt"
 	"math"
 
 	"dayplan/category_style"
-	"dayplan/hover_state"
 	"dayplan/model"
-	"dayplan/timestamp"
 	"dayplan/util"
 	"dayplan/weather"
 )
 
 type hoveredEventInfo struct {
 	EventID    model.EventID
-	HoverState hover_state.HoverState
+	HoverState HoverState
 }
 
 type UIPane int
@@ -124,7 +122,7 @@ type TUIModel struct {
 	Resolution      int
 	ScrollOffset    int
 	EventEditor     EventEditor
-	Weather         map[timestamp.Timestamp]weather.MyWeather
+	Weather         map[model.Timestamp]weather.MyWeather
 	CurrentCategory model.Category
 }
 
@@ -153,24 +151,24 @@ func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	return &t
 }
 
-func (t *TUIModel) TimeForDistance(dist int) timestamp.TimeOffset {
+func (t *TUIModel) TimeForDistance(dist int) model.TimeOffset {
 	add := true
 	if dist < 0 {
 		dist *= (-1)
 		add = false
 	}
 	minutes := dist * (60 / t.Resolution)
-	return timestamp.TimeOffset{T: timestamp.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
+	return model.TimeOffset{T: model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
 }
 
 func (t *TUIModel) SetModel(m *model.Model) {
 	t.Model = m
 }
 
-func (t *TUIModel) TimeAtY(y int) timestamp.Timestamp {
+func (t *TUIModel) TimeAtY(y int) model.Timestamp {
 	minutes := y*(60/t.Resolution) + t.ScrollOffset*(60/t.Resolution)
 
-	ts := timestamp.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
+	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
 
 	return ts
 }
@@ -209,7 +207,7 @@ func (t *TUIModel) ComputeRects() {
 }
 
 func NoHoveredEvent() hoveredEventInfo {
-	return hoveredEventInfo{0, hover_state.None}
+	return hoveredEventInfo{0, HoverStateNone}
 }
 
 // TODO: move to controller?
@@ -220,9 +218,9 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 			eventPos := t.Positions[t.Model.Events[i].ID]
 			if eventPos.Contains(x, y) {
 				if y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5 {
-					return hoveredEventInfo{t.Model.Events[i].ID, hover_state.Resize}
+					return hoveredEventInfo{t.Model.Events[i].ID, HoverStateResize}
 				} else {
-					return hoveredEventInfo{t.Model.Events[i].ID, hover_state.Move}
+					return hoveredEventInfo{t.Model.Events[i].ID, HoverStateMove}
 				}
 			}
 		}
@@ -267,6 +265,6 @@ func (t *TUIModel) ClearHover() {
 	t.Hovered = NoHoveredEvent()
 }
 
-func (t *TUIModel) toY(ts timestamp.Timestamp) int {
+func (t *TUIModel) toY(ts model.Timestamp) int {
 	return ((ts.Hour*t.Resolution - t.ScrollOffset) + (ts.Minute / (60 / t.Resolution)))
 }

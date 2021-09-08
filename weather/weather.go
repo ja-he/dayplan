@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"dayplan/timestamp"
+	"dayplan/model"
 )
 
 type OwmWeather struct {
@@ -63,15 +63,15 @@ func kelvinToCelsius(kelvin float64) (celsius float64) {
 	return kelvin - 273.15
 }
 
-func GetTodaysWeather(data *[]OwmHourly) map[timestamp.Timestamp]MyWeather {
-	result := make(map[timestamp.Timestamp]MyWeather)
+func GetTodaysWeather(data *[]OwmHourly) map[model.Timestamp]MyWeather {
+	result := make(map[model.Timestamp]MyWeather)
 
 	for i := range *data {
 		hourly := (*data)[i]
 		t := time.Unix(int64(hourly.Dt), 0)
 
 		if isToday(t) {
-			result[timestamp.Timestamp{Hour: t.Hour(), Minute: t.Minute()}] = MyWeather{
+			result[model.Timestamp{Hour: t.Hour(), Minute: t.Minute()}] = MyWeather{
 				Info:      hourly.Weather[0].Description,
 				TempC:     kelvinToCelsius(hourly.Temp),
 				Clouds:    hourly.Clouds,

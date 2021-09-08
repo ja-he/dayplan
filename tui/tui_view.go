@@ -1,4 +1,4 @@
-package tui_view
+package tui
 
 import (
 	"fmt"
@@ -6,16 +6,14 @@ import (
 	"time"
 
 	"dayplan/colors"
-	"dayplan/hover_state"
-	"dayplan/timestamp"
-	"dayplan/tui_model"
+	"dayplan/model"
 
 	"github.com/gdamore/tcell/v2"
 )
 
 type TUIView struct {
 	Screen    tcell.Screen
-	Model     *tui_model.TUIModel
+	Model     *TUIModel
 	needsSync bool
 }
 
@@ -36,7 +34,7 @@ func (t *TUIView) initScreen() {
 	t.Screen = s
 }
 
-func NewTUIView(tui *tui_model.TUIModel) *TUIView {
+func NewTUIView(tui *TUIModel) *TUIView {
 	t := TUIView{}
 
 	t.initScreen()
@@ -193,7 +191,7 @@ func (t *TUIView) DrawTimeline() {
 			style = style.Background(tcell.ColorRed)
 		}
 		if row%t.Model.Resolution == 0 {
-			tStr := fmt.Sprintf("   %s  ", timestamp.Timestamp{Hour: hour, Minute: 0}.ToString())
+			tStr := fmt.Sprintf("   %s  ", model.Timestamp{Hour: hour, Minute: 0}.ToString())
 			t.DrawText(x, row, w, 1, style, tStr)
 			hour++
 		} else {
@@ -215,13 +213,13 @@ func (t *TUIView) DrawEvents() {
 		} else {
 			selStyle := colors.DarkenBG(t.Model.CategoryStyling.GetStyle(e.Cat), 80)
 			switch t.Model.Hovered.HoverState {
-			case hover_state.Resize:
+			case HoverStateResize:
 				t.DrawBox(style, p.X, p.Y, p.W, p.H-1)
 				t.DrawBox(selStyle, p.X, p.Y+p.H-1, p.W, 1)
 				t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)
 				t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
-			case hover_state.Move:
+			case HoverStateMove:
 				t.DrawBox(selStyle, p.X, p.Y, p.W, p.H)
 				t.DrawText(p.X+1, p.Y, p.W-2, p.H, selStyle, e.Name)
 				t.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())

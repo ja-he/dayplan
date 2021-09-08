@@ -1,15 +1,13 @@
-package tui_controller
+package tui
 
 import (
 	"bufio"
 	"log"
 	"os"
 	"strconv"
+	"time"
 
-	"dayplan/hover_state"
 	"dayplan/model"
-	"dayplan/tui_model"
-	"dayplan/tui_view"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -56,8 +54,8 @@ func (h *FileHandler) Read() *model.Model {
 }
 
 type TUIController struct {
-	model         *tui_model.TUIModel
-	view          *tui_view.TUIView
+	model         *TUIModel
+	view          *TUIView
 	prevX, prevY  int
 	editState     EditState
 	EditedEvent   model.EventID
@@ -69,20 +67,20 @@ type TUIController struct {
 type EditState int
 
 const (
-	None          EditState = 0b00000000
-	Editing       EditState = 0b00000001
-	MouseEditing  EditState = 0b00000010
-	SelectEditing EditState = 0b00000100
-	Moving        EditState = 0b00001000
-	Resizing      EditState = 0b00010000
-	Renaming      EditState = 0b00100000
+	EditStateNone          EditState = 0b00000000
+	EditStateEditing       EditState = 0b00000001
+	EditStateMouseEditing  EditState = 0b00000010
+	EditStateSelectEditing EditState = 0b00000100
+	EditStateMoving        EditState = 0b00001000
+	EditStateResizing      EditState = 0b00010000
+	EditStateRenaming      EditState = 0b00100000
 )
 
 func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewTUIController(view *tui_view.TUIView, tmodel *tui_model.TUIModel, filehandler *FileHandler) *TUIController {
+func NewTUIController(view *TUIView, tmodel *TUIModel, filehandler *FileHandler) *TUIController {
 	t := TUIController{}
 
 	t.FileHandler = filehandler
@@ -101,13 +99,13 @@ func NewTUIController(view *tui_view.TUIView, tmodel *tui_model.TUIModel, fileha
 }
 
 func (t *TUIController) abortEdit() {
-	t.editState = None
+	t.editState = EditStateNone
 	t.EditedEvent = 0
 	t.model.EventEditor.Active = false
 }
 
 func (t *TUIController) endEdit() {
-	t.editState = None
+	t.editState = EditStateNone
 	t.EditedEvent = 0
 	if t.model.EventEditor.Active {
 		t.model.EventEditor.Active = false
@@ -118,12 +116,12 @@ func (t *TUIController) endEdit() {
 }
 
 func (t *TUIController) startMouseMove() {
-	t.editState = (MouseEditing | Moving)
+	t.editState = (EditStateMouseEditing | EditStateMoving)
 	t.EditedEvent = t.model.Hovered.EventID
 }
 
 func (t *TUIController) startMouseResize() {
-	t.editState = (MouseEditing | Resizing)
+	t.editState = (EditStateMouseEditing | EditStateResizing)
 	t.EditedEvent = t.model.Hovered.EventID
 }
 
@@ -146,7 +144,7 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 	t.EditedEvent = newEventID
 
 	// set mode to resizing
-	t.editState = (MouseEditing | Resizing)
+	t.editState = (EditStateMouseEditing | EditStateResizing)
 }
 
 func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
@@ -174,7 +172,7 @@ func (t *TUIController) updateCursorPos(x, y int) {
 func (t *TUIController) startEdit(id model.EventID) {
 	t.model.EventEditor.Active = true
 	t.model.EventEditor.TmpEventInfo = *t.model.Model.GetEvent(id)
-	t.editState = Editing
+	t.editState = EditStateEditing
 }
 
 func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
@@ -190,22 +188,22 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 
 		pane := t.model.UIDim.WhichUIPane(x, y)
 		switch pane {
-		case tui_model.Status:
-		case tui_model.Weather:
+		case Status:
+		case Weather:
 			switch buttons {
 			case tcell.WheelUp:
 				t.model.ScrollUp()
 			case tcell.WheelDown:
 				t.model.ScrollDown()
 			}
-		case tui_model.Timeline:
+		case Timeline:
 			switch buttons {
 			case tcell.WheelUp:
 				t.model.ScrollUp()
 			case tcell.WheelDown:
 				t.model.ScrollDown()
 			}
-		case tui_model.Events:
+		case Events:
 			// if mouse over event, update hover info in tui model
 			t.model.Hovered = t.model.GetEventForPos(x, y)
 
@@ -223,11 +221,11 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				// now we need to check where the cursor is and either start event
 				// creation, resizing or moving
 				switch t.model.Hovered.HoverState {
-				case hover_state.None:
+				case HoverStateNone:
 					t.startMouseEventCreation(y)
-				case hover_state.Resize:
+				case HoverStateResize:
 					t.startMouseResize()
-				case hover_state.Move:
+				case HoverStateMove:
 					t.movePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove()
 				}
@@ -236,7 +234,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			case tcell.WheelDown:
 				t.model.ScrollDown()
 			}
-		case tui_model.Tools:
+		case Tools:
 			switch buttons {
 			case tcell.Button1:
 				cat := t.model.GetCategoryForPos(x, y)
@@ -246,7 +244,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			}
 		default:
 		}
-		if pane != tui_model.Events {
+		if pane != Events {
 			t.model.ClearHover()
 		}
 	}
@@ -344,18 +342,20 @@ func (t *TUIController) Run() {
 		t.view.Render()
 		// t.view.Model.Status = fmt.Sprintf("i = %d", i)
 
+		t.model.Status = model.NewTimestampFromGotime(time.Now()).ToString()
+
 		// TODO: this blocks, meaning if no input is given, the screen doesn't update
 		//       what we might want is an input buffer in another goroutine? idk
 		ev := t.view.Screen.PollEvent()
 
 		switch t.editState {
-		case None:
+		case EditStateNone:
 			t.handleNoneEditEvent(ev)
-		case (MouseEditing | Resizing):
+		case (EditStateMouseEditing | EditStateResizing):
 			t.handleMouseResizeEditEvent(ev)
-		case (MouseEditing | Moving):
+		case (EditStateMouseEditing | EditStateMoving):
 			t.handleMouseMoveEditEvent(ev)
-		case (Editing):
+		case (EditStateEditing):
 			t.handleEditEvent(ev)
 		}
 

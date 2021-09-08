@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"dayplan/timestamp"
 )
 
 type Category struct {
@@ -16,7 +14,7 @@ type EventID int
 
 type Event struct {
 	ID         EventID
-	Start, End timestamp.Timestamp
+	Start, End Timestamp
 	Name       string
 	Cat        Category
 }
@@ -30,8 +28,8 @@ func NewEvent(s string) *Event {
 	catString := args[2]
 	nameString := args[3]
 
-	e.Start = *timestamp.NewTimestamp(startString)
-	e.End = *timestamp.NewTimestamp(endString)
+	e.Start = *NewTimestamp(startString)
+	e.End = *NewTimestamp(endString)
 
 	e.Name = nameString
 	e.Cat.Name = catString
@@ -54,7 +52,7 @@ func (a ByStart) Len() int           { return len(a) }
 func (a ByStart) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByStart) Less(i, j int) bool { return a[j].Start.IsAfter(a[i].Start) }
 
-func (e *Event) Move(offset timestamp.TimeOffset) {
+func (e *Event) Move(offset TimeOffset) {
 	e.Start = e.Start.Offset(offset)
 	e.End = e.End.Offset(offset)
 }
@@ -146,21 +144,21 @@ func (m *Model) GetEventsFrom(id EventID) []*Event {
 }
 
 // TODO: obsolete?
-func (m *Model) OffsetEnd(id EventID, offset timestamp.TimeOffset) {
+func (m *Model) OffsetEnd(id EventID, offset TimeOffset) {
 	e := m.GetEvent(id)
 	e.End = e.End.Offset(offset)
 	if e.Start.IsAfter(e.End) {
 		panic("start after end!")
 	}
 }
-func (m *Model) SetEnd(id EventID, end timestamp.Timestamp) {
+func (m *Model) SetEnd(id EventID, end Timestamp) {
 	e := m.GetEvent(id)
 	if e.Start.IsAfter(end) {
 		panic("start after end!")
 	}
 	e.End = end
 }
-func (m *Model) SetTimes(id EventID, start, end timestamp.Timestamp) {
+func (m *Model) SetTimes(id EventID, start, end Timestamp) {
 	if start.IsAfter(end) {
 		panic("start after end!")
 	}
