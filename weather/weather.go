@@ -30,8 +30,8 @@ type OwmHourly struct {
 	Wind_speed float64      `json:"wind_speed"` // 4.01,
 	Wind_deg   int          `json:"wind_deg"`   // 332,
 	Wind_gust  float64      `json:"wind_gust"`  // 6.66,
-	Weather    []OwmWeather `json:"weather"`
-	Pop        int          `json:"pop"` // 0
+	Weather    []OwmWeather `json:"weather"`    //
+	Pop        float32      `json:"pop"`        // 0 (probability of precipitation)
 }
 
 type OwmFull struct {
