@@ -31,7 +31,7 @@ type OwmHourly struct {
 	Wind_deg   int          `json:"wind_deg"`   // 332,
 	Wind_gust  float64      `json:"wind_gust"`  // 6.66,
 	Weather    []OwmWeather `json:"weather"`    //
-	Pop        float32      `json:"pop"`        // 0 (probability of precipitation)
+	Pop        float64      `json:"pop"`        // 0 (probability of precipitation)
 }
 
 type OwmFull struct {
@@ -43,11 +43,12 @@ type OwmFull struct {
 }
 
 type MyWeather struct {
-	Info      string
-	TempC     float64
-	Clouds    int
-	WindSpeed float64
-	Humidity  int
+	Info                     string
+	TempC                    float64
+	Clouds                   int
+	WindSpeed                float64
+	Humidity                 int
+	PrecipitationProbability float64
 }
 
 func isToday(t time.Time) bool {
@@ -72,11 +73,12 @@ func GetTodaysWeather(data *[]OwmHourly) map[model.Timestamp]MyWeather {
 
 		if isToday(t) {
 			result[model.Timestamp{Hour: t.Hour(), Minute: t.Minute()}] = MyWeather{
-				Info:      hourly.Weather[0].Description,
-				TempC:     kelvinToCelsius(hourly.Temp),
-				Clouds:    hourly.Clouds,
-				WindSpeed: hourly.Wind_speed,
-				Humidity:  hourly.Humidity,
+				Info:                     hourly.Weather[0].Description,
+				TempC:                    kelvinToCelsius(hourly.Temp),
+				Clouds:                   hourly.Clouds,
+				WindSpeed:                hourly.Wind_speed,
+				Humidity:                 hourly.Humidity,
+				PrecipitationProbability: hourly.Pop,
 			}
 		}
 	}
