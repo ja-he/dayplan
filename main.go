@@ -50,7 +50,9 @@ func main() {
 	}
 
 	tmodel := tui.NewTUIModel(catstyles)
-	tmodel.Weather = weather.GetTodaysWeather(&owmdata)
+	go func() {
+		tmodel.Weather = weather.GetTodaysWeather(&owmdata)
+	}()
 
 	view := tui.NewTUIView(tmodel)
 	defer view.Screen.Fini()
