@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"dayplan/src/colors"
-	"dayplan/src/model"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -178,22 +177,21 @@ func (t *TUIView) DrawTimeline() {
 	}
 	nowRow := (h * t.Model.Resolution) - t.Model.ScrollOffset + (m / (60 / t.Model.Resolution))
 
-	hour := t.Model.ScrollOffset / t.Model.Resolution
-
 	x := t.Model.UIDim.TimelineOffset()
 	w := t.Model.UIDim.TimelineWidth()
 	for row := 0; row <= height; row++ {
-		if hour >= 24 {
+		timestamp := t.Model.TimeAtY(row)
+
+		if timestamp.Hour >= 24 {
 			break
 		}
 		style := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
 		if row == nowRow {
 			style = style.Background(tcell.ColorRed)
 		}
-		if row%t.Model.Resolution == 0 {
-			tStr := fmt.Sprintf("   %s  ", model.Timestamp{Hour: hour, Minute: 0}.ToString())
+		if timestamp.Minute == 0 {
+			tStr := fmt.Sprintf("   %s  ", timestamp.ToString())
 			t.DrawText(x, row, w, 1, style, tStr)
-			hour++
 		} else {
 			t.DrawText(x, row, w, 1, style, "          ")
 		}
