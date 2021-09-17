@@ -88,6 +88,10 @@ func (t Timestamp) Snap(res int) Timestamp {
 	return t
 }
 
+func (t Timestamp) Legal() bool {
+	return (t.Hour < 24 && t.Minute < 60) && (t.Hour >= 0 && t.Minute >= 0)
+}
+
 func (t Timestamp) OffsetMinutes(minutes int) Timestamp {
 	o := TimeOffset{}
 	if minutes < 0 {
