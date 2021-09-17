@@ -150,17 +150,25 @@ func (t *TUIView) DrawStatus() {
 
 func (t *TUIView) DrawWeather() {
 	_, height := t.Screen.Size()
-	weatherStyle := tcell.StyleDefault.Foreground(tcell.ColorLightBlue)
 
 	for y := 0; y < height; y++ {
 		timestamp := t.Model.TimeAtY(y)
 		if timestamp.Minute == 0 {
 			weather, ok := t.Model.Weather[timestamp]
 			if ok {
+				weatherStyle := tcell.StyleDefault.Foreground(tcell.ColorLightBlue)
+				if weather.PrecipitationProbability > 25.0 {
+					weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorBlack)
+				} else if weather.Clouds < 25 {
+					weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xfff0cc)).Foreground(tcell.ColorBlack)
+				}
+				t.DrawBox(weatherStyle, t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), t.Model.Resolution)
+
 				t.DrawText(t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, weather.Info)
 				t.DrawText(t.Model.UIDim.WeatherOffset(), y+1, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
 				t.DrawText(t.Model.UIDim.WeatherOffset(), y+2, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%d%% clouds", weather.Clouds))
 				t.DrawText(t.Model.UIDim.WeatherOffset(), y+3, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%d%% humidity", weather.Humidity))
+				t.DrawText(t.Model.UIDim.WeatherOffset(), y+4, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f%% chance of rain", weather.PrecipitationProbability))
 			}
 		}
 	}
