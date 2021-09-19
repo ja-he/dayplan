@@ -108,19 +108,15 @@ func (t Timestamp) OffsetMinutes(minutes int) Timestamp {
 
 func (t Timestamp) Offset(o TimeOffset) Timestamp {
 	if o.Add {
-		t.Hour += o.T.Hour
-		t.Minute += o.T.Minute
-		if t.Minute >= 60 {
-			t.Minute %= 60
-			t.Hour += 1
-		}
+		t.Hour = (t.Hour + o.T.Hour + ((t.Minute + o.T.Minute) / 60)) % 24
+		t.Minute = (t.Minute + o.T.Minute) % 60
 	} else {
-		t.Minute -= o.T.Minute
-		t.Hour -= o.T.Hour
-		if t.Minute < 0 {
-			t.Minute = 60 + t.Minute
-			t.Hour -= 1
+		extraHour := 0
+		if t.Minute-o.T.Minute < 0 {
+			extraHour = 1
 		}
+		t.Hour = (t.Hour - o.T.Hour - extraHour + 24) % 24
+		t.Minute = (t.Minute - o.T.Minute + 60) % 60
 	}
 	return t
 }
