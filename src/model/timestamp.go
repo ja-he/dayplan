@@ -106,6 +106,10 @@ func (t Timestamp) OffsetMinutes(minutes int) Timestamp {
 	return t.Offset(o)
 }
 
+// Returns a timestamp offset by a given offset, which can be additive or
+// subtractive.
+// "Loops around", meaning offsetting 0:10 by -1 hour results in 23:10,
+// offsetting 23:10 by +1 hour results in 0:10.
 func (t Timestamp) Offset(o TimeOffset) Timestamp {
 	if o.Add {
 		t.Hour = (t.Hour + o.T.Hour + ((t.Minute + o.T.Minute) / 60)) % 24
