@@ -149,6 +149,8 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 
 func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Rune() {
+	case 'u':
+		go t.model.Weather.Update()
 	case 'q':
 		t.shouldExit = true
 	case 'w':
