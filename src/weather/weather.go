@@ -51,6 +51,30 @@ type MyWeather struct {
 	PrecipitationProbability float64
 }
 
+type Handler struct {
+	Data     map[model.Timestamp]MyWeather
+	lat, lon string
+	apiKey   string
+}
+
+func NewHandler(lat, lon, key string) *Handler {
+	var h Handler
+	h.lat, h.lon, h.apiKey = lat, lon, key
+	return &h
+}
+
+func (h *Handler) Update() {
+	owmdata := GetHourlyInfo(h.lat, h.lon, h.apiKey)
+	newData := GetTodaysWeather(&owmdata)
+	if h.Data == nil {
+		h.Data = newData
+	} else {
+		for timestamp, data := range newData {
+			h.Data[timestamp] = data
+		}
+	}
+}
+
 func isToday(t time.Time) bool {
 	now := time.Now()
 	thisYear, thisMonth, thisDay := now.Date()

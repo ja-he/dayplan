@@ -122,7 +122,7 @@ type TUIModel struct {
 	Resolution      int
 	ScrollOffset    int
 	EventEditor     EventEditor
-	Weather         map[model.Timestamp]weather.MyWeather
+	Weather         weather.Handler
 	CurrentCategory model.Category
 }
 

@@ -153,7 +153,7 @@ func (t *TUIView) DrawWeather() {
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		y := t.Model.toY(timestamp)
 
-		weather, ok := t.Model.Weather[timestamp]
+		weather, ok := t.Model.Weather.Data[timestamp]
 		if ok {
 			weatherStyle := tcell.StyleDefault.Foreground(tcell.ColorLightBlue)
 			if weather.PrecipitationProbability > 25.0 {

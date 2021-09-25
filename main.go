@@ -42,17 +42,14 @@ func main() {
 		catstyles = *category_style.DefaultCategoryStyling()
 	}
 
-	var owmdata []weather.OwmHourly
+	tmodel := tui.NewTUIModel(catstyles)
+
 	if argc > 4 {
 		lat := os.Args[3]
 		lon := os.Args[4]
-		owmdata = weather.GetHourlyInfo(lat, lon, owmAPIKey)
+		tmodel.Weather = *weather.NewHandler(lat, lon, owmAPIKey)
+		go tmodel.Weather.Update()
 	}
-
-	tmodel := tui.NewTUIModel(catstyles)
-	go func() {
-		tmodel.Weather = weather.GetTodaysWeather(&owmdata)
-	}()
 
 	view := tui.NewTUIView(tmodel)
 	defer view.Screen.Fini()
