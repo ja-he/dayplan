@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"dayplan/src/model"
@@ -13,6 +14,7 @@ import (
 )
 
 type FileHandler struct {
+	mutex    sync.Mutex
 	filename string
 }
 
@@ -22,33 +24,37 @@ func NewFileHandler(filename string) *FileHandler {
 }
 
 func (h *FileHandler) Write(m *model.Model) {
+	h.mutex.Lock()
 	f, err := os.OpenFile(h.filename, os.O_TRUNC|os.O_WRONLY, 0644)
-	defer f.Close()
 	if err != nil {
 		log.Fatalf("cannot read file '%s'", h.filename)
 	}
 
 	writer := bufio.NewWriter(f)
-	defer writer.Flush()
 	for _, line := range m.ToSlice() {
 		_, _ = writer.WriteString(line + "\n")
 	}
+	writer.Flush()
+	f.Close()
+	h.mutex.Unlock()
 }
 
 func (h *FileHandler) Read() *model.Model {
 	m := model.NewModel()
 
+	h.mutex.Lock()
 	f, err := os.Open(h.filename)
 	if err != nil {
 		log.Fatalf("cannot read file '%s'", h.filename)
 	}
-	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		s := scanner.Text()
 		m.AddEvent(*model.NewEvent(s))
 	}
+	f.Close()
+	h.mutex.Unlock()
 
 	return m
 }
