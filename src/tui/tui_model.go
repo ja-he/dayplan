@@ -175,7 +175,7 @@ func (t *TUIModel) TimeAtY(y int) model.Timestamp {
 
 func (t *TUIModel) ComputeRects() {
 	defaultX := t.UIDim.EventsOffset()
-	defaultW := t.UIDim.EventsWidth()
+	defaultW := t.UIDim.EventsWidth() - 2 // -2 so we have some space to the right to insert events
 
 	active_stack := make([]model.Event, 0)
 	for _, e := range t.Model.Events {
