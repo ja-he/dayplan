@@ -133,7 +133,8 @@ func (t *TUIModel) ScrollUp() {
 }
 
 func (t *TUIModel) ScrollDown() {
-	if t.ScrollOffset < (23 * t.Resolution) {
+	eventviewBottomRow := t.UIDim.screenHeight - t.UIDim.statusHeight
+	if t.ScrollOffset+eventviewBottomRow < (24 * t.Resolution) {
 		t.ScrollOffset += 1
 	}
 }
