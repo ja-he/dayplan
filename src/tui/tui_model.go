@@ -139,6 +139,15 @@ func (t *TUIModel) ScrollDown() {
 	}
 }
 
+func (t *TUIModel) ScrollTop() {
+	t.ScrollOffset = 0
+}
+
+func (t *TUIModel) ScrollBottom() {
+	eventviewBottomRow := t.UIDim.screenHeight - t.UIDim.statusHeight
+	t.ScrollOffset = 24*t.Resolution - eventviewBottomRow
+}
+
 func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	var t TUIModel
 

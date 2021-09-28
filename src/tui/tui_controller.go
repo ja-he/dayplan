@@ -162,6 +162,10 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		}()
 	case 'q':
 		t.bump <- ControllerEventExit
+	case 'g':
+		t.model.ScrollTop()
+	case 'G':
+		t.model.ScrollBottom()
 	case 'w':
 		t.writeModel()
 	case 'c':
