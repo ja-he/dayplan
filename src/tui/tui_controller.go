@@ -65,9 +65,9 @@ type TUIController struct {
 	prevX, prevY  int
 	editState     EditState
 	EditedEvent   model.EventID
-	shouldExit    bool
 	movePropagate bool
 	FileHandler   *FileHandler
+	bump          chan ControllerEvent
 }
 
 type EditState int
@@ -156,13 +156,14 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Rune() {
 	case 'u':
-		go t.model.Weather.Update()
+		go func() {
+			t.model.Weather.Update()
+			t.bump <- ControllerEventRender
+		}()
 	case 'q':
-		t.shouldExit = true
+		t.bump <- ControllerEventExit
 	case 'w':
-		t.model.Status = "writing..."
 		t.writeModel()
-		t.model.Status = "written!"
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
 		t.model.Model = model.NewModel()
@@ -170,7 +171,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 }
 
 func (t *TUIController) writeModel() {
-	t.FileHandler.Write(t.model.Model)
+	go t.FileHandler.Write(t.model.Model)
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
@@ -341,36 +342,70 @@ func (t *TUIController) handleMouseMoveEditEvent(ev tcell.Event) {
 	}
 }
 
+type ControllerEvent int
+
+const (
+	ControllerEventExit ControllerEvent = iota
+	ControllerEventRender
+)
+
 func (t *TUIController) Run() {
-	for i := 0; i >= 0; i++ {
-		if t.shouldExit {
-			return
+
+	t.bump = make(chan ControllerEvent)
+	var wg sync.WaitGroup
+
+	// Run the main render loop, that renders or exits when prompted accordingly
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			controllerEvent := <-t.bump
+			t.model.Status = model.NewTimestampFromGotime(time.Now()).ToString()
+			switch controllerEvent {
+			case ControllerEventRender:
+				t.view.Render()
+			case ControllerEventExit:
+				return
+			}
 		}
+	}()
 
-		t.view.Render()
-		// t.view.Model.Status = fmt.Sprintf("i = %d", i)
-
-		t.model.Status = model.NewTimestampFromGotime(time.Now()).ToString()
-
-		// TODO: this blocks, meaning if no input is given, the screen doesn't update
-		//       what we might want is an input buffer in another goroutine? idk
-		ev := t.view.Screen.PollEvent()
-
-		switch t.editState {
-		case EditStateNone:
-			t.handleNoneEditEvent(ev)
-		case (EditStateMouseEditing | EditStateResizing):
-			t.handleMouseResizeEditEvent(ev)
-		case (EditStateMouseEditing | EditStateMoving):
-			t.handleMouseMoveEditEvent(ev)
-		case (EditStateEditing):
-			t.handleEditEvent(ev)
+	// Run the time tracking loop, that updates at the start of every minute
+	go func() {
+		for {
+			now := time.Now()
+			next := now.Round(1 * time.Minute).Add(1 * time.Minute)
+			time.Sleep(time.Until(next))
+			t.bump <- ControllerEventRender
 		}
+	}()
 
-		switch ev.(type) {
-		case *tcell.EventResize:
-			t.view.NeedsSync()
-			t.model.UIDim.ScreenResize(t.view.Screen.Size())
+	// Run the event tracking loop, that waits for and processes events and pings
+	// for a redraw (or program exit) after each event.
+	go func() {
+		for {
+			ev := t.view.Screen.PollEvent()
+
+			switch t.editState {
+			case EditStateNone:
+				t.handleNoneEditEvent(ev)
+			case (EditStateMouseEditing | EditStateResizing):
+				t.handleMouseResizeEditEvent(ev)
+			case (EditStateMouseEditing | EditStateMoving):
+				t.handleMouseMoveEditEvent(ev)
+			case (EditStateEditing):
+				t.handleEditEvent(ev)
+			}
+
+			switch ev.(type) {
+			case *tcell.EventResize:
+				t.view.NeedsSync()
+				t.model.UIDim.ScreenResize(t.view.Screen.Size())
+			}
+
+			t.bump <- ControllerEventRender
 		}
-	}
+	}()
+
+	wg.Wait()
 }
