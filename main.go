@@ -53,7 +53,6 @@ func main() {
 		lat := os.Args[3]
 		lon := os.Args[4]
 		tmodel.Weather = *weather.NewHandler(lat, lon, owmAPIKey)
-		go tmodel.Weather.Update()
 
 		latF, _ := strconv.ParseFloat(lat, 64)
 		lonF, _ := strconv.ParseFloat(lon, 64)
