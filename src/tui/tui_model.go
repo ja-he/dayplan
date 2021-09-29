@@ -112,6 +112,10 @@ type EventEditor struct {
 	TmpEventInfo model.Event
 }
 
+type SunTimes struct {
+	Rise, Set model.Timestamp
+}
+
 type TUIModel struct {
 	UIDim           UIDims
 	CategoryStyling category_style.CategoryStyling
@@ -124,6 +128,7 @@ type TUIModel struct {
 	EventEditor     EventEditor
 	Weather         weather.Handler
 	CurrentCategory model.Category
+	SunTimes        SunTimes
 }
 
 func (t *TUIModel) ScrollUp() {

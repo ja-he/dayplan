@@ -191,17 +191,22 @@ func (t *TUIView) DrawTimeline() {
 		if timestamp.Hour >= 24 {
 			break
 		}
+		style := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
+		if !(timestamp.IsAfter(t.Model.SunTimes.Rise)) ||
+			(timestamp.IsAfter(t.Model.SunTimes.Set)) {
+			style = style.Background(tcell.ColorBlack)
+		}
 		if row == nowRow {
 			t.DrawText(x, row, w, 1,
-				tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorRed).Bold(true),
+				style.Foreground(tcell.ColorWhite).Background(tcell.ColorRed).Bold(true),
 				fmt.Sprintf("   %s  ", model.NewTimestampFromGotime(now).ToString()))
 		} else if timestamp.Minute == 0 {
 			t.DrawText(x, row, w, 1,
-				tcell.StyleDefault.Foreground(tcell.ColorLightGray),
+				style,
 				fmt.Sprintf("   %s  ", timestamp.ToString()))
 		} else {
 			t.DrawText(x, row, w, 1,
-				tcell.StyleDefault,
+				style,
 				"          ")
 		}
 	}
