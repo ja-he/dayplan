@@ -25,9 +25,9 @@ func NewFileHandler(filename string) *FileHandler {
 
 func (h *FileHandler) Write(m *model.Model) {
 	h.mutex.Lock()
-	f, err := os.OpenFile(h.filename, os.O_TRUNC|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(h.filename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		log.Fatalf("cannot read file '%s'", h.filename)
+		log.Fatalf("error opening file '%s'", h.filename)
 	}
 
 	writer := bufio.NewWriter(f)
@@ -44,16 +44,15 @@ func (h *FileHandler) Read() *model.Model {
 
 	h.mutex.Lock()
 	f, err := os.Open(h.filename)
-	if err != nil {
-		log.Fatalf("cannot read file '%s'", h.filename)
+	fileExists := (err == nil)
+	if fileExists {
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			s := scanner.Text()
+			m.AddEvent(*model.NewEvent(s))
+		}
+		f.Close()
 	}
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		s := scanner.Text()
-		m.AddEvent(*model.NewEvent(s))
-	}
-	f.Close()
 	h.mutex.Unlock()
 
 	return m
