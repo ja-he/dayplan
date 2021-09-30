@@ -174,10 +174,8 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.ScrollBottom()
 	case 'w':
 		t.writeModel()
-	case 'e':
-		t.model.showLog = false
 	case 'E':
-		t.model.showLog = true
+		t.model.showLog = !t.model.showLog
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
 		t.model.Model = model.NewModel()
