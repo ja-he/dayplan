@@ -52,9 +52,10 @@ type MyWeather struct {
 }
 
 type Handler struct {
-	Data     map[model.Timestamp]MyWeather
-	lat, lon string
-	apiKey   string
+	Data       map[model.Timestamp]MyWeather
+	lat, lon   string
+	apiKey     string
+	queryCount int
 }
 
 func NewHandler(lat, lon, key string) *Handler {
@@ -64,6 +65,7 @@ func NewHandler(lat, lon, key string) *Handler {
 }
 
 func (h *Handler) Update() {
+	h.queryCount++
 	owmdata := GetHourlyInfo(h.lat, h.lon, h.apiKey)
 	newData := GetTodaysWeather(&owmdata)
 	if h.Data == nil {
@@ -73,6 +75,10 @@ func (h *Handler) Update() {
 			h.Data[timestamp] = data
 		}
 	}
+}
+
+func (h *Handler) GetQueryCount() int {
+	return h.queryCount
 }
 
 func isToday(t time.Time) bool {

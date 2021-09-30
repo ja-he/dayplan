@@ -122,7 +122,7 @@ type TUIModel struct {
 	Positions       map[model.EventID]util.Rect
 	Hovered         hoveredEventInfo
 	Model           *model.Model
-	Status          string
+	Status          map[string]string
 	Resolution      int
 	ScrollOffset    int
 	EventEditor     EventEditor
@@ -155,10 +155,10 @@ func (t *TUIModel) ScrollBottom() {
 
 func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	var t TUIModel
+	t.Status = make(map[string]string)
 
 	t.CategoryStyling = cs
 	t.Positions = make(map[model.EventID]util.Rect)
-	t.Status = "initial status msg"
 
 	t.Resolution = 6
 	t.ScrollOffset = 8 * t.Resolution

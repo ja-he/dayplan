@@ -87,7 +87,7 @@ func main() {
 		// TODO: we should differentiate status and error, and probably have a more
 		//       robust error logging system, that users can view while the program
 		//       is running.
-		tmodel.Status = "Error: could not fetch lat-&longitude"
+		tmodel.Status["main-error-latlon"] = "could not fetch lat-&longitude"
 	}
 
 	view := tui.NewTUIView(tmodel)

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -158,6 +159,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		go func() {
 			t.model.Weather.Update()
 			t.bump <- ControllerEventRender
+			t.model.Status["owm-qcount"] = fmt.Sprint(t.model.Weather.GetQueryCount())
 		}()
 	case 'q':
 		t.bump <- ControllerEventExit
@@ -363,7 +365,6 @@ func (t *TUIController) Run() {
 		defer wg.Done()
 		for {
 			controllerEvent := <-t.bump
-			t.model.Status = model.NewTimestampFromGotime(time.Now()).ToString()
 			switch controllerEvent {
 			case ControllerEventRender:
 				t.view.Render()
