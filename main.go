@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"dayplan/src/category_style"
@@ -12,46 +14,60 @@ import (
 	"dayplan/src/tui"
 	"dayplan/src/weather"
 
+	"github.com/jessevdk/go-flags"
 	"github.com/kelvins/sunrisesunset"
 )
 
 var owmAPIKey = os.Getenv("OWM_API_KEY")
 
+var opts struct {
+	Dir string `short:"d" long:"directory" description:"The directory dayplan uses" value-name:"PATH"`
+}
+
 // MAIN
 func main() {
-	var h *tui.FileHandler
-
-	argc := len(os.Args)
-	if argc > 1 {
-		filename := os.Args[1]
-		h = tui.NewFileHandler(filename)
+	// parse the flags
+	_, err := flags.Parse(&opts)
+	if flags.WroteHelp(err) {
+		os.Exit(0)
+	} else if err != nil {
+		panic("some flag parsing error occurred")
 	}
 
-	var catstyles category_style.CategoryStyling
-	if argc > 2 {
-		catstyles = *category_style.EmptyCategoryStyling()
-		filename := os.Args[2]
-		f, err := os.Open(filename)
-		if err != nil {
-			log.Fatalf("cannot read file '%s'", filename)
-		}
-		defer f.Close()
+	// set up dir per option
+	var dir string
+	if opts.Dir == "" {
+		dir = os.Getenv("HOME") + "/.config/dayplan"
+	} else {
+		dir = strings.TrimRight(opts.Dir, "/")
+	}
 
+	// set up day input file
+	now := time.Now()
+	day := fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day())
+	dayFile := tui.NewFileHandler(dir + "/days/" + day)
+
+	// read category styles
+	var catstyles category_style.CategoryStyling
+	catstyles = *category_style.EmptyCategoryStyling()
+	f, err := os.Open(dir + "/" + "category-styles")
+	if err == nil {
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			s := scanner.Text()
 			catstyles.AddStyleFromCfg(s)
 		}
-
+		f.Close()
 	} else {
 		catstyles = *category_style.DefaultCategoryStyling()
 	}
 
 	tmodel := tui.NewTUIModel(catstyles)
 
-	if argc > 4 {
-		lat := os.Args[3]
-		lon := os.Args[4]
+	lat := os.Getenv("LATITUDE")
+	lon := os.Getenv("LONGITUDE")
+	coordinatesProvided := (lat != "" && lon != "")
+	if coordinatesProvided {
 		tmodel.Weather = *weather.NewHandler(lat, lon, owmAPIKey)
 
 		latF, _ := strconv.ParseFloat(lat, 64)
@@ -65,12 +81,19 @@ func main() {
 		}
 		tmodel.SunTimes.Rise = *model.NewTimestampFromGotime(sunrise)
 		tmodel.SunTimes.Set = *model.NewTimestampFromGotime(sunset)
+	} else {
+		tmodel.SunTimes.Rise = *model.NewTimestamp("00:00")
+		tmodel.SunTimes.Set = *model.NewTimestamp("23:59")
+		// TODO: we should differentiate status and error, and probably have a more
+		//       robust error logging system, that users can view while the program
+		//       is running.
+		tmodel.Status = "Error: could not fetch lat-&longitude"
 	}
 
 	view := tui.NewTUIView(tmodel)
 	defer view.Screen.Fini()
 
-	controller := tui.NewTUIController(view, tmodel, h)
+	controller := tui.NewTUIController(view, tmodel, dayFile)
 
 	controller.Run()
 }
