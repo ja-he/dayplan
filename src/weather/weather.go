@@ -66,10 +66,10 @@ func NewHandler(lat, lon, key string) *Handler {
 	return &h
 }
 
-func (h *Handler) Update() {
+func (h *Handler) Update() error {
 	h.mutex.Lock()
 	h.queryCount++
-	owmdata := GetHourlyInfo(h.lat, h.lon, h.apiKey)
+	owmdata, err := GetHourlyInfo(h.lat, h.lon, h.apiKey)
 	newData := GetTodaysWeather(&owmdata)
 	if h.Data == nil {
 		h.Data = newData
@@ -79,6 +79,7 @@ func (h *Handler) Update() {
 		}
 	}
 	h.mutex.Unlock()
+	return err
 }
 
 func (h *Handler) GetQueryCount() int {
@@ -120,26 +121,25 @@ func GetTodaysWeather(data *[]OwmHourly) map[model.Timestamp]MyWeather {
 	return result
 }
 
-func GetHourlyInfo(lat, lon, apiKey string) []OwmHourly {
+func GetHourlyInfo(lat, lon, apiKey string) ([]OwmHourly, error) {
 
 	call := fmt.Sprintf("https://api.openweathermap.org/data/2.5/onecall?lat=%s&lon=%s&exclude=daily,minutely,current,alerts&appid=%s", lat, lon, apiKey)
 
 	response, err := http.Get(call)
 	if err != nil {
-		panic(err)
+		return make([]OwmHourly, 0), err
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
-
 	if err != nil {
-		panic(err)
+		return make([]OwmHourly, 0), err
 	}
 
 	data := OwmFull{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		panic(err)
+		return make([]OwmHourly, 0), err
 	}
 
-	return data.Hourly
+	return data.Hourly, nil
 }
