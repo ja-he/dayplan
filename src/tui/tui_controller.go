@@ -159,7 +159,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		go func() {
 			t.model.Weather.Update()
 			t.bump <- ControllerEventRender
-			t.model.Status["owm-qcount"] = fmt.Sprint(t.model.Weather.GetQueryCount())
+			t.model.Status.Set("owm-qcount", fmt.Sprint(t.model.Weather.GetQueryCount()))
 		}()
 	case 'q':
 		t.bump <- ControllerEventExit
@@ -206,22 +206,22 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 
 		pane := t.model.UIDim.WhichUIPane(x, y)
 		switch pane {
-		case Status:
-		case Weather:
+		case UIStatus:
+		case UIWeather:
 			switch buttons {
 			case tcell.WheelUp:
 				t.model.ScrollUp()
 			case tcell.WheelDown:
 				t.model.ScrollDown()
 			}
-		case Timeline:
+		case UITimeline:
 			switch buttons {
 			case tcell.WheelUp:
 				t.model.ScrollUp()
 			case tcell.WheelDown:
 				t.model.ScrollDown()
 			}
-		case Events:
+		case UIEvents:
 			// if mouse over event, update hover info in tui model
 			t.model.Hovered = t.model.GetEventForPos(x, y)
 
@@ -252,7 +252,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			case tcell.WheelDown:
 				t.model.ScrollDown()
 			}
-		case Tools:
+		case UITools:
 			switch buttons {
 			case tcell.Button1:
 				cat := t.model.GetCategoryForPos(x, y)
@@ -262,7 +262,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			}
 		default:
 		}
-		if pane != Events {
+		if pane != UIEvents {
 			t.model.ClearHover()
 		}
 	}

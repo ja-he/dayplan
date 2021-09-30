@@ -3,9 +3,10 @@ package tui
 import (
 	"fmt"
 	"math"
-	"time"
+	"sync"
 
 	"dayplan/src/category_style"
+	"dayplan/src/log"
 	"dayplan/src/model"
 	"dayplan/src/util"
 	"dayplan/src/weather"
@@ -19,11 +20,11 @@ type hoveredEventInfo struct {
 type UIPane int
 
 const (
-	Weather UIPane = iota
-	Timeline
-	Events
-	Tools
-	Status
+	UIWeather UIPane = iota
+	UITimeline
+	UIEvents
+	UITools
+	UIStatus
 )
 
 type UIDims struct {
@@ -49,19 +50,19 @@ func (d *UIDims) WhichUIPane(x, y int) UIPane {
 	toolsPane := util.Rect{X: d.ToolsOffset(), Y: 0, W: d.ToolsWidth(), H: mainPaneHeight}
 
 	if statusPane.Contains(x, y) {
-		return Status
+		return UIStatus
 	}
 	if weatherPane.Contains(x, y) {
-		return Weather
+		return UIWeather
 	}
 	if timelinePane.Contains(x, y) {
-		return Timeline
+		return UITimeline
 	}
 	if eventsPane.Contains(x, y) {
-		return Events
+		return UIEvents
 	}
 	if toolsPane.Contains(x, y) {
-		return Tools
+		return UITools
 	}
 
 	panic(fmt.Sprintf("Unknown UI pos (%d,%d)", x, y))
@@ -117,19 +118,19 @@ type SunTimes struct {
 	Rise, Set model.Timestamp
 }
 
-type LogEntry struct {
-	At       time.Time
-	Location string
-	Type     string
-	Message  string
+type Status struct {
+	status map[string]string
+	mutex  sync.Mutex
 }
 
-type Log struct {
-	Entries []LogEntry
+func (s *Status) Set(key, val string) {
+	s.mutex.Lock()
+	s.status[key] = val
+	s.mutex.Unlock()
 }
 
-func (l *Log) Add(location, entryType, message string) {
-	l.Entries = append(l.Entries, LogEntry{time.Now(), location, entryType, message})
+func (s *Status) Get() map[string]string {
+	return s.status
 }
 
 type TUIModel struct {
@@ -138,8 +139,8 @@ type TUIModel struct {
 	Positions       map[model.EventID]util.Rect
 	Hovered         hoveredEventInfo
 	Model           *model.Model
-	Status          map[string]string
-	Log             Log
+	Status          Status
+	Log             log.Log
 	showLog         bool
 	Resolution      int
 	ScrollOffset    int
@@ -173,7 +174,7 @@ func (t *TUIModel) ScrollBottom() {
 
 func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	var t TUIModel
-	t.Status = make(map[string]string)
+	t.Status.status = make(map[string]string)
 
 	t.CategoryStyling = cs
 	t.Positions = make(map[model.EventID]util.Rect)

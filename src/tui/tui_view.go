@@ -103,7 +103,7 @@ func (t *TUIView) DrawLog() {
 		title := "LOG"
 		t.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
 		t.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
-		for _, entry := range t.Model.Log.Entries {
+		for _, entry := range t.Model.Log.Get() {
 			timeStr := strings.Join(strings.Split(entry.At.String(), " ")[0:2], " ")
 			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorLightGrey), timeStr)
 			x += len(timeStr) + 1
@@ -175,7 +175,7 @@ func (t *TUIView) DrawStatus() {
 	statusStyle := tcell.StyleDefault.Background(tcell.ColorLightGray).Foreground(tcell.ColorBlack)
 	t.DrawBox(statusStyle, x, y, w, h)
 	xs, ys := x, y
-	for k, v := range t.Model.Status {
+	for k, v := range t.Model.Status.Get() {
 		statusStr := fmt.Sprintf("%s: %s", k, v)
 		t.DrawText(xs, ys, w, h, statusStyle, statusStr)
 		xs += len(statusStr)
