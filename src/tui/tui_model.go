@@ -92,7 +92,7 @@ func (d *UIDims) Initialize(weatherWidth, timelineWidth, toolsWidth int,
 	d.timelineOffset = d.weatherOffset + weatherWidth
 	d.eventsOffset = d.timelineOffset + timelineWidth
 	d.toolsOffset = screenWidth - toolsWidth
-	d.statusHeight = 4
+	d.statusHeight = 1
 	d.screenWidth = screenWidth
 	d.screenHeight = screenHeight
 }
