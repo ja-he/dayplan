@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"time"
 
 	"dayplan/src/model"
@@ -55,6 +56,7 @@ type Handler struct {
 	Data       map[model.Timestamp]MyWeather
 	lat, lon   string
 	apiKey     string
+	mutex      sync.Mutex
 	queryCount int
 }
 
@@ -65,6 +67,7 @@ func NewHandler(lat, lon, key string) *Handler {
 }
 
 func (h *Handler) Update() {
+	h.mutex.Lock()
 	h.queryCount++
 	owmdata := GetHourlyInfo(h.lat, h.lon, h.apiKey)
 	newData := GetTodaysWeather(&owmdata)
@@ -75,6 +78,7 @@ func (h *Handler) Update() {
 			h.Data[timestamp] = data
 		}
 	}
+	h.mutex.Unlock()
 }
 
 func (h *Handler) GetQueryCount() int {
