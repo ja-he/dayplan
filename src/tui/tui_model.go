@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"dayplan/src/category_style"
 	"dayplan/src/model"
@@ -116,6 +117,21 @@ type SunTimes struct {
 	Rise, Set model.Timestamp
 }
 
+type LogEntry struct {
+	At       time.Time
+	Location string
+	Type     string
+	Message  string
+}
+
+type Log struct {
+	Entries []LogEntry
+}
+
+func (l *Log) Add(location, entryType, message string) {
+	l.Entries = append(l.Entries, LogEntry{time.Now(), location, entryType, message})
+}
+
 type TUIModel struct {
 	UIDim           UIDims
 	CategoryStyling category_style.CategoryStyling
@@ -123,6 +139,8 @@ type TUIModel struct {
 	Hovered         hoveredEventInfo
 	Model           *model.Model
 	Status          map[string]string
+	Log             Log
+	showLog         bool
 	Resolution      int
 	ScrollOffset    int
 	EventEditor     EventEditor

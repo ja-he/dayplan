@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"dayplan/src/colors"
@@ -94,6 +95,32 @@ func (t *TUIView) DrawEditor() {
 	}
 }
 
+func (t *TUIView) DrawLog() {
+	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
+	if t.Model.showLog {
+		x, y, w, h := 0, 2, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight
+		t.DrawBox(style, 0, 0, w, h)
+		title := "LOG"
+		t.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
+		t.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
+		for _, entry := range t.Model.Log.Entries {
+			timeStr := strings.Join(strings.Split(entry.At.String(), " ")[0:2], " ")
+			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorLightGrey), timeStr)
+			x += len(timeStr) + 1
+
+			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey), entry.Location)
+			x += len(entry.Location) + 1
+
+			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey).Italic(true), entry.Type)
+			x += len(entry.Type) + 1
+
+			t.DrawText(x, y, w, 0, style, entry.Message)
+			x = 0
+			y++
+		}
+	}
+}
+
 func (t *TUIView) Render() {
 
 	t.Screen.Clear()
@@ -103,8 +130,9 @@ func (t *TUIView) Render() {
 	t.Model.ComputeRects() // TODO: move to controller?
 	t.DrawEvents()
 	t.DrawTools()
-	t.DrawStatus()
 	t.DrawEditor()
+	t.DrawLog()
+	t.DrawStatus()
 
 	if t.needsSync {
 		t.needsSync = false
