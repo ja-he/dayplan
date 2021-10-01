@@ -104,17 +104,18 @@ func (t *TUIView) DrawLog() {
 		t.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
 		t.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
 		for _, entry := range t.Model.Log.Get() {
-			timeStr := strings.Join(strings.Split(entry.At.String(), " ")[0:2], " ")
-			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorLightGrey), timeStr)
-			x += len(timeStr) + 1
-
-			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey), entry.Location)
-			x += len(entry.Location) + 1
-
 			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey).Italic(true), entry.Type)
 			x += len(entry.Type) + 1
 
 			t.DrawText(x, y, w, 0, style, entry.Message)
+			x += len(entry.Message) + 1
+
+			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey), entry.Location)
+			x += len(entry.Location) + 1
+
+			timeStr := strings.Join(strings.Split(entry.At.String(), " ")[0:2], " ")
+			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorLightGrey), timeStr)
+
 			x = 0
 			y++
 		}
