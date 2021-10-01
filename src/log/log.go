@@ -1,6 +1,9 @@
 package log
 
 import (
+	"fmt"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -17,7 +20,13 @@ type Log struct {
 	entries []LogEntry
 }
 
-func (l *Log) Add(location, entryType, message string) {
+func (l *Log) Add(entryType, message string) {
+	_, path, line, ok := runtime.Caller(1)
+	file := filepath.Base(path)
+	location := "[irretrievable]"
+	if ok {
+		location = fmt.Sprintf("%s:%d", file, line)
+	}
 	l.mutex.Lock()
 	l.entries = append(l.entries, LogEntry{time.Now(), location, entryType, message})
 	l.mutex.Unlock()

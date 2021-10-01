@@ -159,9 +159,9 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		go func() {
 			err := t.model.Weather.Update()
 			if err != nil {
-				t.model.Log.Add("handleNoneEditKeyInput", "ERROR", err.Error())
+				t.model.Log.Add("ERROR", err.Error())
 			} else {
-				t.model.Log.Add("handleNoneEditKeyInput", "DEBUG", "successfully retrieved weather data")
+				t.model.Log.Add("DEBUG", "successfully retrieved weather data")
 			}
 			t.bump <- ControllerEventRender
 			t.model.Status.Set("owm-qcount", fmt.Sprint(t.model.Weather.GetQueryCount()))
