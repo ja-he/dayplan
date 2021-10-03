@@ -179,6 +179,18 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
 		t.model.Model = model.NewModel()
+	case '+':
+		if t.model.Resolution*2 <= 12 {
+			t.model.Resolution *= 2
+			t.model.ScrollOffset *= 2
+		}
+	case '-':
+		if (t.model.Resolution % 2) == 0 {
+			t.model.Resolution /= 2
+			t.model.ScrollOffset /= 2
+		} else {
+			t.model.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.model.Resolution))
+		}
 	}
 }
 
