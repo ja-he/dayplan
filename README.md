@@ -9,10 +9,11 @@ Usage:
   dayplan [OPTIONS]
 
 Application Options:
-  -d, --directory=PATH    The directory dayplan uses
+  -c, --config-dir=<dir>    Specify the directory dayplan uses
+  -d, --day=<file>          Specify the day to plan
 
 Help Options:
-  -h, --help              Show this help message
+  -h, --help                Show this help message
 ```
 
 By default dayplan uses the directory `${HOME}/.config/dayplan` for

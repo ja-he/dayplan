@@ -21,7 +21,8 @@ import (
 var owmAPIKey = os.Getenv("OWM_API_KEY")
 
 var opts struct {
-	Dir string `short:"d" long:"directory" description:"The directory dayplan uses" value-name:"PATH"`
+	Dir string `short:"c" long:"config-dir" description:"Specify the directory dayplan uses" value-name:"<dir>"`
+	Day string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
 }
 
 // MAIN
@@ -44,7 +45,12 @@ func main() {
 
 	// set up day input file
 	now := time.Now()
-	day := fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day())
+	var day string
+	if opts.Day == "" {
+		day = fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day())
+	} else {
+		day = opts.Day
+	}
 	dayFile := tui.NewFileHandler(dir + "/days/" + day)
 
 	// read category styles
