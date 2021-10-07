@@ -2,6 +2,14 @@
 
 A utility to plan your day.
 
+## Warning/Disclaimer
+
+This is a project initially written to familiarize myself with go.
+There will probably a lot of less-than-idiomatic (read: shitty) code in here for
+quite a while to come (read: forever).
+It's the middle ground between what I want to use and what I had time to make
+and I don't see why anybody else would want to use this, at least for now.
+
 ## Usage
 
 ```
