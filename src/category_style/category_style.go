@@ -77,11 +77,11 @@ func (cs *CategoryStyling) GetAll() []StyledCat {
 	return cs.styles
 }
 
-func (cs *CategoryStyling) GetStyle(c model.Category) tcell.Style {
+func (cs *CategoryStyling) GetStyle(c model.Category) (tcell.Style, error) {
 	for _, styling := range cs.styles {
 		if styling.Cat == c {
-			return styling.Style
+			return styling.Style, nil
 		}
 	}
-	panic(fmt.Sprintf("unknown style for category '%s' requested", c.Name))
+	return tcell.StyleDefault, fmt.Errorf("style for category '%s' not found", c.Name)
 }

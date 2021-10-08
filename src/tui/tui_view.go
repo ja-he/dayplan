@@ -255,7 +255,10 @@ func (t *TUIView) DrawTimeline() {
 
 func (t *TUIView) DrawEvents() {
 	for _, e := range t.Model.Model.Events {
-		style := t.Model.CategoryStyling.GetStyle(e.Cat)
+		style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
+		if err != nil {
+			t.Model.Log.Add("ERROR", err.Error())
+		}
 		// based on event state, draw a box or maybe a smaller one, or ...
 		p := t.Model.Positions[e.ID]
 		if t.Model.Hovered.EventID != e.ID {
@@ -264,7 +267,7 @@ func (t *TUIView) DrawEvents() {
 			t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 			t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 		} else {
-			selStyle := colors.DarkenBG(t.Model.CategoryStyling.GetStyle(e.Cat), 80)
+			selStyle := colors.DarkenBG(style, 80)
 			switch t.Model.Hovered.HoverState {
 			case HoverStateResize:
 				t.DrawBox(style, p.X, p.Y, p.W, p.H-1)
