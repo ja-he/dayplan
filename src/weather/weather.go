@@ -67,6 +67,13 @@ func NewHandler(lat, lon, key string) *Handler {
 }
 
 func (h *Handler) Update() error {
+	// Check that we have the params we need to successfully query
+	paramsProvided := (h.lat != "" && h.lon != "" && h.apiKey != "")
+	if !paramsProvided {
+		return fmt.Errorf("insufficient parameters for query (lat:%s,lon:%s,key-strlen:%d)",
+			h.lat, h.lon, len(h.apiKey))
+	}
+
 	h.mutex.Lock()
 	h.queryCount++
 	owmdata, err := GetHourlyInfo(h.lat, h.lon, h.apiKey)
