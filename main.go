@@ -70,6 +70,10 @@ func main() {
 
 	tmodel := tui.NewTUIModel(catstyles)
 
+	if owmAPIKey == "" {
+		tmodel.Log.Add("ERROR", "could not fetch OWM API key")
+	}
+
 	lat := os.Getenv("LATITUDE")
 	lon := os.Getenv("LONGITUDE")
 	coordinatesProvided := (lat != "" && lon != "")
