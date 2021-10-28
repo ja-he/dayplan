@@ -146,7 +146,7 @@ func (t *TUIView) Render() {
 func (t *TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {
 	row := y
 	col := x
-	for _, r := range []rune(text) {
+	for _, r := range text {
 		t.Screen.SetContent(col, row, r, nil, style)
 		col++
 		if col >= x+w {
