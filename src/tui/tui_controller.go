@@ -333,9 +333,19 @@ func (t *TUIController) handleEditEvent(ev tcell.Event) {
 		case tcell.KeyEnter:
 			t.endEdit()
 		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			textlen := len(t.model.EventEditor.TmpEventInfo.Name)
-			if textlen > 0 {
-				t.model.EventEditor.TmpEventInfo.Name = t.model.EventEditor.TmpEventInfo.Name[:textlen-1]
+			n_bytes := len(t.model.EventEditor.TmpEventInfo.Name)
+			if n_bytes > 0 {
+				as_runes := []rune(t.model.EventEditor.TmpEventInfo.Name)
+				n_runes := len(as_runes)
+				backspace_bytedist := len(string(as_runes[n_runes-1:]))
+
+				if n_runes == 0 {
+					t.model.Log.Add("ERROR",
+						fmt.Sprintf("string was 0 runes but not 0 bytes: '%s'",
+							t.model.EventEditor.TmpEventInfo.Name))
+				}
+
+				t.model.EventEditor.TmpEventInfo.Name = t.model.EventEditor.TmpEventInfo.Name[:n_bytes-backspace_bytedist]
 			}
 		case tcell.KeyCtrlU:
 			t.model.EventEditor.TmpEventInfo.Name = ""

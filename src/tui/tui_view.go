@@ -89,7 +89,7 @@ func (t *TUIView) DrawEditor() {
 		y -= editorHeight / 2
 		t.DrawBox(style, x, y, editorWidth, editorHeight)
 		t.DrawText(x+1, y+1, editorWidth-2, 0, style, editor.TmpEventInfo.Name)
-		t.Screen.ShowCursor(x+1+len(editor.TmpEventInfo.Name), y+1)
+		t.Screen.ShowCursor(x+1+len([]rune(editor.TmpEventInfo.Name)), y+1)
 	} else {
 		t.Screen.ShowCursor(-1, -1)
 	}
