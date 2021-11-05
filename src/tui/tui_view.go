@@ -197,11 +197,13 @@ func (t *TUIView) DrawWeather() {
 		weather, ok := t.Model.Weather.Data[timestamp]
 		if ok {
 			weatherStyle := tcell.StyleDefault.Foreground(tcell.ColorLightBlue)
-			if weather.PrecipitationProbability > .25 {
+			switch {
+			case weather.PrecipitationProbability > .25:
 				weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorBlack)
-			} else if weather.Clouds < 25 {
+			case weather.Clouds < 25:
 				weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xfff0cc)).Foreground(tcell.ColorBlack)
 			}
+
 			t.DrawBox(weatherStyle, t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), t.Model.Resolution)
 
 			t.DrawText(t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, weather.Info)
