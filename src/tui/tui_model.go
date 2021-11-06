@@ -37,6 +37,32 @@ const (
 	ViewMonth
 )
 
+func PrevView(current ActiveView) ActiveView {
+	switch current {
+	case ViewDay:
+		return ViewWeek
+	case ViewWeek:
+		return ViewMonth
+	case ViewMonth:
+		return ViewMonth
+	default:
+		panic("unknown view!")
+	}
+}
+
+func NextView(current ActiveView) ActiveView {
+	switch current {
+	case ViewDay:
+		return ViewDay
+	case ViewWeek:
+		return ViewDay
+	case ViewMonth:
+		return ViewWeek
+	default:
+		panic("unknown view!")
+	}
+}
+
 func toString(av ActiveView) string {
 	switch av {
 	case ViewDay:

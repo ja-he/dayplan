@@ -204,6 +204,8 @@ func (t *TUIController) goToNextDay() {
 
 func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Key() {
+	case tcell.KeyESC:
+		t.model.activeView = PrevView(t.model.activeView)
 	case tcell.KeyCtrlU:
 		t.model.ScrollUp(10)
 	case tcell.KeyCtrlD:
@@ -221,6 +223,8 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 			t.bump <- ControllerEventRender
 			t.model.Status.Set("owm-qcount", fmt.Sprint(t.model.Weather.GetQueryCount()))
 		}()
+	case 'i':
+		t.model.activeView = NextView(t.model.activeView)
 	case 'q':
 		t.bump <- ControllerEventExit
 	case 'g':
