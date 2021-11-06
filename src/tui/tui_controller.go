@@ -154,6 +154,12 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 }
 
 func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
+	switch e.Key() {
+	case tcell.KeyCtrlU:
+		t.model.ScrollUp(10)
+	case tcell.KeyCtrlD:
+		t.model.ScrollDown(10)
+	}
 	switch e.Rune() {
 	case 'u':
 		go func() {
@@ -225,16 +231,16 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 		case UIWeather:
 			switch buttons {
 			case tcell.WheelUp:
-				t.model.ScrollUp()
+				t.model.ScrollUp(1)
 			case tcell.WheelDown:
-				t.model.ScrollDown()
+				t.model.ScrollDown(1)
 			}
 		case UITimeline:
 			switch buttons {
 			case tcell.WheelUp:
-				t.model.ScrollUp()
+				t.model.ScrollUp(1)
 			case tcell.WheelDown:
-				t.model.ScrollDown()
+				t.model.ScrollDown(1)
 			}
 		case UIEvents:
 			// if mouse over event, update hover info in tui model
@@ -263,9 +269,9 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 					t.startMouseMove()
 				}
 			case tcell.WheelUp:
-				t.model.ScrollUp()
+				t.model.ScrollUp(1)
 			case tcell.WheelDown:
-				t.model.ScrollDown()
+				t.model.ScrollDown(1)
 			}
 		case UITools:
 			switch buttons {

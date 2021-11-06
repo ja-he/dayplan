@@ -150,16 +150,16 @@ type TUIModel struct {
 	SunTimes        SunTimes
 }
 
-func (t *TUIModel) ScrollUp() {
-	if t.ScrollOffset > 0 {
-		t.ScrollOffset -= 1
+func (t *TUIModel) ScrollUp(by int) {
+	if t.ScrollOffset-by >= 0 {
+		t.ScrollOffset -= by
 	}
 }
 
-func (t *TUIModel) ScrollDown() {
+func (t *TUIModel) ScrollDown(by int) {
 	eventviewBottomRow := t.UIDim.screenHeight - t.UIDim.statusHeight
-	if t.ScrollOffset+eventviewBottomRow < (24 * t.Resolution) {
-		t.ScrollOffset += 1
+	if t.ScrollOffset+by+eventviewBottomRow <= (24 * t.Resolution) {
+		t.ScrollOffset += by
 	}
 }
 
