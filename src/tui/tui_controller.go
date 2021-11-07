@@ -176,6 +176,8 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 func (t *TUIController) goToDay(newDay model.Day) {
 	t.model.Log.Add("DEBUG", "going to "+newDay.ToString())
 
+	t.model.Status.Set("day", newDay.ToString())
+
 	if !t.model.HasModel(newDay) {
 		// load file
 		newModel := t.Program.GetModelFromFileHandler(newDay)
