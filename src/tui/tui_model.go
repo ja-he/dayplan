@@ -112,6 +112,7 @@ func (ui *UIDims) StatusOffset() int   { return ui.screenHeight - ui.statusHeigh
 type EventEditor struct {
 	Active       bool
 	TmpEventInfo model.Event
+	CursorPos    int
 }
 
 type SunTimes struct {

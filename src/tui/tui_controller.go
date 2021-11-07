@@ -211,6 +211,7 @@ func (t *TUIController) updateCursorPos(x, y int) {
 func (t *TUIController) startEdit(id model.EventID) {
 	t.model.EventEditor.Active = true
 	t.model.EventEditor.TmpEventInfo = *t.model.Model.GetEvent(id)
+	t.model.EventEditor.CursorPos = len([]rune(t.model.EventEditor.TmpEventInfo.Name))
 	t.editState = EditStateEditing
 }
 
@@ -339,26 +340,44 @@ func (t *TUIController) handleEditEvent(ev tcell.Event) {
 		case tcell.KeyEnter:
 			t.endEdit()
 		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			n_bytes := len(t.model.EventEditor.TmpEventInfo.Name)
-			if n_bytes > 0 {
-				as_runes := []rune(t.model.EventEditor.TmpEventInfo.Name)
-				n_runes := len(as_runes)
-				backspace_bytedist := len(string(as_runes[n_runes-1:]))
+			if t.model.EventEditor.CursorPos > 0 {
+				tmpStr := []rune(t.model.EventEditor.TmpEventInfo.Name)
+				preCursor := tmpStr[:t.model.EventEditor.CursorPos-1]
+				postCursor := tmpStr[t.model.EventEditor.CursorPos:]
 
-				if n_runes == 0 {
-					t.model.Log.Add("ERROR",
-						fmt.Sprintf("string was 0 runes but not 0 bytes: '%s'",
-							t.model.EventEditor.TmpEventInfo.Name))
-				}
-
-				t.model.EventEditor.TmpEventInfo.Name = t.model.EventEditor.TmpEventInfo.Name[:n_bytes-backspace_bytedist]
+				t.model.EventEditor.TmpEventInfo.Name = string(append(preCursor, postCursor...))
+				t.model.EventEditor.CursorPos--
 			}
+		case tcell.KeyCtrlE:
+			t.model.EventEditor.CursorPos = len([]rune(t.model.EventEditor.TmpEventInfo.Name))
+		case tcell.KeyCtrlA:
+			t.model.EventEditor.CursorPos = 0
 		case tcell.KeyCtrlU:
-			t.model.EventEditor.TmpEventInfo.Name = ""
+			nameAfterCursor := []rune(t.model.EventEditor.TmpEventInfo.Name)[t.model.EventEditor.CursorPos:]
+			t.model.EventEditor.TmpEventInfo.Name = string(nameAfterCursor)
+			t.model.EventEditor.CursorPos = 0
+		case tcell.KeyLeft:
+			if t.model.EventEditor.CursorPos > 0 {
+				t.model.EventEditor.CursorPos--
+			}
+		case tcell.KeyRight:
+			nameLen := len([]rune(t.model.EventEditor.TmpEventInfo.Name))
+			if t.model.EventEditor.CursorPos < nameLen {
+				t.model.EventEditor.CursorPos++
+			}
 		default:
-			rune := e.Rune()
-			if strconv.IsPrint(rune) {
-				t.model.EventEditor.TmpEventInfo.Name += string(rune)
+			newRune := e.Rune()
+			if strconv.IsPrint(newRune) {
+				tmpName := []rune(t.model.EventEditor.TmpEventInfo.Name)
+				cursorPos := t.model.EventEditor.CursorPos
+				if len(tmpName) == cursorPos {
+					tmpName = append(tmpName, newRune)
+				} else {
+					tmpName = append(tmpName[:cursorPos+1], tmpName[cursorPos:]...)
+					tmpName[cursorPos] = newRune
+				}
+				t.model.EventEditor.TmpEventInfo.Name = string(tmpName)
+				t.model.EventEditor.CursorPos++
 			}
 		}
 	}
