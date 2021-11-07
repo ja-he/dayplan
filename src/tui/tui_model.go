@@ -109,12 +109,6 @@ func (ui *UIDims) ToolsWidth() int     { return ui.screenWidth - ui.ToolsOffset(
 func (ui *UIDims) StatusHeight() int   { return ui.statusHeight }
 func (ui *UIDims) StatusOffset() int   { return ui.screenHeight - ui.statusHeight }
 
-type EventEditor struct {
-	Active       bool
-	TmpEventInfo model.Event
-	CursorPos    int
-}
-
 type SunTimes struct {
 	Rise, Set model.Timestamp
 }

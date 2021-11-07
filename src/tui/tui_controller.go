@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -334,51 +333,35 @@ func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
 func (t *TUIController) handleEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
+		editor := &t.model.EventEditor
+
 		switch e.Key() {
 		case tcell.KeyEsc:
 			t.abortEdit()
+
 		case tcell.KeyEnter:
 			t.endEdit()
-		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			if t.model.EventEditor.CursorPos > 0 {
-				tmpStr := []rune(t.model.EventEditor.TmpEventInfo.Name)
-				preCursor := tmpStr[:t.model.EventEditor.CursorPos-1]
-				postCursor := tmpStr[t.model.EventEditor.CursorPos:]
 
-				t.model.EventEditor.TmpEventInfo.Name = string(append(preCursor, postCursor...))
-				t.model.EventEditor.CursorPos--
-			}
+		case tcell.KeyBackspace, tcell.KeyBackspace2:
+			editor.backspaceChar()
+
 		case tcell.KeyCtrlE:
-			t.model.EventEditor.CursorPos = len([]rune(t.model.EventEditor.TmpEventInfo.Name))
+			editor.moveCursorToEnd()
+
 		case tcell.KeyCtrlA:
-			t.model.EventEditor.CursorPos = 0
+			editor.moveCursorToBeginning()
+
 		case tcell.KeyCtrlU:
-			nameAfterCursor := []rune(t.model.EventEditor.TmpEventInfo.Name)[t.model.EventEditor.CursorPos:]
-			t.model.EventEditor.TmpEventInfo.Name = string(nameAfterCursor)
-			t.model.EventEditor.CursorPos = 0
+			editor.deleteToBeginning()
+
 		case tcell.KeyLeft:
-			if t.model.EventEditor.CursorPos > 0 {
-				t.model.EventEditor.CursorPos--
-			}
+			editor.moveCursorLeft()
+
 		case tcell.KeyRight:
-			nameLen := len([]rune(t.model.EventEditor.TmpEventInfo.Name))
-			if t.model.EventEditor.CursorPos < nameLen {
-				t.model.EventEditor.CursorPos++
-			}
+			editor.moveCursorRight()
+
 		default:
-			newRune := e.Rune()
-			if strconv.IsPrint(newRune) {
-				tmpName := []rune(t.model.EventEditor.TmpEventInfo.Name)
-				cursorPos := t.model.EventEditor.CursorPos
-				if len(tmpName) == cursorPos {
-					tmpName = append(tmpName, newRune)
-				} else {
-					tmpName = append(tmpName[:cursorPos+1], tmpName[cursorPos:]...)
-					tmpName[cursorPos] = newRune
-				}
-				t.model.EventEditor.TmpEventInfo.Name = string(tmpName)
-				t.model.EventEditor.CursorPos++
-			}
+			editor.addRune(e.Rune())
 		}
 	}
 }
