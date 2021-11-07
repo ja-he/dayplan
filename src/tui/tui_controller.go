@@ -13,6 +13,25 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+// TODO: this absolutely does not belong here
+type Program struct {
+	BaseDir      string
+	FileHandlers map[model.Day]*FileHandler
+}
+
+func (p *Program) GetModelFromFileHandler(d model.Day) *model.Model {
+	fh, ok := p.FileHandlers[d]
+	if ok {
+		tmp := fh.Read()
+		return tmp
+	} else {
+		newHandler := NewFileHandler(p.BaseDir + "/days/" + d.ToString())
+		p.FileHandlers[d] = newHandler
+		tmp := newHandler.Read()
+		return tmp
+	}
+}
+
 type FileHandler struct {
 	mutex    sync.Mutex
 	filename string
@@ -64,7 +83,7 @@ type TUIController struct {
 	editState     EditState
 	EditedEvent   model.EventID
 	movePropagate bool
-	FileHandler   *FileHandler
+	Program       Program
 	bump          chan ControllerEvent
 }
 
@@ -84,16 +103,19 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewTUIController(view *TUIView, tmodel *TUIModel, filehandler *FileHandler) *TUIController {
+func NewTUIController(view *TUIView, tmodel *TUIModel, day model.Day, prog Program) *TUIController {
 	t := TUIController{}
+	t.Program = prog
 
-	t.FileHandler = filehandler
+	t.Program.FileHandlers = make(map[model.Day]*FileHandler)
+	t.Program.FileHandlers[day] = NewFileHandler(prog.BaseDir + "/days/" + day.ToString())
 
 	t.model = tmodel
-	if t.FileHandler == nil {
-		t.model.Model = &model.Model{}
+	t.model.CurrentDay = day
+	if t.Program.FileHandlers[day] == nil {
+		t.model.AddModel(day, &model.Model{})
 	} else {
-		t.model.Model = t.FileHandler.Read()
+		t.model.AddModel(day, t.Program.FileHandlers[day].Read())
 	}
 
 	t.view = view
@@ -114,9 +136,9 @@ func (t *TUIController) endEdit() {
 	if t.model.EventEditor.Active {
 		t.model.EventEditor.Active = false
 		tmp := t.model.EventEditor.TmpEventInfo
-		t.model.Model.GetEvent(tmp.ID).Name = tmp.Name
+		t.model.GetCurrentDayModel().GetEvent(tmp.ID).Name = tmp.Name
 	}
-	t.model.Model.UpdateEventOrder()
+	t.model.GetCurrentDayModel().UpdateEventOrder()
 	t.model.Hovered.EventID = 0
 }
 
@@ -142,13 +164,38 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 	e.End = start.OffsetMinutes(+10)
 
 	// give to model, get ID
-	newEventID := t.model.Model.AddEvent(e)
+	newEventID := t.model.GetCurrentDayModel().AddEvent(e)
 
 	// save ID as edited event
 	t.EditedEvent = newEventID
 
 	// set mode to resizing
 	t.editState = (EditStateMouseEditing | EditStateResizing)
+}
+
+func (t *TUIController) goToDay(newDay model.Day) {
+	t.model.Log.Add("DEBUG", "going to "+newDay.ToString())
+
+	if !t.model.HasModel(newDay) {
+		// load file
+		newModel := t.Program.GetModelFromFileHandler(newDay)
+		if newModel == nil {
+			panic("newModel nil?!")
+		}
+		t.model.AddModel(newDay, newModel)
+	}
+
+	t.model.CurrentDay = newDay
+}
+
+func (t *TUIController) goToPreviousDay() {
+	prevDay := t.model.CurrentDay.Prev()
+	t.goToDay(prevDay)
+}
+
+func (t *TUIController) goToNextDay() {
+	nextDay := t.model.CurrentDay.Next()
+	t.goToDay(nextDay)
 }
 
 func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
@@ -178,11 +225,15 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.ScrollBottom()
 	case 'w':
 		t.writeModel()
+	case 'h':
+		t.goToPreviousDay()
+	case 'l':
+		t.goToNextDay()
 	case 'E':
 		t.model.showLog = !t.model.showLog
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
-		t.model.Model = model.NewModel()
+		t.model.AddModel(t.model.CurrentDay, model.NewModel())
 	case '+':
 		if t.model.Resolution*2 <= 12 {
 			t.model.Resolution *= 2
@@ -199,7 +250,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 }
 
 func (t *TUIController) writeModel() {
-	go t.FileHandler.Write(t.model.Model)
+	go t.Program.FileHandlers[t.model.CurrentDay].Write(t.model.GetCurrentDayModel())
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
@@ -208,7 +259,7 @@ func (t *TUIController) updateCursorPos(x, y int) {
 
 func (t *TUIController) startEdit(id model.EventID) {
 	t.model.EventEditor.Active = true
-	t.model.EventEditor.TmpEventInfo = *t.model.Model.GetEvent(id)
+	t.model.EventEditor.TmpEventInfo = *t.model.GetCurrentDayModel().GetEvent(id)
 	t.model.EventEditor.CursorPos = len([]rune(t.model.EventEditor.TmpEventInfo.Name))
 	t.editState = EditStateEditing
 }
@@ -248,11 +299,11 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			// if button clicked, handle
 			switch buttons {
 			case tcell.Button3:
-				t.model.Model.RemoveEvent(t.model.Hovered.EventID)
+				t.model.GetCurrentDayModel().RemoveEvent(t.model.Hovered.EventID)
 			case tcell.Button2:
 				id := t.model.Hovered.EventID
-				if id != 0 && t.model.TimeAtY(y).IsAfter(t.model.Model.GetEvent(id).Start) {
-					t.model.Model.SplitEvent(id, t.model.TimeAtY(y))
+				if id != 0 && t.model.TimeAtY(y).IsAfter(t.model.GetCurrentDayModel().GetEvent(id).Start) {
+					t.model.GetCurrentDayModel().SplitEvent(id, t.model.TimeAtY(y))
 				}
 			case tcell.Button1:
 				// we've clicked while not editing
@@ -293,7 +344,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 func (t *TUIController) resizeStep(newY int) {
 	delta := newY - t.model.cursorY
 	offset := t.model.TimeForDistance(delta)
-	event := t.model.Model.GetEvent(t.EditedEvent)
+	event := t.model.GetCurrentDayModel().GetEvent(t.EditedEvent)
 	event.End = event.End.Offset(offset).Snap(t.model.Resolution)
 }
 
@@ -301,13 +352,13 @@ func (t *TUIController) moveStep(newY int) {
 	delta := newY - t.model.cursorY
 	offset := t.model.TimeForDistance(delta)
 	if t.movePropagate {
-		following := t.model.Model.GetEventsFrom(t.EditedEvent)
+		following := t.model.GetCurrentDayModel().GetEventsFrom(t.EditedEvent)
 		for _, ptr := range following {
 			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.Resolution)
 			ptr.End = ptr.End.Offset(offset).Snap(t.model.Resolution)
 		}
 	} else {
-		event := t.model.Model.GetEvent(t.EditedEvent)
+		event := t.model.GetCurrentDayModel().GetEvent(t.EditedEvent)
 		event.Start = event.Start.Offset(offset).Snap(t.model.Resolution)
 		event.End = event.End.Offset(offset).Snap(t.model.Resolution)
 	}

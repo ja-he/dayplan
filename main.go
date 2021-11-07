@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -35,28 +34,32 @@ func main() {
 		panic("some flag parsing error occurred")
 	}
 
+	var prog tui.Program
+
 	// set up dir per option
-	var dir string
 	if opts.Dir == "" {
-		dir = os.Getenv("HOME") + "/.config/dayplan"
+		prog.BaseDir = os.Getenv("HOME") + "/.config/dayplan"
 	} else {
-		dir = strings.TrimRight(opts.Dir, "/")
+		prog.BaseDir = strings.TrimRight(opts.Dir, "/")
 	}
 
 	// set up day input file
 	now := time.Now()
-	var day string
+	var day model.Day
+
 	if opts.Day == "" {
-		day = fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day())
+		day = model.Day{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	} else {
-		day = opts.Day
+		day, err = model.FromString(opts.Day)
+		if err != nil {
+			panic(err) // TODO
+		}
 	}
-	dayFile := tui.NewFileHandler(dir + "/days/" + day)
 
 	// read category styles
 	var catstyles category_style.CategoryStyling
 	catstyles = *category_style.EmptyCategoryStyling()
-	f, err := os.Open(dir + "/" + "category-styles")
+	f, err := os.Open(prog.BaseDir + "/" + "category-styles")
 	if err == nil {
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -68,6 +71,7 @@ func main() {
 		catstyles = *category_style.DefaultCategoryStyling()
 	}
 
+	// TODO: long term I think this should be created in the controller constructor
 	tmodel := tui.NewTUIModel(catstyles)
 
 	if owmAPIKey == "" {
@@ -103,7 +107,7 @@ func main() {
 	view := tui.NewTUIView(tmodel)
 	defer view.Screen.Fini()
 
-	controller := tui.NewTUIController(view, tmodel, dayFile)
+	controller := tui.NewTUIController(view, tmodel, day, prog)
 
 	controller.Run()
 }
