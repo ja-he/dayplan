@@ -196,7 +196,12 @@ func (t *TUIView) DrawWeather() {
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		y := t.Model.toY(timestamp)
 
-		weather, ok := t.Model.Weather.Data[timestamp]
+		index := model.DayAndTime{
+			Day:       t.Model.CurrentDay,
+			Timestamp: timestamp,
+		}
+
+		weather, ok := t.Model.Weather.Data[index]
 		if ok {
 			weatherStyle := tcell.StyleDefault.Foreground(tcell.ColorLightBlue)
 			switch {

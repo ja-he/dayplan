@@ -4,12 +4,25 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 type Day struct {
 	Year  int
 	Month int
 	Day   int
+}
+
+type DayAndTime struct {
+	Day       Day
+	Timestamp Timestamp
+}
+
+func FromTime(t time.Time) *DayAndTime {
+	return &DayAndTime{
+		Day:       Day{Year: t.Year(), Month: int(t.Month()), Day: t.Day()},
+		Timestamp: Timestamp{Hour: t.Hour(), Minute: t.Minute()},
+	}
 }
 
 func (d Day) Prev() Day {
@@ -133,4 +146,9 @@ func (d Day) isLastOfMonth() bool {
 
 func (d Day) isLeapYear() bool {
 	return d.Year%4 == 0 && (!(d.Year%100 == 0) || d.Year%400 == 0)
+}
+
+func (d Day) Is(t time.Time) bool {
+	tYear, tMonth, tDay := t.Date()
+	return tYear == d.Year && int(tMonth) == d.Month && tDay == d.Day
 }

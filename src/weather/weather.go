@@ -53,7 +53,7 @@ type MyWeather struct {
 }
 
 type Handler struct {
-	Data       map[model.Timestamp]MyWeather
+	Data       map[model.DayAndTime]MyWeather
 	lat, lon   string
 	apiKey     string
 	mutex      sync.Mutex
@@ -77,7 +77,7 @@ func (h *Handler) Update() error {
 	h.mutex.Lock()
 	h.queryCount++
 	owmdata, err := GetHourlyInfo(h.lat, h.lon, h.apiKey)
-	newData := GetTodaysWeather(&owmdata)
+	newData := GetWeather(&owmdata)
 	if h.Data == nil {
 		h.Data = newData
 	} else {
@@ -93,35 +93,24 @@ func (h *Handler) GetQueryCount() int {
 	return h.queryCount
 }
 
-func isToday(t time.Time) bool {
-	now := time.Now()
-	thisYear, thisMonth, thisDay := now.Date()
-
-	qYear, qMonth, qDay := t.Date()
-
-	return thisYear == qYear && thisMonth == qMonth && thisDay == qDay
-}
-
 func kelvinToCelsius(kelvin float64) (celsius float64) {
 	return kelvin - 273.15
 }
 
-func GetTodaysWeather(data *[]OwmHourly) map[model.Timestamp]MyWeather {
-	result := make(map[model.Timestamp]MyWeather)
+func GetWeather(data *[]OwmHourly) map[model.DayAndTime]MyWeather {
+	result := make(map[model.DayAndTime]MyWeather)
 
 	for i := range *data {
 		hourly := (*data)[i]
 		t := time.Unix(int64(hourly.Dt), 0)
 
-		if isToday(t) {
-			result[model.Timestamp{Hour: t.Hour(), Minute: t.Minute()}] = MyWeather{
-				Info:                     hourly.Weather[0].Description,
-				TempC:                    kelvinToCelsius(hourly.Temp),
-				Clouds:                   hourly.Clouds,
-				WindSpeed:                hourly.Wind_speed,
-				Humidity:                 hourly.Humidity,
-				PrecipitationProbability: hourly.Pop,
-			}
+		result[*model.FromTime(t)] = MyWeather{
+			Info:                     hourly.Weather[0].Description,
+			TempC:                    kelvinToCelsius(hourly.Temp),
+			Clouds:                   hourly.Clouds,
+			WindSpeed:                hourly.Wind_speed,
+			Humidity:                 hourly.Humidity,
+			PrecipitationProbability: hourly.Pop,
 		}
 	}
 
