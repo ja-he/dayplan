@@ -106,6 +106,10 @@ func (m *Model) RemoveEvent(id EventID) {
 }
 
 func (m *Model) AddEvent(e Event) EventID {
+	if !(e.End.IsAfter(e.Start)) {
+		fmt.Println("refusing to add negative length event")
+		return 0
+	}
 	e.ID = m.idseq()
 	m.Events = append(m.Events, e)
 	return e.ID
