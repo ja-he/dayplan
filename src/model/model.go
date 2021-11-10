@@ -112,6 +112,7 @@ func (m *Model) AddEvent(e Event) EventID {
 	}
 	e.ID = m.idseq()
 	m.Events = append(m.Events, e)
+	m.UpdateEventOrder()
 	return e.ID
 }
 

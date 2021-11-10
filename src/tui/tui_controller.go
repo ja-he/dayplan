@@ -143,7 +143,6 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 
 	// give to model, get ID
 	newEventID := t.model.Model.AddEvent(e)
-	t.model.Model.UpdateEventOrder()
 
 	// save ID as edited event
 	t.EditedEvent = newEventID
