@@ -148,6 +148,26 @@ func (m *Model) GetEventsFrom(id EventID) []*Event {
 	return f
 }
 
+func (m *Model) SplitEvent(id EventID, timestamp Timestamp) {
+	originalEvent := m.GetEvent(id)
+
+	secondEvent := Event{
+		Name:  originalEvent.Name,
+		Cat:   originalEvent.Cat,
+		Start: timestamp,
+		End:   originalEvent.End,
+	}
+
+	originalEvent.End = timestamp
+
+	if !originalEvent.End.IsAfter(originalEvent.Start) ||
+		!secondEvent.End.IsAfter(secondEvent.Start) {
+		fmt.Println("warning: an event has become invalid through split")
+	}
+
+	m.AddEvent(secondEvent)
+}
+
 // TODO: obsolete?
 func (m *Model) OffsetEnd(id EventID, offset TimeOffset) {
 	e := m.GetEvent(id)

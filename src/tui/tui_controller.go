@@ -251,8 +251,8 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				t.model.Model.RemoveEvent(t.model.Hovered.EventID)
 			case tcell.Button2:
 				id := t.model.Hovered.EventID
-				if id != 0 {
-					t.startEdit(id)
+				if id != 0 && t.model.TimeAtY(y).IsAfter(t.model.Model.GetEvent(id).Start) {
+					t.model.Model.SplitEvent(id, t.model.TimeAtY(y))
 				}
 			case tcell.Button1:
 				// we've clicked while not editing
