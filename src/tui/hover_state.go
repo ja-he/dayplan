@@ -6,4 +6,5 @@ const (
 	HoverStateNone HoverState = iota
 	HoverStateMove
 	HoverStateResize
+	HoverStateEdit
 )

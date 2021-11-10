@@ -267,6 +267,8 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				case HoverStateMove:
 					t.movePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove()
+				case HoverStateEdit:
+					t.startEdit(t.model.Hovered.EventID)
 				}
 			case tcell.WheelUp:
 				t.model.ScrollUp(1)

@@ -246,11 +246,16 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 		for i := len(t.Model.Events) - 1; i >= 0; i-- {
 			eventPos := t.Positions[t.Model.Events[i].ID]
 			if eventPos.Contains(x, y) {
-				if y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5 {
-					return hoveredEventInfo{t.Model.Events[i].ID, HoverStateResize}
-				} else {
-					return hoveredEventInfo{t.Model.Events[i].ID, HoverStateMove}
+				var hover HoverState
+				switch {
+				case y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5:
+					hover = HoverStateResize
+				case y == (eventPos.Y):
+					hover = HoverStateEdit
+				default:
+					hover = HoverStateMove
 				}
+				return hoveredEventInfo{t.Model.Events[i].ID, hover}
 			}
 		}
 	}

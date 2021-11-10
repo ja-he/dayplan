@@ -284,6 +284,13 @@ func (t *TUIView) DrawEvents() {
 				t.DrawText(p.X+1, p.Y, p.W-2, p.H, selStyle, e.Name)
 				t.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
 				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+			case HoverStateEdit:
+				t.DrawBox(style, p.X, p.Y, p.W, p.H)
+				t.DrawText(p.X+1, p.Y, p.W-2, p.H, selStyle, e.Name)
+				t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
+				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+			default:
+				panic("don't know this hover state!")
 			}
 		}
 	}
