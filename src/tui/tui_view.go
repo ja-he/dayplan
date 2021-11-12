@@ -172,6 +172,18 @@ func (t *TUIView) Render() {
 		t.DrawEvents()
 		t.DrawTools()
 		t.DrawEditor()
+	case ViewWeek:
+		msg := "[weekly view | PLACEHOLDER]"
+		x := t.Model.UIDim.screenWidth/2 - len(msg)/2
+		y := t.Model.UIDim.screenHeight / 2
+		style := tcell.StyleDefault.Background(tcell.ColorLightBlue)
+		t.DrawText(x, y, len(msg), 0, style, msg)
+	case ViewMonth:
+		msg := "[monthly view | PLACEHOLDER]"
+		x := t.Model.UIDim.screenWidth/2 - len(msg)/2
+		y := t.Model.UIDim.screenHeight / 2
+		style := tcell.StyleDefault.Background(tcell.ColorLightBlue)
+		t.DrawText(x, y, len(msg), 0, style, msg)
 	default:
 		t.Model.Log.Add("ERROR", fmt.Sprintf("unknown active view %d aka '%s'",
 			t.Model.activeView, toString(t.Model.activeView)))
