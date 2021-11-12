@@ -60,6 +60,20 @@ func (d Day) Next() Day {
 	return d
 }
 
+func (d Day) Backward(by int) Day {
+	for i := 0; i < by; i++ {
+		d = d.Prev()
+	}
+	return d
+}
+
+func (d Day) Forward(by int) Day {
+	for i := 0; i < by; i++ {
+		d = d.Next()
+	}
+	return d
+}
+
 func (d Day) ToString() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year, d.Month, d.Day)
 }
@@ -152,7 +166,6 @@ func (d Day) Is(t time.Time) bool {
 	tYear, tMonth, tDay := t.Date()
 	return tYear == d.Year && int(tMonth) == d.Month && tDay == d.Day
 }
-
 
 func ToString(w time.Weekday) string {
 	switch w {
