@@ -61,7 +61,6 @@ func (h *FileHandler) Read() *model.Model {
 type TUIController struct {
 	model         *TUIModel
 	view          *TUIView
-	prevX, prevY  int
 	editState     EditState
 	EditedEvent   model.EventID
 	movePropagate bool
@@ -118,6 +117,7 @@ func (t *TUIController) endEdit() {
 		t.model.Model.GetEvent(tmp.ID).Name = tmp.Name
 	}
 	t.model.Model.UpdateEventOrder()
+	t.model.Hovered.EventID = 0
 }
 
 func (t *TUIController) startMouseMove() {
@@ -203,7 +203,7 @@ func (t *TUIController) writeModel() {
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
-	t.prevX, t.prevY = x, y
+	t.model.cursorX, t.model.cursorY = x, y
 }
 
 func (t *TUIController) startEdit(id model.EventID) {
@@ -291,14 +291,14 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 }
 
 func (t *TUIController) resizeStep(newY int) {
-	delta := newY - t.prevY
+	delta := newY - t.model.cursorY
 	offset := t.model.TimeForDistance(delta)
 	event := t.model.Model.GetEvent(t.EditedEvent)
 	event.End = event.End.Offset(offset).Snap(t.model.Resolution)
 }
 
 func (t *TUIController) moveStep(newY int) {
-	delta := newY - t.prevY
+	delta := newY - t.model.cursorY
 	offset := t.model.TimeForDistance(delta)
 	if t.movePropagate {
 		following := t.model.Model.GetEventsFrom(t.EditedEvent)

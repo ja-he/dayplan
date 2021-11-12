@@ -129,20 +129,21 @@ func (s *Status) Get() map[string]string {
 }
 
 type TUIModel struct {
-	UIDim           UIDims
-	CategoryStyling category_style.CategoryStyling
-	Positions       map[model.EventID]util.Rect
-	Hovered         hoveredEventInfo
-	Model           *model.Model
-	Status          Status
-	Log             log.Log
-	showLog         bool
-	Resolution      int
-	ScrollOffset    int
-	EventEditor     EventEditor
-	Weather         weather.Handler
-	CurrentCategory model.Category
-	SunTimes        SunTimes
+	UIDim            UIDims
+	CategoryStyling  category_style.CategoryStyling
+	Positions        map[model.EventID]util.Rect
+	Hovered          hoveredEventInfo
+	cursorX, cursorY int
+	Model            *model.Model
+	Status           Status
+	Log              log.Log
+	showLog          bool
+	Resolution       int
+	ScrollOffset     int
+	EventEditor      EventEditor
+	Weather          weather.Handler
+	CurrentCategory  model.Category
+	SunTimes         SunTimes
 }
 
 func (t *TUIModel) ScrollUp(by int) {
