@@ -167,6 +167,13 @@ func (d Day) Is(t time.Time) bool {
 	return tYear == d.Year && int(tMonth) == d.Month && tDay == d.Day
 }
 
+func (d Day) Week() (start Day, end Day) {
+	for d.ToWeekday() != time.Monday {
+		d = d.Prev()
+	}
+	return d, d.Forward(6)
+}
+
 func ToString(w time.Weekday) string {
 	switch w {
 	case time.Sunday:
