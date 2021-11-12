@@ -227,6 +227,7 @@ func (t *TUIView) DrawTimeline() {
 		panic("RES IS ZERO?!")
 	}
 	nowRow := (h * t.Model.Resolution) - t.Model.ScrollOffset + (m / (60 / t.Model.Resolution))
+	cursorRow := t.Model.cursorY
 
 	x := t.Model.UIDim.TimelineOffset()
 	w := t.Model.UIDim.TimelineWidth()
@@ -245,6 +246,10 @@ func (t *TUIView) DrawTimeline() {
 			t.DrawText(x, row, w, 1,
 				style.Foreground(tcell.ColorWhite).Background(tcell.ColorRed).Bold(true),
 				fmt.Sprintf("   %s  ", model.NewTimestampFromGotime(now).ToString()))
+		} else if row == cursorRow && t.Model.Hovered.EventID != 0 {
+			t.DrawText(x, row, w, 1,
+				style.Foreground(tcell.ColorLightGrey).Bold(true),
+				fmt.Sprintf("   %s  ", t.Model.TimeAtY(cursorRow).ToString()))
 		} else if timestamp.Minute == 0 {
 			t.DrawText(x, row, w, 1,
 				style,
