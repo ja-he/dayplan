@@ -152,3 +152,30 @@ func (d Day) Is(t time.Time) bool {
 	tYear, tMonth, tDay := t.Date()
 	return tYear == d.Year && int(tMonth) == d.Month && tDay == d.Day
 }
+
+
+func ToString(w time.Weekday) string {
+	switch w {
+	case time.Sunday:
+		return "Sunday"
+	case time.Monday:
+		return "Monday"
+	case time.Tuesday:
+		return "Tuesday"
+	case time.Wednesday:
+		return "Wednesday"
+	case time.Thursday:
+		return "Thursday"
+	case time.Friday:
+		return "Friday"
+	case time.Saturday:
+		return "Saturday"
+	default:
+		return fmt.Sprintf("unknown: %d", int(w))
+	}
+}
+
+func (d Day) ToWeekday() time.Weekday {
+	t := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.UTC)
+	return t.Weekday()
+}
