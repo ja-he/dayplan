@@ -278,12 +278,10 @@ func (t *TUIModel) TimeAtY(y int) model.Timestamp {
 	return ts
 }
 
-func (t *TUIModel) ComputeRects() {
-	defaultX := t.UIDim.EventsOffset()
-	defaultW := t.UIDim.EventsWidth() - 2 // -2 so we have some space to the right to insert events
-
+func (t *TUIModel) ComputeRects(day *model.Day, offsetX, width int) map[model.EventID]util.Rect {
 	active_stack := make([]model.Event, 0)
-	for _, e := range t.GetCurrentDay().Events {
+	positions := make(map[model.EventID]util.Rect)
+	for _, e := range day.Events {
 		// remove all stacked elements that have finished
 		for i := len(active_stack) - 1; i >= 0; i-- {
 			if e.Start.IsAfter(active_stack[i].End) || e.Start == active_stack[i].End {
@@ -295,9 +293,9 @@ func (t *TUIModel) ComputeRects() {
 		active_stack = append(active_stack, e)
 		// based on event state, draw a box or maybe a smaller one, or ...
 		y := t.toY(e.Start)
-		x := defaultX
+		x := offsetX
 		h := t.toY(e.End) - y
-		w := defaultW
+		w := width
 
 		// scale the width by 3/4 for every extra item on the stack, so for one
 		// item stacked underneath the current items width will be (3/4) ** 1 = 75%
@@ -305,10 +303,11 @@ func (t *TUIModel) ComputeRects() {
 		// or 31.5 % of the width, etc.
 		widthFactor := 0.75
 		w = int(float64(w) * math.Pow(widthFactor, float64(len(active_stack)-1)))
-		x += (defaultW - w)
+		x += (width - w)
 
-		t.Positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
+		positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
+	return positions
 }
 
 func NoHoveredEvent() hoveredEventInfo {

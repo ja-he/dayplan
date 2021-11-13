@@ -168,16 +168,41 @@ func (t *TUIView) Render() {
 	case ViewDay:
 		t.DrawWeather()
 		t.DrawTimeline()
-		t.Model.ComputeRects() // TODO: move to controller?
 		t.DrawEvents()
 		t.DrawTools()
 		t.DrawEditor()
 	case ViewWeek:
-		msg := "[weekly view | PLACEHOLDER]"
-		x := t.Model.UIDim.screenWidth/2 - len(msg)/2
-		y := t.Model.UIDim.screenHeight / 2
-		style := tcell.StyleDefault.Background(tcell.ColorLightBlue)
-		t.DrawText(x, y, len(msg), 0, style, msg)
+		start, _ := t.Model.CurrentDate.Week()
+		{
+			x := 0
+			b := true
+			dayWidth := t.Model.UIDim.screenWidth / 7
+			currentDate := start
+			for i := 0; i < 7; i++ {
+				dayInfo := t.Model.Days[currentDate]
+				positions := t.Model.ComputeRects(dayInfo.Day, x, dayWidth)
+				var bgStyle tcell.Style
+				if b {
+					bgStyle = tcell.StyleDefault.Background(tcell.ColorLightGray)
+				} else {
+					bgStyle = tcell.StyleDefault.Background(tcell.ColorDarkGray)
+				}
+				t.DrawBox(bgStyle, x, 0, dayWidth, t.Model.UIDim.screenHeight)
+				t.DrawText(x, 0, dayWidth, 0, bgStyle, currentDate.ToString())
+				for _, e := range dayInfo.Day.Events {
+					p := positions[e.ID]
+					style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
+					if err != nil {
+						panic(err)
+					}
+					t.DrawBox(style, p.X, p.Y, p.W, p.H)
+					t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)
+				}
+				b = !b
+				currentDate = currentDate.Next()
+				x += dayWidth
+			}
+		}
 	case ViewMonth:
 		msg := "[monthly view | PLACEHOLDER]"
 		x := t.Model.UIDim.screenWidth/2 - len(msg)/2
@@ -327,7 +352,9 @@ func (t *TUIView) DrawTimeline() {
 }
 
 func (t *TUIView) DrawEvents() {
-	for _, e := range t.Model.GetCurrentDay().Events {
+	day := t.Model.GetCurrentDay()
+	t.Model.Positions = t.Model.ComputeRects(day, t.Model.UIDim.EventsOffset(), t.Model.UIDim.EventsWidth()-2)
+	for _, e := range day.Events {
 		style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
 		if err != nil {
 			t.Model.Log.Add("ERROR", err.Error())
