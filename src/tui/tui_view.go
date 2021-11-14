@@ -247,7 +247,7 @@ func (t *TUIView) DrawTimeline() {
 			(timestamp.IsAfter(t.Model.SunTimes.Set)) {
 			style = style.Background(tcell.ColorBlack)
 		}
-		if row == nowRow {
+		if row == nowRow && t.Model.CurrentDay.Is(now) {
 			t.DrawText(x, row, w, 1,
 				style.Foreground(tcell.ColorWhite).Background(tcell.ColorRed).Bold(true),
 				fmt.Sprintf("   %s  ", model.NewTimestampFromGotime(now).ToString()))
