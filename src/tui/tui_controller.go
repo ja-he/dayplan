@@ -344,7 +344,7 @@ func (t *TUIController) handleEditEvent(ev tcell.Event) {
 			t.endEdit()
 
 		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			editor.backspaceChar()
+			editor.backspaceRune()
 
 		case tcell.KeyCtrlE:
 			editor.moveCursorToEnd()
@@ -353,7 +353,7 @@ func (t *TUIController) handleEditEvent(ev tcell.Event) {
 			editor.moveCursorToBeginning()
 
 		case tcell.KeyCtrlU:
-			editor.deleteToBeginning()
+			editor.backspaceToBeginning()
 
 		case tcell.KeyLeft:
 			editor.moveCursorLeft()

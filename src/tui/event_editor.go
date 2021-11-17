@@ -15,7 +15,7 @@ type EventEditor struct {
 	CursorPos    int
 }
 
-func (e *EventEditor) backspaceChar() {
+func (e *EventEditor) backspaceRune() {
 	if e.CursorPos > 0 {
 		tmpStr := []rune(e.TmpEventInfo.Name)
 		preCursor := tmpStr[:e.CursorPos-1]
@@ -26,7 +26,7 @@ func (e *EventEditor) backspaceChar() {
 	}
 }
 
-func (e *EventEditor) deleteToBeginning() {
+func (e *EventEditor) backspaceToBeginning() {
 	nameAfterCursor := []rune(e.TmpEventInfo.Name)[e.CursorPos:]
 	e.TmpEventInfo.Name = string(nameAfterCursor)
 	e.CursorPos = 0
