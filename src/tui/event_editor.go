@@ -15,6 +15,16 @@ type EventEditor struct {
 	CursorPos    int
 }
 
+func (e *EventEditor) deleteRune() {
+	tmpStr := []rune(e.TmpEventInfo.Name)
+	if e.CursorPos < len(tmpStr) {
+		preCursor := tmpStr[:e.CursorPos]
+		postCursor := tmpStr[e.CursorPos+1:]
+
+		e.TmpEventInfo.Name = string(append(preCursor, postCursor...))
+	}
+}
+
 func (e *EventEditor) backspaceRune() {
 	if e.CursorPos > 0 {
 		tmpStr := []rune(e.TmpEventInfo.Name)

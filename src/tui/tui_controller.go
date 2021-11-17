@@ -343,6 +343,9 @@ func (t *TUIController) handleEditEvent(ev tcell.Event) {
 		case tcell.KeyEnter:
 			t.endEdit()
 
+		case tcell.KeyDelete, tcell.KeyCtrlD:
+			editor.deleteRune()
+
 		case tcell.KeyBackspace, tcell.KeyBackspace2:
 			editor.backspaceRune()
 
