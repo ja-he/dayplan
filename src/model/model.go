@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+type ByName []Category
+
+func (a ByName) Len() int           { return len(a) }
+func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
+
 type Category struct {
 	Name string
 }
@@ -17,6 +23,10 @@ type Event struct {
 	Start, End Timestamp
 	Name       string
 	Cat        Category
+}
+
+func (e *Event) Duration() int {
+	return e.Start.DurationInMinutesUntil(e.End)
 }
 
 func NewEvent(s string) *Event {
@@ -203,4 +213,17 @@ func (day *Day) SetTimes(id EventID, start, end Timestamp) {
 func (day *Day) Clone() *Day {
 	cloned := NewDayWithEvents(day.Events)
 	return cloned
+}
+
+func (day *Day) SumUpByCategory() map[Category]int {
+	result := make(map[Category]int)
+
+	for i := range day.Events {
+		event := &day.Events[i]
+		category := event.Cat
+		duration := event.Duration()
+		result[category] += duration
+	}
+
+	return result
 }

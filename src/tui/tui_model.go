@@ -144,6 +144,7 @@ type TUIModel struct {
 	Resolution       int
 	ScrollOffset     int
 	EventEditor      EventEditor
+	showSummary      bool
 	Weather          weather.Handler
 	CurrentCategory  model.Category
 	ProgramData      program.Data

@@ -124,3 +124,11 @@ func (t Timestamp) Offset(o TimeOffset) Timestamp {
 	}
 	return t
 }
+
+func (t1 Timestamp) DurationInMinutesUntil(t2 Timestamp) int {
+	return t2.ToMinutes() - t1.ToMinutes()
+}
+
+func (t Timestamp) ToMinutes() int {
+	return t.Hour*60 + t.Minute
+}
