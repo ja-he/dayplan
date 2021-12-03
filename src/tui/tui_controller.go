@@ -233,6 +233,8 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.goToPreviousDay()
 	case 'l':
 		t.goToNextDay()
+	case 'S':
+		t.model.showSummary = !t.model.showSummary
 	case 'E':
 		t.model.showLog = !t.model.showLog
 	case 'c':

@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -98,6 +99,36 @@ func (t *TUIView) DrawEditor() {
 	}
 }
 
+func (t *TUIView) DrawSummary() {
+	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
+	if t.Model.showSummary {
+		y, w, h := 2, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight
+		t.DrawBox(style, 0, 0, w, h)
+		title := "SUMMARY"
+		t.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
+		t.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
+
+		summary := t.Model.GetCurrentDay().SumUpByCategory()
+		categories := make([]model.Category, len(summary))
+		{ // get sorted keys to have deterministic order
+			i := 0
+			for category := range summary {
+				categories[i] = category
+				i++
+			}
+			sort.Sort(model.ByName(categories))
+		}
+		for _, category := range categories {
+			duration := summary[category]
+			style, _ := t.Model.CategoryStyling.GetStyle(category)
+			t.DrawBox(style, 0, y, duration/t.Model.Resolution, 1)
+			t.DrawText(0, y, duration/t.Model.Resolution, 0, style, category.Name)
+			t.DrawText(duration/t.Model.Resolution+1, y, w-(duration/t.Model.Resolution+1), 0, tcell.StyleDefault, "("+util.DurationToString(duration)+")")
+			y++
+		}
+	}
+}
+
 func (t *TUIView) DrawLog() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if t.Model.showLog {
@@ -138,6 +169,7 @@ func (t *TUIView) Render() {
 	t.DrawTools()
 	t.DrawEditor()
 	t.DrawLog()
+	t.DrawSummary()
 	t.DrawStatus()
 
 	if t.needsSync {

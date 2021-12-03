@@ -1,5 +1,7 @@
 package util
 
+import "fmt"
+
 type Rect struct {
 	X, Y, W, H int
 }
@@ -17,4 +19,10 @@ func TruncateAt(s string, length int) string {
 	} else {
 		return string(append(r[:length-3], []rune("...")...))
 	}
+}
+
+func DurationToString(duration int) string {
+	hours := duration / 60
+	mins := duration % 60
+	return fmt.Sprintf("%dh %dmin", hours, mins)
 }
