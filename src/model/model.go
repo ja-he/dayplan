@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
 )
@@ -218,14 +219,80 @@ func (day *Day) Clone() *Day {
 func (day *Day) SumUpByCategory() map[Category]int {
 	result := make(map[Category]int)
 
-	for i := range day.Events {
-		event := &day.Events[i]
-		category := event.Cat
-		duration := event.Duration()
-		result[category] += duration
+	flattened := day.Clone()
+	flattened.Flatten()
+	for i := range flattened.Events {
+		event := &flattened.Events[i]
+		result[event.Cat] += event.Duration()
 	}
 
 	return result
+}
+
+func (day *Day) Flatten() {
+	if len(day.Events) < 2 {
+		return
+	}
+
+	current := 0
+	next := 1
+
+	for current < len(day.Events) && next < len(day.Events) {
+		if day.Events[next].IsContainedIn(&day.Events[current]) {
+			if day.Events[next].Cat.HigherPriorityThan(&day.Events[current].Cat) {
+				// clone the current event for the remainder after the next event
+				currentRemainder := day.Events[current]
+				currentRemainder.Start = day.Events[next].End
+				// TODO: obviously a hack, but I want to get rid of EventIDs anyway
+				currentRemainder.ID = EventID(rand.Int())
+
+				// trim the current until the next event
+				day.Events[current].End = day.Events[next].Start
+
+				// easiest to just append and let Sort sort it out
+				if currentRemainder.Duration() > 0 {
+					day.Events = append(day.Events, currentRemainder)
+					sort.Sort(ByStart(day.Events))
+				}
+
+				// if the current now has become zero-length, remove it (in which case
+				// we don't need to move the indices), else move the indices one up
+				if day.Events[current].Duration() == 0 {
+					day.Events = append(day.Events[:current], day.Events[current+1:]...)
+				} else {
+					current = next
+					next += 1
+				}
+			} else {
+				// if not of higher priority, simply remove
+				day.Events = append(day.Events[:next], day.Events[next+1:]...)
+			}
+		} else if day.Events[next].StartsDuring(&day.Events[current]) {
+			if day.Events[next].Cat.HigherPriorityThan(&day.Events[current].Cat) {
+				// trim current
+				day.Events[current].End = day.Events[next].Start
+				if day.Events[current].Duration() == 0 {
+					// remove current
+					day.Events = append(day.Events[:current], day.Events[next:]...)
+				} else {
+					// move on
+					current = next
+					next += 1
+				}
+			} else if day.Events[next].Cat == day.Events[current].Cat {
+				// lengthen current, remove next
+				day.Events[current].End = day.Events[next].End
+				day.Events = append(day.Events[:next], day.Events[next+1:]...)
+			} else {
+				// shorten next
+				day.Events[next].Start = day.Events[current].End
+				sort.Sort(ByStart(day.Events))
+			}
+		} else {
+			current = next
+			next += 1
+		}
+	}
 }
 
 func (a *Category) HigherPriorityThan(b *Category) bool {
