@@ -228,6 +228,12 @@ func (day *Day) SumUpByCategory() map[Category]int {
 	return result
 }
 
+func (a *Category) HigherPriorityThan(b *Category) bool {
+	// TODO: temporarily fake impl, priority should be a field, set on
+	//       reading of category styles by order, probably
+	return a.Name > b.Name
+}
+
 func (later *Event) IsContainedIn(earlier *Event) bool {
 	return later.StartsDuring(earlier) &&
 		!(later.End.IsAfter(earlier.End))
