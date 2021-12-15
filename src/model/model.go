@@ -227,3 +227,17 @@ func (day *Day) SumUpByCategory() map[Category]int {
 
 	return result
 }
+
+func (later *Event) IsContainedIn(earlier *Event) bool {
+	return later.StartsDuring(earlier) &&
+		!(later.End.IsAfter(earlier.End))
+}
+
+func (later *Event) StartsDuring(earlier *Event) bool {
+	// verify later/earlier input
+	if earlier.Start.IsAfter(later.Start) {
+		return false
+	}
+
+	return earlier.End.IsAfter(later.Start)
+}
