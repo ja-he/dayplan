@@ -18,8 +18,6 @@ import (
 	"github.com/kelvins/sunrisesunset"
 )
 
-var owmAPIKey = os.Getenv("OWM_API_KEY")
-
 var commandLineOpts struct {
 	Day string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
 }
@@ -44,14 +42,13 @@ func main() {
 		programData.BaseDirPath = strings.TrimRight(dayplanHome, "/")
 	}
 
-	// set up day input file
+	// infer initial day either from input file or current date
 	now := time.Now()
-	var day model.Day
-
+	var initialDay model.Day
 	if commandLineOpts.Day == "" {
-		day = model.Day{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
+		initialDay = model.Day{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	} else {
-		day, err = model.FromString(commandLineOpts.Day)
+		initialDay, err = model.FromString(commandLineOpts.Day)
 		if err != nil {
 			panic(err) // TODO
 		}
@@ -75,6 +72,7 @@ func main() {
 	// TODO: long term I think this should be created in the controller constructor
 	tmodel := tui.NewTUIModel(catstyles)
 
+	owmAPIKey := os.Getenv("OWM_API_KEY")
 	if owmAPIKey == "" {
 		tmodel.Log.Add("ERROR", "could not fetch OWM API key")
 	}
@@ -99,16 +97,14 @@ func main() {
 	} else {
 		tmodel.SunTimes.Rise = *model.NewTimestamp("00:00")
 		tmodel.SunTimes.Set = *model.NewTimestamp("23:59")
-		// TODO: we should differentiate status and error, and probably have a more
-		//       robust error logging system, that users can view while the program
-		//       is running.
+
 		tmodel.Log.Add("ERROR", "could not fetch lat-&longitude")
 	}
 
 	view := tui.NewTUIView(tmodel)
 	defer view.Screen.Fini()
 
-	controller := tui.NewTUIController(view, tmodel, day, programData)
+	controller := tui.NewTUIController(view, tmodel, initialDay, programData)
 
 	controller.Run()
 }
