@@ -10,6 +10,7 @@ import (
 
 	"dayplan/src/category_style"
 	"dayplan/src/model"
+	"dayplan/src/program"
 	"dayplan/src/tui"
 	"dayplan/src/weather"
 
@@ -19,38 +20,38 @@ import (
 
 var owmAPIKey = os.Getenv("OWM_API_KEY")
 
-var opts struct {
+var commandLineOpts struct {
 	Day string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
 }
 
 // MAIN
 func main() {
 	// parse the flags
-	_, err := flags.Parse(&opts)
+	_, err := flags.Parse(&commandLineOpts)
 	if flags.WroteHelp(err) {
 		os.Exit(0)
 	} else if err != nil {
 		panic("some flag parsing error occurred")
 	}
 
-	var prog tui.Program
+	var programData program.Data
 
 	// set up dir per option
 	dayplanHome := os.Getenv("DAYPLAN_HOME")
 	if dayplanHome == "" {
-		prog.BaseDir = os.Getenv("HOME") + "/.config/dayplan"
+		programData.BaseDirPath = os.Getenv("HOME") + "/.config/dayplan"
 	} else {
-		prog.BaseDir = strings.TrimRight(dayplanHome, "/")
+		programData.BaseDirPath = strings.TrimRight(dayplanHome, "/")
 	}
 
 	// set up day input file
 	now := time.Now()
 	var day model.Day
 
-	if opts.Day == "" {
+	if commandLineOpts.Day == "" {
 		day = model.Day{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	} else {
-		day, err = model.FromString(opts.Day)
+		day, err = model.FromString(commandLineOpts.Day)
 		if err != nil {
 			panic(err) // TODO
 		}
@@ -59,7 +60,7 @@ func main() {
 	// read category styles
 	var catstyles category_style.CategoryStyling
 	catstyles = *category_style.EmptyCategoryStyling()
-	f, err := os.Open(prog.BaseDir + "/" + "category-styles")
+	f, err := os.Open(programData.BaseDirPath + "/" + "category-styles")
 	if err == nil {
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -107,7 +108,7 @@ func main() {
 	view := tui.NewTUIView(tmodel)
 	defer view.Screen.Fini()
 
-	controller := tui.NewTUIController(view, tmodel, day, prog)
+	controller := tui.NewTUIController(view, tmodel, day, programData)
 
 	controller.Run()
 }

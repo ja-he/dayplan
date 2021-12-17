@@ -9,24 +9,20 @@ import (
 	"time"
 
 	"dayplan/src/model"
+	"dayplan/src/program"
 
 	"github.com/gdamore/tcell/v2"
 )
 
 // TODO: this absolutely does not belong here
-type Program struct {
-	BaseDir      string
-	FileHandlers map[model.Day]*FileHandler
-}
-
-func (p *Program) GetModelFromFileHandler(d model.Day) *model.Model {
-	fh, ok := p.FileHandlers[d]
+func (t *TUIController) GetModelFromFileHandler(d model.Day) *model.Model {
+	fh, ok := t.FileHandlers[d]
 	if ok {
 		tmp := fh.Read()
 		return tmp
 	} else {
-		newHandler := NewFileHandler(p.BaseDir + "/days/" + d.ToString())
-		p.FileHandlers[d] = newHandler
+		newHandler := NewFileHandler(t.ProgramData.BaseDirPath + "/days/" + d.ToString())
+		t.FileHandlers[d] = newHandler
 		tmp := newHandler.Read()
 		return tmp
 	}
@@ -83,7 +79,8 @@ type TUIController struct {
 	editState     EditState
 	EditedEvent   model.EventID
 	movePropagate bool
-	Program       Program
+	FileHandlers  map[model.Day]*FileHandler
+	ProgramData   program.Data
 	bump          chan ControllerEvent
 }
 
@@ -103,19 +100,19 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewTUIController(view *TUIView, tmodel *TUIModel, day model.Day, prog Program) *TUIController {
+func NewTUIController(view *TUIView, tmodel *TUIModel, day model.Day, programData program.Data) *TUIController {
 	t := TUIController{}
-	t.Program = prog
+	t.ProgramData = programData
 
-	t.Program.FileHandlers = make(map[model.Day]*FileHandler)
-	t.Program.FileHandlers[day] = NewFileHandler(prog.BaseDir + "/days/" + day.ToString())
+	t.FileHandlers = make(map[model.Day]*FileHandler)
+	t.FileHandlers[day] = NewFileHandler(t.ProgramData.BaseDirPath + "/days/" + day.ToString())
 
 	t.model = tmodel
 	t.model.CurrentDay = day
-	if t.Program.FileHandlers[day] == nil {
+	if t.FileHandlers[day] == nil {
 		t.model.AddModel(day, &model.Model{})
 	} else {
-		t.model.AddModel(day, t.Program.FileHandlers[day].Read())
+		t.model.AddModel(day, t.FileHandlers[day].Read())
 	}
 
 	t.view = view
@@ -180,7 +177,7 @@ func (t *TUIController) goToDay(newDay model.Day) {
 
 	if !t.model.HasModel(newDay) {
 		// load file
-		newModel := t.Program.GetModelFromFileHandler(newDay)
+		newModel := t.GetModelFromFileHandler(newDay)
 		if newModel == nil {
 			panic("newModel nil?!")
 		}
@@ -252,7 +249,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 }
 
 func (t *TUIController) writeModel() {
-	go t.Program.FileHandlers[t.model.CurrentDay].Write(t.model.GetCurrentDayModel())
+	go t.FileHandlers[t.model.CurrentDay].Write(t.model.GetCurrentDayModel())
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
