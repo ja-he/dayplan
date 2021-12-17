@@ -20,7 +20,6 @@ import (
 var owmAPIKey = os.Getenv("OWM_API_KEY")
 
 var opts struct {
-	Dir string `short:"c" long:"config-dir" description:"Specify the directory dayplan uses" value-name:"<dir>"`
 	Day string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
 }
 
@@ -37,10 +36,11 @@ func main() {
 	var prog tui.Program
 
 	// set up dir per option
-	if opts.Dir == "" {
+	dayplanHome := os.Getenv("DAYPLAN_HOME")
+	if dayplanHome == "" {
 		prog.BaseDir = os.Getenv("HOME") + "/.config/dayplan"
 	} else {
-		prog.BaseDir = strings.TrimRight(opts.Dir, "/")
+		prog.BaseDir = strings.TrimRight(dayplanHome, "/")
 	}
 
 	// set up day input file
