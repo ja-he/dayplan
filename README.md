@@ -17,18 +17,18 @@ Usage:
   dayplan [OPTIONS]
 
 Application Options:
-  -c, --config-dir=<dir>    Specify the directory dayplan uses
-  -d, --day=<file>          Specify the day to plan
+  -d, --day=<file>    Specify the day to plan
 
 Help Options:
-  -h, --help                Show this help message
+  -h, --help          Show this help message
 ```
 
 By default dayplan uses the directory `${HOME}/.config/dayplan` for
-configuration and data storage.
-In the subdirectory `/days` then days are stored as files named by
+configuration and data storage. This directory can be set with the
+`DAYPLAN_HOME` environment variable.
+In the subdirectory `days` then days are stored as files named by
 `YYYY-MM-DD` format.
-Optionally, category styles can be defined in the file `/category-styles`.
+Optionally, category styles can be defined in the file `category-styles`.
 
 To get weather and sunrise/-set information you'll need to define latitude and
 longitude as environment variables (e.g. in the `.bashrc`):
@@ -46,8 +46,8 @@ export OWM_API_KEY=<key>
 
 ### Days
 
-A day, usually at `${HOME}/.config/dayplan/days/<YYYY-MM-DD>`, is a list of
-events formatted as
+A day, usually at `${DAYPLAN_HOME}/days/<YYYY-MM-DD>`, is a list of events
+formatted as
 ```
 <start>|<end>|<category>|<title>
 ```
@@ -60,7 +60,7 @@ so for example a day with three events might be
 
 ### Categories
 
-A category style in `${HOME}/.config/dayplan/category-styles` is formatted as
+A category style in `${DAYPLAN_HOME}/category-styles` is formatted as
 ```
 <category>|<fg>|<bg>
 ```
