@@ -16,13 +16,13 @@ type Date struct {
 }
 
 type DayAndTime struct {
-	Date       Date
+	Date      Date
 	Timestamp Timestamp
 }
 
 func FromTime(t time.Time) *DayAndTime {
 	return &DayAndTime{
-		Date:       Date{Year: t.Year(), Month: int(t.Month()), Day: t.Day()},
+		Date:      Date{Year: t.Year(), Month: int(t.Month()), Day: t.Day()},
 		Timestamp: Timestamp{Hour: t.Hour(), Minute: t.Minute()},
 	}
 }
@@ -207,13 +207,25 @@ func (d Date) ToGotime() time.Time {
 	return result
 }
 
-func (d Date) GetSunTimes(latitude, longitude float64) (sunrise, sunset Timestamp, err error) {
+type SunTimes struct {
+	Rise, Set Timestamp
+}
+
+// Warning: slow (TODO)
+func (d Date) GetSunTimes(latitude, longitude float64) (maybeSuntimes *SunTimes, err error) {
 	_, utcDeltaSeconds := d.ToGotime().Zone() // TODO: does this take summer time into account if we gave it day?
 	utcDeltaHours := utcDeltaSeconds / (60 * 60)
 
 	sunriseTime, sunsetTime, err := sunrisesunset.GetSunriseSunset(latitude, longitude, float64(utcDeltaHours), d.ToGotime())
-	sunrise = *NewTimestampFromGotime(sunriseTime)
-	sunset = *NewTimestampFromGotime(sunsetTime)
 
-	return sunrise, sunset, err
+	if err == nil {
+		maybeSuntimes = &SunTimes{
+			*NewTimestampFromGotime(sunriseTime),
+			*NewTimestampFromGotime(sunsetTime),
+		}
+	} else {
+		maybeSuntimes = nil
+	}
+
+	return maybeSuntimes, err
 }

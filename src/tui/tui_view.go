@@ -234,6 +234,8 @@ func (t *TUIView) DrawTimeline() {
 	nowRow := (h * t.Model.Resolution) - t.Model.ScrollOffset + (m / (60 / t.Model.Resolution))
 	cursorRow := t.Model.cursorY
 
+	suntimes := t.Model.Days[t.Model.CurrentDate].SunTimes
+
 	x := t.Model.UIDim.TimelineOffset()
 	w := t.Model.UIDim.TimelineWidth()
 	for row := 0; row <= height; row++ {
@@ -243,9 +245,11 @@ func (t *TUIView) DrawTimeline() {
 			break
 		}
 		style := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
-		if !(timestamp.IsAfter(t.Model.SunTimes.Rise)) ||
-			(timestamp.IsAfter(t.Model.SunTimes.Set)) {
-			style = style.Background(tcell.ColorBlack)
+		if suntimes != nil {
+			if !(timestamp.IsAfter(suntimes.Rise)) ||
+				(timestamp.IsAfter(suntimes.Set)) {
+				style = style.Background(tcell.ColorBlack)
+			}
 		}
 		if row == nowRow && t.Model.CurrentDate.Is(now) {
 			t.DrawText(x, row, w, 1,

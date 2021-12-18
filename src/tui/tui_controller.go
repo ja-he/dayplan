@@ -136,28 +136,18 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		}
 	}
 
-	// set sunrise and sunset if geographic location provided
-	// TODO: actually a per-day thing that is being set only once for initial day, fix
-	if coordinatesProvided {
+	// process latitude longitude
+	// TODO
+	var maybeSuntimes *model.SunTimes
+	if !coordinatesProvided {
+		tuiModel.Log.Add("ERROR", "could not fetch lat-&longitude -> no sunrise/-set times known")
+	} else {
 		latF, _ := strconv.ParseFloat(programData.Latitude, 64)
 		lonF, _ := strconv.ParseFloat(programData.Longitude, 64)
-		sunrise, sunset, err := date.GetSunTimes(latF, lonF)
+		maybeSuntimes, err = date.GetSunTimes(latF, lonF)
 		if err != nil {
-			tuiModel.Log.Add("ERROR", fmt.Sprintf("could not get sunrise/-set: '%s'", err))
-			tuiModel.SunTimes.Rise = *model.NewTimestamp("00:00")
-			tuiModel.SunTimes.Set = *model.NewTimestamp("23:59")
-		} else {
-			tuiModel.SunTimes.Rise = sunrise
-			tuiModel.SunTimes.Set = sunset
+			tuiModel.Log.Add("ERROR", fmt.Sprint("suntimes error:", err))
 		}
-	} else {
-		// TODO: these settings should obviously be made by one function, however
-		//       since the data should also be moved to per-day (or be computed
-		//       each day switch?) this is kind of moot
-		tuiModel.SunTimes.Rise = *model.NewTimestamp("00:00")
-		tuiModel.SunTimes.Set = *model.NewTimestamp("23:59")
-
-		tuiModel.Log.Add("ERROR", "could not fetch lat-&longitude -> no sunrise/-set times known")
 	}
 
 	tuiController := TUIController{}
@@ -169,9 +159,9 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tuiController.model = tuiModel
 	tuiController.model.CurrentDate = date
 	if tuiController.FileHandlers[date] == nil {
-		tuiController.model.AddModel(date, &model.Day{})
+		tuiController.model.AddModel(date, &model.Day{}, maybeSuntimes)
 	} else {
-		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read())
+		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(), maybeSuntimes)
 	}
 
 	tuiController.view = tuiView
@@ -240,7 +230,13 @@ func (t *TUIController) goToDay(newDate model.Date) {
 		if newDay == nil {
 			panic("newDay nil?!")
 		}
-		t.model.AddModel(newDate, newDay)
+		latF, _ := strconv.ParseFloat(t.model.ProgramData.Latitude, 64)
+		lonF, _ := strconv.ParseFloat(t.model.ProgramData.Longitude, 64)
+		maybeSuntimes, err := newDate.GetSunTimes(latF, lonF)
+		if err != nil {
+			t.model.Log.Add("ERROR", fmt.Sprint("error getting suntimes:", err))
+		}
+		t.model.AddModel(newDate, newDay, maybeSuntimes)
 	}
 
 	t.model.CurrentDate = newDate
@@ -291,7 +287,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.showLog = !t.model.showLog
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
-		t.model.AddModel(t.model.CurrentDate, model.NewDay())
+		t.model.AddModel(t.model.CurrentDate, model.NewDay(), t.model.Days[t.model.CurrentDate].SunTimes)
 	case '+':
 		if t.model.Resolution*2 <= 12 {
 			t.model.Resolution *= 2

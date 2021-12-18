@@ -110,10 +110,6 @@ func (ui *UIDims) ToolsWidth() int     { return ui.screenWidth - ui.ToolsOffset(
 func (ui *UIDims) StatusHeight() int   { return ui.statusHeight }
 func (ui *UIDims) StatusOffset() int   { return ui.screenHeight - ui.statusHeight }
 
-type SunTimes struct {
-	Rise, Set model.Timestamp
-}
-
 type Status struct {
 	status map[string]string
 	mutex  sync.Mutex
@@ -129,13 +125,18 @@ func (s *Status) Get() map[string]string {
 	return s.status
 }
 
+type DayWithInfo struct {
+	Day      *model.Day
+	SunTimes *model.SunTimes
+}
+
 type TUIModel struct {
 	UIDim            UIDims
 	CategoryStyling  category_style.CategoryStyling
 	Positions        map[model.EventID]util.Rect
 	Hovered          hoveredEventInfo
 	cursorX, cursorY int
-	Days             map[model.Date]*model.Day
+	Days             map[model.Date]DayWithInfo
 	CurrentDate      model.Date
 	Status           Status
 	Log              potatolog.Log
@@ -145,7 +146,6 @@ type TUIModel struct {
 	EventEditor      EventEditor
 	Weather          weather.Handler
 	CurrentCategory  model.Category
-	SunTimes         SunTimes
 	ProgramData      program.Data
 }
 
@@ -175,7 +175,7 @@ func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	var t TUIModel
 	t.Status.status = make(map[string]string)
 
-	t.Days = make(map[model.Date]*model.Day)
+	t.Days = make(map[model.Date]DayWithInfo)
 
 	t.CategoryStyling = cs
 	t.Positions = make(map[model.EventID]util.Rect)
@@ -203,15 +203,15 @@ func (t *TUIModel) HasModel(date model.Date) bool {
 
 func (t *TUIModel) GetCurrentDay() *model.Day {
 	// this _should_ always be available
-	return t.Days[t.CurrentDate]
+	return t.Days[t.CurrentDate].Day
 }
 
-func (t *TUIModel) AddModel(date model.Date, day *model.Day) {
+func (t *TUIModel) AddModel(date model.Date, day *model.Day, suntimes *model.SunTimes) {
 	if day == nil {
 		panic("will not add a nil model")
 	}
 	t.Log.Add("DEBUG", "adding non-nil model for day "+date.ToString())
-	t.Days[date] = day
+	t.Days[date] = DayWithInfo{day, suntimes}
 }
 
 func (t *TUIModel) TimeAtY(y int) model.Timestamp {
@@ -227,7 +227,7 @@ func (t *TUIModel) ComputeRects() {
 	defaultW := t.UIDim.EventsWidth() - 2 // -2 so we have some space to the right to insert events
 
 	active_stack := make([]model.Event, 0)
-	for _, e := range t.Days[t.CurrentDate].Events {
+	for _, e := range t.GetCurrentDay().Events {
 		// remove all stacked elements that have finished
 		for i := len(active_stack) - 1; i >= 0; i-- {
 			if e.Start.IsAfter(active_stack[i].End) || e.Start == active_stack[i].End {
@@ -263,8 +263,8 @@ func NoHoveredEvent() hoveredEventInfo {
 func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 	if x >= t.UIDim.EventsOffset() &&
 		x < (t.UIDim.EventsOffset()+t.UIDim.EventsWidth()) {
-		for i := len(t.Days[t.CurrentDate].Events) - 1; i >= 0; i-- {
-			eventPos := t.Positions[t.Days[t.CurrentDate].Events[i].ID]
+		for i := len(t.GetCurrentDay().Events) - 1; i >= 0; i-- {
+			eventPos := t.Positions[t.GetCurrentDay().Events[i].ID]
 			if eventPos.Contains(x, y) {
 				var hover HoverState
 				switch {
@@ -275,7 +275,7 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 				default:
 					hover = HoverStateMove
 				}
-				return hoveredEventInfo{t.Days[t.CurrentDate].Events[i].ID, hover}
+				return hoveredEventInfo{t.GetCurrentDay().Events[i].ID, hover}
 			}
 		}
 	}
