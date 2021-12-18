@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"dayplan/src/category_style"
-	"dayplan/src/log"
 	"dayplan/src/model"
+	"dayplan/src/potatolog"
 	"dayplan/src/util"
 	"dayplan/src/weather"
 )
@@ -137,7 +137,7 @@ type TUIModel struct {
 	Models           map[model.Day]*model.Model
 	CurrentDay       model.Day
 	Status           Status
-	Log              log.Log
+	Log              potatolog.Log
 	showLog          bool
 	Resolution       int
 	ScrollOffset     int

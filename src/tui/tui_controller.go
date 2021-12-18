@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
+	"dayplan/src/category_style"
 	"dayplan/src/model"
 	"dayplan/src/program"
+	"dayplan/src/weather"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/kelvins/sunrisesunset"
 )
 
 // TODO: this absolutely does not belong here
@@ -100,25 +104,85 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewTUIController(view *TUIView, tmodel *TUIModel, day model.Day, programData program.Data) *TUIController {
-	t := TUIController{}
-	t.ProgramData = programData
-
-	t.FileHandlers = make(map[model.Day]*FileHandler)
-	t.FileHandlers[day] = NewFileHandler(t.ProgramData.BaseDirPath + "/days/" + day.ToString())
-
-	t.model = tmodel
-	t.model.CurrentDay = day
-	if t.FileHandlers[day] == nil {
-		t.model.AddModel(day, &model.Model{})
+func NewTUIController(day model.Day, programData program.Data) *TUIController {
+	// read category styles
+	var categoryStyling category_style.CategoryStyling
+	categoryStyling = *category_style.EmptyCategoryStyling()
+	f, err := os.Open(programData.BaseDirPath + "/" + "category-styles")
+	if err == nil {
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			s := scanner.Text()
+			categoryStyling.AddStyleFromCfg(s)
+		}
+		f.Close()
 	} else {
-		t.model.AddModel(day, t.FileHandlers[day].Read())
+		categoryStyling = *category_style.DefaultCategoryStyling()
 	}
 
-	t.view = view
-	t.model.CurrentCategory.Name = "default"
+	tuiModel := NewTUIModel(categoryStyling)
+	tuiView := NewTUIView(tuiModel) // <- stuck here!
 
-	return &t
+	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
+	owmApiKeyProvided := (programData.OwmApiKey != "")
+
+	// intialize weather handler if geographic location and api key provided
+	if coordinatesProvided && owmApiKeyProvided {
+		tuiModel.Weather = *weather.NewHandler(programData.Latitude, programData.Longitude, programData.OwmApiKey)
+	} else {
+		if !owmApiKeyProvided {
+			tuiModel.Log.Add("ERROR", "no OWM API key provided -> no weather data")
+		}
+		if !coordinatesProvided {
+			tuiModel.Log.Add("ERROR", "no lat-/longitude provided -> no weather data")
+		}
+	}
+
+	// set sunrise and sunset if geographic location provided
+	// TODO: actually a per-day thing that is being set only once for initial day, fix
+	if coordinatesProvided {
+		latF, _ := strconv.ParseFloat(programData.Latitude, 64)
+		lonF, _ := strconv.ParseFloat(programData.Longitude, 64)
+		_, utcDeltaSeconds := time.Now().Zone()
+		utcDeltaHours := utcDeltaSeconds / (60 * 60)
+		sunrise, sunset, err := sunrisesunset.GetSunriseSunset(latF, lonF,
+			float64(utcDeltaHours), time.Now())
+		if err != nil {
+			tuiModel.Log.Add("ERROR", fmt.Sprintf("could not get sunrise/-set: '%s'", err))
+			tuiModel.SunTimes.Rise = *model.NewTimestamp("00:00")
+			tuiModel.SunTimes.Set = *model.NewTimestamp("23:59")
+		} else {
+			tuiModel.SunTimes.Rise = *model.NewTimestampFromGotime(sunrise)
+			tuiModel.SunTimes.Set = *model.NewTimestampFromGotime(sunset)
+		}
+	} else {
+		// TODO: these settings should obviously be made by one function, however
+		//       since the data should also be moved to per-day (or be computed
+		//       each day switch?) this is kind of moot
+		tuiModel.SunTimes.Rise = *model.NewTimestamp("00:00")
+		tuiModel.SunTimes.Set = *model.NewTimestamp("23:59")
+
+		tuiModel.Log.Add("ERROR", "could not fetch lat-&longitude -> no sunrise/-set times known")
+	}
+
+	tuiController := TUIController{}
+	tuiController.ProgramData = programData
+
+	tuiController.FileHandlers = make(map[model.Day]*FileHandler)
+	tuiController.FileHandlers[day] = NewFileHandler(tuiController.ProgramData.BaseDirPath + "/days/" + day.ToString())
+
+	tuiController.model = tuiModel
+	tuiController.model.CurrentDay = day
+	if tuiController.FileHandlers[day] == nil {
+		tuiController.model.AddModel(day, &model.Model{})
+	} else {
+		tuiController.model.AddModel(day, tuiController.FileHandlers[day].Read())
+	}
+
+	tuiController.view = tuiView
+	tuiController.model.CurrentCategory.Name = "default"
+
+	return &tuiController
 }
 
 func (t *TUIController) abortEdit() {
@@ -454,6 +518,7 @@ func (t *TUIController) Run() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer t.view.Screen.Fini()
 		for {
 			controllerEvent := <-t.bump
 			switch controllerEvent {
