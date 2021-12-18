@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/kelvins/sunrisesunset"
 )
 
 type Day struct {
@@ -198,4 +200,20 @@ func ToString(w time.Weekday) string {
 func (d Day) ToWeekday() time.Weekday {
 	t := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.UTC)
 	return t.Weekday()
+}
+
+func (d Day) ToGotime() time.Time {
+	result := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.Now().Location())
+	return result
+}
+
+func (d Day) GetSunTimes(latitude, longitude float64) (sunrise, sunset Timestamp, err error) {
+	_, utcDeltaSeconds := d.ToGotime().Zone() // TODO: does this take summer time into account if we gave it day?
+	utcDeltaHours := utcDeltaSeconds / (60 * 60)
+
+	sunriseTime, sunsetTime, err := sunrisesunset.GetSunriseSunset(latitude, longitude, float64(utcDeltaHours), d.ToGotime())
+	sunrise = *NewTimestampFromGotime(sunriseTime)
+	sunset = *NewTimestampFromGotime(sunsetTime)
+
+	return sunrise, sunset, err
 }

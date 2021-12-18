@@ -15,7 +15,6 @@ import (
 	"dayplan/src/weather"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/kelvins/sunrisesunset"
 )
 
 // TODO: this absolutely does not belong here
@@ -143,17 +142,14 @@ func NewTUIController(day model.Day, programData program.Data) *TUIController {
 	if coordinatesProvided {
 		latF, _ := strconv.ParseFloat(programData.Latitude, 64)
 		lonF, _ := strconv.ParseFloat(programData.Longitude, 64)
-		_, utcDeltaSeconds := time.Now().Zone()
-		utcDeltaHours := utcDeltaSeconds / (60 * 60)
-		sunrise, sunset, err := sunrisesunset.GetSunriseSunset(latF, lonF,
-			float64(utcDeltaHours), time.Now())
+		sunrise, sunset, err := day.GetSunTimes(latF, lonF)
 		if err != nil {
 			tuiModel.Log.Add("ERROR", fmt.Sprintf("could not get sunrise/-set: '%s'", err))
 			tuiModel.SunTimes.Rise = *model.NewTimestamp("00:00")
 			tuiModel.SunTimes.Set = *model.NewTimestamp("23:59")
 		} else {
-			tuiModel.SunTimes.Rise = *model.NewTimestampFromGotime(sunrise)
-			tuiModel.SunTimes.Set = *model.NewTimestampFromGotime(sunset)
+			tuiModel.SunTimes.Rise = sunrise
+			tuiModel.SunTimes.Set = sunset
 		}
 	} else {
 		// TODO: these settings should obviously be made by one function, however
