@@ -24,7 +24,7 @@ func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
 		tmp := fh.Read()
 		return tmp
 	} else {
-		newHandler := NewFileHandler(t.ProgramData.BaseDirPath + "/days/" + date.ToString())
+		newHandler := NewFileHandler(t.model.ProgramData.BaseDirPath + "/days/" + date.ToString())
 		t.FileHandlers[date] = newHandler
 		tmp := newHandler.Read()
 		return tmp
@@ -83,7 +83,6 @@ type TUIController struct {
 	EditedEvent   model.EventID
 	movePropagate bool
 	FileHandlers  map[model.Date]*FileHandler
-	ProgramData   program.Data
 	bump          chan ControllerEvent
 }
 
@@ -162,10 +161,10 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 
 	tuiController := TUIController{}
-	tuiController.ProgramData = programData
+	tuiModel.ProgramData = programData
 
 	tuiController.FileHandlers = make(map[model.Date]*FileHandler)
-	tuiController.FileHandlers[date] = NewFileHandler(tuiController.ProgramData.BaseDirPath + "/days/" + date.ToString())
+	tuiController.FileHandlers[date] = NewFileHandler(tuiModel.ProgramData.BaseDirPath + "/days/" + date.ToString())
 
 	tuiController.model = tuiModel
 	tuiController.model.CurrentDate = date

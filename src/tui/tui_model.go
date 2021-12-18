@@ -8,6 +8,7 @@ import (
 	"dayplan/src/category_style"
 	"dayplan/src/model"
 	"dayplan/src/potatolog"
+	"dayplan/src/program"
 	"dayplan/src/util"
 	"dayplan/src/weather"
 )
@@ -145,6 +146,7 @@ type TUIModel struct {
 	Weather          weather.Handler
 	CurrentCategory  model.Category
 	SunTimes         SunTimes
+	ProgramData      program.Data
 }
 
 func (t *TUIModel) ScrollUp(by int) {
