@@ -18,7 +18,7 @@ import (
 )
 
 // TODO: this absolutely does not belong here
-func (t *TUIController) GetModelFromFileHandler(date model.Date) *model.Model {
+func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
 	fh, ok := t.FileHandlers[date]
 	if ok {
 		tmp := fh.Read()
@@ -41,7 +41,7 @@ func NewFileHandler(filename string) *FileHandler {
 	return &f
 }
 
-func (h *FileHandler) Write(m *model.Model) {
+func (h *FileHandler) Write(m *model.Day) {
 	h.mutex.Lock()
 	f, err := os.OpenFile(h.filename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
@@ -57,8 +57,8 @@ func (h *FileHandler) Write(m *model.Model) {
 	h.mutex.Unlock()
 }
 
-func (h *FileHandler) Read() *model.Model {
-	m := model.NewModel()
+func (h *FileHandler) Read() *model.Day {
+	m := model.NewDay()
 
 	h.mutex.Lock()
 	f, err := os.Open(h.filename)
@@ -170,7 +170,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tuiController.model = tuiModel
 	tuiController.model.CurrentDate = date
 	if tuiController.FileHandlers[date] == nil {
-		tuiController.model.AddModel(date, &model.Model{})
+		tuiController.model.AddModel(date, &model.Day{})
 	} else {
 		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read())
 	}
@@ -193,9 +193,9 @@ func (t *TUIController) endEdit() {
 	if t.model.EventEditor.Active {
 		t.model.EventEditor.Active = false
 		tmp := t.model.EventEditor.TmpEventInfo
-		t.model.GetCurrentDateModel().GetEvent(tmp.ID).Name = tmp.Name
+		t.model.GetCurrentDay().GetEvent(tmp.ID).Name = tmp.Name
 	}
-	t.model.GetCurrentDateModel().UpdateEventOrder()
+	t.model.GetCurrentDay().UpdateEventOrder()
 	t.model.Hovered.EventID = 0
 }
 
@@ -221,7 +221,7 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 	e.End = start.OffsetMinutes(+10)
 
 	// give to model, get ID
-	newEventID := t.model.GetCurrentDateModel().AddEvent(e)
+	newEventID := t.model.GetCurrentDay().AddEvent(e)
 
 	// save ID as edited event
 	t.EditedEvent = newEventID
@@ -237,11 +237,11 @@ func (t *TUIController) goToDay(newDate model.Date) {
 
 	if !t.model.HasModel(newDate) {
 		// load file
-		newModel := t.GetModelFromFileHandler(newDate)
-		if newModel == nil {
-			panic("newModel nil?!")
+		newDay := t.GetDayFromFileHandler(newDate)
+		if newDay == nil {
+			panic("newDay nil?!")
 		}
-		t.model.AddModel(newDate, newModel)
+		t.model.AddModel(newDate, newDay)
 	}
 
 	t.model.CurrentDate = newDate
@@ -292,7 +292,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.showLog = !t.model.showLog
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
-		t.model.AddModel(t.model.CurrentDate, model.NewModel())
+		t.model.AddModel(t.model.CurrentDate, model.NewDay())
 	case '+':
 		if t.model.Resolution*2 <= 12 {
 			t.model.Resolution *= 2
@@ -309,7 +309,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 }
 
 func (t *TUIController) writeModel() {
-	go t.FileHandlers[t.model.CurrentDate].Write(t.model.GetCurrentDateModel())
+	go t.FileHandlers[t.model.CurrentDate].Write(t.model.GetCurrentDay())
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
@@ -318,7 +318,7 @@ func (t *TUIController) updateCursorPos(x, y int) {
 
 func (t *TUIController) startEdit(id model.EventID) {
 	t.model.EventEditor.Active = true
-	t.model.EventEditor.TmpEventInfo = *t.model.GetCurrentDateModel().GetEvent(id)
+	t.model.EventEditor.TmpEventInfo = *t.model.GetCurrentDay().GetEvent(id)
 	t.model.EventEditor.CursorPos = len([]rune(t.model.EventEditor.TmpEventInfo.Name))
 	t.editState = EditStateEditing
 }
@@ -358,11 +358,11 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			// if button clicked, handle
 			switch buttons {
 			case tcell.Button3:
-				t.model.GetCurrentDateModel().RemoveEvent(t.model.Hovered.EventID)
+				t.model.GetCurrentDay().RemoveEvent(t.model.Hovered.EventID)
 			case tcell.Button2:
 				id := t.model.Hovered.EventID
-				if id != 0 && t.model.TimeAtY(y).IsAfter(t.model.GetCurrentDateModel().GetEvent(id).Start) {
-					t.model.GetCurrentDateModel().SplitEvent(id, t.model.TimeAtY(y))
+				if id != 0 && t.model.TimeAtY(y).IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
+					t.model.GetCurrentDay().SplitEvent(id, t.model.TimeAtY(y))
 				}
 			case tcell.Button1:
 				// we've clicked while not editing
@@ -403,7 +403,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 func (t *TUIController) resizeStep(newY int) {
 	delta := newY - t.model.cursorY
 	offset := t.model.TimeForDistance(delta)
-	event := t.model.GetCurrentDateModel().GetEvent(t.EditedEvent)
+	event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
 	event.End = event.End.Offset(offset).Snap(t.model.Resolution)
 }
 
@@ -411,13 +411,13 @@ func (t *TUIController) moveStep(newY int) {
 	delta := newY - t.model.cursorY
 	offset := t.model.TimeForDistance(delta)
 	if t.movePropagate {
-		following := t.model.GetCurrentDateModel().GetEventsFrom(t.EditedEvent)
+		following := t.model.GetCurrentDay().GetEventsFrom(t.EditedEvent)
 		for _, ptr := range following {
 			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.Resolution)
 			ptr.End = ptr.End.Offset(offset).Snap(t.model.Resolution)
 		}
 	} else {
-		event := t.model.GetCurrentDateModel().GetEvent(t.EditedEvent)
+		event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
 		event.Start = event.Start.Offset(offset).Snap(t.model.Resolution)
 		event.End = event.End.Offset(offset).Snap(t.model.Resolution)
 	}

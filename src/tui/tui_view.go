@@ -268,7 +268,7 @@ func (t *TUIView) DrawTimeline() {
 }
 
 func (t *TUIView) DrawEvents() {
-	for _, e := range t.Model.GetCurrentDateModel().Events {
+	for _, e := range t.Model.GetCurrentDay().Events {
 		style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
 		if err != nil {
 			t.Model.Log.Add("ERROR", err.Error())

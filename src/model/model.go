@@ -62,23 +62,23 @@ func (e *Event) Snap(minuteResolution int) {
 	e.End.Snap(minuteResolution)
 }
 
-type Model struct {
+type Day struct {
 	Events []Event
 	idseq  func() EventID
 }
 
-func (m *Model) ToSlice() []string {
+func (day *Day) ToSlice() []string {
 	var data []string
-	for _, e := range m.Events {
+	for _, e := range day.Events {
 		data = append(data, e.toString())
 	}
 	return data
 }
 
-func NewModel() *Model {
-	m := Model{}
-	m.idseq = idseq()
-	return &m
+func NewDay() *Day {
+	day := Day{}
+	day.idseq = idseq()
+	return &day
 }
 
 func idseq() func() EventID {
@@ -89,11 +89,11 @@ func idseq() func() EventID {
 	}
 }
 
-func (m *Model) RemoveEvent(id EventID) {
+func (day *Day) RemoveEvent(id EventID) {
 	if id != 0 {
 		index := -1
-		for i := range m.Events {
-			if m.Events[i].ID == id {
+		for i := range day.Events {
+			if day.Events[i].ID == id {
 				index = i
 				break
 			}
@@ -101,33 +101,33 @@ func (m *Model) RemoveEvent(id EventID) {
 		if index == -1 {
 			panic(fmt.Sprintf("element with id %d not found", id))
 		}
-		m.Events = append(m.Events[:index], m.Events[index+1:]...)
+		day.Events = append(day.Events[:index], day.Events[index+1:]...)
 	}
 }
 
-func (m *Model) AddEvent(e Event) EventID {
+func (day *Day) AddEvent(e Event) EventID {
 	if !(e.End.IsAfter(e.Start)) {
 		fmt.Println("refusing to add negative length event")
 		return 0
 	}
-	e.ID = m.idseq()
-	m.Events = append(m.Events, e)
-	m.UpdateEventOrder()
+	e.ID = day.idseq()
+	day.Events = append(day.Events, e)
+	day.UpdateEventOrder()
 	return e.ID
 }
 
-func (m *Model) UpdateEventOrder() {
-	sort.Sort(ByStart(m.Events))
+func (day *Day) UpdateEventOrder() {
+	sort.Sort(ByStart(day.Events))
 }
 
-func (m *Model) getEvent(id EventID, getFollowing bool) []*Event {
-	for i := range m.Events {
-		e := &m.Events[i]
+func (day *Day) getEvent(id EventID, getFollowing bool) []*Event {
+	for i := range day.Events {
+		e := &day.Events[i]
 		if (*e).ID == id {
 			if getFollowing {
 				fromID := []*Event{}
-				for j := i; j < len(m.Events); j++ {
-					fromID = append(fromID, &m.Events[j])
+				for j := i; j < len(day.Events); j++ {
+					fromID = append(fromID, &day.Events[j])
 				}
 				return fromID
 			} else {
@@ -138,18 +138,18 @@ func (m *Model) getEvent(id EventID, getFollowing bool) []*Event {
 	panic(fmt.Sprintf("error getting event for id '%d' from model", id))
 }
 
-func (m *Model) GetEvent(id EventID) *Event {
-	e := m.getEvent(id, false)[0]
+func (day *Day) GetEvent(id EventID) *Event {
+	e := day.getEvent(id, false)[0]
 	return e
 }
 
-func (m *Model) GetEventsFrom(id EventID) []*Event {
-	f := m.getEvent(id, true)
+func (day *Day) GetEventsFrom(id EventID) []*Event {
+	f := day.getEvent(id, true)
 	return f
 }
 
-func (m *Model) SplitEvent(id EventID, timestamp Timestamp) {
-	originalEvent := m.GetEvent(id)
+func (day *Day) SplitEvent(id EventID, timestamp Timestamp) {
+	originalEvent := day.GetEvent(id)
 
 	secondEvent := Event{
 		Name:  originalEvent.Name,
@@ -165,29 +165,29 @@ func (m *Model) SplitEvent(id EventID, timestamp Timestamp) {
 		fmt.Println("warning: an event has become invalid through split")
 	}
 
-	m.AddEvent(secondEvent)
+	day.AddEvent(secondEvent)
 }
 
 // TODO: obsolete?
-func (m *Model) OffsetEnd(id EventID, offset TimeOffset) {
-	e := m.GetEvent(id)
+func (day *Day) OffsetEnd(id EventID, offset TimeOffset) {
+	e := day.GetEvent(id)
 	e.End = e.End.Offset(offset)
 	if e.Start.IsAfter(e.End) {
 		panic("start after end!")
 	}
 }
-func (m *Model) SetEnd(id EventID, end Timestamp) {
-	e := m.GetEvent(id)
+func (day *Day) SetEnd(id EventID, end Timestamp) {
+	e := day.GetEvent(id)
 	if e.Start.IsAfter(end) {
 		panic("start after end!")
 	}
 	e.End = end
 }
-func (m *Model) SetTimes(id EventID, start, end Timestamp) {
+func (day *Day) SetTimes(id EventID, start, end Timestamp) {
 	if start.IsAfter(end) {
 		panic("start after end!")
 	}
-	e := m.GetEvent(id)
+	e := day.GetEvent(id)
 	e.Start = start
 	e.End = end
 }
