@@ -38,9 +38,9 @@ func main() {
 
 	// infer initial day either from input file or current date
 	now := time.Now()
-	var initialDay model.Day
+	var initialDay model.Date
 	if commandLineOpts.Day == "" {
-		initialDay = model.Day{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
+		initialDay = model.Date{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	} else {
 		initialDay, err = model.FromString(commandLineOpts.Day)
 		if err != nil {

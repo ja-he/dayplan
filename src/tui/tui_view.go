@@ -197,7 +197,7 @@ func (t *TUIView) DrawWeather() {
 		y := t.Model.toY(timestamp)
 
 		index := model.DayAndTime{
-			Day:       t.Model.CurrentDay,
+			Date:      t.Model.CurrentDate,
 			Timestamp: timestamp,
 		}
 
@@ -247,7 +247,7 @@ func (t *TUIView) DrawTimeline() {
 			(timestamp.IsAfter(t.Model.SunTimes.Set)) {
 			style = style.Background(tcell.ColorBlack)
 		}
-		if row == nowRow && t.Model.CurrentDay.Is(now) {
+		if row == nowRow && t.Model.CurrentDate.Is(now) {
 			t.DrawText(x, row, w, 1,
 				style.Foreground(tcell.ColorWhite).Background(tcell.ColorRed).Bold(true),
 				fmt.Sprintf("   %s  ", model.NewTimestampFromGotime(now).ToString()))
@@ -268,7 +268,7 @@ func (t *TUIView) DrawTimeline() {
 }
 
 func (t *TUIView) DrawEvents() {
-	for _, e := range t.Model.GetCurrentDayModel().Events {
+	for _, e := range t.Model.GetCurrentDateModel().Events {
 		style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
 		if err != nil {
 			t.Model.Log.Add("ERROR", err.Error())

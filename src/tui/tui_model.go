@@ -134,8 +134,8 @@ type TUIModel struct {
 	Positions        map[model.EventID]util.Rect
 	Hovered          hoveredEventInfo
 	cursorX, cursorY int
-	Models           map[model.Day]*model.Model
-	CurrentDay       model.Day
+	Models           map[model.Date]*model.Model
+	CurrentDate      model.Date
 	Status           Status
 	Log              potatolog.Log
 	showLog          bool
@@ -173,7 +173,7 @@ func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	var t TUIModel
 	t.Status.status = make(map[string]string)
 
-	t.Models = make(map[model.Day]*model.Model)
+	t.Models = make(map[model.Date]*model.Model)
 
 	t.CategoryStyling = cs
 	t.Positions = make(map[model.EventID]util.Rect)
@@ -194,17 +194,17 @@ func (t *TUIModel) TimeForDistance(dist int) model.TimeOffset {
 	return model.TimeOffset{T: model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
 }
 
-func (t *TUIModel) HasModel(d model.Day) bool {
+func (t *TUIModel) HasModel(d model.Date) bool {
 	_, ok := t.Models[d]
 	return ok
 }
 
-func (t *TUIModel) GetCurrentDayModel() *model.Model {
+func (t *TUIModel) GetCurrentDateModel() *model.Model {
 	// this _should_ always be available
-	return t.Models[t.CurrentDay]
+	return t.Models[t.CurrentDate]
 }
 
-func (t *TUIModel) AddModel(day model.Day, m *model.Model) {
+func (t *TUIModel) AddModel(day model.Date, m *model.Model) {
 	if m == nil {
 		panic("will not add a nil model")
 	}
@@ -225,7 +225,7 @@ func (t *TUIModel) ComputeRects() {
 	defaultW := t.UIDim.EventsWidth() - 2 // -2 so we have some space to the right to insert events
 
 	active_stack := make([]model.Event, 0)
-	for _, e := range t.Models[t.CurrentDay].Events {
+	for _, e := range t.Models[t.CurrentDate].Events {
 		// remove all stacked elements that have finished
 		for i := len(active_stack) - 1; i >= 0; i-- {
 			if e.Start.IsAfter(active_stack[i].End) || e.Start == active_stack[i].End {
@@ -261,8 +261,8 @@ func NoHoveredEvent() hoveredEventInfo {
 func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 	if x >= t.UIDim.EventsOffset() &&
 		x < (t.UIDim.EventsOffset()+t.UIDim.EventsWidth()) {
-		for i := len(t.Models[t.CurrentDay].Events) - 1; i >= 0; i-- {
-			eventPos := t.Positions[t.Models[t.CurrentDay].Events[i].ID]
+		for i := len(t.Models[t.CurrentDate].Events) - 1; i >= 0; i-- {
+			eventPos := t.Positions[t.Models[t.CurrentDate].Events[i].ID]
 			if eventPos.Contains(x, y) {
 				var hover HoverState
 				switch {
@@ -273,7 +273,7 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 				default:
 					hover = HoverStateMove
 				}
-				return hoveredEventInfo{t.Models[t.CurrentDay].Events[i].ID, hover}
+				return hoveredEventInfo{t.Models[t.CurrentDate].Events[i].ID, hover}
 			}
 		}
 	}

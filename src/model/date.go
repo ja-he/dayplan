@@ -9,25 +9,25 @@ import (
 	"github.com/kelvins/sunrisesunset"
 )
 
-type Day struct {
+type Date struct {
 	Year  int
 	Month int
 	Day   int
 }
 
 type DayAndTime struct {
-	Day       Day
+	Date       Date
 	Timestamp Timestamp
 }
 
 func FromTime(t time.Time) *DayAndTime {
 	return &DayAndTime{
-		Day:       Day{Year: t.Year(), Month: int(t.Month()), Day: t.Day()},
+		Date:       Date{Year: t.Year(), Month: int(t.Month()), Day: t.Day()},
 		Timestamp: Timestamp{Hour: t.Hour(), Minute: t.Minute()},
 	}
 }
 
-func (d Day) Prev() Day {
+func (d Date) Prev() Date {
 	if d.Day == 1 {
 		if d.Month == 1 {
 			d.Year--
@@ -47,7 +47,7 @@ func (d Day) Prev() Day {
 	return d
 }
 
-func (d Day) Next() Day {
+func (d Date) Next() Date {
 	if d.isLastOfMonth() {
 		d.Day = 1
 		if d.Month == 12 {
@@ -62,25 +62,25 @@ func (d Day) Next() Day {
 	return d
 }
 
-func (d Day) Backward(by int) Day {
+func (d Date) Backward(by int) Date {
 	for i := 0; i < by; i++ {
 		d = d.Prev()
 	}
 	return d
 }
 
-func (d Day) Forward(by int) Day {
+func (d Date) Forward(by int) Date {
 	for i := 0; i < by; i++ {
 		d = d.Next()
 	}
 	return d
 }
 
-func (d Day) ToString() string {
+func (d Date) ToString() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
-func (d Day) Valid() bool {
+func (d Date) Valid() bool {
 	// basic bounds
 	if d.Month < 1 ||
 		d.Month > 12 ||
@@ -94,14 +94,14 @@ func (d Day) Valid() bool {
 	return true
 }
 
-func FromString(s string) (Day, error) {
-	var result Day
+func FromString(s string) (Date, error) {
+	var result Date
 	var err error
 
 	regex := regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2})$`)
 	parsed := regex.FindAllStringSubmatch(s, -1)
 
-	var tmp Day
+	var tmp Date
 	if len(parsed) < 1 || len(parsed[0]) < 3 {
 		return result, fmt.Errorf("Not enough int matches in day string '%s'", s)
 	}
@@ -109,7 +109,7 @@ func FromString(s string) (Day, error) {
 	year, errY := strconv.ParseInt(parsed[0][1], 10, 32)
 	month, errM := strconv.ParseInt(parsed[0][2], 10, 32)
 	day, errD := strconv.ParseInt(parsed[0][3], 10, 32)
-	tmp = Day{int(year), int(month), int(day)}
+	tmp = Date{int(year), int(month), int(day)}
 
 	switch {
 	case errY != nil:
@@ -143,7 +143,7 @@ func lastDaysOfMonth() map[int]int {
 	}
 }
 
-func (d Day) isLastOfMonth() bool {
+func (d Date) isLastOfMonth() bool {
 	if d.Month == 2 {
 		if d.Day == 29 {
 			return true
@@ -160,16 +160,16 @@ func (d Day) isLastOfMonth() bool {
 	return false
 }
 
-func (d Day) isLeapYear() bool {
+func (d Date) isLeapYear() bool {
 	return d.Year%4 == 0 && (!(d.Year%100 == 0) || d.Year%400 == 0)
 }
 
-func (d Day) Is(t time.Time) bool {
+func (d Date) Is(t time.Time) bool {
 	tYear, tMonth, tDay := t.Date()
 	return tYear == d.Year && int(tMonth) == d.Month && tDay == d.Day
 }
 
-func (d Day) Week() (start Day, end Day) {
+func (d Date) Week() (start Date, end Date) {
 	for d.ToWeekday() != time.Monday {
 		d = d.Prev()
 	}
@@ -197,17 +197,17 @@ func ToString(w time.Weekday) string {
 	}
 }
 
-func (d Day) ToWeekday() time.Weekday {
+func (d Date) ToWeekday() time.Weekday {
 	t := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.UTC)
 	return t.Weekday()
 }
 
-func (d Day) ToGotime() time.Time {
+func (d Date) ToGotime() time.Time {
 	result := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.Now().Location())
 	return result
 }
 
-func (d Day) GetSunTimes(latitude, longitude float64) (sunrise, sunset Timestamp, err error) {
+func (d Date) GetSunTimes(latitude, longitude float64) (sunrise, sunset Timestamp, err error) {
 	_, utcDeltaSeconds := d.ToGotime().Zone() // TODO: does this take summer time into account if we gave it day?
 	utcDeltaHours := utcDeltaSeconds / (60 * 60)
 
