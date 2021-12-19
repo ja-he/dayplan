@@ -3,13 +3,13 @@ package tui
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	"dayplan/src/category_style"
+	"dayplan/src/filehandling"
 	"dayplan/src/model"
 	"dayplan/src/program"
 	"dayplan/src/weather"
@@ -24,56 +24,11 @@ func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
 		tmp := fh.Read()
 		return tmp
 	} else {
-		newHandler := NewFileHandler(t.model.ProgramData.BaseDirPath + "/days/" + date.ToString())
+		newHandler := filehandling.NewFileHandler(t.model.ProgramData.BaseDirPath + "/days/" + date.ToString())
 		t.FileHandlers[date] = newHandler
 		tmp := newHandler.Read()
 		return tmp
 	}
-}
-
-type FileHandler struct {
-	mutex    sync.Mutex
-	filename string
-}
-
-func NewFileHandler(filename string) *FileHandler {
-	f := FileHandler{filename: filename}
-	return &f
-}
-
-func (h *FileHandler) Write(m *model.Day) {
-	h.mutex.Lock()
-	f, err := os.OpenFile(h.filename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatalf("error opening file '%s'", h.filename)
-	}
-
-	writer := bufio.NewWriter(f)
-	for _, line := range m.ToSlice() {
-		_, _ = writer.WriteString(line + "\n")
-	}
-	writer.Flush()
-	f.Close()
-	h.mutex.Unlock()
-}
-
-func (h *FileHandler) Read() *model.Day {
-	m := model.NewDay()
-
-	h.mutex.Lock()
-	f, err := os.Open(h.filename)
-	fileExists := (err == nil)
-	if fileExists {
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			s := scanner.Text()
-			m.AddEvent(*model.NewEvent(s))
-		}
-		f.Close()
-	}
-	h.mutex.Unlock()
-
-	return m
 }
 
 type TUIController struct {
@@ -82,7 +37,7 @@ type TUIController struct {
 	editState     EditState
 	EditedEvent   model.EventID
 	movePropagate bool
-	FileHandlers  map[model.Date]*FileHandler
+	FileHandlers  map[model.Date]*filehandling.FileHandler
 	bump          chan ControllerEvent
 }
 
@@ -153,8 +108,8 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tuiController := TUIController{}
 	tuiModel.ProgramData = programData
 
-	tuiController.FileHandlers = make(map[model.Date]*FileHandler)
-	tuiController.FileHandlers[date] = NewFileHandler(tuiModel.ProgramData.BaseDirPath + "/days/" + date.ToString())
+	tuiController.FileHandlers = make(map[model.Date]*filehandling.FileHandler)
+	tuiController.FileHandlers[date] = filehandling.NewFileHandler(tuiModel.ProgramData.BaseDirPath + "/days/" + date.ToString())
 
 	tuiController.model = tuiModel
 	tuiController.model.CurrentDate = date
