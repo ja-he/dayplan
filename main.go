@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"dayplan/src/cli"
 	"dayplan/src/model"
 	"dayplan/src/program"
 	"dayplan/src/tui"
@@ -12,14 +13,13 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-var commandLineOpts struct {
-	Day string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
-}
-
 // MAIN
 func main() {
 	// parse the flags
-	_, err := flags.Parse(&commandLineOpts)
+	parser := flags.NewParser(&cli.Opts, flags.Default)
+	parser.SubcommandsOptional = true
+
+	_, err := parser.Parse()
 	if flags.WroteHelp(err) {
 		os.Exit(0)
 	} else if err != nil {
@@ -39,10 +39,10 @@ func main() {
 	// infer initial day either from input file or current date
 	now := time.Now()
 	var initialDay model.Date
-	if commandLineOpts.Day == "" {
+	if cli.Opts.Day == "" {
 		initialDay = model.Date{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	} else {
-		initialDay, err = model.FromString(commandLineOpts.Day)
+		initialDay, err = model.FromString(cli.Opts.Day)
 		if err != nil {
 			panic(err) // TODO
 		}
