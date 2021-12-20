@@ -1,7 +1,6 @@
 package colors
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/gdamore/tcell/v2"
@@ -9,8 +8,13 @@ import (
 )
 
 func ColorFromHexString(s string) tcell.Color {
-	if len(s) != 6 {
-		panic(fmt.Sprintf("string wrong size '%s'", s))
+	switch len(s) {
+	case 7:
+		s = s[1:] // trim preceding '#'
+	case 6:
+
+	default:
+		panic("not 6 or 7 chars for a hex color string?!")
 	}
 
 	// TODO: errors
