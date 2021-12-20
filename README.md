@@ -1,4 +1,5 @@
 [![Go](https://github.com/ja-he/dayplan/actions/workflows/go.yml/badge.svg)](https://github.com/ja-he/dayplan/actions/workflows/go.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ja-he/dayplan)](https://goreportcard.com/report/github.com/ja-he/dayplan)
 
 # Dayplan
 
@@ -62,7 +63,8 @@ so for example a day with three events might be
 
 ### Categories
 
-A category style in `${DAYPLAN_HOME}/category-styles.yaml` is formatted as YAML.
+Category styles  are formatted as YAML in in
+`${DAYPLAN_HOME}/category-styles.yaml`.
 Here's an example with two styles defined:
 ```yaml
 - name: uni
