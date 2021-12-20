@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"dayplan/src/colors"
-	"dayplan/src/model"
+	"github.com/ja-he/dayplan/src/colors"
+	"github.com/ja-he/dayplan/src/model"
 
 	"github.com/gdamore/tcell/v2"
 )

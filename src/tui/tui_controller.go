@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"dayplan/src/category_style"
-	"dayplan/src/filehandling"
-	"dayplan/src/model"
-	"dayplan/src/program"
-	"dayplan/src/weather"
+	"github.com/ja-he/dayplan/src/category_style"
+	"github.com/ja-he/dayplan/src/filehandling"
+	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/program"
+	"github.com/ja-he/dayplan/src/weather"
 
 	"github.com/gdamore/tcell/v2"
 )

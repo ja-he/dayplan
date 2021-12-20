@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"dayplan/src/cli"
-	"dayplan/src/model"
-	"dayplan/src/program"
-	"dayplan/src/tui"
+	"github.com/ja-he/dayplan/src/cli"
+	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/program"
+	"github.com/ja-he/dayplan/src/tui"
 
 	"github.com/jessevdk/go-flags"
 )

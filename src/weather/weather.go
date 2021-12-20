@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"dayplan/src/model"
+	"github.com/ja-he/dayplan/src/model"
 )
 
 type OwmWeather struct {

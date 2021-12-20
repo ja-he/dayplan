@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"dayplan/src/model"
+	"github.com/ja-he/dayplan/src/model"
 	"strconv"
 )
 

@@ -5,12 +5,12 @@ import (
 	"math"
 	"sync"
 
-	"dayplan/src/category_style"
-	"dayplan/src/model"
-	"dayplan/src/potatolog"
-	"dayplan/src/program"
-	"dayplan/src/util"
-	"dayplan/src/weather"
+	"github.com/ja-he/dayplan/src/category_style"
+	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/potatolog"
+	"github.com/ja-he/dayplan/src/program"
+	"github.com/ja-he/dayplan/src/util"
+	"github.com/ja-he/dayplan/src/weather"
 )
 
 type hoveredEventInfo struct {

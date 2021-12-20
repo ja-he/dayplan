@@ -1,4 +1,4 @@
-module dayplan
+module github.com/ja-he/dayplan
 
 go 1.17
 

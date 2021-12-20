@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"dayplan/src/model"
+	"github.com/ja-he/dayplan/src/model"
 )
 
 type FileHandler struct {
