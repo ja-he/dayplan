@@ -30,7 +30,7 @@ configuration and data storage. This directory can be set with the
 `DAYPLAN_HOME` environment variable.
 In the subdirectory `days` then days are stored as files named by
 `YYYY-MM-DD` format.
-Optionally, category styles can be defined in the file `category-styles`.
+Optionally, category styles can be defined in the file `category-styles.yaml`.
 
 To get weather and sunrise/-set information you'll need to define latitude and
 longitude as environment variables (e.g. in the `.bashrc`):
@@ -62,9 +62,13 @@ so for example a day with three events might be
 
 ### Categories
 
-A category style in `${DAYPLAN_HOME}/category-styles` is formatted as
+A category style in `${DAYPLAN_HOME}/category-styles.yaml` is formatted as YAML.
+Here's an example with two styles defined:
+```yaml
+- name: uni
+  fg: #000000
+  bg: #ffdccc
+- name: work
+  fg: #000000
+  bg: #ffcccc
 ```
-<category>|<fg>|<bg>
-```
-where `<fg>` and `<bg>` are fore- and background colors provided in the common
-hex/html/css notation `#rrggbb`.

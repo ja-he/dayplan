@@ -1,9 +1,7 @@
 package tui
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -61,16 +59,13 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	// read category styles
 	var categoryStyling category_style.CategoryStyling
 	categoryStyling = *category_style.EmptyCategoryStyling()
-	f, err := os.Open(programData.BaseDirPath + "/" + "category-styles")
-	if err == nil {
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			s := scanner.Text()
-			categoryStyling.AddStyleFromCfg(s)
-		}
-		f.Close()
-	} else {
-		categoryStyling = *category_style.DefaultCategoryStyling()
+	styleFilePath := programData.BaseDirPath + "/" + "category-styles.yaml"
+	styledInputs, err := category_style.ReadCategoryStylingFile(styleFilePath)
+	if err != nil {
+		panic(err)
+	}
+	for _, styledInput := range styledInputs {
+		categoryStyling.AddStyleFromInput(styledInput)
 	}
 
 	tuiModel := NewTUIModel(categoryStyling)

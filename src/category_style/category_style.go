@@ -2,26 +2,50 @@ package category_style
 
 import (
 	"fmt"
-	"strings"
+	"io/ioutil"
 
 	"dayplan/src/colors"
 	"dayplan/src/model"
 
 	"github.com/gdamore/tcell/v2"
+	"gopkg.in/yaml.v2"
 )
 
+type StyledCategory struct {
+	Style tcell.Style
+	Cat   model.Category
+}
+
 type CategoryStyling struct {
-	styles []StyledCat
+	styles []StyledCategory
+}
+
+// represented as YAML in category style file
+type StyledCategoryInput struct {
+	Name string
+	Fg   string
+	Bg   string
 }
 
 func (cs *CategoryStyling) Add(cat model.Category, style tcell.Style) {
-	styling := StyledCat{Cat: cat, Style: style}
+	styling := StyledCategory{Cat: cat, Style: style}
 	cs.styles = append(cs.styles, styling)
 }
 
-type StyledCat struct {
-	Style tcell.Style
-	Cat   model.Category
+func ReadCategoryStylingFile(filepath string) ([]StyledCategoryInput, error) {
+	result := []StyledCategoryInput{}
+
+	data, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	err = yaml.Unmarshal([]byte(data), &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func EmptyCategoryStyling() *CategoryStyling {
@@ -32,18 +56,10 @@ func EmptyCategoryStyling() *CategoryStyling {
 func DefaultCategoryStyling() *CategoryStyling {
 	cs := CategoryStyling{}
 
-	cs.Add(model.Category{Name: "default"}, tcell.StyleDefault.Background(tcell.NewHexColor(0xff00ff)).Foreground(tcell.NewHexColor(0x00ff00)))
+	cs.Add(model.Category{Name: "misc"}, tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset))
 	cs.Add(model.Category{Name: "work"}, tcell.StyleDefault.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorReset))
 	cs.Add(model.Category{Name: "leisure"}, tcell.StyleDefault.Background(tcell.Color76).Foreground(tcell.ColorReset))
-	cs.Add(model.Category{Name: "misc"}, tcell.StyleDefault.Background(tcell.Color250).Foreground(tcell.ColorReset))
-	cs.Add(model.Category{Name: "programming"}, tcell.StyleDefault.Background(tcell.Color226).Foreground(tcell.ColorReset))
-	cs.Add(model.Category{Name: "cooking"}, tcell.StyleDefault.Background(tcell.Color212).Foreground(tcell.ColorReset))
 	cs.Add(model.Category{Name: "fitness"}, tcell.StyleDefault.Background(tcell.Color208).Foreground(tcell.ColorReset))
-	cs.Add(model.Category{Name: "eating"}, tcell.StyleDefault.Background(tcell.Color224).Foreground(tcell.ColorReset))
-	cs.Add(model.Category{Name: "hygiene"}, tcell.StyleDefault.Background(tcell.Color80).Foreground(tcell.ColorReset))
-	cs.Add(model.Category{Name: "cleaning"}, tcell.StyleDefault.Background(tcell.Color215).Foreground(tcell.ColorReset))
-	cs.Add(model.Category{Name: "laundry"}, tcell.StyleDefault.Background(tcell.Color111).Foreground(tcell.ColorReset))
-	cs.Add(model.Category{Name: "family"}, tcell.StyleDefault.Background(tcell.Color122).Foreground(tcell.ColorReset))
 
 	return &cs
 }
@@ -55,25 +71,19 @@ func StyleFromHex(fg, bg string) tcell.Style {
 	return style
 }
 
-func (cs *CategoryStyling) AddStyleFromCfg(s string) bool {
-	tokens := strings.SplitN(s, "|", 3)
-	if len(tokens) != 3 {
-		return false
+func (cs *CategoryStyling) AddStyleFromInput(input StyledCategoryInput) bool {
+	cat := model.Category{
+		Name: input.Name,
 	}
+	style := StyleFromHex(input.Fg, input.Bg)
 
-	name := tokens[0]
-	fgstr := tokens[1][1:]
-	bgstr := tokens[2][1:]
-
-	cat := model.Category{Name: name}
-	style := StyleFromHex(fgstr, bgstr)
+	// TODO: error checking e.g. for the colors (which currently would panic)
 
 	cs.Add(cat, style)
-
 	return true
 }
 
-func (cs *CategoryStyling) GetAll() []StyledCat {
+func (cs *CategoryStyling) GetAll() []StyledCategory {
 	return cs.styles
 }
 
