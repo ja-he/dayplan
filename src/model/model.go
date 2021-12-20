@@ -81,6 +81,14 @@ func NewDay() *Day {
 	return &day
 }
 
+func NewDayWithEvents(events []Event) *Day {
+	day := NewDay()
+	for i := range events {
+		day.AddEvent(events[i])
+	}
+	return day
+}
+
 func idseq() func() EventID {
 	next := 0
 	return func() EventID {
@@ -190,4 +198,9 @@ func (day *Day) SetTimes(id EventID, start, end Timestamp) {
 	e := day.GetEvent(id)
 	e.Start = start
 	e.End = end
+}
+
+func (day *Day) Clone() *Day {
+	cloned := NewDayWithEvents(day.Events)
+	return cloned
 }
