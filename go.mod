@@ -7,6 +7,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/kelvins/sunrisesunset v0.0.0-20210220141756-39fa1bd816d5
 	github.com/lucasb-eyer/go-colorful v1.2.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
