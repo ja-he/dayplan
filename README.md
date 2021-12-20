@@ -1,3 +1,5 @@
+[![Go](https://github.com/ja-he/dayplan/actions/workflows/go.yml/badge.svg)](https://github.com/ja-he/dayplan/actions/workflows/go.yml)
+
 # Dayplan
 
 A utility to plan your day.
