@@ -48,7 +48,7 @@ func (d Date) Prev() Date {
 }
 
 func (d Date) Next() Date {
-	if d.isLastOfMonth() {
+	if d == d.getLastOfMonth() {
 		d.Day = 1
 		if d.Month == 12 {
 			d.Month = 1
@@ -143,21 +143,25 @@ func lastDaysOfMonth() map[int]int {
 	}
 }
 
-func (d Date) isLastOfMonth() bool {
-	if d.Month == 2 {
-		if d.Day == 29 {
-			return true
-		}
-		if d.Day == 28 && d.isLeapYear() {
-			return true
-		}
+func (d Date) getFirstOfMonth() Date {
+	return Date{
+		Year:  d.Year,
+		Month: d.Month,
+		Day:   1,
+	}
+}
+
+func (d Date) getLastOfMonth() Date {
+	var lastDay int
+
+	switch {
+	case d.Month == 2 && d.isLeapYear():
+		lastDay = 29
+	default:
+		lastDay = lastDaysOfMonth()[d.Month]
 	}
 
-	if d.Day == lastDaysOfMonth()[d.Month] {
-		return true
-	}
-
-	return false
+	return Date{Year: d.Year, Month: d.Month, Day: lastDay}
 }
 
 func (d Date) isLeapYear() bool {
@@ -169,11 +173,19 @@ func (d Date) Is(t time.Time) bool {
 	return tYear == d.Year && int(tMonth) == d.Month && tDay == d.Day
 }
 
-func (d Date) Week() (start Date, end Date) {
+// TODO: rename WeekBounds or similar
+func (d Date) Week() (monday Date, sunday Date) {
 	for d.ToWeekday() != time.Monday {
 		d = d.Prev()
 	}
 	return d, d.Forward(6)
+}
+
+func (d Date) MonthBounds() (first Date, last Date) {
+	first = d.getFirstOfMonth()
+	last = d.getLastOfMonth()
+
+	return first, last
 }
 
 func ToString(w time.Weekday) string {
