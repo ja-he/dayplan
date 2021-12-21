@@ -353,6 +353,10 @@ func (t *TUIView) DrawTimeline() {
 
 func (t *TUIView) DrawEvents() {
 	day := t.Model.GetCurrentDay()
+	if day == nil {
+		t.Model.Log.Add("DEBUG", "current day nil on render; skipping")
+		return
+	}
 	t.Model.Positions = t.Model.ComputeRects(day, t.Model.UIDim.EventsOffset(), t.Model.UIDim.EventsWidth()-2)
 	for _, e := range day.Events {
 		style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
