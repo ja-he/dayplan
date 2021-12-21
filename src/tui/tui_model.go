@@ -158,21 +158,6 @@ func (ui *UIDims) ToolsWidth() int     { return ui.screenWidth - ui.ToolsOffset(
 func (ui *UIDims) StatusHeight() int   { return ui.statusHeight }
 func (ui *UIDims) StatusOffset() int   { return ui.screenHeight - ui.statusHeight }
 
-type Status struct {
-	status map[string]string
-	mutex  sync.Mutex
-}
-
-func (s *Status) Set(key, val string) {
-	s.mutex.Lock()
-	s.status[key] = val
-	s.mutex.Unlock()
-}
-
-func (s *Status) Get() map[string]string {
-	return s.status
-}
-
 type DayWithInfo struct {
 	Day      *model.Day
 	SunTimes *model.SunTimes
@@ -187,7 +172,6 @@ type TUIModel struct {
 	daysMutex        sync.RWMutex
 	days             map[model.Date]DayWithInfo
 	CurrentDate      model.Date
-	Status           Status
 	Log              potatolog.Log
 	showLog          bool
 	Resolution       int
@@ -228,7 +212,6 @@ func (t *TUIModel) ScrollBottom() {
 
 func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	var t TUIModel
-	t.Status.status = make(map[string]string)
 
 	t.days = make(map[model.Date]DayWithInfo)
 

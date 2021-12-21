@@ -249,26 +249,6 @@ func (t *TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
 }
 
 func (t *TUIView) DrawStatus() {
-	screenW, screenH := t.Model.UIDim.ScreenSize()
-
-	x, y := 0, screenH-t.Model.UIDim.StatusHeight()
-	w, h := screenW, t.Model.UIDim.StatusHeight()
-
-	statusStyle := tcell.StyleDefault.Background(tcell.ColorLightGray).Foreground(tcell.ColorBlack)
-	t.DrawBox(statusStyle, x, y, w, h)
-	xs, ys := x, y
-	for k, v := range t.Model.Status.Get() {
-		statusStr := fmt.Sprintf("%s: %s", k, v)
-		t.DrawText(xs, ys, w, h, statusStyle, statusStr)
-		xs += len(statusStr)
-		if xs >= x+w {
-			xs = x
-			ys++
-			if ys >= y+h {
-				break
-			}
-		}
-	}
 }
 
 func (t *TUIView) DrawWeather() {

@@ -181,7 +181,6 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 
 func (t *TUIController) goToDay(newDate model.Date) {
 	t.model.Log.Add("DEBUG", "going to "+newDate.ToString())
-	t.model.Status.Set("day", newDate.ToString())
 
 	t.model.CurrentDate = newDate
 	t.loadDaysForView(t.model.activeView)
@@ -272,7 +271,6 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 				t.model.Log.Add("DEBUG", "successfully retrieved weather data")
 			}
 			t.bump <- ControllerEventRender
-			t.model.Status.Set("owm-qcount", fmt.Sprint(t.model.Weather.GetQueryCount()))
 		}()
 	case 'i':
 		nextView := NextView(t.model.activeView)
