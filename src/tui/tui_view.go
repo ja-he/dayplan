@@ -179,8 +179,7 @@ func (t *TUIView) Render() {
 			dayWidth := t.Model.UIDim.screenWidth / 7
 			currentDate := start
 			for i := 0; i < 7; i++ {
-				dayInfo := t.Model.Days[currentDate]
-				positions := t.Model.ComputeRects(dayInfo.Day, x, dayWidth)
+				positions := t.Model.ComputeRects(t.Model.GetDay(currentDate), x, dayWidth)
 				var bgStyle tcell.Style
 				if b {
 					bgStyle = tcell.StyleDefault.Background(tcell.ColorLightGray)
@@ -189,7 +188,7 @@ func (t *TUIView) Render() {
 				}
 				t.DrawBox(bgStyle, x, 0, dayWidth, t.Model.UIDim.screenHeight)
 				t.DrawText(x, 0, dayWidth, 0, bgStyle, currentDate.ToString())
-				for _, e := range dayInfo.Day.Events {
+				for _, e := range t.Model.GetDay(currentDate).Events {
 					p := positions[e.ID]
 					style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
 					if err != nil {
@@ -314,7 +313,7 @@ func (t *TUIView) DrawTimeline() {
 	nowRow := (h * t.Model.Resolution) - t.Model.ScrollOffset + (m / (60 / t.Model.Resolution))
 	cursorRow := t.Model.cursorY
 
-	suntimes := t.Model.Days[t.Model.CurrentDate].SunTimes
+	suntimes := t.Model.GetCurrentSuntimes()
 
 	x := t.Model.UIDim.TimelineOffset()
 	w := t.Model.UIDim.TimelineWidth()

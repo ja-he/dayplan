@@ -171,25 +171,10 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 
 func (t *TUIController) goToDay(newDate model.Date) {
 	t.model.Log.Add("DEBUG", "going to "+newDate.ToString())
-
 	t.model.Status.Set("day", newDate.ToString())
 
-	if !t.model.HasModel(newDate) {
-		// load file
-		newDay := t.GetDayFromFileHandler(newDate)
-		if newDay == nil {
-			panic("newDay nil?!")
-		}
-		latF, _ := strconv.ParseFloat(t.model.ProgramData.Latitude, 64)
-		lonF, _ := strconv.ParseFloat(t.model.ProgramData.Longitude, 64)
-		maybeSuntimes, err := newDate.GetSunTimes(latF, lonF)
-		if err != nil {
-			t.model.Log.Add("ERROR", fmt.Sprint("error getting suntimes:", err))
-		}
-		t.model.AddModel(newDate, newDay, maybeSuntimes)
-	}
-
 	t.model.CurrentDate = newDate
+	t.loadDaysForView(t.model.activeView)
 }
 
 func (t *TUIController) goToPreviousDay() {
@@ -202,10 +187,59 @@ func (t *TUIController) goToNextDay() {
 	t.goToDay(nextDay)
 }
 
+// Loads the requested date's day from its file handler, if it has
+// not already been loaded.
+func (t *TUIController) loadDay(date model.Date) {
+	if !t.model.HasModel(date) {
+		// load file
+		newDay := t.GetDayFromFileHandler(date)
+		if newDay == nil {
+			panic("newDay nil?!")
+		}
+		latF, _ := strconv.ParseFloat(t.model.ProgramData.Latitude, 64)
+		lonF, _ := strconv.ParseFloat(t.model.ProgramData.Longitude, 64)
+		maybeSuntimes, err := date.GetSunTimes(latF, lonF)
+		if err != nil {
+			t.model.Log.Add("ERROR", fmt.Sprint("error getting suntimes:", err))
+		}
+		t.model.AddModel(date, newDay, maybeSuntimes)
+	}
+}
+
+// Starts Loads for all days visible in the view.
+// E.g. for ViewMonth it would start the load for all days from
+// first to last day of the month.
+// Warning: does not guarantee days will be loaded (non-nil) after
+// this returns.
+func (t *TUIController) loadDaysForView(view ActiveView) {
+	switch view {
+	case ViewDay:
+		t.loadDay(t.model.CurrentDate)
+	case ViewWeek:
+		{
+			monday, sunday := t.model.CurrentDate.Week()
+			for current := monday; current != sunday.Next(); current = current.Next() {
+				t.loadDay(current)
+			}
+		}
+	case ViewMonth:
+		{
+			first, last := t.model.CurrentDate.MonthBounds()
+			for current := first; current != last.Next(); current = current.Next() {
+				t.loadDay(current)
+			}
+		}
+	default:
+		panic("unknown ActiveView")
+	}
+}
+
 func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Key() {
 	case tcell.KeyESC:
-		t.model.activeView = PrevView(t.model.activeView)
+		prevView := PrevView(t.model.activeView)
+		t.loadDaysForView(prevView)
+		t.model.activeView = prevView
 	case tcell.KeyCtrlU:
 		t.model.ScrollUp(10)
 	case tcell.KeyCtrlD:
@@ -224,7 +258,9 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 			t.model.Status.Set("owm-qcount", fmt.Sprint(t.model.Weather.GetQueryCount()))
 		}()
 	case 'i':
-		t.model.activeView = NextView(t.model.activeView)
+		nextView := NextView(t.model.activeView)
+		t.loadDaysForView(nextView)
+		t.model.activeView = nextView
 	case 'q':
 		t.bump <- ControllerEventExit
 	case 'g':
@@ -247,7 +283,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.showLog = !t.model.showLog
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
-		t.model.AddModel(t.model.CurrentDate, model.NewDay(), t.model.Days[t.model.CurrentDate].SunTimes)
+		t.model.AddModel(t.model.CurrentDate, model.NewDay(), t.model.GetCurrentSuntimes())
 	case '+':
 		if t.model.Resolution*2 <= 12 {
 			t.model.Resolution *= 2

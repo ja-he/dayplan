@@ -184,7 +184,8 @@ type TUIModel struct {
 	Positions        map[model.EventID]util.Rect
 	Hovered          hoveredEventInfo
 	cursorX, cursorY int
-	Days             map[model.Date]DayWithInfo
+	daysMutex        sync.RWMutex
+	days             map[model.Date]DayWithInfo
 	CurrentDate      model.Date
 	Status           Status
 	Log              potatolog.Log
@@ -229,7 +230,7 @@ func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	var t TUIModel
 	t.Status.status = make(map[string]string)
 
-	t.Days = make(map[model.Date]DayWithInfo)
+	t.days = make(map[model.Date]DayWithInfo)
 
 	t.CategoryStyling = cs
 	t.Positions = make(map[model.EventID]util.Rect)
@@ -252,22 +253,44 @@ func (t *TUIModel) TimeForDistance(dist int) model.TimeOffset {
 	return model.TimeOffset{T: model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
 }
 
+// TODO: rename HasDay
 func (t *TUIModel) HasModel(date model.Date) bool {
-	_, ok := t.Days[date]
+	t.daysMutex.RLock()
+	defer t.daysMutex.RUnlock()
+	_, ok := t.days[date]
 	return ok
 }
 
 func (t *TUIModel) GetCurrentDay() *model.Day {
-	// this _should_ always be available
-	return t.Days[t.CurrentDate].Day
+	return t.GetDay(t.CurrentDate)
 }
 
+func (t *TUIModel) GetCurrentSuntimes() *model.SunTimes {
+	return t.GetSuntimes(t.CurrentDate)
+}
+
+func (t *TUIModel) GetSuntimes(date model.Date) *model.SunTimes {
+	t.daysMutex.RLock()
+	defer t.daysMutex.RUnlock()
+	return t.days[date].SunTimes
+}
+
+func (t *TUIModel) GetDay(date model.Date) *model.Day {
+	t.daysMutex.RLock()
+	defer t.daysMutex.RUnlock()
+	return t.days[date].Day
+}
+
+// TODO: rename AddDay
 func (t *TUIModel) AddModel(date model.Date, day *model.Day, suntimes *model.SunTimes) {
 	if day == nil {
 		panic("will not add a nil model")
 	}
 	t.Log.Add("DEBUG", "adding non-nil model for day "+date.ToString())
-	t.Days[date] = DayWithInfo{day, suntimes}
+
+	t.daysMutex.Lock()
+	defer t.daysMutex.Unlock()
+	t.days[date] = DayWithInfo{day, suntimes}
 }
 
 func (t *TUIModel) TimeAtY(y int) model.Timestamp {
