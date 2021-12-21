@@ -68,9 +68,9 @@ Category styles  are formatted as YAML in in
 Here's an example with two styles defined:
 ```yaml
 - name: uni
-  fg: #000000
-  bg: #ffdccc
+  fg: '#000000'
+  bg: '#ffdccc'
 - name: work
-  fg: #000000
-  bg: #ffcccc
+  fg: '#000000'
+  bg: '#ffcccc'
 ```
