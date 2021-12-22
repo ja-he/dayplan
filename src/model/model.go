@@ -14,7 +14,8 @@ func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
 type Category struct {
-	Name string
+	Name     string
+	Priority int
 }
 
 type EventID int
@@ -30,7 +31,7 @@ func (e *Event) Duration() int {
 	return e.Start.DurationInMinutesUntil(e.End)
 }
 
-func NewEvent(s string) *Event {
+func NewEvent(s string, knownCategories map[string]*Category) *Event {
 	var e Event
 
 	args := strings.SplitN(s, "|", 4)
@@ -42,8 +43,14 @@ func NewEvent(s string) *Event {
 	e.Start = *NewTimestamp(startString)
 	e.End = *NewTimestamp(endString)
 
+	maybeCategory, categoryKnown := knownCategories[catString]
+
 	e.Name = nameString
-	e.Cat.Name = catString
+	if categoryKnown {
+		e.Cat = *maybeCategory
+	} else {
+		e.Cat.Name = catString
+	}
 
 	return &e
 }
@@ -239,7 +246,7 @@ func (day *Day) Flatten() {
 
 	for current < len(day.Events) && next < len(day.Events) {
 		if day.Events[next].IsContainedIn(&day.Events[current]) {
-			if day.Events[next].Cat.HigherPriorityThan(&day.Events[current].Cat) {
+			if day.Events[next].Cat.Priority > day.Events[current].Cat.Priority {
 				// clone the current event for the remainder after the next event
 				currentRemainder := day.Events[current]
 				currentRemainder.Start = day.Events[next].End
@@ -268,7 +275,7 @@ func (day *Day) Flatten() {
 				day.Events = append(day.Events[:next], day.Events[next+1:]...)
 			}
 		} else if day.Events[next].StartsDuring(&day.Events[current]) {
-			if day.Events[next].Cat.HigherPriorityThan(&day.Events[current].Cat) {
+			if day.Events[next].Cat.Priority > day.Events[current].Cat.Priority {
 				// trim current
 				day.Events[current].End = day.Events[next].Start
 				if day.Events[current].Duration() == 0 {
@@ -279,7 +286,7 @@ func (day *Day) Flatten() {
 					current = next
 					next += 1
 				}
-			} else if day.Events[next].Cat == day.Events[current].Cat {
+			} else if day.Events[next].Cat.Name == day.Events[current].Cat.Name {
 				// lengthen current, remove next
 				day.Events[current].End = day.Events[next].End
 				day.Events = append(day.Events[:next], day.Events[next+1:]...)
@@ -293,12 +300,6 @@ func (day *Day) Flatten() {
 			next += 1
 		}
 	}
-}
-
-func (a *Category) HigherPriorityThan(b *Category) bool {
-	// TODO: temporarily fake impl, priority should be a field, set on
-	//       reading of category styles by order, probably
-	return a.Name > b.Name
 }
 
 func (later *Event) IsContainedIn(earlier *Event) bool {

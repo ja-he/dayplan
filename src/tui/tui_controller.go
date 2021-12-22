@@ -19,12 +19,12 @@ import (
 func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
 	fh, ok := t.FileHandlers[date]
 	if ok {
-		tmp := fh.Read()
+		tmp := fh.Read(t.model.CategoryStyling.GetKnownCategoriesByName())
 		return tmp
 	} else {
 		newHandler := filehandling.NewFileHandler(t.model.ProgramData.BaseDirPath + "/days/" + date.ToString())
 		t.FileHandlers[date] = newHandler
-		tmp := newHandler.Read()
+		tmp := newHandler.Read(t.model.CategoryStyling.GetKnownCategoriesByName())
 		return tmp
 	}
 }
@@ -111,7 +111,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	if tuiController.FileHandlers[date] == nil {
 		tuiController.model.AddModel(date, &model.Day{}, maybeSuntimes)
 	} else {
-		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(), maybeSuntimes)
+		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), maybeSuntimes)
 	}
 
 	tuiController.view = tuiView

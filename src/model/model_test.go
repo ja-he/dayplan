@@ -15,8 +15,8 @@ func TestStartsDuring(t *testing.T) {
 		// +---|   |
 		//     +---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("06:00|07:30|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("06:00|07:30|work|Get Started", make(map[string]*Category))
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -28,8 +28,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts after"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("06:40|07:30|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("06:40|07:30|work|Get Started", make(map[string]*Category))
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -41,8 +41,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts at the same time"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("05:50|07:30|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("05:50|07:30|work|Get Started", make(map[string]*Category))
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -54,8 +54,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts flush"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("06:30|07:30|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("06:30|07:30|work|Get Started", make(map[string]*Category))
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -67,8 +67,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts during (contained, should not matter)"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("05:55|06:20|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("05:55|06:20|work|Get Started", make(map[string]*Category))
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -80,8 +80,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts before"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("04:50|07:30|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("04:50|07:30|work|Get Started", make(map[string]*Category))
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -103,8 +103,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   +---+
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("05:55|06:20|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("05:55|06:20|work|Get Started", make(map[string]*Category))
 
 		expected := true
 		result := b.IsContainedIn(a)
@@ -127,8 +127,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |     |
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("06:40|07:30|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("06:40|07:30|work|Get Started", make(map[string]*Category))
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -149,8 +149,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |     |
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("06:30|07:30|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("06:30|07:30|work|Get Started", make(map[string]*Category))
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -168,8 +168,8 @@ func TestIsContainedIn(t *testing.T) {
 		// +---|   |
 		//     +---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("05:55|06:40|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("05:55|06:40|work|Get Started", make(map[string]*Category))
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -187,8 +187,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   +---+
 		// +----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("05:55|06:40|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("05:55|06:40|work|Get Started", make(map[string]*Category))
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -205,8 +205,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   |   |
 		// +---+---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast")
-		b := NewEvent("05:50|06:30|work|Get Started")
+		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
+		b := NewEvent("05:50|06:30|work|Get Started", make(map[string]*Category))
 
 		expected := true
 		result := b.IsContainedIn(a)
