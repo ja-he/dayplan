@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/program"
@@ -37,6 +38,18 @@ func summarize() {
 		programData.BaseDirPath = strings.TrimRight(dayplanHome, "/")
 	}
 
+	// read category styles (crucially, the priorities)
+	var categoryStyling category_style.CategoryStyling
+	categoryStyling = *category_style.EmptyCategoryStyling()
+	styleFilePath := programData.BaseDirPath + "/" + "category-styles.yaml"
+	styledInputs, err := category_style.ReadCategoryStylingFile(styleFilePath)
+	if err != nil {
+		panic(err)
+	}
+	for _, styledInput := range styledInputs {
+		categoryStyling.AddStyleFromInput(styledInput)
+	}
+
 	currentDate, err := model.FromString(Opts.SummarizeCommand.FromDay)
 	if err != nil {
 		panic(err)
@@ -55,7 +68,7 @@ func summarize() {
 	days := make([]model.Day, 0)
 	for currentDate != finalDate.Next() {
 		fh := filehandling.NewFileHandler(programData.BaseDirPath + "/days/" + currentDate.ToString())
-		days = append(days, *fh.Read())
+		days = append(days, *fh.Read(categoryStyling.GetKnownCategoriesByName()))
 
 		currentDate = currentDate.Next()
 	}
@@ -92,7 +105,7 @@ func summarize() {
 			durationStr = fmt.Sprint(duration, " min")
 		}
 		fmt.Print("  ")
-		fmt.Printf("% 20s : % 10s\n", category.Name, durationStr)
+		fmt.Printf("% 20s (prio:% 3d): % 10s\n", category.Name, category.Priority, durationStr)
 	}
 
 	os.Exit(0)

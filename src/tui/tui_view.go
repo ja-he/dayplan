@@ -76,7 +76,7 @@ func (t *TUIView) DrawTools() {
 
 		t.DrawBox(styling.Style, box.X, box.Y, box.W, box.H)
 		t.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 0, styling.Style, util.TruncateAt(styling.Cat.Name, textLen))
-		if t.Model.CurrentCategory == styling.Cat {
+		if t.Model.CurrentCategory.Name == styling.Cat.Name {
 			t.DrawBox(colors.DarkenBG(styling.Style, 50), box.X+box.W-1, box.Y, 1, box.H)
 		}
 

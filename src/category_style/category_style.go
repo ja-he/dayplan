@@ -22,9 +22,21 @@ type CategoryStyling struct {
 
 // represented as YAML in category style file
 type StyledCategoryInput struct {
-	Name string
-	Fg   string
-	Bg   string
+	Name     string
+	Fg       string
+	Bg       string
+	Priority int
+}
+
+func (cs *CategoryStyling) GetKnownCategoriesByName() map[string]*model.Category {
+	result := make(map[string]*model.Category)
+
+	for i := range cs.styles {
+		cat := &cs.styles[i].Cat
+		result[cat.Name] = cat
+	}
+
+	return result
 }
 
 func (cs *CategoryStyling) Add(cat model.Category, style tcell.Style) {
@@ -73,7 +85,8 @@ func StyleFromHex(fg, bg string) tcell.Style {
 
 func (cs *CategoryStyling) AddStyleFromInput(input StyledCategoryInput) bool {
 	cat := model.Category{
-		Name: input.Name,
+		Name:     input.Name,
+		Priority: input.Priority,
 	}
 	style := StyleFromHex(input.Fg, input.Bg)
 
@@ -89,7 +102,7 @@ func (cs *CategoryStyling) GetAll() []StyledCategory {
 
 func (cs *CategoryStyling) GetStyle(c model.Category) (tcell.Style, error) {
 	for _, styling := range cs.styles {
-		if styling.Cat == c {
+		if styling.Cat.Name == c.Name {
 			return styling.Style, nil
 		}
 	}
