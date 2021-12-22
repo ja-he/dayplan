@@ -306,16 +306,16 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		// TODO: all that's needed to clear model (appropriately)?
 		t.model.AddModel(t.model.CurrentDate, model.NewDay(), t.model.GetCurrentSuntimes())
 	case '+':
-		if t.model.Resolution*2 <= 12 {
-			t.model.Resolution *= 2
+		if t.model.NRowsPerHour*2 <= 12 {
+			t.model.NRowsPerHour *= 2
 			t.model.ScrollOffset *= 2
 		}
 	case '-':
-		if (t.model.Resolution % 2) == 0 {
-			t.model.Resolution /= 2
+		if (t.model.NRowsPerHour % 2) == 0 {
+			t.model.NRowsPerHour /= 2
 			t.model.ScrollOffset /= 2
 		} else {
-			t.model.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.model.Resolution))
+			t.model.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.model.NRowsPerHour))
 		}
 	}
 }
@@ -420,7 +420,7 @@ func (t *TUIController) resizeStep(newY int) {
 	delta := newY - t.model.cursorY
 	offset := t.model.TimeForDistance(delta)
 	event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
-	event.End = event.End.Offset(offset).Snap(t.model.Resolution)
+	event.End = event.End.Offset(offset).Snap(t.model.NRowsPerHour)
 }
 
 func (t *TUIController) moveStep(newY int) {
@@ -429,13 +429,13 @@ func (t *TUIController) moveStep(newY int) {
 	if t.movePropagate {
 		following := t.model.GetCurrentDay().GetEventsFrom(t.EditedEvent)
 		for _, ptr := range following {
-			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.Resolution)
-			ptr.End = ptr.End.Offset(offset).Snap(t.model.Resolution)
+			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.NRowsPerHour)
+			ptr.End = ptr.End.Offset(offset).Snap(t.model.NRowsPerHour)
 		}
 	} else {
 		event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
-		event.Start = event.Start.Offset(offset).Snap(t.model.Resolution)
-		event.End = event.End.Offset(offset).Snap(t.model.Resolution)
+		event.Start = event.Start.Offset(offset).Snap(t.model.NRowsPerHour)
+		event.End = event.End.Offset(offset).Snap(t.model.NRowsPerHour)
 	}
 }
 

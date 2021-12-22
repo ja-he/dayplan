@@ -142,7 +142,7 @@ func (d *UIDims) Initialize(weatherWidth, timelineWidth, toolsWidth int,
 	d.timelineOffset = d.weatherOffset + weatherWidth
 	d.eventsOffset = d.timelineOffset + timelineWidth
 	d.toolsOffset = screenWidth - toolsWidth
-	d.statusHeight = 1
+	d.statusHeight = 2
 	d.screenWidth = screenWidth
 	d.screenHeight = screenHeight
 }
@@ -174,7 +174,7 @@ type TUIModel struct {
 	CurrentDate      model.Date
 	Log              potatolog.Log
 	showLog          bool
-	Resolution       int
+	NRowsPerHour     int
 	ScrollOffset     int
 	EventEditor      EventEditor
 	showSummary      bool
@@ -185,19 +185,20 @@ type TUIModel struct {
 }
 
 func (t *TUIModel) ScrollUp(by int) {
-	if t.ScrollOffset-by >= 0 {
+	eventviewTopRow := 0
+	if t.ScrollOffset-by >= eventviewTopRow {
 		t.ScrollOffset -= by
 	} else {
-		t.ScrollOffset = 0
+		t.ScrollTop()
 	}
 }
 
 func (t *TUIModel) ScrollDown(by int) {
 	eventviewBottomRow := t.UIDim.screenHeight - t.UIDim.statusHeight
-	if t.ScrollOffset+by+eventviewBottomRow <= (24 * t.Resolution) {
+	if t.ScrollOffset+by+eventviewBottomRow <= (24 * t.NRowsPerHour) {
 		t.ScrollOffset += by
 	} else {
-		t.ScrollOffset = (24 * t.Resolution) - eventviewBottomRow
+		t.ScrollBottom()
 	}
 }
 
@@ -207,7 +208,7 @@ func (t *TUIModel) ScrollTop() {
 
 func (t *TUIModel) ScrollBottom() {
 	eventviewBottomRow := t.UIDim.screenHeight - t.UIDim.statusHeight
-	t.ScrollOffset = 24*t.Resolution - eventviewBottomRow
+	t.ScrollOffset = 24*t.NRowsPerHour - eventviewBottomRow
 }
 
 func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
@@ -218,8 +219,8 @@ func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	t.CategoryStyling = cs
 	t.Positions = make(map[model.EventID]util.Rect)
 
-	t.Resolution = 6
-	t.ScrollOffset = 8 * t.Resolution
+	t.NRowsPerHour = 6
+	t.ScrollOffset = 8 * t.NRowsPerHour
 
 	t.activeView = ViewDay
 
@@ -232,7 +233,7 @@ func (t *TUIModel) TimeForDistance(dist int) model.TimeOffset {
 		dist *= (-1)
 		add = false
 	}
-	minutes := dist * (60 / t.Resolution)
+	minutes := dist * (60 / t.NRowsPerHour)
 	return model.TimeOffset{T: model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
 }
 
@@ -280,14 +281,14 @@ func (t *TUIModel) AddModel(date model.Date, day *model.Day, suntimes *model.Sun
 }
 
 func (t *TUIModel) TimeAtY(y int) model.Timestamp {
-	minutes := y*(60/t.Resolution) + t.ScrollOffset*(60/t.Resolution)
+	minutes := y*(60/t.NRowsPerHour) + t.ScrollOffset*(60/t.NRowsPerHour)
 
 	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
 
 	return ts
 }
 
-func (t *TUIModel) ComputeRects(day *model.Day, offsetX, width int) map[model.EventID]util.Rect {
+func (t *TUIModel) ComputeRects(day *model.Day, offsetX, offsetY, width, height int) map[model.EventID]util.Rect {
 	active_stack := make([]model.Event, 0)
 	positions := make(map[model.EventID]util.Rect)
 	for _, e := range day.Events {
@@ -301,9 +302,9 @@ func (t *TUIModel) ComputeRects(day *model.Day, offsetX, width int) map[model.Ev
 		}
 		active_stack = append(active_stack, e)
 		// based on event state, draw a box or maybe a smaller one, or ...
-		y := t.toY(e.Start)
+		y := t.toY(e.Start) + offsetY
 		x := offsetX
-		h := t.toY(e.End) - y
+		h := t.toY(e.End) + offsetY - y
 		w := width
 
 		// scale the width by 3/4 for every extra item on the stack, so for one
@@ -383,5 +384,5 @@ func (t *TUIModel) ClearHover() {
 }
 
 func (t *TUIModel) toY(ts model.Timestamp) int {
-	return ((ts.Hour*t.Resolution - t.ScrollOffset) + (ts.Minute / (60 / t.Resolution)))
+	return ((ts.Hour*t.NRowsPerHour - t.ScrollOffset) + (ts.Minute / (60 / t.NRowsPerHour)))
 }

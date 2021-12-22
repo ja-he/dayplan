@@ -77,7 +77,7 @@ func (t *TUIView) DrawTools() {
 		t.DrawBox(styling.Style, box.X, box.Y, box.W, box.H)
 		t.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 0, styling.Style, util.TruncateAt(styling.Cat.Name, textLen))
 		if t.Model.CurrentCategory.Name == styling.Cat.Name {
-			t.DrawBox(colors.DarkenBG(styling.Style, 50), box.X+box.W-1, box.Y, 1, box.H)
+			t.DrawBox(colors.DefaultEmphasize(styling.Style), box.X+box.W-1, box.Y, 1, box.H)
 		}
 
 		i++
@@ -123,9 +123,9 @@ func (t *TUIView) DrawSummary() {
 		for _, category := range categories {
 			duration := summary[category]
 			style, _ := t.Model.CategoryStyling.GetStyle(category)
-			t.DrawBox(style, 0, y, duration/t.Model.Resolution, 1)
-			t.DrawText(0, y, duration/t.Model.Resolution, 0, style, category.Name)
-			t.DrawText(duration/t.Model.Resolution+1, y, w-(duration/t.Model.Resolution+1), 0, tcell.StyleDefault, "("+util.DurationToString(duration)+")")
+			t.DrawBox(style, 0, y, duration/t.Model.NRowsPerHour, 1)
+			t.DrawText(0, y, duration/t.Model.NRowsPerHour, 0, style, category.Name)
+			t.DrawText(duration/t.Model.NRowsPerHour+1, y, w-(duration/t.Model.NRowsPerHour+1), 0, tcell.StyleDefault, "("+util.DurationToString(duration)+")")
 			y++
 		}
 	}
@@ -164,6 +164,13 @@ func (t *TUIView) Render() {
 
 	t.Screen.Clear()
 
+	// TODO: define all styles here (prep to probably move out further)
+	headerBG := tcell.StyleDefault.Background(colors.ColorFromHexString("#f0f0f0")).Foreground(tcell.ColorBlack)
+	headerBGEmph := colors.DefaultEmphasize(headerBG)
+	dayBG := tcell.StyleDefault
+	dayBGEmph := headerBGEmph
+	loadingStyle := dayBG.Foreground(tcell.ColorLightSeaGreen)
+
 	switch t.Model.activeView {
 	case ViewDay:
 		t.DrawWeather()
@@ -172,57 +179,100 @@ func (t *TUIView) Render() {
 		t.DrawTools()
 		t.DrawEditor()
 	case ViewWeek:
-		start, _ := t.Model.CurrentDate.Week()
+		start, end := t.Model.CurrentDate.Week()
+		nDays := start.DaysUntil(end) + 1
+		if nDays > t.Model.UIDim.screenWidth {
+			t.DrawText(0, 0, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight,
+				tcell.StyleDefault.Foreground(tcell.ColorRebeccaPurple),
+				"refusing to render week on screen with fewer columns than days")
+			return
+		}
+
 		{
-			x := 0
-			b := true
-			dayWidth := t.Model.UIDim.screenWidth / 7
-			currentDate := start
-			for i := 0; i < 7; i++ {
-				positions := t.Model.ComputeRects(t.Model.GetDay(currentDate), x, dayWidth)
-				var bgStyle tcell.Style
-				if b {
-					bgStyle = tcell.StyleDefault.Background(tcell.ColorLightGray)
+			firstDayXOffset := 10
+			x := firstDayXOffset
+			dayWidth := (t.Model.UIDim.screenWidth - firstDayXOffset) / nDays
+
+			t.drawTimeline(0, 0, firstDayXOffset, t.Model.UIDim.screenHeight-t.Model.UIDim.statusHeight, make([]timestampStyle, 0), nil)
+
+			for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
+				if drawDate == t.Model.CurrentDate {
+					t.DrawBox(dayBGEmph, x, 0, dayWidth, t.Model.UIDim.screenHeight)
 				} else {
-					bgStyle = tcell.StyleDefault.Background(tcell.ColorDarkGray)
+					t.DrawBox(dayBG, x, 0, dayWidth, t.Model.UIDim.screenHeight)
 				}
-				t.DrawBox(bgStyle, x, 0, dayWidth, t.Model.UIDim.screenHeight)
-				t.DrawText(x, 0, dayWidth, 0, bgStyle, currentDate.ToString())
-				for _, e := range t.Model.GetDay(currentDate).Events {
-					p := positions[e.ID]
-					style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
-					if err != nil {
-						panic(err)
+				day := t.Model.GetDay(drawDate)
+				if day != nil {
+					positions := t.Model.ComputeRects(day, x, 0, dayWidth, t.Model.UIDim.screenHeight-t.Model.UIDim.statusHeight)
+					for _, e := range day.Events {
+						p := positions[e.ID]
+						style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
+						if err != nil {
+							panic(err)
+						}
+						if drawDate != t.Model.CurrentDate {
+							style = colors.DefaultDim(style)
+						}
+						t.DrawBox(style, p.X, p.Y, p.W, p.H)
+						t.DrawText(p.X, p.Y, p.W, 0, style, util.TruncateAt(e.Name, dayWidth))
 					}
-					t.DrawBox(style, p.X, p.Y, p.W, p.H)
-					t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)
+				} else {
+					loadingText := "⋮"
+					t.DrawText(x, t.Model.UIDim.screenHeight/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
+						loadingStyle,
+						loadingText)
 				}
-				b = !b
-				currentDate = currentDate.Next()
 				x += dayWidth
 			}
 		}
+
 	case ViewMonth:
 		start, end := t.Model.CurrentDate.MonthBounds()
-		nDays := end.Day - start.Day
-
-		dayWidth := t.Model.UIDim.screenWidth / nDays
-
-		x := 0
-		for current := start; current != end.Next(); current = current.Next() {
-			positions := t.Model.ComputeRects(t.Model.GetDay(current), x, dayWidth)
-			bgStyle := tcell.StyleDefault
-			t.DrawBox(bgStyle, x, 0, dayWidth, t.Model.UIDim.screenHeight)
-			for _, e := range t.Model.GetDay(current).Events {
-				p := positions[e.ID]
-				style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
-				if err != nil {
-					panic(err)
-				}
-				t.DrawBox(style, p.X, p.Y, p.W, p.H)
-			}
-			x += dayWidth
+		nDays := start.DaysUntil(end) + 1
+		if nDays > t.Model.UIDim.screenWidth {
+			t.DrawText(0, 0, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight,
+				tcell.StyleDefault.Foreground(tcell.ColorRebeccaPurple),
+				"refusing to render month on screen with fewer columns than days")
+			return
 		}
+
+		{
+			firstDayXOffset := 10
+			x := firstDayXOffset
+			dayWidth := (t.Model.UIDim.screenWidth - firstDayXOffset) / nDays
+
+			t.drawTimeline(0, 0, firstDayXOffset, t.Model.UIDim.screenHeight-t.Model.UIDim.statusHeight, make([]timestampStyle, 0), nil)
+
+			for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
+				if drawDate == t.Model.CurrentDate {
+					t.DrawBox(dayBGEmph, x, 0, dayWidth, t.Model.UIDim.screenHeight)
+				} else {
+					t.DrawBox(dayBG, x, 0, dayWidth, t.Model.UIDim.screenHeight)
+				}
+				day := t.Model.GetDay(drawDate)
+				if day != nil {
+					positions := t.Model.ComputeRects(day, x, 0, dayWidth, t.Model.UIDim.screenHeight-t.Model.UIDim.statusHeight)
+					for _, e := range day.Events {
+						p := positions[e.ID]
+						style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
+						if err != nil {
+							panic(err)
+						}
+						if drawDate != t.Model.CurrentDate {
+							style = colors.DefaultDim(style)
+						}
+						t.DrawBox(style, p.X, p.Y, p.W, p.H)
+					}
+				} else {
+					loadingText := "⋮"
+					t.DrawText(x, t.Model.UIDim.screenHeight/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
+						loadingStyle,
+						loadingText)
+				}
+				x += dayWidth
+			}
+		}
+
 	default:
 		t.Model.Log.Add("ERROR", fmt.Sprintf("unknown active view %d aka '%s'",
 			t.Model.activeView, toString(t.Model.activeView)))
@@ -264,6 +314,38 @@ func (t *TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
 }
 
 func (t *TUIView) DrawStatus() {
+	var firstDay, lastDay model.Date
+	switch t.Model.activeView {
+	case ViewDay:
+		firstDay, lastDay = t.Model.CurrentDate, t.Model.CurrentDate
+	case ViewWeek:
+		firstDay, lastDay = t.Model.CurrentDate.Week()
+	case ViewMonth:
+		firstDay, lastDay = t.Model.CurrentDate.MonthBounds()
+	}
+
+	firstDayXOffset := 10
+	nDaysInPeriod := firstDay.DaysUntil(lastDay) + 1
+	nDaysTilCurrent := firstDay.DaysUntil(t.Model.CurrentDate)
+	dateWidth := 10 // 2020-02-12 is 10 wide
+	dayWidth := (t.Model.UIDim.screenWidth - firstDayXOffset) / nDaysInPeriod
+	statusYOffset := t.Model.UIDim.StatusOffset()
+
+	bgStyle := tcell.StyleDefault.Background(colors.ColorFromHexString("#f0f0f0")).Foreground(tcell.ColorBlack)
+	bgStyleEmph := colors.DefaultEmphasize(bgStyle)
+	dateStyle := bgStyleEmph
+	weekdayStyle := colors.LightenFG(dateStyle, 60)
+
+	// header background
+	t.DrawBox(bgStyle, 0, statusYOffset, firstDayXOffset+nDaysInPeriod*dayWidth, t.Model.UIDim.statusHeight)
+	// header bar (filled for days until current)
+	t.DrawBox(bgStyleEmph, 0, statusYOffset, firstDayXOffset+(nDaysTilCurrent+1)*dayWidth, t.Model.UIDim.statusHeight)
+	// date box background
+	t.DrawBox(bgStyleEmph, 0, statusYOffset, dateWidth, t.Model.UIDim.statusHeight)
+	// date string
+	t.DrawText(0, statusYOffset, dateWidth, 0, dateStyle, t.Model.CurrentDate.ToString())
+	// weekday string
+	t.DrawText(0, statusYOffset+1, dateWidth, 0, weekdayStyle, util.TruncateAt(t.Model.CurrentDate.ToWeekday().String(), dateWidth))
 }
 
 func (t *TUIView) DrawWeather() {
@@ -285,7 +367,7 @@ func (t *TUIView) DrawWeather() {
 				weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xfff0cc)).Foreground(tcell.ColorBlack)
 			}
 
-			t.DrawBox(weatherStyle, t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), t.Model.Resolution)
+			t.DrawBox(weatherStyle, t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), t.Model.NRowsPerHour)
 
 			t.DrawText(t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, weather.Info)
 			t.DrawText(t.Model.UIDim.WeatherOffset(), y+1, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
@@ -296,52 +378,83 @@ func (t *TUIView) DrawWeather() {
 	}
 }
 
+type timestampStyle struct {
+	timestamp model.Timestamp
+	style     tcell.Style
+}
+
 func (t *TUIView) DrawTimeline() {
-	_, height := t.Screen.Size()
-
-	now := time.Now()
-	h := now.Hour()
-	m := now.Minute()
-	if t.Model.Resolution == 0 {
-		panic("RES IS ZERO?!")
-	}
-	nowRow := (h * t.Model.Resolution) - t.Model.ScrollOffset + (m / (60 / t.Model.Resolution))
-	cursorRow := t.Model.cursorY
-
 	suntimes := t.Model.GetCurrentSuntimes()
 
+	special := []timestampStyle{}
+	cursorTime := t.Model.TimeAtY(t.Model.cursorY)
+	cursorStyle := tcell.StyleDefault.Foreground(tcell.ColorLightGray).Bold(true)
+	if suntimes != nil && (cursorTime.IsAfter(suntimes.Set) || suntimes.Rise.IsAfter(cursorTime)) {
+		cursorStyle = cursorStyle.Background(tcell.ColorBlack)
+	}
+	special = append(special, timestampStyle{cursorTime, cursorStyle})
+	if t.Model.CurrentDate.Is(time.Now()) {
+		nowTime := *model.NewTimestampFromGotime(time.Now())
+		nowStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorRed).Bold(true)
+		special = append(special, timestampStyle{nowTime, nowStyle})
+	}
+
 	x := t.Model.UIDim.TimelineOffset()
+	y := 0
 	w := t.Model.UIDim.TimelineWidth()
-	for row := 0; row <= height; row++ {
-		timestamp := t.Model.TimeAtY(row)
+	_, h := t.Screen.Size()
+
+	t.drawTimeline(x, y, w, h, special, suntimes)
+}
+
+// Draw a timeline in the TUI at the provided coordinates in the provided
+// dimensions.
+// Optionally provide highlight times such as for the current timestamp as well
+// as suntimes to be displayed on the timeline.
+func (t *TUIView) drawTimeline(
+	x, y, w, h int,
+	highlightTimes []timestampStyle,
+	suntimes *model.SunTimes) {
+
+	timestampLength := 5
+	timestampLPad := strings.Repeat(" ", w-timestampLength-1)
+	timestampRPad := " "
+	emptyTimestamp := strings.Repeat(" ", timestampLength)
+	defaultStyle := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
+
+	if t.Model.NRowsPerHour == 0 {
+		panic("RES IS ZERO?!")
+	}
+
+	for virtRow := 0; virtRow <= h; virtRow++ {
+		timestamp := t.Model.TimeAtY(virtRow)
 
 		if timestamp.Hour >= 24 {
 			break
 		}
-		style := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
-		if suntimes != nil {
-			if !(timestamp.IsAfter(suntimes.Rise)) ||
-				(timestamp.IsAfter(suntimes.Set)) {
-				style = style.Background(tcell.ColorBlack)
-			}
-		}
-		if row == nowRow && t.Model.CurrentDate.Is(now) {
-			t.DrawText(x, row, w, 1,
-				style.Foreground(tcell.ColorWhite).Background(tcell.ColorRed).Bold(true),
-				fmt.Sprintf("   %s  ", model.NewTimestampFromGotime(now).ToString()))
-		} else if row == cursorRow && t.Model.Hovered.EventID != 0 {
-			t.DrawText(x, row, w, 1,
-				style.Foreground(tcell.ColorLightGrey).Bold(true),
-				fmt.Sprintf("   %s  ", t.Model.TimeAtY(cursorRow).ToString()))
-		} else if timestamp.Minute == 0 {
-			t.DrawText(x, row, w, 1,
-				style,
-				fmt.Sprintf("   %s  ", timestamp.ToString()))
+
+		var timestampString string
+		if timestamp.Minute == 0 {
+			timestampString = timestamp.ToString()
 		} else {
-			t.DrawText(x, row, w, 1,
-				style,
-				"          ")
+			timestampString = emptyTimestamp
 		}
+		timeText := timestampLPad + timestampString + timestampRPad
+
+		var style tcell.Style
+		if suntimes != nil && (!(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set))) {
+			style = defaultStyle.Background(tcell.ColorBlack)
+		} else {
+			style = defaultStyle
+		}
+
+		t.DrawText(x, virtRow+y, w, 1, style, timeText)
+	}
+	for _, timestampStyle := range highlightTimes {
+		timestamp := timestampStyle.timestamp
+		style := timestampStyle.style
+		timeText := timestampLPad + timestamp.ToString() + timestampRPad
+		t.DrawText(x, t.Model.toY(timestamp)+y, w, 1, style, timeText)
 	}
 }
 
@@ -351,7 +464,7 @@ func (t *TUIView) DrawEvents() {
 		t.Model.Log.Add("DEBUG", "current day nil on render; skipping")
 		return
 	}
-	t.Model.Positions = t.Model.ComputeRects(day, t.Model.UIDim.EventsOffset(), t.Model.UIDim.EventsWidth()-2)
+	t.Model.Positions = t.Model.ComputeRects(day, t.Model.UIDim.EventsOffset(), 0, t.Model.UIDim.EventsWidth()-2, t.Model.UIDim.screenHeight)
 	for _, e := range day.Events {
 		style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
 		if err != nil {
@@ -365,7 +478,7 @@ func (t *TUIView) DrawEvents() {
 			t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 			t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 		} else {
-			selStyle := colors.DarkenBG(style, 80)
+			selStyle := colors.DefaultEmphasize(style)
 			switch t.Model.Hovered.HoverState {
 			case HoverStateResize:
 				t.DrawBox(style, p.X, p.Y, p.W, p.H-1)
