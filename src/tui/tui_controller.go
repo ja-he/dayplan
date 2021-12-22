@@ -93,15 +93,16 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 	// process latitude longitude
 	// TODO
-	var maybeSuntimes *model.SunTimes
+	var suntimes model.SunTimes
 	if !coordinatesProvided {
 		tuiModel.Log.Add("ERROR", "could not fetch lat-&longitude -> no sunrise/-set times known")
 	} else {
-		latF, _ := strconv.ParseFloat(programData.Latitude, 64)
-		lonF, _ := strconv.ParseFloat(programData.Longitude, 64)
-		maybeSuntimes, err = date.GetSunTimes(latF, lonF)
-		if err != nil {
-			tuiModel.Log.Add("ERROR", fmt.Sprint("suntimes error:", err))
+		latF, parseErr := strconv.ParseFloat(programData.Latitude, 64)
+		lonF, parseErr := strconv.ParseFloat(programData.Longitude, 64)
+		if parseErr != nil {
+			tuiModel.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
+		} else {
+			suntimes = date.GetSunTimes(latF, lonF)
 		}
 	}
 
@@ -116,9 +117,9 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tuiController.model = tuiModel
 	tuiController.model.CurrentDate = date
 	if tuiController.FileHandlers[date] == nil {
-		tuiController.model.AddModel(date, &model.Day{}, maybeSuntimes)
+		tuiController.model.AddModel(date, &model.Day{}, &suntimes)
 	} else {
-		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), maybeSuntimes)
+		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
 	}
 
 	tuiController.view = tuiView
@@ -205,13 +206,20 @@ func (t *TUIController) loadDay(date model.Date) {
 		if newDay == nil {
 			panic("newDay nil?!")
 		}
-		latF, _ := strconv.ParseFloat(t.model.ProgramData.Latitude, 64)
-		lonF, _ := strconv.ParseFloat(t.model.ProgramData.Longitude, 64)
-		maybeSuntimes, err := date.GetSunTimes(latF, lonF)
-		if err != nil {
-			t.model.Log.Add("ERROR", fmt.Sprint("error getting suntimes:", err))
+
+		var suntimes model.SunTimes
+		coordinatesProvided := (t.model.ProgramData.Latitude != "" && t.model.ProgramData.Longitude != "")
+		if coordinatesProvided {
+			latF, parseErr := strconv.ParseFloat(t.model.ProgramData.Latitude, 64)
+			lonF, parseErr := strconv.ParseFloat(t.model.ProgramData.Longitude, 64)
+			if parseErr != nil {
+				t.model.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
+			} else {
+				suntimes = date.GetSunTimes(latF, lonF)
+			}
 		}
-		t.model.AddModel(date, newDay, maybeSuntimes)
+
+		t.model.AddModel(date, newDay, &suntimes)
 	}
 }
 

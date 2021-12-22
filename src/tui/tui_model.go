@@ -265,16 +265,19 @@ func (t *TUIModel) GetCurrentDay() *model.Day {
 	return t.GetDay(t.CurrentDate)
 }
 
+// Get the suntimes of the current date of the model.
 func (t *TUIModel) GetCurrentSuntimes() *model.SunTimes {
 	return t.GetSuntimes(t.CurrentDate)
 }
 
+// Get the suntimes of the provided date of the model.
 func (t *TUIModel) GetSuntimes(date model.Date) *model.SunTimes {
 	t.daysMutex.RLock()
 	defer t.daysMutex.RUnlock()
 	return t.days[date].SunTimes
 }
 
+// Get the day of the provided date of the model.
 func (t *TUIModel) GetDay(date model.Date) *model.Day {
 	t.daysMutex.RLock()
 	defer t.daysMutex.RUnlock()

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kelvins/sunrisesunset"
+	"github.com/nathan-osman/go-sunrise"
 )
 
 type Date struct {
@@ -273,20 +273,20 @@ type SunTimes struct {
 }
 
 // Warning: slow (TODO)
-func (d Date) GetSunTimes(latitude, longitude float64) (maybeSuntimes *SunTimes, err error) {
-	_, utcDeltaSeconds := d.ToGotime().Zone() // TODO: does this take summer time into account if we gave it day?
-	utcDeltaHours := utcDeltaSeconds / (60 * 60)
+func (d Date) GetSunTimes(latitude, longitude float64) SunTimes {
 
-	sunriseTime, sunsetTime, err := sunrisesunset.GetSunriseSunset(latitude, longitude, float64(utcDeltaHours), d.ToGotime())
+	// calculate sunrise sunset (UTC)
+	sunriseTime, sunsetTime := sunrise.SunriseSunset(latitude, longitude, d.Year, time.Month(d.Month), d.Day)
 
-	if err == nil {
-		maybeSuntimes = &SunTimes{
-			*NewTimestampFromGotime(sunriseTime),
-			*NewTimestampFromGotime(sunsetTime),
-		}
-	} else {
-		maybeSuntimes = nil
+	// convert time to current location
+	sunriseTime = sunriseTime.In(time.Now().Location())
+	sunsetTime = sunsetTime.In(time.Now().Location())
+
+	// convert to suntimes
+	suntimes := SunTimes{
+		*NewTimestampFromGotime(sunriseTime),
+		*NewTimestampFromGotime(sunsetTime),
 	}
 
-	return maybeSuntimes, err
+	return suntimes
 }
