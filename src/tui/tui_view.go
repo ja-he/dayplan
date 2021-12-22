@@ -203,11 +203,26 @@ func (t *TUIView) Render() {
 			}
 		}
 	case ViewMonth:
-		msg := "[monthly view | PLACEHOLDER]"
-		x := t.Model.UIDim.screenWidth/2 - len(msg)/2
-		y := t.Model.UIDim.screenHeight / 2
-		style := tcell.StyleDefault.Background(tcell.ColorLightBlue)
-		t.DrawText(x, y, len(msg), 0, style, msg)
+		start, end := t.Model.CurrentDate.MonthBounds()
+		nDays := end.Day - start.Day
+
+		dayWidth := t.Model.UIDim.screenWidth / nDays
+
+		x := 0
+		for current := start; current != end.Next(); current = current.Next() {
+			positions := t.Model.ComputeRects(t.Model.GetDay(current), x, dayWidth)
+			bgStyle := tcell.StyleDefault
+			t.DrawBox(bgStyle, x, 0, dayWidth, t.Model.UIDim.screenHeight)
+			for _, e := range t.Model.GetDay(current).Events {
+				p := positions[e.ID]
+				style, err := t.Model.CategoryStyling.GetStyle(e.Cat)
+				if err != nil {
+					panic(err)
+				}
+				t.DrawBox(style, p.X, p.Y, p.W, p.H)
+			}
+			x += dayWidth
+		}
 	default:
 		t.Model.Log.Add("ERROR", fmt.Sprintf("unknown active view %d aka '%s'",
 			t.Model.activeView, toString(t.Model.activeView)))
