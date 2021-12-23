@@ -15,15 +15,28 @@ and I don't see why anybody else would want to use this, at least for now.
 
 ## Usage
 
-```
-Usage:
-  dayplan [OPTIONS]
+(Help messages are available e.g. via `-h`)
 
-Application Options:
-  -d, --day=<file>    Specify the day to plan
+Dayplan mainly works as a terminal UI (TUI) program invoked simply by calling
+the program without subcommand: `dayplan`.
+In this mode it allows you sketch out the events of a day, similar to how a
+graphical calendar application might work.
+These events can then be shuffled around, resized, renamed, etc. as the day goes
+on and it turns out that one task actually took a lot longer or that phone call
+fell through. Thus you end up with a list of the (important) events of the day.
+Make sure you use the `w` key to write the events of the day to its file.
 
-Help Options:
-  -h, --help          Show this help message
+To then get summary information about the information generated in this way,
+dayplan has the subcommand `summarize`. It requires you to specify a `--from`
+and a `--til` date and summarizes the duration of events in this range by their
+categories.
+You could for example use dayplan as above to track your working hours and then
+see how much you've worked in November 2021 using the following command:
+
+```sh
+$ dayplan summarize --from 2021-11-01 --til 2021-11-30 \
+                    --category-filter work \
+                    --human-readable
 ```
 
 By default dayplan uses the directory `${HOME}/.config/dayplan` for
