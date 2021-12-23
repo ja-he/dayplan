@@ -125,10 +125,12 @@ func (t Timestamp) Offset(o TimeOffset) Timestamp {
 	return t
 }
 
+// Returns the duration in minutes between to a given timestamp t2.
+// Does not check that t2 is in fact later!
 func (t1 Timestamp) DurationInMinutesUntil(t2 Timestamp) int {
-	return t2.ToMinutes() - t1.ToMinutes()
+	return t2.toMinutes() - t1.toMinutes()
 }
 
-func (t Timestamp) ToMinutes() int {
+func (t Timestamp) toMinutes() int {
 	return t.Hour*60 + t.Minute
 }

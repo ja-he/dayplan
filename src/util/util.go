@@ -21,8 +21,10 @@ func TruncateAt(s string, length int) string {
 	}
 }
 
-func DurationToString(duration int) string {
-	hours := duration / 60
-	mins := duration % 60
+// Returns a given duration in minutes formatted as a more human-readable
+// string of hours and minutes.
+func DurationToString(minutes int) string {
+	hours := minutes / 60
+	mins := minutes % 60
 	return fmt.Sprintf("%dh %dmin", hours, mins)
 }

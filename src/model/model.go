@@ -223,6 +223,10 @@ func (day *Day) Clone() *Day {
 	return cloned
 }
 
+// Sum up the event durations of a given day per category.
+// Time cannot be counted multiple times, so if multiple events overlap, only
+// one of them can have the time of the overlap counted. The prioritization for
+// this is according to category priority.
 func (day *Day) SumUpByCategory() map[Category]int {
 	result := make(map[Category]int)
 
@@ -236,6 +240,26 @@ func (day *Day) SumUpByCategory() map[Category]int {
 	return result
 }
 
+// "Flattens" the events of a given day, i.E. ensures that no overlapping
+// events exist. It does this by e.g. trimming one of two overlapping events or
+// splitting a less prioritized event if it had a higher-priority event occur
+// during it as shown here:
+//
+//     +-------+         +-------+
+//     | a     |         | a     |    (`a` lower prio than `B`)
+//     |   +-----+       +-------+
+//     |   | B   |  ~~>  | B     |
+//     |   +-----+       +-------+
+//     |       |         | a     |
+//     +-------+         +-------+
+//
+//     +-------+         +-------+
+//     | a     |         | a     |    (`a` lower prio than `B`)
+//     |   +-----+       +-------+
+//     |   | B   |  ~~>  | B     |
+//     +---|     |       |       |
+//         +-----+       +-------+
+//
 func (day *Day) Flatten() {
 	if len(day.Events) < 2 {
 		return
@@ -302,16 +326,19 @@ func (day *Day) Flatten() {
 	}
 }
 
-func (later *Event) IsContainedIn(earlier *Event) bool {
-	return later.StartsDuring(earlier) &&
-		!(later.End.IsAfter(earlier.End))
+// Whether one event A contains another B, i.E.
+// - B's start is _not before_ A's start and
+// - B's end is _not after_ A's end
+func (b *Event) IsContainedIn(a *Event) bool {
+	return b.StartsDuring(a) &&
+		!(b.End.IsAfter(a.End))
 }
 
-func (later *Event) StartsDuring(earlier *Event) bool {
-	// verify later/earlier input
-	if earlier.Start.IsAfter(later.Start) {
+// Whether one event B starts during another A.
+func (b *Event) StartsDuring(a *Event) bool {
+	if a.Start.IsAfter(b.Start) {
 		return false
 	}
 
-	return earlier.End.IsAfter(later.Start)
+	return a.End.IsAfter(b.Start)
 }

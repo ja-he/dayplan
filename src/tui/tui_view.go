@@ -99,6 +99,8 @@ func (t *TUIView) DrawEditor() {
 	}
 }
 
+// Draws the time summary view over top of all previously drawn contents, if it
+// is currently active.
 func (t *TUIView) DrawSummary() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if t.Model.showSummary {
