@@ -12,6 +12,8 @@ import (
 	"github.com/ja-he/dayplan/src/util"
 )
 
+// Flags for the `summarize` command line command, for `go-flags` to parse
+// command line args into.
 type SummarizeCommand struct {
 	FromDay string `short:"f" long:"from" description:"the day from which to start summarizing" value-name:"<yyyy-mm-dd>" required:"true"`
 	TilDay  string `short:"t" long:"til" description:"the day til which to summarize (inclusive)" value-name:"<yyyy-mm-dd>" required:"true"`
@@ -22,6 +24,9 @@ type SummarizeCommand struct {
 	Verbose bool `short:"v" long:"verbose" description:"provide verbose output"`
 }
 
+// Executes the summarize command.
+// (This gets called by `go-flags` when `summarize` is provided on the command
+// line)
 func (command *SummarizeCommand) Execute(args []string) error {
 	summarize()
 	return nil
