@@ -282,8 +282,7 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 	return NoHoveredEvent()
 }
 
-const categoryBoxHeight int = 3
-
+// TODO: wtf is this supposed to be good for?!
 func (t *TUIModel) CalculateCategoryBoxes() map[model.Category]util.Rect {
 	day := make(map[model.Category]util.Rect)
 
@@ -294,9 +293,9 @@ func (t *TUIModel) CalculateCategoryBoxes() map[model.Category]util.Rect {
 	for i, c := range t.CategoryStyling.GetAll() {
 		day[c.Cat] = util.Rect{
 			X: t.UIDim.ToolsOffset() + offsetX,
-			Y: offsetY + (i * categoryBoxHeight) + (i * gap),
+			Y: offsetY + (i) + (i * gap),
 			W: t.UIDim.ToolsWidth() - (2 * offsetX),
-			H: categoryBoxHeight,
+			H: 1,
 		}
 	}
 

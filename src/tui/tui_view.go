@@ -8,6 +8,7 @@ import (
 
 	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/util"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -69,9 +70,11 @@ func (t *TUIView) DrawTools() {
 	boxes := t.Model.CalculateCategoryBoxes()
 	for _, styling := range t.Model.CategoryStyling.GetAll() {
 		box := boxes[styling.Cat]
+		textHeightOffset := box.H / 2
+		textLen := box.W - 2
 
 		t.DrawBox(styling.Style, box.X, box.Y, box.W, box.H)
-		t.DrawText(box.X+1, box.Y+1, box.W-2, 0, styling.Style, styling.Cat.Name)
+		t.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 0, styling.Style, util.TruncateAt(styling.Cat.Name, textLen))
 		if t.Model.CurrentCategory == styling.Cat {
 			t.DrawBox(colors.DarkenBG(styling.Style, 50), box.X+box.W-1, box.Y, 1, box.H)
 		}
