@@ -235,14 +235,20 @@ func (t *TUIController) loadDaysForView(view ActiveView) {
 		{
 			monday, sunday := t.model.CurrentDate.Week()
 			for current := monday; current != sunday.Next(); current = current.Next() {
-				t.loadDay(current)
+				go func(d model.Date) {
+					t.loadDay(d)
+					t.bump <- ControllerEventRender
+				}(current)
 			}
 		}
 	case ViewMonth:
 		{
 			first, last := t.model.CurrentDate.MonthBounds()
 			for current := first; current != last.Next(); current = current.Next() {
-				t.loadDay(current)
+				go func(d model.Date) {
+					t.loadDay(d)
+					t.bump <- ControllerEventRender
+				}(current)
 			}
 		}
 	default:
@@ -315,7 +321,11 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 }
 
 func (t *TUIController) writeModel() {
-	go t.FileHandlers[t.model.CurrentDate].Write(t.model.GetCurrentDay())
+	go func() {
+		t.fhMutex.RLock()
+		t.FileHandlers[t.model.CurrentDate].Write(t.model.GetCurrentDay())
+		t.fhMutex.RUnlock()
+	}()
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
