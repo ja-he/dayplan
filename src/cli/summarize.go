@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -57,9 +58,12 @@ func summarize() {
 
 	currentDate, err := model.FromString(Opts.SummarizeCommand.FromDay)
 	if err != nil {
-		panic(err)
+		log.Fatalf("from date '%s' invalid", Opts.SummarizeCommand.FromDay)
 	}
 	finalDate, err := model.FromString(Opts.SummarizeCommand.TilDay)
+	if err != nil {
+		log.Fatalf("til date '%s' invalid", Opts.SummarizeCommand.TilDay)
+	}
 
 	filterCategories := len(Opts.SummarizeCommand.CategoryFilterString) > 0
 	includeCategoriesByName := make(map[string]struct{})
