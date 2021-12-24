@@ -117,6 +117,8 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tuiController.view = tuiView
 	tuiController.model.CurrentCategory.Name = "default"
 
+	tuiController.loadDaysForView(tuiController.model.activeView)
+
 	return &tuiController
 }
 
