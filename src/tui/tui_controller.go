@@ -17,13 +17,17 @@ import (
 
 // TODO: this absolutely does not belong here
 func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
+	t.fhMutex.RLock()
 	fh, ok := t.FileHandlers[date]
+	t.fhMutex.RUnlock()
 	if ok {
 		tmp := fh.Read(t.model.CategoryStyling.GetKnownCategoriesByName())
 		return tmp
 	} else {
 		newHandler := filehandling.NewFileHandler(t.model.ProgramData.BaseDirPath + "/days/" + date.ToString())
+		t.fhMutex.Lock()
 		t.FileHandlers[date] = newHandler
+		t.fhMutex.Unlock()
 		tmp := newHandler.Read(t.model.CategoryStyling.GetKnownCategoriesByName())
 		return tmp
 	}
@@ -35,6 +39,7 @@ type TUIController struct {
 	editState     EditState
 	EditedEvent   model.EventID
 	movePropagate bool
+	fhMutex       sync.RWMutex
 	FileHandlers  map[model.Date]*filehandling.FileHandler
 	bump          chan ControllerEvent
 }
@@ -103,6 +108,8 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tuiController := TUIController{}
 	tuiModel.ProgramData = programData
 
+	tuiController.fhMutex.Lock()
+	defer tuiController.fhMutex.Unlock()
 	tuiController.FileHandlers = make(map[model.Date]*filehandling.FileHandler)
 	tuiController.FileHandlers[date] = filehandling.NewFileHandler(tuiModel.ProgramData.BaseDirPath + "/days/" + date.ToString())
 
