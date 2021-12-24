@@ -213,3 +213,126 @@ func TestMonthBounds(t *testing.T) {
 		}
 	}
 }
+
+func TestIsAfter(t *testing.T) {
+	{
+		testcase := "basic true case"
+		a := Date{2021, 12, 19}
+		b := Date{2021, 12, 14}
+
+		expected := true
+		result := a.IsAfter(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `IsAfter` failed: should be %t but isn't",
+				testcase, expected)
+		}
+	}
+	{
+		testcase := "basic false case"
+		a := Date{2021, 12, 14}
+		b := Date{2021, 12, 19}
+
+		expected := false
+		result := a.IsAfter(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `IsAfter` failed: should be %t but isn't",
+				testcase, expected)
+		}
+	}
+}
+
+func TestDaysUntil(t *testing.T) {
+	{
+		testcase := "basic case"
+		a := Date{2021, 12, 14}
+		b := Date{2021, 12, 19}
+
+		expected := 5
+		result := a.DaysUntil(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `DaysUntil` failed: got %d, expected %d",
+				testcase, result, expected)
+		}
+	}
+	{
+		testcase := "zero case"
+		a := Date{2021, 12, 14}
+		b := Date{2021, 12, 14}
+
+		expected := 0
+		result := a.DaysUntil(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `DaysUntil` failed: got %d, expected %d",
+				testcase, result, expected)
+		}
+	}
+	{
+		testcase := "different month"
+		a := Date{2021, 11, 14}
+		b := Date{2021, 12, 14}
+
+		expected := 30
+		result := a.DaysUntil(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `DaysUntil` failed: got %d, expected %d",
+				testcase, result, expected)
+		}
+	}
+	{
+		testcase := "different year"
+		a := Date{2020, 11, 14}
+		b := Date{2021, 12, 14}
+
+		expected := 365 + 30
+		result := a.DaysUntil(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `DaysUntil` failed: got %d, expected %d",
+				testcase, result, expected)
+		}
+	}
+	{
+		testcase := "leap year through feb 29th"
+		a := Date{2020, 1, 30}
+		b := Date{2020, 3, 30}
+
+		expected := 1 + 29 + 30
+		result := a.DaysUntil(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `DaysUntil` failed: got %d, expected %d",
+				testcase, result, expected)
+		}
+	}
+	{
+		testcase := "same day"
+		a := Date{2021, 12, 14}
+		b := Date{2021, 12, 14}
+
+		expected := false
+		result := a.IsAfter(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `IsAfter` failed: should be %t but isn't",
+				testcase, expected)
+		}
+	}
+	{
+		testcase := "one day later"
+		a := Date{2021, 12, 14}
+		b := Date{2021, 12, 15}
+
+		expected := false
+		result := a.IsAfter(b)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `IsAfter` failed: should be %t but isn't",
+				testcase, expected)
+		}
+	}
+}

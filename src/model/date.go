@@ -152,6 +152,54 @@ func (d Date) getFirstOfMonth() Date {
 	}
 }
 
+// Whether a date A is after a date B.
+func (a Date) IsAfter(b Date) bool {
+	switch {
+	case a.Year < b.Year:
+		return false
+	case a.Year == b.Year:
+		{
+			switch {
+			case a.Month < b.Month:
+				return false
+			case a.Month == b.Month:
+				{
+					switch {
+					case a.Day < b.Day:
+						return false
+					case a.Day == b.Day:
+						{
+						}
+					case a.Day > b.Day:
+						return true
+					}
+				}
+			case a.Month > b.Month:
+				return true
+			}
+		}
+	case a.Year > b.Year:
+		return true
+	}
+	return false
+}
+
+// Returns the number of days from a date A until a date B is reached.
+// (e.g. from 2021-12-14 until 2021-12-19 -> 5 days)
+// expects b not to be before a
+func (a Date) DaysUntil(b Date) int {
+	if a.IsAfter(b) {
+		panic("DaysUntil arg error: a after b")
+	}
+
+	counter := 0
+	for i := a; i != b; i = i.Next() {
+		counter++
+	}
+
+	return counter
+}
+
 func (d Date) getLastOfMonth() Date {
 	var lastDay int
 
