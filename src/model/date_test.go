@@ -6,6 +6,129 @@ import (
 	"time"
 )
 
+func TestValid(t *testing.T) {
+	{
+		testcase := "regular date"
+		date := Date{1949, 12, 21}
+		expect := true
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "first of year"
+		date := Date{2020, 01, 01}
+		expect := true
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "last of year"
+		date := Date{2020, 12, 31}
+		expect := true
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "last of 30 day month"
+		date := Date{2020, 11, 30}
+		expect := true
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "last of regular february"
+		date := Date{2020, 2, 28}
+		expect := true
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "last of leap year february"
+		date := Date{2004, 2, 29}
+		expect := true
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "zero month"
+		date := Date{2004, 0, 10}
+		expect := false
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "zero day"
+		date := Date{2004, 4, 0}
+		expect := false
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "31st november"
+		date := Date{2021, 11, 31}
+		expect := false
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "32nd october"
+		date := Date{2021, 10, 32}
+		expect := false
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "29th of regular february"
+		date := Date{2021, 2, 29}
+		expect := false
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+	{
+		testcase := "30th of leap year february"
+		date := Date{2004, 2, 30}
+		expect := false
+
+		if date.Valid() != expect {
+			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
+				testcase, date.ToString(), expect)
+		}
+	}
+}
+
 func TestToWeekday(t *testing.T) {
 	{
 		date := Date{2021, 11, 12}

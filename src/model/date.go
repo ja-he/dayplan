@@ -81,15 +81,16 @@ func (d Date) ToString() string {
 }
 
 func (d Date) Valid() bool {
-	// basic bounds
+	// verify month
 	if d.Month < 1 ||
-		d.Month > 12 ||
-		d.Day < 1 ||
-		d.Day > 31 {
+		d.Month > 12 {
 		return false
 	}
 
-	// TODO: more sophisticated checks
+	if d.Day < 1 ||
+		d.Day > d.getLastOfMonth().Day {
+		return false
+	}
 
 	return true
 }
