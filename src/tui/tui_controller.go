@@ -229,6 +229,10 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.ScrollBottom()
 	case 'w':
 		t.writeModel()
+	case 'j':
+		t.model.ScrollDown(1)
+	case 'k':
+		t.model.ScrollUp(1)
 	case 'h':
 		t.goToPreviousDay()
 	case 'l':
