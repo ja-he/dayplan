@@ -153,6 +153,8 @@ type TUIModel struct {
 func (t *TUIModel) ScrollUp(by int) {
 	if t.ScrollOffset-by >= 0 {
 		t.ScrollOffset -= by
+	} else {
+		t.ScrollOffset = 0
 	}
 }
 
@@ -160,6 +162,8 @@ func (t *TUIModel) ScrollDown(by int) {
 	eventviewBottomRow := t.UIDim.screenHeight - t.UIDim.statusHeight
 	if t.ScrollOffset+by+eventviewBottomRow <= (24 * t.Resolution) {
 		t.ScrollOffset += by
+	} else {
+		t.ScrollOffset = (24 * t.Resolution) - eventviewBottomRow
 	}
 }
 
