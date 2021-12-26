@@ -26,6 +26,11 @@ func main() {
 		panic("some flag parsing error occurred")
 	}
 
+	if cli.Opts.Version {
+		cmd := cli.VersionCommand{}
+		cmd.Execute([]string{})
+	}
+
 	var programData program.Data
 
 	// set up dir per option
