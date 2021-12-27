@@ -106,16 +106,62 @@ func (t *TUIView) DrawSummary() {
 	if t.Model.showSummary {
 		y, w, h := 2, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight
 		t.DrawBox(style, 0, 0, w, h)
-		title := "SUMMARY"
+		dateString := ""
+		switch t.Model.activeView {
+		case ViewDay:
+			dateString = t.Model.CurrentDate.ToString()
+		case ViewWeek:
+			start, end := t.Model.CurrentDate.Week()
+			dateString = fmt.Sprintf("week %s..%s", start.ToString(), end.ToString())
+		case ViewMonth:
+			dateString = fmt.Sprintf("%s %d", t.Model.CurrentDate.ToGotime().Month().String(), t.Model.CurrentDate.Year)
+		}
+		title := fmt.Sprintf("SUMMARY (%s)", dateString)
 		t.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
 		t.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
 
-		summary := t.Model.GetCurrentDay().SumUpByCategory()
+		summary := make(map[model.Category]int)
+		switch t.Model.activeView {
+		case ViewDay:
+			day := t.Model.GetCurrentDay()
+			if day == nil {
+				return
+			}
+			summary = day.SumUpByCategory()
+		case ViewWeek:
+			start, end := t.Model.CurrentDate.Week()
+			for current := start; current != end.Next(); current = current.Next() {
+				day := t.Model.GetDay(current)
+				if day == nil {
+					return
+				}
+				tmpSummary := day.SumUpByCategory()
+				for k, v := range tmpSummary {
+					summary[k] += v
+				}
+			}
+		case ViewMonth:
+			start, end := t.Model.CurrentDate.MonthBounds()
+			for current := start; current != end.Next(); current = current.Next() {
+				day := t.Model.GetDay(current)
+				if day == nil {
+					return
+				}
+				tmpSummary := day.SumUpByCategory()
+				for k, v := range tmpSummary {
+					summary[k] += v
+				}
+			}
+		}
+		maxDuration := 0
 		categories := make([]model.Category, len(summary))
 		{ // get sorted keys to have deterministic order
 			i := 0
-			for category := range summary {
+			for category, duration := range summary {
 				categories[i] = category
+				if duration > maxDuration {
+					maxDuration = duration
+				}
 				i++
 			}
 			sort.Sort(model.ByName(categories))
@@ -123,9 +169,12 @@ func (t *TUIView) DrawSummary() {
 		for _, category := range categories {
 			duration := summary[category]
 			style, _ := t.Model.CategoryStyling.GetStyle(category)
-			t.DrawBox(style, 0, y, duration/t.Model.NRowsPerHour, 1)
-			t.DrawText(0, y, duration/t.Model.NRowsPerHour, 0, style, category.Name)
-			t.DrawText(duration/t.Model.NRowsPerHour+1, y, w-(duration/t.Model.NRowsPerHour+1), 0, tcell.StyleDefault, "("+util.DurationToString(duration)+")")
+			catLen := 20
+			durationLen := 20
+			barWidth := int(float64(duration)/float64(maxDuration)*float64(t.Model.UIDim.screenWidth)) - catLen - durationLen
+			t.DrawBox(style, catLen+durationLen, y, barWidth, 1)
+			t.DrawText(0, y, catLen, 0, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
+			t.DrawText(catLen, y, durationLen, 0, style, "("+util.DurationToString(duration)+")")
 			y++
 		}
 	}
@@ -277,9 +326,9 @@ func (t *TUIView) Render() {
 		t.Model.Log.Add("ERROR", fmt.Sprintf("unknown active view %d aka '%s'",
 			t.Model.activeView, toString(t.Model.activeView)))
 	}
+	t.DrawStatus()
 	t.DrawLog()
 	t.DrawSummary()
-	t.DrawStatus()
 
 	if t.needsSync {
 		t.needsSync = false
