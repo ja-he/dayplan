@@ -526,9 +526,30 @@ const (
 	ControllerEventRender
 )
 
+// Empties all render events from the channel.
+// Returns true, if an exit event was encountered so the caller
+// knows to exit.
+func emptyRenderEvents(c chan ControllerEvent) bool {
+	for {
+		select {
+		case bufferedEvent := <-c:
+			switch bufferedEvent {
+			case ControllerEventRender:
+				{
+					// dump extra render events
+				}
+			case ControllerEventExit:
+				return true
+			}
+		default:
+			return false
+		}
+	}
+}
+
 func (t *TUIController) Run() {
 
-	t.bump = make(chan ControllerEvent)
+	t.bump = make(chan ControllerEvent, 32)
 	var wg sync.WaitGroup
 
 	// Run the main render loop, that renders or exits when prompted accordingly
@@ -537,13 +558,11 @@ func (t *TUIController) Run() {
 		defer wg.Done()
 		defer t.view.Screen.Fini()
 		for {
-			controllerEvent := <-t.bump
-			switch controllerEvent {
-			case ControllerEventRender:
-				t.view.Render()
-			case ControllerEventExit:
+			exitEventEncounteredOnEmpty := emptyRenderEvents(t.bump)
+			if exitEventEncounteredOnEmpty {
 				return
 			}
+			t.view.Render()
 		}
 	}()
 
