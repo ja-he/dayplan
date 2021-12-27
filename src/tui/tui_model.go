@@ -28,6 +28,28 @@ const (
 	UIStatus
 )
 
+type ActiveView int
+
+const (
+	_ ActiveView = iota
+	ViewDay
+	ViewWeek
+	ViewMonth
+)
+
+func toString(av ActiveView) string {
+	switch av {
+	case ViewDay:
+		return "ViewDay"
+	case ViewWeek:
+		return "ViewWeek"
+	case ViewMonth:
+		return "ViewMonth"
+	default:
+		return "unknown"
+	}
+}
+
 type UIDims struct {
 	weatherOffset, timelineOffset, eventsOffset, toolsOffset int
 	statusHeight                                             int
@@ -148,6 +170,7 @@ type TUIModel struct {
 	Weather          weather.Handler
 	CurrentCategory  model.Category
 	ProgramData      program.Data
+	activeView       ActiveView
 }
 
 func (t *TUIModel) ScrollUp(by int) {
@@ -187,6 +210,8 @@ func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 
 	t.Resolution = 6
 	t.ScrollOffset = 8 * t.Resolution
+
+	t.activeView = ViewDay
 
 	return &t
 }

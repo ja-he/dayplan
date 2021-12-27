@@ -164,12 +164,18 @@ func (t *TUIView) Render() {
 
 	t.Screen.Clear()
 
-	t.DrawWeather()
-	t.DrawTimeline()
-	t.Model.ComputeRects() // TODO: move to controller?
-	t.DrawEvents()
-	t.DrawTools()
-	t.DrawEditor()
+	switch t.Model.activeView {
+	case ViewDay:
+		t.DrawWeather()
+		t.DrawTimeline()
+		t.Model.ComputeRects() // TODO: move to controller?
+		t.DrawEvents()
+		t.DrawTools()
+		t.DrawEditor()
+	default:
+		t.Model.Log.Add("ERROR", fmt.Sprintf("unknown active view %d aka '%s'",
+			t.Model.activeView, toString(t.Model.activeView)))
+	}
 	t.DrawLog()
 	t.DrawSummary()
 	t.DrawStatus()
