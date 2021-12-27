@@ -344,6 +344,11 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 	case *tcell.EventKey:
 		t.handleNoneEditKeyInput(e)
 	case *tcell.EventMouse:
+		// don't handle if not on day view
+		if t.model.activeView != ViewDay || t.model.showLog || t.model.showSummary {
+			return
+		}
+
 		// get new position
 		x, y := e.Position()
 		t.updateCursorPos(x, y)
