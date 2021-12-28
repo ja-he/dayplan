@@ -28,6 +28,9 @@ const (
 	UIStatus
 )
 
+// The active view of the day(s), which could be a single day, a
+// week or a full month (or in the future any other stretch of time
+// that's to be shown).
 type ActiveView int
 
 const (
@@ -37,6 +40,9 @@ const (
 	ViewMonth
 )
 
+// For a given active view, returns the 'previous', i.E. 'stepping
+// out' from an inner view to an outer one.
+// E.g.: Day -> Week -> Month
 func PrevView(current ActiveView) ActiveView {
 	switch current {
 	case ViewDay:
@@ -50,6 +56,9 @@ func PrevView(current ActiveView) ActiveView {
 	}
 }
 
+// For a given active view, returns the 'next', i.E. 'stepping into'
+// from an outer view to an inner one.
+// E.g.: Month -> Week -> Day
 func NextView(current ActiveView) ActiveView {
 	switch current {
 	case ViewDay:
@@ -63,6 +72,7 @@ func NextView(current ActiveView) ActiveView {
 	}
 }
 
+// Returns the active view name as a string.
 func toString(av ActiveView) string {
 	switch av {
 	case ViewDay:
