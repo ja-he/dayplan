@@ -17,6 +17,8 @@ and I don't see why anybody else would want to use this, at least for now.
 
 (Help messages are available e.g. via `-h`)
 
+### Regular TUI Usage
+
 Dayplan mainly works as a terminal UI (TUI) program invoked simply by calling
 the program without subcommand: `dayplan`.
 In this mode it allows you sketch out the events of a day, similar to how a
@@ -25,6 +27,8 @@ These events can then be shuffled around, resized, renamed, etc. as the day goes
 on and it turns out that one task actually took a lot longer or that phone call
 fell through. Thus you end up with a list of the (important) events of the day.
 Make sure you use the `w` key to write the events of the day to its file.
+
+### Getting Summaries
 
 To then get summary information about the information generated in this way,
 dayplan has the subcommand `summarize`. It requires you to specify a `--from`
@@ -38,6 +42,16 @@ $ dayplan summarize --from 2021-11-01 --til 2021-11-30 \
                     --category-filter work \
                     --human-readable
 ```
+
+### Views
+
+Using `ESC` you can switch from a single day's view to a week view, and from
+there to the full month. You can still scroll through the days and events in
+this mode but not perform and edits.
+
+Using `i` you can step back into the day view.
+
+### Configuration and Defaults
 
 By default dayplan uses the directory `${HOME}/.config/dayplan` for
 configuration and data storage. This directory can be set with the
