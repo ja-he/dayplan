@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kelvins/sunrisesunset"
+	"github.com/nathan-osman/go-sunrise"
 )
 
 type Date struct {
@@ -152,6 +152,54 @@ func (d Date) getFirstOfMonth() Date {
 	}
 }
 
+// Whether a date A is after a date B.
+func (a Date) IsAfter(b Date) bool {
+	switch {
+	case a.Year < b.Year:
+		return false
+	case a.Year == b.Year:
+		{
+			switch {
+			case a.Month < b.Month:
+				return false
+			case a.Month == b.Month:
+				{
+					switch {
+					case a.Day < b.Day:
+						return false
+					case a.Day == b.Day:
+						{
+						}
+					case a.Day > b.Day:
+						return true
+					}
+				}
+			case a.Month > b.Month:
+				return true
+			}
+		}
+	case a.Year > b.Year:
+		return true
+	}
+	return false
+}
+
+// Returns the number of days from a date A until a date B is reached.
+// (e.g. from 2021-12-14 until 2021-12-19 -> 5 days)
+// expects b not to be before a
+func (a Date) DaysUntil(b Date) int {
+	if a.IsAfter(b) {
+		panic("DaysUntil arg error: a after b")
+	}
+
+	counter := 0
+	for i := a; i != b; i = i.Next() {
+		counter++
+	}
+
+	return counter
+}
+
 func (d Date) getLastOfMonth() Date {
 	var lastDay int
 
@@ -225,20 +273,20 @@ type SunTimes struct {
 }
 
 // Warning: slow (TODO)
-func (d Date) GetSunTimes(latitude, longitude float64) (maybeSuntimes *SunTimes, err error) {
-	_, utcDeltaSeconds := d.ToGotime().Zone() // TODO: does this take summer time into account if we gave it day?
-	utcDeltaHours := utcDeltaSeconds / (60 * 60)
+func (d Date) GetSunTimes(latitude, longitude float64) SunTimes {
 
-	sunriseTime, sunsetTime, err := sunrisesunset.GetSunriseSunset(latitude, longitude, float64(utcDeltaHours), d.ToGotime())
+	// calculate sunrise sunset (UTC)
+	sunriseTime, sunsetTime := sunrise.SunriseSunset(latitude, longitude, d.Year, time.Month(d.Month), d.Day)
 
-	if err == nil {
-		maybeSuntimes = &SunTimes{
-			*NewTimestampFromGotime(sunriseTime),
-			*NewTimestampFromGotime(sunsetTime),
-		}
-	} else {
-		maybeSuntimes = nil
+	// convert time to current location
+	sunriseTime = sunriseTime.In(time.Now().Location())
+	sunsetTime = sunsetTime.In(time.Now().Location())
+
+	// convert to suntimes
+	suntimes := SunTimes{
+		*NewTimestampFromGotime(sunriseTime),
+		*NewTimestampFromGotime(sunsetTime),
 	}
 
-	return maybeSuntimes, err
+	return suntimes
 }

@@ -17,13 +17,17 @@ import (
 
 // TODO: this absolutely does not belong here
 func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
+	t.fhMutex.RLock()
 	fh, ok := t.FileHandlers[date]
+	t.fhMutex.RUnlock()
 	if ok {
 		tmp := fh.Read(t.model.CategoryStyling.GetKnownCategoriesByName())
 		return tmp
 	} else {
 		newHandler := filehandling.NewFileHandler(t.model.ProgramData.BaseDirPath + "/days/" + date.ToString())
+		t.fhMutex.Lock()
 		t.FileHandlers[date] = newHandler
+		t.fhMutex.Unlock()
 		tmp := newHandler.Read(t.model.CategoryStyling.GetKnownCategoriesByName())
 		return tmp
 	}
@@ -35,6 +39,7 @@ type TUIController struct {
 	editState     EditState
 	EditedEvent   model.EventID
 	movePropagate bool
+	fhMutex       sync.RWMutex
 	FileHandlers  map[model.Date]*filehandling.FileHandler
 	bump          chan ControllerEvent
 }
@@ -88,34 +93,39 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 	// process latitude longitude
 	// TODO
-	var maybeSuntimes *model.SunTimes
+	var suntimes model.SunTimes
 	if !coordinatesProvided {
 		tuiModel.Log.Add("ERROR", "could not fetch lat-&longitude -> no sunrise/-set times known")
 	} else {
-		latF, _ := strconv.ParseFloat(programData.Latitude, 64)
-		lonF, _ := strconv.ParseFloat(programData.Longitude, 64)
-		maybeSuntimes, err = date.GetSunTimes(latF, lonF)
-		if err != nil {
-			tuiModel.Log.Add("ERROR", fmt.Sprint("suntimes error:", err))
+		latF, parseErr := strconv.ParseFloat(programData.Latitude, 64)
+		lonF, parseErr := strconv.ParseFloat(programData.Longitude, 64)
+		if parseErr != nil {
+			tuiModel.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
+		} else {
+			suntimes = date.GetSunTimes(latF, lonF)
 		}
 	}
 
 	tuiController := TUIController{}
 	tuiModel.ProgramData = programData
 
+	tuiController.fhMutex.Lock()
+	defer tuiController.fhMutex.Unlock()
 	tuiController.FileHandlers = make(map[model.Date]*filehandling.FileHandler)
 	tuiController.FileHandlers[date] = filehandling.NewFileHandler(tuiModel.ProgramData.BaseDirPath + "/days/" + date.ToString())
 
 	tuiController.model = tuiModel
 	tuiController.model.CurrentDate = date
 	if tuiController.FileHandlers[date] == nil {
-		tuiController.model.AddModel(date, &model.Day{}, maybeSuntimes)
+		tuiController.model.AddModel(date, &model.Day{}, &suntimes)
 	} else {
-		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), maybeSuntimes)
+		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
 	}
 
 	tuiController.view = tuiView
 	tuiController.model.CurrentCategory.Name = "default"
+
+	tuiController.loadDaysForView(tuiController.model.activeView)
 
 	return &tuiController
 }
@@ -172,24 +182,8 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 func (t *TUIController) goToDay(newDate model.Date) {
 	t.model.Log.Add("DEBUG", "going to "+newDate.ToString())
 
-	t.model.Status.Set("day", newDate.ToString())
-
-	if !t.model.HasModel(newDate) {
-		// load file
-		newDay := t.GetDayFromFileHandler(newDate)
-		if newDay == nil {
-			panic("newDay nil?!")
-		}
-		latF, _ := strconv.ParseFloat(t.model.ProgramData.Latitude, 64)
-		lonF, _ := strconv.ParseFloat(t.model.ProgramData.Longitude, 64)
-		maybeSuntimes, err := newDate.GetSunTimes(latF, lonF)
-		if err != nil {
-			t.model.Log.Add("ERROR", fmt.Sprint("error getting suntimes:", err))
-		}
-		t.model.AddModel(newDate, newDay, maybeSuntimes)
-	}
-
 	t.model.CurrentDate = newDate
+	t.loadDaysForView(t.model.activeView)
 }
 
 func (t *TUIController) goToPreviousDay() {
@@ -202,8 +196,72 @@ func (t *TUIController) goToNextDay() {
 	t.goToDay(nextDay)
 }
 
+// Loads the requested date's day from its file handler, if it has
+// not already been loaded.
+func (t *TUIController) loadDay(date model.Date) {
+	if !t.model.HasModel(date) {
+		// load file
+		newDay := t.GetDayFromFileHandler(date)
+		if newDay == nil {
+			panic("newDay nil?!")
+		}
+
+		var suntimes model.SunTimes
+		coordinatesProvided := (t.model.ProgramData.Latitude != "" && t.model.ProgramData.Longitude != "")
+		if coordinatesProvided {
+			latF, parseErr := strconv.ParseFloat(t.model.ProgramData.Latitude, 64)
+			lonF, parseErr := strconv.ParseFloat(t.model.ProgramData.Longitude, 64)
+			if parseErr != nil {
+				t.model.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
+			} else {
+				suntimes = date.GetSunTimes(latF, lonF)
+			}
+		}
+
+		t.model.AddModel(date, newDay, &suntimes)
+	}
+}
+
+// Starts Loads for all days visible in the view.
+// E.g. for ViewMonth it would start the load for all days from
+// first to last day of the month.
+// Warning: does not guarantee days will be loaded (non-nil) after
+// this returns.
+func (t *TUIController) loadDaysForView(view ActiveView) {
+	switch view {
+	case ViewDay:
+		t.loadDay(t.model.CurrentDate)
+	case ViewWeek:
+		{
+			monday, sunday := t.model.CurrentDate.Week()
+			for current := monday; current != sunday.Next(); current = current.Next() {
+				go func(d model.Date) {
+					t.loadDay(d)
+					t.bump <- ControllerEventRender
+				}(current)
+			}
+		}
+	case ViewMonth:
+		{
+			first, last := t.model.CurrentDate.MonthBounds()
+			for current := first; current != last.Next(); current = current.Next() {
+				go func(d model.Date) {
+					t.loadDay(d)
+					t.bump <- ControllerEventRender
+				}(current)
+			}
+		}
+	default:
+		panic("unknown ActiveView")
+	}
+}
+
 func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Key() {
+	case tcell.KeyESC:
+		prevView := PrevView(t.model.activeView)
+		t.loadDaysForView(prevView)
+		t.model.activeView = prevView
 	case tcell.KeyCtrlU:
 		t.model.ScrollUp(10)
 	case tcell.KeyCtrlD:
@@ -219,8 +277,11 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 				t.model.Log.Add("DEBUG", "successfully retrieved weather data")
 			}
 			t.bump <- ControllerEventRender
-			t.model.Status.Set("owm-qcount", fmt.Sprint(t.model.Weather.GetQueryCount()))
 		}()
+	case 'i':
+		nextView := NextView(t.model.activeView)
+		t.loadDaysForView(nextView)
+		t.model.activeView = nextView
 	case 'q':
 		t.bump <- ControllerEventExit
 	case 'g':
@@ -243,24 +304,28 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.showLog = !t.model.showLog
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
-		t.model.AddModel(t.model.CurrentDate, model.NewDay(), t.model.Days[t.model.CurrentDate].SunTimes)
+		t.model.AddModel(t.model.CurrentDate, model.NewDay(), t.model.GetCurrentSuntimes())
 	case '+':
-		if t.model.Resolution*2 <= 12 {
-			t.model.Resolution *= 2
+		if t.model.NRowsPerHour*2 <= 12 {
+			t.model.NRowsPerHour *= 2
 			t.model.ScrollOffset *= 2
 		}
 	case '-':
-		if (t.model.Resolution % 2) == 0 {
-			t.model.Resolution /= 2
+		if (t.model.NRowsPerHour % 2) == 0 {
+			t.model.NRowsPerHour /= 2
 			t.model.ScrollOffset /= 2
 		} else {
-			t.model.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.model.Resolution))
+			t.model.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.model.NRowsPerHour))
 		}
 	}
 }
 
 func (t *TUIController) writeModel() {
-	go t.FileHandlers[t.model.CurrentDate].Write(t.model.GetCurrentDay())
+	go func() {
+		t.fhMutex.RLock()
+		t.FileHandlers[t.model.CurrentDate].Write(t.model.GetCurrentDay())
+		t.fhMutex.RUnlock()
+	}()
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
@@ -279,6 +344,11 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 	case *tcell.EventKey:
 		t.handleNoneEditKeyInput(e)
 	case *tcell.EventMouse:
+		// don't handle if not on day view
+		if t.model.activeView != ViewDay || t.model.showLog || t.model.showSummary {
+			return
+		}
+
 		// get new position
 		x, y := e.Position()
 		t.updateCursorPos(x, y)
@@ -355,7 +425,7 @@ func (t *TUIController) resizeStep(newY int) {
 	delta := newY - t.model.cursorY
 	offset := t.model.TimeForDistance(delta)
 	event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
-	event.End = event.End.Offset(offset).Snap(t.model.Resolution)
+	event.End = event.End.Offset(offset).Snap(t.model.NRowsPerHour)
 }
 
 func (t *TUIController) moveStep(newY int) {
@@ -364,13 +434,13 @@ func (t *TUIController) moveStep(newY int) {
 	if t.movePropagate {
 		following := t.model.GetCurrentDay().GetEventsFrom(t.EditedEvent)
 		for _, ptr := range following {
-			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.Resolution)
-			ptr.End = ptr.End.Offset(offset).Snap(t.model.Resolution)
+			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.NRowsPerHour)
+			ptr.End = ptr.End.Offset(offset).Snap(t.model.NRowsPerHour)
 		}
 	} else {
 		event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
-		event.Start = event.Start.Offset(offset).Snap(t.model.Resolution)
-		event.End = event.End.Offset(offset).Snap(t.model.Resolution)
+		event.Start = event.Start.Offset(offset).Snap(t.model.NRowsPerHour)
+		event.End = event.End.Offset(offset).Snap(t.model.NRowsPerHour)
 	}
 }
 
@@ -456,9 +526,30 @@ const (
 	ControllerEventRender
 )
 
+// Empties all render events from the channel.
+// Returns true, if an exit event was encountered so the caller
+// knows to exit.
+func emptyRenderEvents(c chan ControllerEvent) bool {
+	for {
+		select {
+		case bufferedEvent := <-c:
+			switch bufferedEvent {
+			case ControllerEventRender:
+				{
+					// dump extra render events
+				}
+			case ControllerEventExit:
+				return true
+			}
+		default:
+			return false
+		}
+	}
+}
+
 func (t *TUIController) Run() {
 
-	t.bump = make(chan ControllerEvent)
+	t.bump = make(chan ControllerEvent, 32)
 	var wg sync.WaitGroup
 
 	// Run the main render loop, that renders or exits when prompted accordingly
@@ -467,13 +558,11 @@ func (t *TUIController) Run() {
 		defer wg.Done()
 		defer t.view.Screen.Fini()
 		for {
-			controllerEvent := <-t.bump
-			switch controllerEvent {
-			case ControllerEventRender:
-				t.view.Render()
-			case ControllerEventExit:
+			exitEventEncounteredOnEmpty := emptyRenderEvents(t.bump)
+			if exitEventEncounteredOnEmpty {
 				return
 			}
+			t.view.Render()
 		}
 	}()
 

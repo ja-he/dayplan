@@ -2,6 +2,7 @@ package colors
 
 import (
 	"log"
+	"math"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
@@ -128,4 +129,71 @@ func TestDarken(t *testing.T) {
 			log.Fatalf("colors testcase '%s' failed: 0x%06x instead of 0x%06x", testcase, result.Hex(), expected.Hex())
 		}
 	}
+}
+
+func TestLighten(t *testing.T) {
+	{
+		testcase := "0% -> no change"
+
+		input := tcell.NewHexColor(0x123456)
+
+		expected := input
+		result := Lighten(input, 0)
+
+		if result != expected {
+			log.Fatalf("colors testcase '%s' failed: 0x%06x instead of 0x%06x", testcase, result.Hex(), expected.Hex())
+		}
+	}
+	{
+		testcase := "100% -> white"
+
+		input := tcell.NewHexColor(0x123456)
+
+		expected := tcell.NewHexColor(0xffffff)
+		result := Lighten(input, 100)
+
+		if result != expected {
+			log.Fatalf("colors testcase '%s' failed: 0x%06x instead of 0x%06x", testcase, result.Hex(), expected.Hex())
+		}
+	}
+	{
+		testcase := "50% -> 50% lighter"
+
+		input := tcell.NewHexColor(0x808080)
+
+		expected := tcell.NewHexColor(0xc0c0c0)
+		result := Lighten(input, 50)
+
+		if result != expected {
+			log.Fatalf("colors testcase '%s' failed: 0x%06x instead of 0x%06x", testcase, result.Hex(), expected.Hex())
+		}
+	}
+	{
+		testcase := "75% lighter <=> 50% lighter then 50% ligher again"
+
+		input := tcell.NewHexColor(0x808080)
+
+		a := Lighten(input, 75)
+		b := Lighten(Lighten(input, 50), 50)
+
+		if rgbDistance(a, b) > 0.01 {
+			log.Fatalf("colors testcase '%s' failed: 0x%06x != 0x%06x (dist: %f)", testcase, a.Hex(), b.Hex(), rgbDistance(a, b))
+		}
+	}
+}
+
+// Helper function telling distance in RGB space.
+func rgbDistance(a, b tcell.Color) float64 {
+	aR, aG, aB := a.RGB()
+	bR, bG, bB := a.RGB()
+
+	distR := aR - bR
+	distG := aG - bG
+	distB := aB - bB
+
+	squareR := distR * distR
+	squareG := distG * distG
+	squareB := distB * distB
+
+	return math.Sqrt(float64(squareR + squareG + squareB))
 }
