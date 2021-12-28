@@ -558,11 +558,23 @@ func (t *TUIController) Run() {
 		defer wg.Done()
 		defer t.view.Screen.Fini()
 		for {
-			exitEventEncounteredOnEmpty := emptyRenderEvents(t.bump)
-			if exitEventEncounteredOnEmpty {
-				return
+
+			select {
+			case controllerEvent := <-t.bump:
+				switch controllerEvent {
+				case ControllerEventRender:
+					// empty all further render events before rendering
+					exitEventEncounteredOnEmpty := emptyRenderEvents(t.bump)
+					// exit if an exit event was coming up
+					if exitEventEncounteredOnEmpty {
+						return
+					}
+					// render
+					t.view.Render()
+				case ControllerEventExit:
+					return
+				}
 			}
-			t.view.Render()
 		}
 	}()
 
