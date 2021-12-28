@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-const version = "wip"
+const version = "0.1.0"
 
 // Flags for the `version` command line command, for `go-flags` to parse
 // command line args into.
