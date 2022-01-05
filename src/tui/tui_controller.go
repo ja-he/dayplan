@@ -302,6 +302,8 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.showSummary = !t.model.showSummary
 	case 'E':
 		t.model.showLog = !t.model.showLog
+	case '?':
+		t.model.showHelp = !t.model.showHelp
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
 		t.model.AddModel(t.model.CurrentDate, model.NewDay(), t.model.GetCurrentSuntimes())

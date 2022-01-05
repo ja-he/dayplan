@@ -15,7 +15,8 @@ and I don't see why anybody else would want to use this, at least for now.
 
 ## Usage
 
-(Help messages are available e.g. via `-h`)
+- Help messages are available e.g. via `-h`
+- in TUI mode the key `?` toggles a help popup panel showing basic controls
 
 ### Regular TUI Usage
 

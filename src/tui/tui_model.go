@@ -184,6 +184,7 @@ type TUIModel struct {
 	CurrentDate      model.Date
 	Log              potatolog.Log
 	showLog          bool
+	showHelp         bool
 	NRowsPerHour     int
 	ScrollOffset     int
 	EventEditor      EventEditor
