@@ -263,7 +263,7 @@ func (t *TUIView) Render() {
 							style = colors.DefaultDim(style)
 						}
 						t.DrawBox(style, p.X, p.Y, p.W, p.H)
-						t.DrawText(p.X, p.Y, p.W, 0, style, util.TruncateAt(e.Name, dayWidth))
+						t.DrawText(p.X, p.Y, p.W, 0, style, util.TruncateAt(e.Name, p.W))
 					}
 				} else {
 					loadingText := "⋮"
