@@ -5,7 +5,9 @@ import (
 	"os"
 )
 
-const version = "0.1.1"
+// For proper builds, these variables should be set via ldflags.
+var version = "development"
+var hash = "unknown"
 
 // Flags for the `version` command line command, for `go-flags` to parse
 // command line args into.
@@ -21,6 +23,6 @@ func (command *VersionCommand) Execute(args []string) error {
 }
 
 func showVersion() {
-	fmt.Println(version)
+	fmt.Printf("%s (%s)\n", version, hash)
 	os.Exit(0)
 }

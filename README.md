@@ -13,6 +13,20 @@ quite a while to come (read: forever).
 It's the middle ground between what I want to use and what I had time to make
 and I don't see why anybody else would want to use this, at least for now.
 
+## Installation
+
+All that's really needed is a `go install github.com/ja-he/dayplan@latest`.  
+_However_ there is a small build script `build.sh` available that takes care of
+inserting version and commit information.
+Therefore the recommended steps are:
+
+    git clone https://github.com/ja-he/dayplan
+    cd dayplan
+    ./build.sh install
+
+As it still uses `go install` under the hood, the binary should be in your
+`$GOPATH` (or if empty in `$HOME/go/bin`).
+
 ## Usage
 
 - Help messages are available e.g. via `-h`
