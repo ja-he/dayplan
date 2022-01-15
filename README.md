@@ -15,6 +15,16 @@ and I don't see why anybody else would want to use this, at least for now.
 
 ## Installation
 
+### Arch Linux
+
+[![AUR version](https://img.shields.io/aur/version/dayplan?color=1793d1&label=AUR%20version&logo=archlinux&logoColor=1793d1)](https://aur.archlinux.org/packages/dayplan/)
+[![AUR last modified](https://img.shields.io/aur/last-modified/dayplan?color=1793d1&label=AUR%20recency)](https://aur.archlinux.org/cgit/aur.git/log/?h=dayplan)
+
+For Arch Linux and its derivatives there is an
+[AUR package](https://aur.archlinux.org/packages/dayplan/) available.
+
+### Manually
+
 All that's really needed is a `go install github.com/ja-he/dayplan@latest`.  
 _However_ there is a small build script `build.sh` available that takes care of
 inserting version and commit information.
@@ -62,7 +72,7 @@ $ dayplan summarize --from 2021-11-01 --til 2021-11-30 \
 
 Using `ESC` you can switch from a single day's view to a week view, and from
 there to the full month. You can still scroll through the days and events in
-this mode but not perform and edits.
+this mode but not perform any edits.
 
 Using `i` you can step back into the day view.
 
