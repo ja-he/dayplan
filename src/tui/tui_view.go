@@ -248,7 +248,7 @@ func (t *TUIView) DrawSummary() {
 			style, _ := t.Model.CategoryStyling.GetStyle(category)
 			catLen := 20
 			durationLen := 20
-			barWidth := int(float64(duration)/float64(maxDuration)*float64(t.Model.UIDim.screenWidth)) - catLen - durationLen
+			barWidth := int(float64(duration) / float64(maxDuration) * float64(t.Model.UIDim.screenWidth-catLen-durationLen))
 			t.DrawBox(style, catLen+durationLen, y, barWidth, 1)
 			t.DrawText(0, y, catLen, 0, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
 			t.DrawText(catLen, y, durationLen, 0, style, "("+util.DurationToString(duration)+")")
