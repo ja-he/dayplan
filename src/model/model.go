@@ -64,11 +64,17 @@ func (e *Event) toString() string {
 	return (start + "|" + end + "|" + cat + "|" + name)
 }
 
-type ByStart []Event
+type ByStartConsideringDuration []Event
 
-func (a ByStart) Len() int           { return len(a) }
-func (a ByStart) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByStart) Less(i, j int) bool { return a[j].Start.IsAfter(a[i].Start) }
+func (a ByStartConsideringDuration) Len() int      { return len(a) }
+func (a ByStartConsideringDuration) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByStartConsideringDuration) Less(i, j int) bool {
+	secondStartsLater := a[j].Start.IsAfter(a[i].Start)
+	sameStart := a[i].Start == a[j].Start
+	secondEndEarlier := a[i].End.IsAfter(a[j].End)
+
+	return secondStartsLater || (sameStart && secondEndEarlier)
+}
 
 func (e *Event) Move(offset TimeOffset) {
 	e.Start = e.Start.Offset(offset)
@@ -143,7 +149,7 @@ func (day *Day) AddEvent(e Event) EventID {
 }
 
 func (day *Day) UpdateEventOrder() {
-	sort.Sort(ByStart(day.Events))
+	sort.Sort(ByStartConsideringDuration(day.Events))
 }
 
 func (day *Day) getEvent(id EventID, getFollowing bool) []*Event {
@@ -269,6 +275,8 @@ func (day *Day) Flatten() {
 	next := 1
 
 	for current < len(day.Events) && next < len(day.Events) {
+		day.UpdateEventOrder()
+
 		if day.Events[next].IsContainedIn(&day.Events[current]) {
 			if day.Events[next].Cat.Priority > day.Events[current].Cat.Priority {
 				// clone the current event for the remainder after the next event
@@ -280,10 +288,9 @@ func (day *Day) Flatten() {
 				// trim the current until the next event
 				day.Events[current].End = day.Events[next].Start
 
-				// easiest to just append and let Sort sort it out
+				// easiest to just append
 				if currentRemainder.Duration() > 0 {
 					day.Events = append(day.Events, currentRemainder)
-					sort.Sort(ByStart(day.Events))
 				}
 
 				// if the current now has become zero-length, remove it (in which case
@@ -317,7 +324,6 @@ func (day *Day) Flatten() {
 			} else {
 				// shorten next
 				day.Events[next].Start = day.Events[current].End
-				sort.Sort(ByStart(day.Events))
 			}
 		} else {
 			current = next

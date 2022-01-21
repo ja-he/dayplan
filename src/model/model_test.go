@@ -519,6 +519,31 @@ func TestFlatten(t *testing.T) {
 	}
 	{
 		categories := make(map[string]*Category)
+		categories["a"] = &Category{Name: "a", Priority: 0}
+		categories["b"] = &Category{Name: "b", Priority: 1}
+		categories["c"] = &Category{Name: "c", Priority: 2}
+
+		testcase := "high prio contained in lower prio such that lower former becomes zero-length, but sort is needed"
+		input := *NewDay()
+		input.Events = []Event{
+			*NewEvent("12:00|13:00|a|A", categories),
+			*NewEvent("12:00|12:20|b|B", categories),
+			*NewEvent("12:10|12:30|c|C", categories),
+		}
+		expected := *NewDay()
+		expected.Events = []Event{
+			*NewEvent("12:00|12:10|b|B", categories),
+			*NewEvent("12:10|12:30|c|C", categories),
+			*NewEvent("12:30|13:00|a|A", categories),
+		}
+
+		input.Flatten()
+		if !eventsEqualExceptingIDs(&input, &expected) {
+			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+		}
+	}
+	{
+		categories := make(map[string]*Category)
 		categories["eating"] = &Category{Name: "eating", Priority: 0}
 		categories["work"] = &Category{Name: "work", Priority: 20}
 
