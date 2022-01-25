@@ -602,7 +602,7 @@ func (t *TUIView) DrawEvents() {
 		p := t.Model.Positions[e.ID]
 		if t.Model.Hovered.EventID != e.ID {
 			t.DrawBox(style, p.X, p.Y, p.W, p.H)
-			t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)
+			t.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
 			t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 			t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 		} else {
@@ -611,17 +611,17 @@ func (t *TUIView) DrawEvents() {
 			case HoverStateResize:
 				t.DrawBox(style, p.X, p.Y, p.W, p.H-1)
 				t.DrawBox(selStyle, p.X, p.Y+p.H-1, p.W, 1)
-				t.DrawText(p.X+1, p.Y, p.W-2, p.H, style, e.Name)
+				t.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
 				t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
 			case HoverStateMove:
 				t.DrawBox(selStyle, p.X, p.Y, p.W, p.H)
-				t.DrawText(p.X+1, p.Y, p.W-2, p.H, selStyle, e.Name)
+				t.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
 				t.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
 				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
 			case HoverStateEdit:
 				t.DrawBox(style, p.X, p.Y, p.W, p.H)
-				t.DrawText(p.X+1, p.Y, p.W-2, p.H, selStyle, e.Name)
+				t.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
 				t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 			default:
