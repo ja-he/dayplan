@@ -95,8 +95,9 @@ func (t *TUIView) DrawEditor() {
 		x -= editorWidth / 2
 		y -= editorHeight / 2
 		t.DrawBox(style, x, y, editorWidth, editorHeight)
-		t.DrawText(x+1, y+1, editorWidth-2, 0, style, editor.TmpEventInfo.Name)
-		t.Screen.ShowCursor(x+1+editor.CursorPos, y+1)
+		t.DrawText(x+1, y+1, editorWidth-2, editorHeight-2, style, editor.TmpEventInfo.Name)
+		t.Screen.ShowCursor(x+1+(editor.CursorPos%(editorWidth-2)), y+1+(editor.CursorPos/(editorWidth-2)))
+		// TODO(ja-he): wrap at word boundary
 	} else {
 		t.Screen.ShowCursor(-1, -1)
 	}
