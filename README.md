@@ -1,6 +1,8 @@
 [![Go](https://github.com/ja-he/dayplan/actions/workflows/go.yml/badge.svg)](https://github.com/ja-he/dayplan/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ja-he/dayplan)](https://goreportcard.com/report/github.com/ja-he/dayplan)
 
+[![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/ja-he/dayplan?color=%23f54d27&label=latest%20version%20%28by%20Git%20tag%29&logo=git&logoColor=white)](https://github.com/ja-he/dayplan/tags)
+
 # Dayplan
 
 A utility to plan your day.
