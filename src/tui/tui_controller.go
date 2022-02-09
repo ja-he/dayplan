@@ -165,7 +165,7 @@ func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 	// create event at time with cat etc.
 	e := model.Event{}
 	e.Cat = t.model.CurrentCategory
-	e.Name = "?"
+	e.Name = ""
 	e.Start = start
 	e.End = start.OffsetMinutes(+10)
 
