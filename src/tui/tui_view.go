@@ -22,11 +22,24 @@ type TUI struct {
 func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
 		paneType: p.model.UIDim.WhichUIPane(x, y),
+		weather:  ui.WeatherPanelPositionInfo{},
+		timeline: ui.TimelinePanelPositionInfo{},
+		tools:    ui.ToolsPanelPositionInfo{},
+		status:   ui.StatusPanelPositionInfo{},
+		events: ui.EventsPanelPositionInfo{
+			Event:      p.model.Hovered.EventID,
+			HoverState: p.model.Hovered.HoverState,
+		},
 	}
 }
 
 type TUIPositionInfo struct {
 	paneType ui.UIPaneType
+	weather  ui.WeatherPanelPositionInfo
+	timeline ui.TimelinePanelPositionInfo
+	tools    ui.ToolsPanelPositionInfo
+	status   ui.StatusPanelPositionInfo
+	events   ui.EventsPanelPositionInfo
 }
 
 func (t *TUIPositionInfo) GetExtraWeatherInfo() *ui.WeatherPanelPositionInfo {
@@ -42,12 +55,11 @@ func (t *TUIPositionInfo) GetExtraStatusInfo() *ui.StatusPanelPositionInfo {
 	return &ui.StatusPanelPositionInfo{}
 }
 func (t *TUIPositionInfo) GetExtraEventsInfo() *ui.EventsPanelPositionInfo {
-	return &ui.EventsPanelPositionInfo{}
+	return &t.events
 }
 
 func (t *TUIPositionInfo) PaneType() ui.UIPaneType {
-	// TODO
-	return ui.EventsUIPanelType
+	return t.paneType
 }
 
 func (p *TUI) Close() {

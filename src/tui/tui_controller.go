@@ -389,12 +389,15 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			// if mouse over event, update hover info in tui model
 			t.model.Hovered = t.model.GetEventForPos(x, y)
 
+			eventsInfo := positionInfo.GetExtraEventsInfo()
+			t.model.Log.Add("DEBUG", fmt.Sprint(eventsInfo))
+
 			// if button clicked, handle
 			switch buttons {
 			case tcell.Button3:
-				t.model.GetCurrentDay().RemoveEvent(t.model.Hovered.EventID)
+				t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event)
 			case tcell.Button2:
-				id := t.model.Hovered.EventID
+				id := eventsInfo.Event
 				if id != 0 && t.model.TimeAtY(y).IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
 					t.model.GetCurrentDay().SplitEvent(id, t.model.TimeAtY(y))
 				}
@@ -402,7 +405,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				// we've clicked while not editing
 				// now we need to check where the cursor is and either start event
 				// creation, resizing or moving
-				switch t.model.Hovered.HoverState {
+				switch eventsInfo.HoverState {
 				case ui.EventHoverStateNone:
 					t.startMouseEventCreation(y)
 				case ui.EventHoverStateResize:
@@ -411,7 +414,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 					t.movePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove()
 				case ui.EventHoverStateEdit:
-					t.startEdit(t.model.Hovered.EventID)
+					t.startEdit(eventsInfo.Event)
 				}
 			case tcell.WheelUp:
 				t.model.ScrollUp(1)

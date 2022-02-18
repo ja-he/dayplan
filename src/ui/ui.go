@@ -60,5 +60,6 @@ type TimelinePanelPositionInfo struct{}
 type ToolsPanelPositionInfo struct{}
 type StatusPanelPositionInfo struct{}
 type EventsPanelPositionInfo struct {
-	event model.EventID
+	Event      model.EventID
+	HoverState EventHoverState
 }
