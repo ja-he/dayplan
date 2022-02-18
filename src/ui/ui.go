@@ -1,11 +1,42 @@
 package ui
 
-type UIPanel interface {
+type UIPaneType int
+
+const (
+	WeatherUIPanelType UIPaneType = iota
+	TimelineUIPanelType
+	EventsUIPanelType
+	ToolsUIPanelType
+	StatusUIPanelType
+)
+
+// The active view of the day(s), which could be a single day, a
+// week or a full month (or in the future any other stretch of time
+// that's to be shown).
+type ActiveView int
+
+const (
+	_ ActiveView = iota
+	ViewDay
+	ViewWeek
+	ViewMonth
+)
+
+type UIPane interface {
 	Draw(x, y, w, h int)
 }
 
 type MainUIPanel interface {
-	UIPanel
+	UIPane
 	Close()
 	NeedsSync()
 }
+
+type EventHoverState int
+
+const (
+	EventHoverStateNone EventHoverState = iota
+	EventHoverStateMove
+	EventHoverStateResize
+	EventHoverStateEdit
+)

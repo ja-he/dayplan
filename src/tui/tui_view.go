@@ -8,6 +8,7 @@ import (
 
 	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 
 	"github.com/gdamore/tcell/v2"
@@ -169,12 +170,12 @@ func (t *MainTUIPanel) drawSummary() {
 		t.renderer.DrawBox(style, 0, 0, w, h)
 		dateString := ""
 		switch t.model.activeView {
-		case ViewDay:
+		case ui.ViewDay:
 			dateString = t.model.CurrentDate.ToString()
-		case ViewWeek:
+		case ui.ViewWeek:
 			start, end := t.model.CurrentDate.Week()
 			dateString = fmt.Sprintf("week %s..%s", start.ToString(), end.ToString())
-		case ViewMonth:
+		case ui.ViewMonth:
 			dateString = fmt.Sprintf("%s %d", t.model.CurrentDate.ToGotime().Month().String(), t.model.CurrentDate.Year)
 		}
 		title := fmt.Sprintf("SUMMARY (%s)", dateString)
@@ -183,13 +184,13 @@ func (t *MainTUIPanel) drawSummary() {
 
 		summary := make(map[model.Category]int)
 		switch t.model.activeView {
-		case ViewDay:
+		case ui.ViewDay:
 			day := t.model.GetCurrentDay()
 			if day == nil {
 				return
 			}
 			summary = day.SumUpByCategory()
-		case ViewWeek:
+		case ui.ViewWeek:
 			start, end := t.model.CurrentDate.Week()
 			for current := start; current != end.Next(); current = current.Next() {
 				day := t.model.GetDay(current)
@@ -201,7 +202,7 @@ func (t *MainTUIPanel) drawSummary() {
 					summary[k] += v
 				}
 			}
-		case ViewMonth:
+		case ui.ViewMonth:
 			start, end := t.model.CurrentDate.MonthBounds()
 			for current := start; current != end.Next(); current = current.Next() {
 				day := t.model.GetDay(current)
@@ -282,13 +283,13 @@ func (t *MainTUIPanel) Draw(x, y, w, h int) {
 	loadingStyle := dayBG.Foreground(tcell.ColorLightSeaGreen)
 
 	switch t.model.activeView {
-	case ViewDay:
+	case ui.ViewDay:
 		t.drawWeather()
 		t.drawTimeline()
 		t.drawEvents()
 		t.drawTools()
 		t.drawEditor()
-	case ViewWeek:
+	case ui.ViewWeek:
 		start, end := t.model.CurrentDate.Week()
 		nDays := start.DaysUntil(end) + 1
 		if nDays > t.model.UIDim.screenWidth {
@@ -336,7 +337,7 @@ func (t *MainTUIPanel) Draw(x, y, w, h int) {
 			}
 		}
 
-	case ViewMonth:
+	case ui.ViewMonth:
 		start, end := t.model.CurrentDate.MonthBounds()
 		nDays := start.DaysUntil(end) + 1
 		if nDays > t.model.UIDim.screenWidth {
@@ -398,11 +399,11 @@ func (t *MainTUIPanel) Draw(x, y, w, h int) {
 func (t *MainTUIPanel) drawStatus() {
 	var firstDay, lastDay model.Date
 	switch t.model.activeView {
-	case ViewDay:
+	case ui.ViewDay:
 		firstDay, lastDay = t.model.CurrentDate, t.model.CurrentDate
-	case ViewWeek:
+	case ui.ViewWeek:
 		firstDay, lastDay = t.model.CurrentDate.Week()
-	case ViewMonth:
+	case ui.ViewMonth:
 		firstDay, lastDay = t.model.CurrentDate.MonthBounds()
 	}
 
@@ -562,18 +563,18 @@ func (t *MainTUIPanel) drawEvents() {
 		} else {
 			selStyle := colors.DefaultEmphasize(style)
 			switch t.model.Hovered.HoverState {
-			case HoverStateResize:
+			case ui.EventHoverStateResize:
 				t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H-1)
 				t.renderer.DrawBox(selStyle, p.X, p.Y+p.H-1, p.W, 1)
 				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
 				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
-			case HoverStateMove:
+			case ui.EventHoverStateMove:
 				t.renderer.DrawBox(selStyle, p.X, p.Y, p.W, p.H)
 				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
 				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
 				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
-			case HoverStateEdit:
+			case ui.EventHoverStateEdit:
 				t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H)
 				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
 				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())

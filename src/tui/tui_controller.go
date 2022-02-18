@@ -234,15 +234,15 @@ func (t *TUIController) loadDay(date model.Date) {
 }
 
 // Starts Loads for all days visible in the view.
-// E.g. for ViewMonth it would start the load for all days from
+// E.g. for ui.ViewMonth it would start the load for all days from
 // first to last day of the month.
 // Warning: does not guarantee days will be loaded (non-nil) after
 // this returns.
-func (t *TUIController) loadDaysForView(view ActiveView) {
+func (t *TUIController) loadDaysForView(view ui.ActiveView) {
 	switch view {
-	case ViewDay:
+	case ui.ViewDay:
 		t.loadDay(t.model.CurrentDate)
-	case ViewWeek:
+	case ui.ViewWeek:
 		{
 			monday, sunday := t.model.CurrentDate.Week()
 			for current := monday; current != sunday.Next(); current = current.Next() {
@@ -252,7 +252,7 @@ func (t *TUIController) loadDaysForView(view ActiveView) {
 				}(current)
 			}
 		}
-	case ViewMonth:
+	case ui.ViewMonth:
 		{
 			first, last := t.model.CurrentDate.MonthBounds()
 			for current := first; current != last.Next(); current = current.Next() {
@@ -358,7 +358,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 		t.handleNoneEditKeyInput(e)
 	case *tcell.EventMouse:
 		// don't handle if not on day view
-		if t.model.activeView != ViewDay || t.model.showLog || t.model.showSummary {
+		if t.model.activeView != ui.ViewDay || t.model.showLog || t.model.showSummary {
 			return
 		}
 
@@ -370,22 +370,22 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 
 		pane := t.model.UIDim.WhichUIPane(x, y)
 		switch pane {
-		case UIStatus:
-		case UIWeather:
+		case ui.StatusUIPanelType:
+		case ui.WeatherUIPanelType:
 			switch buttons {
 			case tcell.WheelUp:
 				t.model.ScrollUp(1)
 			case tcell.WheelDown:
 				t.model.ScrollDown(1)
 			}
-		case UITimeline:
+		case ui.TimelineUIPanelType:
 			switch buttons {
 			case tcell.WheelUp:
 				t.model.ScrollUp(1)
 			case tcell.WheelDown:
 				t.model.ScrollDown(1)
 			}
-		case UIEvents:
+		case ui.EventsUIPanelType:
 			// if mouse over event, update hover info in tui model
 			t.model.Hovered = t.model.GetEventForPos(x, y)
 
@@ -403,14 +403,14 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				// now we need to check where the cursor is and either start event
 				// creation, resizing or moving
 				switch t.model.Hovered.HoverState {
-				case HoverStateNone:
+				case ui.EventHoverStateNone:
 					t.startMouseEventCreation(y)
-				case HoverStateResize:
+				case ui.EventHoverStateResize:
 					t.startMouseResize()
-				case HoverStateMove:
+				case ui.EventHoverStateMove:
 					t.movePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove()
-				case HoverStateEdit:
+				case ui.EventHoverStateEdit:
 					t.startEdit(t.model.Hovered.EventID)
 				}
 			case tcell.WheelUp:
@@ -418,7 +418,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			case tcell.WheelDown:
 				t.model.ScrollDown(1)
 			}
-		case UITools:
+		case ui.ToolsUIPanelType:
 			switch buttons {
 			case tcell.Button1:
 				cat := t.model.GetCategoryForPos(x, y)
@@ -428,7 +428,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			}
 		default:
 		}
-		if pane != UIEvents {
+		if pane != ui.EventsUIPanelType {
 			t.model.ClearHover()
 		}
 	}

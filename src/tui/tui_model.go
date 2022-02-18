@@ -9,48 +9,27 @@ import (
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/program"
+	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 	"github.com/ja-he/dayplan/src/weather"
 )
 
 type hoveredEventInfo struct {
 	EventID    model.EventID
-	HoverState HoverState
+	HoverState ui.EventHoverState
 }
-
-type UIPane int
-
-const (
-	UIWeather UIPane = iota
-	UITimeline
-	UIEvents
-	UITools
-	UIStatus
-)
-
-// The active view of the day(s), which could be a single day, a
-// week or a full month (or in the future any other stretch of time
-// that's to be shown).
-type ActiveView int
-
-const (
-	_ ActiveView = iota
-	ViewDay
-	ViewWeek
-	ViewMonth
-)
 
 // For a given active view, returns the 'previous', i.E. 'stepping
 // out' from an inner view to an outer one.
 // E.g.: Day -> Week -> Month
-func PrevView(current ActiveView) ActiveView {
+func PrevView(current ui.ActiveView) ui.ActiveView {
 	switch current {
-	case ViewDay:
-		return ViewWeek
-	case ViewWeek:
-		return ViewMonth
-	case ViewMonth:
-		return ViewMonth
+	case ui.ViewDay:
+		return ui.ViewWeek
+	case ui.ViewWeek:
+		return ui.ViewMonth
+	case ui.ViewMonth:
+		return ui.ViewMonth
 	default:
 		panic("unknown view!")
 	}
@@ -59,28 +38,28 @@ func PrevView(current ActiveView) ActiveView {
 // For a given active view, returns the 'next', i.E. 'stepping into'
 // from an outer view to an inner one.
 // E.g.: Month -> Week -> Day
-func NextView(current ActiveView) ActiveView {
+func NextView(current ui.ActiveView) ui.ActiveView {
 	switch current {
-	case ViewDay:
-		return ViewDay
-	case ViewWeek:
-		return ViewDay
-	case ViewMonth:
-		return ViewWeek
+	case ui.ViewDay:
+		return ui.ViewDay
+	case ui.ViewWeek:
+		return ui.ViewDay
+	case ui.ViewMonth:
+		return ui.ViewWeek
 	default:
 		panic("unknown view!")
 	}
 }
 
 // Returns the active view name as a string.
-func toString(av ActiveView) string {
+func toString(av ui.ActiveView) string {
 	switch av {
-	case ViewDay:
-		return "ViewDay"
-	case ViewWeek:
-		return "ViewWeek"
-	case ViewMonth:
-		return "ViewMonth"
+	case ui.ViewDay:
+		return "ui.ViewDay"
+	case ui.ViewWeek:
+		return "ui.ViewWeek"
+	case ui.ViewMonth:
+		return "ui.ViewMonth"
 	default:
 		return "unknown"
 	}
@@ -92,7 +71,7 @@ type UIDims struct {
 	screenWidth, screenHeight                                int
 }
 
-func (d *UIDims) WhichUIPane(x, y int) UIPane {
+func (d *UIDims) WhichUIPane(x, y int) ui.UIPaneType {
 	if x < 0 || y < 0 {
 		panic("negative x or y")
 	}
@@ -109,19 +88,19 @@ func (d *UIDims) WhichUIPane(x, y int) UIPane {
 	toolsPane := util.Rect{X: d.ToolsOffset(), Y: 0, W: d.ToolsWidth(), H: mainPaneHeight}
 
 	if statusPane.Contains(x, y) {
-		return UIStatus
+		return ui.StatusUIPanelType
 	}
 	if weatherPane.Contains(x, y) {
-		return UIWeather
+		return ui.WeatherUIPanelType
 	}
 	if timelinePane.Contains(x, y) {
-		return UITimeline
+		return ui.TimelineUIPanelType
 	}
 	if eventsPane.Contains(x, y) {
-		return UIEvents
+		return ui.EventsUIPanelType
 	}
 	if toolsPane.Contains(x, y) {
-		return UITools
+		return ui.ToolsUIPanelType
 	}
 
 	panic(fmt.Sprintf("Unknown UI pos (%d,%d)", x, y))
@@ -192,7 +171,7 @@ type TUIModel struct {
 	Weather          weather.Handler
 	CurrentCategory  model.Category
 	ProgramData      program.Data
-	activeView       ActiveView
+	activeView       ui.ActiveView
 }
 
 func (t *TUIModel) ScrollUp(by int) {
@@ -233,7 +212,7 @@ func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	t.NRowsPerHour = 6
 	t.ScrollOffset = 8 * t.NRowsPerHour
 
-	t.activeView = ViewDay
+	t.activeView = ui.ViewDay
 
 	return &t
 }
@@ -332,7 +311,7 @@ func (t *TUIModel) ComputeRects(day *model.Day, offsetX, offsetY, width, height 
 }
 
 func NoHoveredEvent() hoveredEventInfo {
-	return hoveredEventInfo{0, HoverStateNone}
+	return hoveredEventInfo{0, ui.EventHoverStateNone}
 }
 
 // TODO: move to controller?
@@ -342,14 +321,14 @@ func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
 		for i := len(t.GetCurrentDay().Events) - 1; i >= 0; i-- {
 			eventPos := t.Positions[t.GetCurrentDay().Events[i].ID]
 			if eventPos.Contains(x, y) {
-				var hover HoverState
+				var hover ui.EventHoverState
 				switch {
 				case y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5:
-					hover = HoverStateResize
+					hover = ui.EventHoverStateResize
 				case y == (eventPos.Y):
-					hover = HoverStateEdit
+					hover = ui.EventHoverStateEdit
 				default:
-					hover = HoverStateMove
+					hover = ui.EventHoverStateMove
 				}
 				return hoveredEventInfo{t.GetCurrentDay().Events[i].ID, hover}
 			}
