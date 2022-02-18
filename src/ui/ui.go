@@ -40,3 +40,19 @@ const (
 	EventHoverStateResize
 	EventHoverStateEdit
 )
+
+type PositionInfo interface {
+	PanelType() UIPaneType
+
+	GetExtraWeatherInfo() WeatherPanelPositionInfo
+	GetExtraTimelineInfo() TimelinePanelPositionInfo
+	GetExtraEventsInfo() EventsPanelPositionInfo
+	GetExtraToolsInfo() ToolsPanelPositionInfo
+	GetExtraStatusInfo() StatusPanelPositionInfo
+}
+
+type WeatherPanelPositionInfo struct{}
+type TimelinePanelPositionInfo struct{}
+type EventsPanelPositionInfo struct{}
+type ToolsPanelPositionInfo struct{}
+type StatusPanelPositionInfo struct{}
