@@ -10,6 +10,7 @@ import (
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/program"
+	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/weather"
 
 	"github.com/gdamore/tcell/v2"
@@ -35,7 +36,7 @@ func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
 
 type TUIController struct {
 	model         *TUIModel
-	tui           *TUIPanel
+	tui           ui.MainUIPanel
 	editState     EditState
 	EditedEvent   model.EventID
 	movePropagate bool
@@ -582,7 +583,7 @@ func (t *TUIController) Run() {
 						return
 					}
 					// render
-					t.tui.Render()
+					t.tui.Draw(0, 0, t.model.UIDim.screenWidth, t.model.UIDim.screenHeight)
 				case ControllerEventExit:
 					return
 				}

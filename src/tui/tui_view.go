@@ -14,16 +14,16 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-type TUIPanel struct {
+type MainTUIPanel struct {
 	renderer *TUIRenderer
 	Model    *TUIModel
 }
 
-func (p *TUIPanel) Close() {
+func (p *MainTUIPanel) Close() {
 	p.renderer.Fini()
 }
 
-func (v *TUIPanel) NeedsSync() {
+func (v *MainTUIPanel) NeedsSync() {
 	v.renderer.NeedsSync()
 }
 
@@ -97,8 +97,8 @@ func (r *TUIRenderer) Show() {
 	}
 }
 
-func NewTUIView(model *TUIModel, renderer *TUIRenderer) *TUIPanel {
-	t := TUIPanel{}
+func NewTUIView(model *TUIModel, renderer *TUIRenderer) *MainTUIPanel {
+	t := MainTUIPanel{}
 	t.renderer = renderer
 
 	t.Model = model
@@ -115,14 +115,14 @@ const editorHeight = 20
 const helpWidth = 80
 const helpHeight = 30
 
-func (t *TUIPanel) GetScreenCenter() (int, int) {
+func (t *MainTUIPanel) getScreenCenter() (int, int) {
 	w, h := t.renderer.GetScreenDimensions()
 	x := w / 2
 	y := h / 2
 	return x, y
 }
 
-func (t *TUIPanel) DrawTools() {
+func (t *MainTUIPanel) DrawTools() {
 	i := 0
 
 	boxes := t.Model.CalculateCategoryBoxes()
@@ -141,11 +141,11 @@ func (t *TUIPanel) DrawTools() {
 	}
 }
 
-func (t *TUIPanel) DrawEditor() {
+func (t *MainTUIPanel) DrawEditor() {
 	editor := &t.Model.EventEditor
 	style := tcell.StyleDefault.Background(tcell.ColorLightGrey).Foreground(tcell.ColorBlack)
 	if editor.Active {
-		x, y := t.GetScreenCenter()
+		x, y := t.getScreenCenter()
 		x -= editorWidth / 2
 		y -= editorHeight / 2
 		t.renderer.DrawBox(style, x, y, editorWidth, editorHeight)
@@ -158,14 +158,14 @@ func (t *TUIPanel) DrawEditor() {
 }
 
 // Draw the help popup.
-func (t *TUIPanel) DrawHelp() {
+func (t *MainTUIPanel) DrawHelp() {
 	if t.Model.showHelp {
 
 		helpStyle := tcell.StyleDefault.Background(tcell.ColorLightGrey)
 		keyStyle := colors.DefaultEmphasize(helpStyle).Bold(true)
 		descriptionStyle := helpStyle.Italic(true)
 
-		x, y := t.GetScreenCenter()
+		x, y := t.getScreenCenter()
 		x -= helpWidth / 2
 		y -= helpHeight / 2
 		t.renderer.DrawBox(helpStyle, x, y, helpWidth, helpHeight)
@@ -233,7 +233,7 @@ func (t *TUIPanel) DrawHelp() {
 
 // Draws the time summary view over top of all previously drawn contents, if it
 // is currently active.
-func (t *TUIPanel) DrawSummary() {
+func (t *MainTUIPanel) DrawSummary() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if t.Model.showSummary {
 		y, w, h := 2, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight
@@ -312,7 +312,7 @@ func (t *TUIPanel) DrawSummary() {
 	}
 }
 
-func (t *TUIPanel) DrawLog() {
+func (t *MainTUIPanel) DrawLog() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if t.Model.showLog {
 		x, y, w, h := 0, 2, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight
@@ -341,7 +341,7 @@ func (t *TUIPanel) DrawLog() {
 	}
 }
 
-func (t *TUIPanel) Render() {
+func (t *MainTUIPanel) Draw(x, y, w, h int) {
 
 	t.renderer.Clear()
 
@@ -490,7 +490,7 @@ func (t *TUIRenderer) DrawBox(style tcell.Style, x, y, w, h int) {
 	}
 }
 
-func (t *TUIPanel) DrawStatus() {
+func (t *MainTUIPanel) DrawStatus() {
 	var firstDay, lastDay model.Date
 	switch t.Model.activeView {
 	case ViewDay:
@@ -525,7 +525,7 @@ func (t *TUIPanel) DrawStatus() {
 	t.renderer.DrawText(0, statusYOffset+1, dateWidth, 0, weekdayStyle, util.TruncateAt(t.Model.CurrentDate.ToWeekday().String(), dateWidth))
 }
 
-func (t *TUIPanel) DrawWeather() {
+func (t *MainTUIPanel) DrawWeather() {
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		y := t.Model.toY(timestamp)
 
@@ -560,7 +560,7 @@ type timestampStyle struct {
 	style     tcell.Style
 }
 
-func (t *TUIPanel) DrawTimeline() {
+func (t *MainTUIPanel) DrawTimeline() {
 	suntimes := t.Model.GetCurrentSuntimes()
 
 	special := []timestampStyle{}
@@ -588,7 +588,7 @@ func (t *TUIPanel) DrawTimeline() {
 // dimensions.
 // Optionally provide highlight times such as for the current timestamp as well
 // as suntimes to be displayed on the timeline.
-func (t *TUIPanel) drawTimeline(
+func (t *MainTUIPanel) drawTimeline(
 	x, y, w, h int,
 	highlightTimes []timestampStyle,
 	suntimes *model.SunTimes) {
@@ -635,7 +635,7 @@ func (t *TUIPanel) drawTimeline(
 	}
 }
 
-func (t *TUIPanel) DrawEvents() {
+func (t *MainTUIPanel) DrawEvents() {
 	day := t.Model.GetCurrentDay()
 	if day == nil {
 		t.Model.Log.Add("DEBUG", "current day nil on render; skipping")
