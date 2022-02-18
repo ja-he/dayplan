@@ -156,17 +156,16 @@ func (t *TUIController) endEdit() {
 		t.model.GetCurrentDay().GetEvent(tmp.ID).Name = tmp.Name
 	}
 	t.model.GetCurrentDay().UpdateEventOrder()
-	t.model.Hovered.EventID = 0
 }
 
-func (t *TUIController) startMouseMove() {
+func (t *TUIController) startMouseMove(eventsInfo ui.EventsPanelPositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateMoving)
-	t.EditedEvent = t.model.Hovered.EventID
+	t.EditedEvent = eventsInfo.Event
 }
 
-func (t *TUIController) startMouseResize() {
+func (t *TUIController) startMouseResize(eventsInfo ui.EventsPanelPositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateResizing)
-	t.EditedEvent = t.model.Hovered.EventID
+	t.EditedEvent = eventsInfo.Event
 }
 
 func (t *TUIController) startMouseEventCreation(cursorPosY int) {
@@ -386,10 +385,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				t.model.ScrollDown(1)
 			}
 		case ui.EventsUIPanelType:
-			// if mouse over event, update hover info in tui model
-			t.model.Hovered = t.model.GetEventForPos(x, y)
-
-			eventsInfo := positionInfo.GetExtraEventsInfo()
+			eventsInfo := *positionInfo.GetExtraEventsInfo()
 			t.model.Log.Add("DEBUG", fmt.Sprint(eventsInfo))
 
 			// if button clicked, handle
@@ -409,10 +405,10 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				case ui.EventHoverStateNone:
 					t.startMouseEventCreation(y)
 				case ui.EventHoverStateResize:
-					t.startMouseResize()
+					t.startMouseResize(eventsInfo)
 				case ui.EventHoverStateMove:
 					t.movePropagate = (e.Modifiers() == tcell.ModCtrl)
-					t.startMouseMove()
+					t.startMouseMove(eventsInfo)
 				case ui.EventHoverStateEdit:
 					t.startEdit(eventsInfo.Event)
 				}
@@ -430,9 +426,6 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				}
 			}
 		default:
-		}
-		if paneType != ui.EventsUIPanelType {
-			t.model.ClearHover()
 		}
 	}
 }

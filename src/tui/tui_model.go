@@ -14,11 +14,6 @@ import (
 	"github.com/ja-he/dayplan/src/weather"
 )
 
-type hoveredEventInfo struct {
-	EventID    model.EventID
-	HoverState ui.EventHoverState
-}
-
 // For a given active view, returns the 'previous', i.E. 'stepping
 // out' from an inner view to an outer one.
 // E.g.: Day -> Week -> Month
@@ -156,7 +151,6 @@ type TUIModel struct {
 	UIDim            UIDims
 	CategoryStyling  category_style.CategoryStyling
 	Positions        map[model.EventID]util.Rect
-	Hovered          hoveredEventInfo
 	cursorX, cursorY int
 	daysMutex        sync.RWMutex
 	days             map[model.Date]DayWithInfo
@@ -310,33 +304,6 @@ func (t *TUIModel) ComputeRects(day *model.Day, offsetX, offsetY, width, height 
 	return positions
 }
 
-func NoHoveredEvent() hoveredEventInfo {
-	return hoveredEventInfo{0, ui.EventHoverStateNone}
-}
-
-// TODO: move to controller?
-func (t *TUIModel) GetEventForPos(x, y int) hoveredEventInfo {
-	if x >= t.UIDim.EventsOffset() &&
-		x < (t.UIDim.EventsOffset()+t.UIDim.EventsWidth()) {
-		for i := len(t.GetCurrentDay().Events) - 1; i >= 0; i-- {
-			eventPos := t.Positions[t.GetCurrentDay().Events[i].ID]
-			if eventPos.Contains(x, y) {
-				var hover ui.EventHoverState
-				switch {
-				case y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5:
-					hover = ui.EventHoverStateResize
-				case y == (eventPos.Y):
-					hover = ui.EventHoverStateEdit
-				default:
-					hover = ui.EventHoverStateMove
-				}
-				return hoveredEventInfo{t.GetCurrentDay().Events[i].ID, hover}
-			}
-		}
-	}
-	return NoHoveredEvent()
-}
-
 // TODO: wtf is this supposed to be good for?!
 func (t *TUIModel) CalculateCategoryBoxes() map[model.Category]util.Rect {
 	day := make(map[model.Category]util.Rect)
@@ -367,10 +334,6 @@ func (t *TUIModel) GetCategoryForPos(x, y int) *model.Category {
 	}
 
 	return nil
-}
-
-func (t *TUIModel) ClearHover() {
-	t.Hovered = NoHoveredEvent()
 }
 
 func (t *TUIModel) toY(ts model.Timestamp) int {

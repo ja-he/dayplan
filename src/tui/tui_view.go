@@ -26,10 +26,7 @@ func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
 		timeline: ui.TimelinePanelPositionInfo{},
 		tools:    ui.ToolsPanelPositionInfo{},
 		status:   ui.StatusPanelPositionInfo{},
-		events: ui.EventsPanelPositionInfo{
-			Event:      p.model.Hovered.EventID,
-			HoverState: p.model.Hovered.HoverState,
-		},
+		events:   p.getEventForPos(x, y),
 	}
 }
 
@@ -80,6 +77,34 @@ func NewTUI(model *TUIModel, renderer *TUIRenderer) *TUI {
 	t.model.UIDim.Initialize(weather, timeline, tools, w, h)
 
 	return &t
+}
+
+func (t *TUI) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
+	if x >= t.model.UIDim.EventsOffset() &&
+		x < (t.model.UIDim.EventsOffset()+t.model.UIDim.EventsWidth()) {
+		for i := len(t.model.GetCurrentDay().Events) - 1; i >= 0; i-- {
+			eventPos := t.model.Positions[t.model.GetCurrentDay().Events[i].ID]
+			if eventPos.Contains(x, y) {
+				var hover ui.EventHoverState
+				switch {
+				case y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5:
+					hover = ui.EventHoverStateResize
+				case y == (eventPos.Y):
+					hover = ui.EventHoverStateEdit
+				default:
+					hover = ui.EventHoverStateMove
+				}
+				return ui.EventsPanelPositionInfo{
+					Event:      t.model.GetCurrentDay().Events[i].ID,
+					HoverState: hover,
+				}
+			}
+		}
+	}
+	return ui.EventsPanelPositionInfo{
+		Event:      0,
+		HoverState: ui.EventHoverStateNone,
+	}
 }
 
 const editorWidth = 80
@@ -598,14 +623,15 @@ func (t *TUI) drawEvents() {
 		}
 		// based on event state, draw a box or maybe a smaller one, or ...
 		p := t.model.Positions[e.ID]
-		if t.model.Hovered.EventID != e.ID {
+		hovered := t.getEventForPos(t.model.cursorX, t.model.cursorY)
+		if hovered.Event != e.ID {
 			t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H)
 			t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
 			t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 			t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 		} else {
 			selStyle := colors.DefaultEmphasize(style)
-			switch t.model.Hovered.HoverState {
+			switch hovered.HoverState {
 			case ui.EventHoverStateResize:
 				t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H-1)
 				t.renderer.DrawBox(selStyle, p.X, p.Y+p.H-1, p.W, 1)
