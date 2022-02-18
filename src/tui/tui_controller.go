@@ -84,7 +84,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	renderer := NewTUIRenderer()
 
 	tuiModel := NewTUIModel(categoryStyling)
-	tuiView := NewTUIView(tuiModel, renderer) // <- stuck here!
+	tuiView := NewTUI(tuiModel, renderer) // <- stuck here!
 
 	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
 	owmApiKeyProvided := (programData.OwmApiKey != "")

@@ -14,12 +14,12 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-type MainTUIPanel struct {
+type TUI struct {
 	renderer *TUIRenderer
 	model    *TUIModel
 }
 
-func (p *MainTUIPanel) GetPositionInfo(x, y int) ui.PositionInfo {
+func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
 		paneType: p.model.UIDim.WhichUIPane(x, y),
 	}
@@ -50,16 +50,16 @@ func (t *TUIPositionInfo) PaneType() ui.UIPaneType {
 	return ui.EventsUIPanelType
 }
 
-func (p *MainTUIPanel) Close() {
+func (p *TUI) Close() {
 	p.renderer.Fini()
 }
 
-func (v *MainTUIPanel) NeedsSync() {
+func (v *TUI) NeedsSync() {
 	v.renderer.NeedsSync()
 }
 
-func NewTUIView(model *TUIModel, renderer *TUIRenderer) *MainTUIPanel {
-	t := MainTUIPanel{}
+func NewTUI(model *TUIModel, renderer *TUIRenderer) *TUI {
+	t := TUI{}
 	t.renderer = renderer
 
 	t.model = model
@@ -76,14 +76,14 @@ const editorHeight = 20
 const helpWidth = 80
 const helpHeight = 30
 
-func (t *MainTUIPanel) getScreenCenter() (int, int) {
+func (t *TUI) getScreenCenter() (int, int) {
 	w, h := t.renderer.GetScreenDimensions()
 	x := w / 2
 	y := h / 2
 	return x, y
 }
 
-func (t *MainTUIPanel) drawTools() {
+func (t *TUI) drawTools() {
 	i := 0
 
 	boxes := t.model.CalculateCategoryBoxes()
@@ -102,7 +102,7 @@ func (t *MainTUIPanel) drawTools() {
 	}
 }
 
-func (t *MainTUIPanel) drawEditor() {
+func (t *TUI) drawEditor() {
 	editor := &t.model.EventEditor
 	style := tcell.StyleDefault.Background(tcell.ColorLightGrey).Foreground(tcell.ColorBlack)
 	if editor.Active {
@@ -119,7 +119,7 @@ func (t *MainTUIPanel) drawEditor() {
 }
 
 // Draw the help popup.
-func (t *MainTUIPanel) drawHelp() {
+func (t *TUI) drawHelp() {
 	if t.model.showHelp {
 
 		helpStyle := tcell.StyleDefault.Background(tcell.ColorLightGrey)
@@ -194,7 +194,7 @@ func (t *MainTUIPanel) drawHelp() {
 
 // Draws the time summary view over top of all previously drawn contents, if it
 // is currently active.
-func (t *MainTUIPanel) drawSummary() {
+func (t *TUI) drawSummary() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if t.model.showSummary {
 		y, w, h := 2, t.model.UIDim.screenWidth, t.model.UIDim.screenHeight
@@ -273,7 +273,7 @@ func (t *MainTUIPanel) drawSummary() {
 	}
 }
 
-func (t *MainTUIPanel) drawLog() {
+func (t *TUI) drawLog() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if t.model.showLog {
 		x, y, w, h := 0, 2, t.model.UIDim.screenWidth, t.model.UIDim.screenHeight
@@ -302,7 +302,7 @@ func (t *MainTUIPanel) drawLog() {
 	}
 }
 
-func (t *MainTUIPanel) Draw(x, y, w, h int) {
+func (t *TUI) Draw(x, y, w, h int) {
 
 	t.renderer.Clear()
 
@@ -427,7 +427,7 @@ func (t *MainTUIPanel) Draw(x, y, w, h int) {
 	t.renderer.Show()
 }
 
-func (t *MainTUIPanel) drawStatus() {
+func (t *TUI) drawStatus() {
 	var firstDay, lastDay model.Date
 	switch t.model.activeView {
 	case ui.ViewDay:
@@ -462,7 +462,7 @@ func (t *MainTUIPanel) drawStatus() {
 	t.renderer.DrawText(0, statusYOffset+1, dateWidth, 0, weekdayStyle, util.TruncateAt(t.model.CurrentDate.ToWeekday().String(), dateWidth))
 }
 
-func (t *MainTUIPanel) drawWeather() {
+func (t *TUI) drawWeather() {
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		y := t.model.toY(timestamp)
 
@@ -497,7 +497,7 @@ type timestampStyle struct {
 	style     tcell.Style
 }
 
-func (t *MainTUIPanel) drawTimeline() {
+func (t *TUI) drawTimeline() {
 	suntimes := t.model.GetCurrentSuntimes()
 
 	special := []timestampStyle{}
@@ -525,7 +525,7 @@ func (t *MainTUIPanel) drawTimeline() {
 // dimensions.
 // Optionally provide highlight times such as for the current timestamp as well
 // as suntimes to be displayed on the timeline.
-func (t *MainTUIPanel) drawTimelineTmp(
+func (t *TUI) drawTimelineTmp(
 	x, y, w, h int,
 	highlightTimes []timestampStyle,
 	suntimes *model.SunTimes) {
@@ -572,7 +572,7 @@ func (t *MainTUIPanel) drawTimelineTmp(
 	}
 }
 
-func (t *MainTUIPanel) drawEvents() {
+func (t *TUI) drawEvents() {
 	day := t.model.GetCurrentDay()
 	if day == nil {
 		t.model.Log.Add("DEBUG", "current day nil on render; skipping")
