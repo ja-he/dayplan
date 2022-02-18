@@ -35,13 +35,20 @@ func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
 
 type TUIController struct {
 	model         *TUIModel
-	view          *TUIView
+	tui           *TUIPanel
 	editState     EditState
 	EditedEvent   model.EventID
 	movePropagate bool
 	fhMutex       sync.RWMutex
 	FileHandlers  map[model.Date]*filehandling.FileHandler
 	bump          chan ControllerEvent
+	// NOTE(ja-he):
+	//   a `tcell.Screen` unites rendering and event polling functionalities.
+	//   holding this interface pointer allows us to leave the rendering to the
+	//   panels which use the renderer which uses the screen, while still being
+	//   able to use the screen here to get events. The name should indicate that
+	//   usage of this field should be restricted to event polling.
+	screenEvents *tcell.Screen
 }
 
 type EditState int
@@ -73,8 +80,10 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		categoryStyling.AddStyleFromInput(styledInput)
 	}
 
+	renderer := NewTUIRenderer()
+
 	tuiModel := NewTUIModel(categoryStyling)
-	tuiView := NewTUIView(tuiModel) // <- stuck here!
+	tuiView := NewTUIView(tuiModel, renderer) // <- stuck here!
 
 	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
 	owmApiKeyProvided := (programData.OwmApiKey != "")
@@ -108,6 +117,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 	tuiController := TUIController{}
 	tuiModel.ProgramData = programData
+	tuiController.screenEvents = renderer.GetEventPollable()
 
 	tuiController.fhMutex.Lock()
 	defer tuiController.fhMutex.Unlock()
@@ -122,7 +132,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
 	}
 
-	tuiController.view = tuiView
+	tuiController.tui = tuiView
 	tuiController.model.CurrentCategory.Name = "default"
 
 	tuiController.loadDaysForView(tuiController.model.activeView)
@@ -558,7 +568,7 @@ func (t *TUIController) Run() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer t.view.Screen.Fini()
+		defer t.tui.Close()
 		for {
 
 			select {
@@ -572,7 +582,7 @@ func (t *TUIController) Run() {
 						return
 					}
 					// render
-					t.view.Render()
+					t.tui.Render()
 				case ControllerEventExit:
 					return
 				}
@@ -594,7 +604,7 @@ func (t *TUIController) Run() {
 	// for a redraw (or program exit) after each event.
 	go func() {
 		for {
-			ev := t.view.Screen.PollEvent()
+			ev := (*t.screenEvents).PollEvent()
 
 			switch t.editState {
 			case EditStateNone:
@@ -609,8 +619,8 @@ func (t *TUIController) Run() {
 
 			switch ev.(type) {
 			case *tcell.EventResize:
-				t.view.NeedsSync()
-				t.model.UIDim.ScreenResize(t.view.Screen.Size())
+				t.tui.NeedsSync()
+				t.model.UIDim.ScreenResize((*t.screenEvents).Size())
 			}
 
 			t.bump <- ControllerEventRender

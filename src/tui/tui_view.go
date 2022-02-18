@@ -14,41 +14,95 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-type TUIView struct {
-	Screen    tcell.Screen
-	Model     *TUIModel
+type TUIPanel struct {
+	renderer *TUIRenderer
+	Model    *TUIModel
+}
+
+func (p *TUIPanel) Close() {
+	p.renderer.Fini()
+}
+
+func (v *TUIPanel) NeedsSync() {
+	v.renderer.NeedsSync()
+}
+
+type TUIRenderer struct {
+	screen    tcell.Screen
 	needsSync bool
 }
 
-func (v *TUIView) NeedsSync() {
-	v.needsSync = true
+func NewTUIRenderer() *TUIRenderer {
+	r := &TUIRenderer{}
+	r.init()
+
+	return r
 }
 
 // Initialize the screen checking errors and return it, so long as no critical
 // error occurred.
-func (t *TUIView) initScreen() {
-	s, err := tcell.NewScreen()
+func (r *TUIRenderer) init() {
+	var err error
+	r.screen, err = tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
 	}
-	if err := s.Init(); err != nil {
+	err = r.screen.Init()
+	if err != nil {
 		log.Fatalf("%+v", err)
 	}
-	t.Screen = s
+
+	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
+	r.screen.SetStyle(defStyle)
+	r.screen.EnableMouse()
+	r.screen.EnablePaste()
+	r.screen.Clear()
 }
 
-func NewTUIView(tui *TUIModel) *TUIView {
-	t := TUIView{}
+func (r *TUIRenderer) GetEventPollable() *tcell.Screen {
+	return &r.screen
+}
 
-	t.initScreen()
-	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
-	t.Screen.SetStyle(defStyle)
-	t.Screen.EnableMouse()
-	t.Screen.EnablePaste()
-	t.Screen.Clear()
+func (r *TUIRenderer) Fini() {
+	r.screen.Fini()
+}
 
-	t.Model = tui
-	w, h := t.Screen.Size()
+func (r *TUIRenderer) NeedsSync() {
+	r.needsSync = true
+}
+
+func (r *TUIRenderer) GetScreenDimensions() (int, int) {
+	r.screen.SetStyle(tcell.StyleDefault)
+	return r.screen.Size()
+}
+
+func (r *TUIRenderer) ShowCursor(x, y int) {
+	r.screen.ShowCursor(x, y)
+}
+
+func (r *TUIRenderer) HideCursor() {
+	r.screen.HideCursor()
+}
+
+func (r *TUIRenderer) Clear() {
+	r.screen.Clear()
+}
+
+func (r *TUIRenderer) Show() {
+	if r.needsSync {
+		r.needsSync = false
+		r.screen.Sync()
+	} else {
+		r.screen.Show()
+	}
+}
+
+func NewTUIView(model *TUIModel, renderer *TUIRenderer) *TUIPanel {
+	t := TUIPanel{}
+	t.renderer = renderer
+
+	t.Model = model
+	w, h := t.renderer.GetScreenDimensions()
 	weather, timeline, tools := 20, 10, 20
 	t.Model.UIDim.Initialize(weather, timeline, tools, w, h)
 
@@ -61,14 +115,14 @@ const editorHeight = 20
 const helpWidth = 80
 const helpHeight = 30
 
-func (t *TUIView) GetScreenCenter() (int, int) {
-	w, h := t.Screen.Size()
+func (t *TUIPanel) GetScreenCenter() (int, int) {
+	w, h := t.renderer.GetScreenDimensions()
 	x := w / 2
 	y := h / 2
 	return x, y
 }
 
-func (t *TUIView) DrawTools() {
+func (t *TUIPanel) DrawTools() {
 	i := 0
 
 	boxes := t.Model.CalculateCategoryBoxes()
@@ -77,34 +131,34 @@ func (t *TUIView) DrawTools() {
 		textHeightOffset := box.H / 2
 		textLen := box.W - 2
 
-		t.DrawBox(styling.Style, box.X, box.Y, box.W, box.H)
-		t.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 0, styling.Style, util.TruncateAt(styling.Cat.Name, textLen))
+		t.renderer.DrawBox(styling.Style, box.X, box.Y, box.W, box.H)
+		t.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 0, styling.Style, util.TruncateAt(styling.Cat.Name, textLen))
 		if t.Model.CurrentCategory.Name == styling.Cat.Name {
-			t.DrawBox(colors.DefaultEmphasize(styling.Style), box.X+box.W-1, box.Y, 1, box.H)
+			t.renderer.DrawBox(colors.DefaultEmphasize(styling.Style), box.X+box.W-1, box.Y, 1, box.H)
 		}
 
 		i++
 	}
 }
 
-func (t *TUIView) DrawEditor() {
+func (t *TUIPanel) DrawEditor() {
 	editor := &t.Model.EventEditor
 	style := tcell.StyleDefault.Background(tcell.ColorLightGrey).Foreground(tcell.ColorBlack)
 	if editor.Active {
 		x, y := t.GetScreenCenter()
 		x -= editorWidth / 2
 		y -= editorHeight / 2
-		t.DrawBox(style, x, y, editorWidth, editorHeight)
-		t.DrawText(x+1, y+1, editorWidth-2, editorHeight-2, style, editor.TmpEventInfo.Name)
-		t.Screen.ShowCursor(x+1+(editor.CursorPos%(editorWidth-2)), y+1+(editor.CursorPos/(editorWidth-2)))
+		t.renderer.DrawBox(style, x, y, editorWidth, editorHeight)
+		t.renderer.DrawText(x+1, y+1, editorWidth-2, editorHeight-2, style, editor.TmpEventInfo.Name)
+		t.renderer.ShowCursor(x+1+(editor.CursorPos%(editorWidth-2)), y+1+(editor.CursorPos/(editorWidth-2)))
 		// TODO(ja-he): wrap at word boundary
 	} else {
-		t.Screen.ShowCursor(-1, -1)
+		t.renderer.HideCursor()
 	}
 }
 
 // Draw the help popup.
-func (t *TUIView) DrawHelp() {
+func (t *TUIPanel) DrawHelp() {
 	if t.Model.showHelp {
 
 		helpStyle := tcell.StyleDefault.Background(tcell.ColorLightGrey)
@@ -114,7 +168,7 @@ func (t *TUIView) DrawHelp() {
 		x, y := t.GetScreenCenter()
 		x -= helpWidth / 2
 		y -= helpHeight / 2
-		t.DrawBox(helpStyle, x, y, helpWidth, helpHeight)
+		t.renderer.DrawBox(helpStyle, x, y, helpWidth, helpHeight)
 
 		keysDrawn := 0
 		const border = 1
@@ -124,17 +178,17 @@ func (t *TUIView) DrawHelp() {
 		descriptionOffset := keyOffset + maxKeyWidth + pad
 
 		drawMapping := func(keys, description string) {
-			t.DrawText(keyOffset+maxKeyWidth-len([]rune(keys)), y+border+keysDrawn, len([]rune(keys)), 0, keyStyle, keys)
-			t.DrawText(descriptionOffset, y+border+keysDrawn, helpWidth, helpHeight, descriptionStyle, description)
+			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keys)), y+border+keysDrawn, len([]rune(keys)), 0, keyStyle, keys)
+			t.renderer.DrawText(descriptionOffset, y+border+keysDrawn, helpWidth, helpHeight, descriptionStyle, description)
 			keysDrawn++
 		}
 
 		drawOpposedMapping := func(keyA, keyB, description string) {
 			sepText := "/"
-			t.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText)-len([]rune(keyA)), y+border+keysDrawn, len([]rune(keyA)), 0, keyStyle, keyA)
-			t.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText), y+border+keysDrawn, len(sepText), 0, helpStyle, sepText)
-			t.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 0, keyStyle, keyB)
-			t.DrawText(descriptionOffset, y+border+keysDrawn, helpWidth, helpHeight, descriptionStyle, description)
+			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText)-len([]rune(keyA)), y+border+keysDrawn, len([]rune(keyA)), 0, keyStyle, keyA)
+			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText), y+border+keysDrawn, len(sepText), 0, helpStyle, sepText)
+			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 0, keyStyle, keyB)
+			t.renderer.DrawText(descriptionOffset, y+border+keysDrawn, helpWidth, helpHeight, descriptionStyle, description)
 			keysDrawn++
 		}
 
@@ -179,11 +233,11 @@ func (t *TUIView) DrawHelp() {
 
 // Draws the time summary view over top of all previously drawn contents, if it
 // is currently active.
-func (t *TUIView) DrawSummary() {
+func (t *TUIPanel) DrawSummary() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if t.Model.showSummary {
 		y, w, h := 2, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight
-		t.DrawBox(style, 0, 0, w, h)
+		t.renderer.DrawBox(style, 0, 0, w, h)
 		dateString := ""
 		switch t.Model.activeView {
 		case ViewDay:
@@ -195,8 +249,8 @@ func (t *TUIView) DrawSummary() {
 			dateString = fmt.Sprintf("%s %d", t.Model.CurrentDate.ToGotime().Month().String(), t.Model.CurrentDate.Year)
 		}
 		title := fmt.Sprintf("SUMMARY (%s)", dateString)
-		t.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
-		t.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
+		t.renderer.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
+		t.renderer.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
 
 		summary := make(map[model.Category]int)
 		switch t.Model.activeView {
@@ -250,36 +304,36 @@ func (t *TUIView) DrawSummary() {
 			catLen := 20
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(t.Model.UIDim.screenWidth-catLen-durationLen))
-			t.DrawBox(style, catLen+durationLen, y, barWidth, 1)
-			t.DrawText(0, y, catLen, 0, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
-			t.DrawText(catLen, y, durationLen, 0, style, "("+util.DurationToString(duration)+")")
+			t.renderer.DrawBox(style, catLen+durationLen, y, barWidth, 1)
+			t.renderer.DrawText(0, y, catLen, 0, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
+			t.renderer.DrawText(catLen, y, durationLen, 0, style, "("+util.DurationToString(duration)+")")
 			y++
 		}
 	}
 }
 
-func (t *TUIView) DrawLog() {
+func (t *TUIPanel) DrawLog() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if t.Model.showLog {
 		x, y, w, h := 0, 2, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight
-		t.DrawBox(style, 0, 0, w, h)
+		t.renderer.DrawBox(style, 0, 0, w, h)
 		title := "LOG"
-		t.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
-		t.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
+		t.renderer.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
+		t.renderer.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
 		for i := len(t.Model.Log.Get()) - 1; i >= 0; i-- {
 			entry := &t.Model.Log.Get()[i]
 
-			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey).Italic(true), entry.Type)
+			t.renderer.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey).Italic(true), entry.Type)
 			x += len(entry.Type) + 1
 
-			t.DrawText(x, y, w, 0, style, entry.Message)
+			t.renderer.DrawText(x, y, w, 0, style, entry.Message)
 			x += len(entry.Message) + 1
 
-			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey), entry.Location)
+			t.renderer.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey), entry.Location)
 			x += len(entry.Location) + 1
 
 			timeStr := strings.Join(strings.Split(entry.At.String(), " ")[0:2], " ")
-			t.DrawText(x, y, w, 0, style.Foreground(tcell.ColorLightGrey), timeStr)
+			t.renderer.DrawText(x, y, w, 0, style.Foreground(tcell.ColorLightGrey), timeStr)
 
 			x = 0
 			y++
@@ -287,9 +341,9 @@ func (t *TUIView) DrawLog() {
 	}
 }
 
-func (t *TUIView) Render() {
+func (t *TUIPanel) Render() {
 
-	t.Screen.Clear()
+	t.renderer.Clear()
 
 	// TODO: define all styles here (prep to probably move out further)
 	headerBG := tcell.StyleDefault.Background(colors.ColorFromHexString("#f0f0f0")).Foreground(tcell.ColorBlack)
@@ -309,7 +363,7 @@ func (t *TUIView) Render() {
 		start, end := t.Model.CurrentDate.Week()
 		nDays := start.DaysUntil(end) + 1
 		if nDays > t.Model.UIDim.screenWidth {
-			t.DrawText(0, 0, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight,
+			t.renderer.DrawText(0, 0, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight,
 				tcell.StyleDefault.Foreground(tcell.ColorRebeccaPurple),
 				"refusing to render week on screen with fewer columns than days")
 			return
@@ -324,9 +378,9 @@ func (t *TUIView) Render() {
 
 			for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
 				if drawDate == t.Model.CurrentDate {
-					t.DrawBox(dayBGEmph, x, 0, dayWidth, t.Model.UIDim.screenHeight)
+					t.renderer.DrawBox(dayBGEmph, x, 0, dayWidth, t.Model.UIDim.screenHeight)
 				} else {
-					t.DrawBox(dayBG, x, 0, dayWidth, t.Model.UIDim.screenHeight)
+					t.renderer.DrawBox(dayBG, x, 0, dayWidth, t.Model.UIDim.screenHeight)
 				}
 				day := t.Model.GetDay(drawDate)
 				if day != nil {
@@ -340,12 +394,12 @@ func (t *TUIView) Render() {
 						if drawDate != t.Model.CurrentDate {
 							style = colors.DefaultDim(style)
 						}
-						t.DrawBox(style, p.X, p.Y, p.W, p.H)
-						t.DrawText(p.X, p.Y, p.W, 0, style, util.TruncateAt(e.Name, p.W))
+						t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H)
+						t.renderer.DrawText(p.X, p.Y, p.W, 0, style, util.TruncateAt(e.Name, p.W))
 					}
 				} else {
 					loadingText := "⋮"
-					t.DrawText(x, t.Model.UIDim.screenHeight/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
+					t.renderer.DrawText(x, t.Model.UIDim.screenHeight/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
 						loadingStyle,
 						loadingText)
 				}
@@ -357,7 +411,7 @@ func (t *TUIView) Render() {
 		start, end := t.Model.CurrentDate.MonthBounds()
 		nDays := start.DaysUntil(end) + 1
 		if nDays > t.Model.UIDim.screenWidth {
-			t.DrawText(0, 0, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight,
+			t.renderer.DrawText(0, 0, t.Model.UIDim.screenWidth, t.Model.UIDim.screenHeight,
 				tcell.StyleDefault.Foreground(tcell.ColorRebeccaPurple),
 				"refusing to render month on screen with fewer columns than days")
 			return
@@ -372,9 +426,9 @@ func (t *TUIView) Render() {
 
 			for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
 				if drawDate == t.Model.CurrentDate {
-					t.DrawBox(dayBGEmph, x, 0, dayWidth, t.Model.UIDim.screenHeight)
+					t.renderer.DrawBox(dayBGEmph, x, 0, dayWidth, t.Model.UIDim.screenHeight)
 				} else {
-					t.DrawBox(dayBG, x, 0, dayWidth, t.Model.UIDim.screenHeight)
+					t.renderer.DrawBox(dayBG, x, 0, dayWidth, t.Model.UIDim.screenHeight)
 				}
 				day := t.Model.GetDay(drawDate)
 				if day != nil {
@@ -388,11 +442,11 @@ func (t *TUIView) Render() {
 						if drawDate != t.Model.CurrentDate {
 							style = colors.DefaultDim(style)
 						}
-						t.DrawBox(style, p.X, p.Y, p.W, p.H)
+						t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H)
 					}
 				} else {
 					loadingText := "⋮"
-					t.DrawText(x, t.Model.UIDim.screenHeight/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
+					t.renderer.DrawText(x, t.Model.UIDim.screenHeight/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
 						loadingStyle,
 						loadingText)
 				}
@@ -409,19 +463,14 @@ func (t *TUIView) Render() {
 	t.DrawSummary()
 	t.DrawHelp()
 
-	if t.needsSync {
-		t.needsSync = false
-		t.Screen.Sync()
-	} else {
-		t.Screen.Show()
-	}
+	t.renderer.Show()
 }
 
-func (t *TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {
+func (t *TUIRenderer) DrawText(x, y, w, h int, style tcell.Style, text string) {
 	row := y
 	col := x
 	for _, r := range text {
-		t.Screen.SetContent(col, row, r, nil, style)
+		t.screen.SetContent(col, row, r, nil, style)
 		col++
 		if col >= x+w {
 			row++
@@ -433,15 +482,15 @@ func (t *TUIView) DrawText(x, y, w, h int, style tcell.Style, text string) {
 	}
 }
 
-func (t *TUIView) DrawBox(style tcell.Style, x, y, w, h int) {
+func (t *TUIRenderer) DrawBox(style tcell.Style, x, y, w, h int) {
 	for row := y; row < y+h; row++ {
 		for col := x; col < x+w; col++ {
-			t.Screen.SetContent(col, row, ' ', nil, style)
+			t.screen.SetContent(col, row, ' ', nil, style)
 		}
 	}
 }
 
-func (t *TUIView) DrawStatus() {
+func (t *TUIPanel) DrawStatus() {
 	var firstDay, lastDay model.Date
 	switch t.Model.activeView {
 	case ViewDay:
@@ -465,18 +514,18 @@ func (t *TUIView) DrawStatus() {
 	weekdayStyle := colors.LightenFG(dateStyle, 60)
 
 	// header background
-	t.DrawBox(bgStyle, 0, statusYOffset, firstDayXOffset+nDaysInPeriod*dayWidth, t.Model.UIDim.statusHeight)
+	t.renderer.DrawBox(bgStyle, 0, statusYOffset, firstDayXOffset+nDaysInPeriod*dayWidth, t.Model.UIDim.statusHeight)
 	// header bar (filled for days until current)
-	t.DrawBox(bgStyleEmph, 0, statusYOffset, firstDayXOffset+(nDaysTilCurrent+1)*dayWidth, t.Model.UIDim.statusHeight)
+	t.renderer.DrawBox(bgStyleEmph, 0, statusYOffset, firstDayXOffset+(nDaysTilCurrent+1)*dayWidth, t.Model.UIDim.statusHeight)
 	// date box background
-	t.DrawBox(bgStyleEmph, 0, statusYOffset, dateWidth, t.Model.UIDim.statusHeight)
+	t.renderer.DrawBox(bgStyleEmph, 0, statusYOffset, dateWidth, t.Model.UIDim.statusHeight)
 	// date string
-	t.DrawText(0, statusYOffset, dateWidth, 0, dateStyle, t.Model.CurrentDate.ToString())
+	t.renderer.DrawText(0, statusYOffset, dateWidth, 0, dateStyle, t.Model.CurrentDate.ToString())
 	// weekday string
-	t.DrawText(0, statusYOffset+1, dateWidth, 0, weekdayStyle, util.TruncateAt(t.Model.CurrentDate.ToWeekday().String(), dateWidth))
+	t.renderer.DrawText(0, statusYOffset+1, dateWidth, 0, weekdayStyle, util.TruncateAt(t.Model.CurrentDate.ToWeekday().String(), dateWidth))
 }
 
-func (t *TUIView) DrawWeather() {
+func (t *TUIPanel) DrawWeather() {
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		y := t.Model.toY(timestamp)
 
@@ -495,13 +544,13 @@ func (t *TUIView) DrawWeather() {
 				weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xfff0cc)).Foreground(tcell.ColorBlack)
 			}
 
-			t.DrawBox(weatherStyle, t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), t.Model.NRowsPerHour)
+			t.renderer.DrawBox(weatherStyle, t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), t.Model.NRowsPerHour)
 
-			t.DrawText(t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, weather.Info)
-			t.DrawText(t.Model.UIDim.WeatherOffset(), y+1, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
-			t.DrawText(t.Model.UIDim.WeatherOffset(), y+2, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%d%% clouds", weather.Clouds))
-			t.DrawText(t.Model.UIDim.WeatherOffset(), y+3, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%d%% humidity", weather.Humidity))
-			t.DrawText(t.Model.UIDim.WeatherOffset(), y+4, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f%% chance of rain", 100.0*weather.PrecipitationProbability))
+			t.renderer.DrawText(t.Model.UIDim.WeatherOffset(), y, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, weather.Info)
+			t.renderer.DrawText(t.Model.UIDim.WeatherOffset(), y+1, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
+			t.renderer.DrawText(t.Model.UIDim.WeatherOffset(), y+2, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%d%% clouds", weather.Clouds))
+			t.renderer.DrawText(t.Model.UIDim.WeatherOffset(), y+3, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%d%% humidity", weather.Humidity))
+			t.renderer.DrawText(t.Model.UIDim.WeatherOffset(), y+4, t.Model.UIDim.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f%% chance of rain", 100.0*weather.PrecipitationProbability))
 		}
 	}
 }
@@ -511,7 +560,7 @@ type timestampStyle struct {
 	style     tcell.Style
 }
 
-func (t *TUIView) DrawTimeline() {
+func (t *TUIPanel) DrawTimeline() {
 	suntimes := t.Model.GetCurrentSuntimes()
 
 	special := []timestampStyle{}
@@ -530,7 +579,7 @@ func (t *TUIView) DrawTimeline() {
 	x := t.Model.UIDim.TimelineOffset()
 	y := 0
 	w := t.Model.UIDim.TimelineWidth()
-	_, h := t.Screen.Size()
+	_, h := t.renderer.GetScreenDimensions()
 
 	t.drawTimeline(x, y, w, h, special, suntimes)
 }
@@ -539,7 +588,7 @@ func (t *TUIView) DrawTimeline() {
 // dimensions.
 // Optionally provide highlight times such as for the current timestamp as well
 // as suntimes to be displayed on the timeline.
-func (t *TUIView) drawTimeline(
+func (t *TUIPanel) drawTimeline(
 	x, y, w, h int,
 	highlightTimes []timestampStyle,
 	suntimes *model.SunTimes) {
@@ -576,17 +625,17 @@ func (t *TUIView) drawTimeline(
 			style = defaultStyle
 		}
 
-		t.DrawText(x, virtRow+y, w, 1, style, timeText)
+		t.renderer.DrawText(x, virtRow+y, w, 1, style, timeText)
 	}
 	for _, timestampStyle := range highlightTimes {
 		timestamp := timestampStyle.timestamp
 		style := timestampStyle.style
 		timeText := timestampLPad + timestamp.ToString() + timestampRPad
-		t.DrawText(x, t.Model.toY(timestamp)+y, w, 1, style, timeText)
+		t.renderer.DrawText(x, t.Model.toY(timestamp)+y, w, 1, style, timeText)
 	}
 }
 
-func (t *TUIView) DrawEvents() {
+func (t *TUIPanel) DrawEvents() {
 	day := t.Model.GetCurrentDay()
 	if day == nil {
 		t.Model.Log.Add("DEBUG", "current day nil on render; skipping")
@@ -601,29 +650,29 @@ func (t *TUIView) DrawEvents() {
 		// based on event state, draw a box or maybe a smaller one, or ...
 		p := t.Model.Positions[e.ID]
 		if t.Model.Hovered.EventID != e.ID {
-			t.DrawBox(style, p.X, p.Y, p.W, p.H)
-			t.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
-			t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-			t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+			t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H)
+			t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
+			t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
+			t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 		} else {
 			selStyle := colors.DefaultEmphasize(style)
 			switch t.Model.Hovered.HoverState {
 			case HoverStateResize:
-				t.DrawBox(style, p.X, p.Y, p.W, p.H-1)
-				t.DrawBox(selStyle, p.X, p.Y+p.H-1, p.W, 1)
-				t.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
-				t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+				t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H-1)
+				t.renderer.DrawBox(selStyle, p.X, p.Y+p.H-1, p.W, 1)
+				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
+				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
+				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
 			case HoverStateMove:
-				t.DrawBox(selStyle, p.X, p.Y, p.W, p.H)
-				t.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
-				t.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
-				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+				t.renderer.DrawBox(selStyle, p.X, p.Y, p.W, p.H)
+				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
+				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
+				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
 			case HoverStateEdit:
-				t.DrawBox(style, p.X, p.Y, p.W, p.H)
-				t.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
-				t.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-				t.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+				t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H)
+				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
+				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
+				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 			default:
 				panic("don't know this hover state!")
 			}
