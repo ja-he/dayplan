@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/ja-he/dayplan/src/model"
+
 type UIPaneType int
 
 const (
@@ -24,6 +26,8 @@ const (
 
 type UIPane interface {
 	Draw(x, y, w, h int)
+
+	GetPositionInfo(x, y int) PositionInfo
 }
 
 type MainUIPanel interface {
@@ -42,17 +46,19 @@ const (
 )
 
 type PositionInfo interface {
-	PanelType() UIPaneType
+	PaneType() UIPaneType
 
-	GetExtraWeatherInfo() WeatherPanelPositionInfo
-	GetExtraTimelineInfo() TimelinePanelPositionInfo
-	GetExtraEventsInfo() EventsPanelPositionInfo
-	GetExtraToolsInfo() ToolsPanelPositionInfo
-	GetExtraStatusInfo() StatusPanelPositionInfo
+	GetExtraWeatherInfo() *WeatherPanelPositionInfo
+	GetExtraTimelineInfo() *TimelinePanelPositionInfo
+	GetExtraEventsInfo() *EventsPanelPositionInfo
+	GetExtraToolsInfo() *ToolsPanelPositionInfo
+	GetExtraStatusInfo() *StatusPanelPositionInfo
 }
 
 type WeatherPanelPositionInfo struct{}
 type TimelinePanelPositionInfo struct{}
-type EventsPanelPositionInfo struct{}
 type ToolsPanelPositionInfo struct{}
 type StatusPanelPositionInfo struct{}
+type EventsPanelPositionInfo struct {
+	event model.EventID
+}

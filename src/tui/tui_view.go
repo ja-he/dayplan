@@ -19,6 +19,37 @@ type MainTUIPanel struct {
 	model    *TUIModel
 }
 
+func (p *MainTUIPanel) GetPositionInfo(x, y int) ui.PositionInfo {
+	return &TUIPositionInfo{
+		paneType: p.model.UIDim.WhichUIPane(x, y),
+	}
+}
+
+type TUIPositionInfo struct {
+	paneType ui.UIPaneType
+}
+
+func (t *TUIPositionInfo) GetExtraWeatherInfo() *ui.WeatherPanelPositionInfo {
+	return &ui.WeatherPanelPositionInfo{}
+}
+func (t *TUIPositionInfo) GetExtraTimelineInfo() *ui.TimelinePanelPositionInfo {
+	return &ui.TimelinePanelPositionInfo{}
+}
+func (t *TUIPositionInfo) GetExtraToolsInfo() *ui.ToolsPanelPositionInfo {
+	return &ui.ToolsPanelPositionInfo{}
+}
+func (t *TUIPositionInfo) GetExtraStatusInfo() *ui.StatusPanelPositionInfo {
+	return &ui.StatusPanelPositionInfo{}
+}
+func (t *TUIPositionInfo) GetExtraEventsInfo() *ui.EventsPanelPositionInfo {
+	return &ui.EventsPanelPositionInfo{}
+}
+
+func (t *TUIPositionInfo) PaneType() ui.UIPaneType {
+	// TODO
+	return ui.EventsUIPanelType
+}
+
 func (p *MainTUIPanel) Close() {
 	p.renderer.Fini()
 }

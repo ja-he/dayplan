@@ -357,19 +357,19 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 	case *tcell.EventKey:
 		t.handleNoneEditKeyInput(e)
 	case *tcell.EventMouse:
-		// don't handle if not on day view
-		if t.model.activeView != ui.ViewDay || t.model.showLog || t.model.showSummary {
-			return
-		}
-
 		// get new position
 		x, y := e.Position()
 		t.updateCursorPos(x, y)
 
+		positionInfo := t.tui.GetPositionInfo(x, y)
+		if positionInfo == nil {
+			return
+		}
+
 		buttons := e.Buttons()
 
-		pane := t.model.UIDim.WhichUIPane(x, y)
-		switch pane {
+		paneType := positionInfo.PaneType()
+		switch paneType {
 		case ui.StatusUIPanelType:
 		case ui.WeatherUIPanelType:
 			switch buttons {
@@ -428,7 +428,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			}
 		default:
 		}
-		if pane != ui.EventsUIPanelType {
+		if paneType != ui.EventsUIPanelType {
 			t.model.ClearHover()
 		}
 	}
