@@ -101,6 +101,12 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			vertPadding:     1,
 			gap:             0,
 		},
+		status: &StatusPanel{
+			renderer: renderer,
+
+			currentDate: &tuiModel.CurrentDate,
+			activeView:  &tuiModel.activeView,
+		},
 
 		days:            &tuiModel.Days,
 		currentDate:     &tuiModel.CurrentDate,

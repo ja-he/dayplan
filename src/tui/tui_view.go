@@ -23,7 +23,8 @@ type TUI struct {
 
 	uiDimensions UIDims
 
-	tools ui.UIPane
+	tools  ui.UIPane
+	status ui.UIPane
 
 	// TODO: split up, probably
 	days            *DaysData
@@ -494,47 +495,12 @@ func (t *TUI) Draw(x, y, w, h int) {
 			}
 		}
 	}
-	t.drawStatus()
+	t.status.Draw(0, t.uiDimensions.StatusOffset(), t.uiDimensions.screenWidth, t.uiDimensions.StatusHeight())
 	t.drawLog()
 	t.drawSummary()
 	t.drawHelp()
 
 	t.renderer.Show()
-}
-
-func (t *TUI) drawStatus() {
-	var firstDay, lastDay model.Date
-	switch *t.activeView {
-	case ui.ViewDay:
-		firstDay, lastDay = *t.currentDate, *t.currentDate
-	case ui.ViewWeek:
-		firstDay, lastDay = t.currentDate.Week()
-	case ui.ViewMonth:
-		firstDay, lastDay = t.currentDate.MonthBounds()
-	}
-
-	firstDayXOffset := 10
-	nDaysInPeriod := firstDay.DaysUntil(lastDay) + 1
-	nDaysTilCurrent := firstDay.DaysUntil(*t.currentDate)
-	dateWidth := 10 // 2020-02-12 is 10 wide
-	dayWidth := (t.uiDimensions.screenWidth - firstDayXOffset) / nDaysInPeriod
-	statusYOffset := t.uiDimensions.StatusOffset()
-
-	bgStyle := tcell.StyleDefault.Background(colors.ColorFromHexString("#f0f0f0")).Foreground(tcell.ColorBlack)
-	bgStyleEmph := colors.DefaultEmphasize(bgStyle)
-	dateStyle := bgStyleEmph
-	weekdayStyle := colors.LightenFG(dateStyle, 60)
-
-	// header background
-	t.renderer.DrawBox(bgStyle, 0, statusYOffset, firstDayXOffset+nDaysInPeriod*dayWidth, t.uiDimensions.statusHeight)
-	// header bar (filled for days until current)
-	t.renderer.DrawBox(bgStyleEmph, 0, statusYOffset, firstDayXOffset+(nDaysTilCurrent+1)*dayWidth, t.uiDimensions.statusHeight)
-	// date box background
-	t.renderer.DrawBox(bgStyleEmph, 0, statusYOffset, dateWidth, t.uiDimensions.statusHeight)
-	// date string
-	t.renderer.DrawText(0, statusYOffset, dateWidth, 0, dateStyle, t.currentDate.ToString())
-	// weekday string
-	t.renderer.DrawText(0, statusYOffset+1, dateWidth, 0, weekdayStyle, util.TruncateAt(t.currentDate.ToWeekday().String(), dateWidth))
 }
 
 func (t *TUI) drawWeather() {
