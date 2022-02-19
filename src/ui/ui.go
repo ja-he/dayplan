@@ -34,9 +34,6 @@ type MainUIPanel interface {
 	UIPane
 	Close()
 	NeedsSync()
-
-	// TODO: remove, this will be part of info returned to controller on query
-	GetCategoryForPos(x, y int) *model.Category
 }
 
 type EventHoverState int
@@ -60,7 +57,9 @@ type PositionInfo interface {
 
 type WeatherPanelPositionInfo struct{}
 type TimelinePanelPositionInfo struct{}
-type ToolsPanelPositionInfo struct{}
+type ToolsPanelPositionInfo struct {
+	Category *model.Category
+}
 type StatusPanelPositionInfo struct{}
 type EventsPanelPositionInfo struct {
 	Event           model.EventID

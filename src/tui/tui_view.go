@@ -48,7 +48,7 @@ func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
 		paneType: p.uiDimensions.WhichUIPane(x, y),
 		weather:  ui.WeatherPanelPositionInfo{},
 		timeline: ui.TimelinePanelPositionInfo{},
-		tools:    ui.ToolsPanelPositionInfo{},
+		tools:    ui.ToolsPanelPositionInfo{Category: p.getCategoryForPos(x, y)},
 		status:   ui.StatusPanelPositionInfo{},
 		events:   p.getEventForPos(x, y),
 	}
@@ -70,7 +70,7 @@ func (t *TUIPositionInfo) GetExtraTimelineInfo() *ui.TimelinePanelPositionInfo {
 	return &ui.TimelinePanelPositionInfo{}
 }
 func (t *TUIPositionInfo) GetExtraToolsInfo() *ui.ToolsPanelPositionInfo {
-	return &ui.ToolsPanelPositionInfo{}
+	return &t.tools
 }
 func (t *TUIPositionInfo) GetExtraStatusInfo() *ui.StatusPanelPositionInfo {
 	return &ui.StatusPanelPositionInfo{}
@@ -167,7 +167,7 @@ func (t *TUI) calculateCategoryBoxes() map[model.Category]util.Rect {
 	return day
 }
 
-func (t *TUI) GetCategoryForPos(x, y int) *model.Category {
+func (t *TUI) getCategoryForPos(x, y int) *model.Category {
 	boxes := t.calculateCategoryBoxes()
 
 	for cat, box := range boxes {

@@ -442,9 +442,11 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				t.model.ScrollDown(1)
 			}
 		case ui.ToolsUIPanelType:
+			toolsInfo := *positionInfo.GetExtraToolsInfo()
+			t.model.Log.Add("DEBUG", fmt.Sprint("tools info:", toolsInfo))
 			switch buttons {
 			case tcell.Button1:
-				cat := t.tui.GetCategoryForPos(x, y)
+				cat := toolsInfo.Category
 				if cat != nil {
 					t.model.CurrentCategory = *cat
 				}
