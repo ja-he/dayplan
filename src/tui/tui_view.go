@@ -23,6 +23,8 @@ type TUI struct {
 
 	uiDimensions UIDims
 
+	tools ui.UIPane
+
 	// TODO: split up, probably
 	days            *DaysData
 	currentDate     *model.Date
@@ -44,16 +46,52 @@ type TUI struct {
 }
 
 func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
-	return &TUIPositionInfo{
-		paneType:       p.uiDimensions.WhichUIPane(x, y),
-		weather:        ui.WeatherPanelPositionInfo{},
-		timeline:       ui.TimelinePanelPositionInfo{},
-		tools:          ui.ToolsPanelPositionInfo{Category: p.getCategoryForPos(x, y)},
-		status:         ui.StatusPanelPositionInfo{},
-		events:         p.getEventForPos(x, y),
-		timestampGuess: p.TimeAtY(y),
+	paneType := p.uiDimensions.WhichUIPane(x, y)
+
+	switch paneType {
+	case ui.ToolsUIPanelType:
+		temp := p.tools.GetPositionInfo(x, y)
+		return &TUIPositionTimestampGuessingWrapper{
+			baseInfo:       temp,
+			timestampGuess: p.TimeAtY(y),
+		}
+	default:
+		return &TUIPositionInfo{
+			paneType:       paneType,
+			weather:        ui.WeatherPanelPositionInfo{},
+			timeline:       ui.TimelinePanelPositionInfo{},
+			tools:          ui.ToolsPanelPositionInfo{},
+			status:         ui.StatusPanelPositionInfo{},
+			events:         p.getEventForPos(x, y),
+			timestampGuess: p.TimeAtY(y),
+		}
 	}
 }
+
+type TUIPositionTimestampGuessingWrapper struct {
+	baseInfo       ui.PositionInfo
+	timestampGuess model.Timestamp
+}
+
+func (t *TUIPositionTimestampGuessingWrapper) GetCursorTimestampGuess() (*model.Timestamp, error) {
+	return &t.timestampGuess, nil
+}
+func (t *TUIPositionTimestampGuessingWrapper) GetExtraWeatherInfo() *ui.WeatherPanelPositionInfo {
+	return t.baseInfo.GetExtraWeatherInfo()
+}
+func (t *TUIPositionTimestampGuessingWrapper) GetExtraTimelineInfo() *ui.TimelinePanelPositionInfo {
+	return t.baseInfo.GetExtraTimelineInfo()
+}
+func (t *TUIPositionTimestampGuessingWrapper) GetExtraToolsInfo() *ui.ToolsPanelPositionInfo {
+	return t.baseInfo.GetExtraToolsInfo()
+}
+func (t *TUIPositionTimestampGuessingWrapper) GetExtraStatusInfo() *ui.StatusPanelPositionInfo {
+	return t.baseInfo.GetExtraStatusInfo()
+}
+func (t *TUIPositionTimestampGuessingWrapper) GetExtraEventsInfo() *ui.EventsPanelPositionInfo {
+	return t.baseInfo.GetExtraEventsInfo()
+}
+func (t *TUIPositionTimestampGuessingWrapper) PaneType() ui.UIPaneType { return t.baseInfo.PaneType() }
 
 func (t *TUIPositionInfo) GetCursorTimestampGuess() (*model.Timestamp, error) {
 	// TODO: timestamp guess should not be valid, this should return error if
@@ -99,19 +137,6 @@ func (v *TUI) NeedsSync() {
 	v.renderer.NeedsSync()
 }
 
-//
-// func NewTUI(model *TUIModel, renderer *TUIRenderer) *TUI {
-// 	t := TUI{}
-// 	t.renderer = renderer
-//
-// 	t.model = model
-// 	w, h := t.renderer.GetScreenDimensions()
-// 	weather, timeline, tools := 20, 10, 20
-// 	t.uiDimensions.Initialize(weather, timeline, tools, w, h)
-//
-// 	return &t
-// }
-
 func (t *TUI) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
 	if x >= t.uiDimensions.EventsOffset() &&
 		x < (t.uiDimensions.EventsOffset()+t.uiDimensions.EventsWidth()) {
@@ -154,56 +179,6 @@ func (t *TUI) getScreenCenter() (int, int) {
 	x := w / 2
 	y := h / 2
 	return x, y
-}
-
-func (t *TUI) calculateCategoryBoxes() map[model.Category]util.Rect {
-	day := make(map[model.Category]util.Rect)
-
-	offsetX := 1
-	offsetY := 1
-	gap := 0
-
-	for i, c := range t.categories.GetAll() {
-		day[c.Cat] = util.Rect{
-			X: t.uiDimensions.ToolsOffset() + offsetX,
-			Y: offsetY + (i) + (i * gap),
-			W: t.uiDimensions.ToolsWidth() - (2 * offsetX),
-			H: 1,
-		}
-	}
-
-	return day
-}
-
-func (t *TUI) getCategoryForPos(x, y int) *model.Category {
-	boxes := t.calculateCategoryBoxes()
-
-	for cat, box := range boxes {
-		if box.Contains(x, y) {
-			return &cat
-		}
-	}
-
-	return nil
-}
-
-func (t *TUI) drawTools() {
-	i := 0
-
-	boxes := t.calculateCategoryBoxes()
-	for _, styling := range t.categories.GetAll() {
-		box := boxes[styling.Cat]
-		textHeightOffset := box.H / 2
-		textLen := box.W - 2
-
-		t.renderer.DrawBox(styling.Style, box.X, box.Y, box.W, box.H)
-		t.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 0, styling.Style, util.TruncateAt(styling.Cat.Name, textLen))
-		if t.currentCategory.Name == styling.Cat.Name {
-			t.renderer.DrawBox(colors.DefaultEmphasize(styling.Style), box.X+box.W-1, box.Y, 1, box.H)
-		}
-
-		i++
-	}
 }
 
 func (t *TUI) drawEditor() {
@@ -422,7 +397,7 @@ func (t *TUI) Draw(x, y, w, h int) {
 		t.drawWeather()
 		t.drawTimeline()
 		t.drawEvents()
-		t.drawTools()
+		t.tools.Draw(t.uiDimensions.ToolsOffset(), 0, t.uiDimensions.ToolsWidth(), t.uiDimensions.screenHeight-t.uiDimensions.StatusHeight())
 		t.drawEditor()
 	case ui.ViewWeek:
 		start, end := t.currentDate.Week()

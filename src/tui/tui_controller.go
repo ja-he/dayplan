@@ -93,6 +93,15 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tui := TUI{
 		renderer: renderer,
 
+		tools: &ToolsPanel{
+			renderer:        renderer,
+			currentCategory: &tuiModel.CurrentCategory,
+			categories:      &tuiModel.CategoryStyling,
+			horizPadding:    1,
+			vertPadding:     1,
+			gap:             0,
+		},
+
 		days:            &tuiModel.Days,
 		currentDate:     &tuiModel.CurrentDate,
 		currentCategory: &tuiModel.CurrentCategory,
