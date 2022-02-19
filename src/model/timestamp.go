@@ -71,6 +71,8 @@ func (a Timestamp) IsAfter(b Timestamp) bool {
 	}
 }
 
+// TODO: this should work without assuming the TUI res this way
+//       it should be given a minutes modulus to snap by
 func (t Timestamp) Snap(res int) Timestamp {
 	closestMinute := 0
 	for i := 0; i <= 60; i += (60 / res) {

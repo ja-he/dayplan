@@ -35,11 +35,16 @@ func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
 	}
 }
 
+type EditedEvent struct {
+	ID                    model.EventID
+	prevEditStepTimestamp model.Timestamp
+}
+
 type TUIController struct {
 	model         *TUIModel
 	tui           ui.MainUIPanel
 	editState     EditState
-	EditedEvent   model.EventID
+	EditedEvent   EditedEvent
 	movePropagate bool
 	fhMutex       sync.RWMutex
 	FileHandlers  map[model.Date]*filehandling.FileHandler
@@ -165,13 +170,13 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 func (t *TUIController) abortEdit() {
 	t.editState = EditStateNone
-	t.EditedEvent = 0
+	t.EditedEvent = EditedEvent{0, model.Timestamp{Hour: 0, Minute: 0}}
 	t.model.EventEditor.Active = false
 }
 
 func (t *TUIController) endEdit() {
 	t.editState = EditStateNone
-	t.EditedEvent = 0
+	t.EditedEvent = EditedEvent{0, model.Timestamp{Hour: 0, Minute: 0}}
 	if t.model.EventEditor.Active {
 		t.model.EventEditor.Active = false
 		tmp := t.model.EventEditor.TmpEventInfo
@@ -182,12 +187,14 @@ func (t *TUIController) endEdit() {
 
 func (t *TUIController) startMouseMove(eventsInfo ui.EventsPanelPositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateMoving)
-	t.EditedEvent = eventsInfo.Event
+	t.EditedEvent.ID = eventsInfo.Event
+	t.EditedEvent.prevEditStepTimestamp = eventsInfo.TimeUnderCursor
 }
 
 func (t *TUIController) startMouseResize(eventsInfo ui.EventsPanelPositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateResizing)
-	t.EditedEvent = eventsInfo.Event
+	t.EditedEvent.ID = eventsInfo.Event
+	t.EditedEvent.prevEditStepTimestamp = eventsInfo.TimeUnderCursor
 }
 
 func (t *TUIController) startMouseEventCreation(info ui.EventsPanelPositionInfo) {
@@ -207,7 +214,8 @@ func (t *TUIController) startMouseEventCreation(info ui.EventsPanelPositionInfo)
 	newEventID := t.model.GetCurrentDay().AddEvent(e)
 
 	// save ID as edited event
-	t.EditedEvent = newEventID
+	t.EditedEvent.ID = newEventID
+	t.EditedEvent.prevEditStepTimestamp = e.Start
 
 	// set mode to resizing
 	t.editState = (EditStateMouseEditing | EditStateResizing)
@@ -456,27 +464,29 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 	}
 }
 
-func (t *TUIController) resizeStep(newY int) {
-	delta := newY - t.model.cursorPos.Y
-	offset := t.model.TimeForDistance(delta)
-	event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
-	event.End = event.End.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
+func (t *TUIController) resizeStep(nextCursortime model.Timestamp) {
+	prevCursortime := t.EditedEvent.prevEditStepTimestamp
+	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
+	event := t.model.GetCurrentDay().GetEvent(t.EditedEvent.ID)
+	event.End = event.End.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
+	t.EditedEvent.prevEditStepTimestamp = nextCursortime
 }
 
-func (t *TUIController) moveStep(newY int) {
-	delta := newY - t.model.cursorPos.Y
-	offset := t.model.TimeForDistance(delta)
+func (t *TUIController) moveStep(nextCursortime model.Timestamp) {
+	prevCursortime := t.EditedEvent.prevEditStepTimestamp
+	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
 	if t.movePropagate {
-		following := t.model.GetCurrentDay().GetEventsFrom(t.EditedEvent)
+		following := t.model.GetCurrentDay().GetEventsFrom(t.EditedEvent.ID)
 		for _, ptr := range following {
-			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
-			ptr.End = ptr.End.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
+			ptr.Start = ptr.Start.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
+			ptr.End = ptr.End.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
 		}
 	} else {
-		event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
-		event.Start = event.Start.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
-		event.End = event.End.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
+		event := t.model.GetCurrentDay().GetEvent(t.EditedEvent.ID)
+		event.Start = event.Start.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
+		event.End = event.End.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
 	}
+	t.EditedEvent.prevEditStepTimestamp = nextCursortime
 }
 
 func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
@@ -484,11 +494,14 @@ func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
 	case *tcell.EventMouse:
 		x, y := e.Position()
 
+		positionInfo := t.tui.GetPositionInfo(x, y)
+
 		buttons := e.Buttons()
 
 		switch buttons {
 		case tcell.Button1:
-			t.resizeStep(y)
+			timeUnderCursor, _ := positionInfo.GetCursorTimestampGuess()
+			t.resizeStep(*timeUnderCursor)
 		case tcell.ButtonNone:
 			t.endEdit()
 		}
@@ -540,12 +553,14 @@ func (t *TUIController) handleMouseMoveEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		x, y := e.Position()
+		positionInfo := t.tui.GetPositionInfo(x, y)
 
 		buttons := e.Buttons()
 
 		switch buttons {
 		case tcell.Button1:
-			t.moveStep(y)
+			timestampGuess, _ := positionInfo.GetCursorTimestampGuess()
+			t.moveStep(*timestampGuess)
 		case tcell.ButtonNone:
 			t.endEdit()
 		}

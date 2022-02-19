@@ -45,22 +45,30 @@ type TUI struct {
 
 func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
-		paneType: p.uiDimensions.WhichUIPane(x, y),
-		weather:  ui.WeatherPanelPositionInfo{},
-		timeline: ui.TimelinePanelPositionInfo{},
-		tools:    ui.ToolsPanelPositionInfo{Category: p.getCategoryForPos(x, y)},
-		status:   ui.StatusPanelPositionInfo{},
-		events:   p.getEventForPos(x, y),
+		paneType:       p.uiDimensions.WhichUIPane(x, y),
+		weather:        ui.WeatherPanelPositionInfo{},
+		timeline:       ui.TimelinePanelPositionInfo{},
+		tools:          ui.ToolsPanelPositionInfo{Category: p.getCategoryForPos(x, y)},
+		status:         ui.StatusPanelPositionInfo{},
+		events:         p.getEventForPos(x, y),
+		timestampGuess: p.TimeAtY(y),
 	}
 }
 
+func (t *TUIPositionInfo) GetCursorTimestampGuess() (*model.Timestamp, error) {
+	// TODO: timestamp guess should not be valid, this should return error if
+	//       e.g. the summary view is active
+	return &t.timestampGuess, nil
+}
+
 type TUIPositionInfo struct {
-	paneType ui.UIPaneType
-	weather  ui.WeatherPanelPositionInfo
-	timeline ui.TimelinePanelPositionInfo
-	tools    ui.ToolsPanelPositionInfo
-	status   ui.StatusPanelPositionInfo
-	events   ui.EventsPanelPositionInfo
+	paneType       ui.UIPaneType
+	weather        ui.WeatherPanelPositionInfo
+	timeline       ui.TimelinePanelPositionInfo
+	tools          ui.ToolsPanelPositionInfo
+	status         ui.StatusPanelPositionInfo
+	events         ui.EventsPanelPositionInfo
+	timestampGuess model.Timestamp
 }
 
 func (t *TUIPositionInfo) GetExtraWeatherInfo() *ui.WeatherPanelPositionInfo {
@@ -753,4 +761,14 @@ func (t *TUI) ComputeRects(day *model.Day, offsetX, offsetY, width, height int) 
 		positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
 	return positions
+}
+
+func (t *TUI) timeForDistance(dist int) model.TimeOffset {
+	add := true
+	if dist < 0 {
+		dist *= (-1)
+		add = false
+	}
+	minutes := dist * (60 / t.viewParams.NRowsPerHour)
+	return model.TimeOffset{T: model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
 }

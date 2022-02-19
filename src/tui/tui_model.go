@@ -231,16 +231,6 @@ func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
 	return &t
 }
 
-func (t *TUIModel) TimeForDistance(dist int) model.TimeOffset {
-	add := true
-	if dist < 0 {
-		dist *= (-1)
-		add = false
-	}
-	minutes := dist * (60 / t.ViewParams.NRowsPerHour)
-	return model.TimeOffset{T: model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}, Add: add}
-}
-
 func (d *DaysData) HasDay(date model.Date) bool {
 	d.daysMutex.RLock()
 	defer d.daysMutex.RUnlock()

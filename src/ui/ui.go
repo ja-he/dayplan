@@ -48,6 +48,8 @@ const (
 type PositionInfo interface {
 	PaneType() UIPaneType
 
+	GetCursorTimestampGuess() (*model.Timestamp, error)
+
 	GetExtraWeatherInfo() *WeatherPanelPositionInfo
 	GetExtraTimelineInfo() *TimelinePanelPositionInfo
 	GetExtraEventsInfo() *EventsPanelPositionInfo
