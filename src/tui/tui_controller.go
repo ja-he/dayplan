@@ -11,6 +11,7 @@ import (
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/program"
 	"github.com/ja-he/dayplan/src/ui"
+	"github.com/ja-he/dayplan/src/util"
 	"github.com/ja-he/dayplan/src/weather"
 
 	"github.com/gdamore/tcell/v2"
@@ -82,9 +83,30 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 
 	renderer := NewTUIRenderer()
-
 	tuiModel := NewTUIModel(categoryStyling)
-	tuiView := NewTUI(tuiModel, renderer) // <- stuck here!
+	w, h := renderer.GetScreenDimensions()
+	tui := TUI{
+		renderer: renderer,
+
+		days:            &tuiModel.Days,
+		currentDate:     &tuiModel.CurrentDate,
+		currentCategory: &tuiModel.CurrentCategory,
+		categories:      &tuiModel.CategoryStyling,
+		eventEditor:     &tuiModel.EventEditor,
+		showHelp:        &tuiModel.showHelp,
+		showSummary:     &tuiModel.showSummary,
+		showLog:         &tuiModel.showLog,
+		activeView:      &tuiModel.activeView,
+		logReader:       &tuiModel.Log,
+		logWriter:       &tuiModel.Log,
+		weather:         &tuiModel.Weather,
+		viewParams:      &tuiModel.ViewParams,
+		cursor:          &tuiModel.cursorPos,
+
+		positions: make(map[model.EventID]util.Rect),
+	}
+	tui.uiDimensions.Initialize(20, 10, 20, w, h)
+	tuiModel.UIDim = &tui.uiDimensions
 
 	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
 	owmApiKeyProvided := (programData.OwmApiKey != "")
@@ -128,12 +150,12 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tuiController.model = tuiModel
 	tuiController.model.CurrentDate = date
 	if tuiController.FileHandlers[date] == nil {
-		tuiController.model.AddModel(date, &model.Day{}, &suntimes)
+		tuiController.model.Days.AddDay(date, &model.Day{}, &suntimes)
 	} else {
-		tuiController.model.AddModel(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
+		tuiController.model.Days.AddDay(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
 	}
 
-	tuiController.tui = tuiView
+	tuiController.tui = &tui
 	tuiController.model.CurrentCategory.Name = "default"
 
 	tuiController.loadDaysForView(tuiController.model.activeView)
@@ -170,7 +192,7 @@ func (t *TUIController) startMouseResize(eventsInfo ui.EventsPanelPositionInfo) 
 
 func (t *TUIController) startMouseEventCreation(cursorPosY int) {
 	// find out cursor time
-	start := t.model.TimeAtY(cursorPosY)
+	start := t.tui.TimeAtY(cursorPosY)
 
 	// create event at time with cat etc.
 	e := model.Event{}
@@ -209,7 +231,7 @@ func (t *TUIController) goToNextDay() {
 // Loads the requested date's day from its file handler, if it has
 // not already been loaded.
 func (t *TUIController) loadDay(date model.Date) {
-	if !t.model.HasModel(date) {
+	if !t.model.Days.HasDay(date) {
 		// load file
 		newDay := t.GetDayFromFileHandler(date)
 		if newDay == nil {
@@ -228,7 +250,7 @@ func (t *TUIController) loadDay(date model.Date) {
 			}
 		}
 
-		t.model.AddModel(date, newDay, &suntimes)
+		t.model.Days.AddDay(date, newDay, &suntimes)
 	}
 }
 
@@ -316,18 +338,18 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.showHelp = !t.model.showHelp
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
-		t.model.AddModel(t.model.CurrentDate, model.NewDay(), t.model.GetCurrentSuntimes())
+		t.model.Days.AddDay(t.model.CurrentDate, model.NewDay(), t.model.GetCurrentSuntimes())
 	case '+':
-		if t.model.NRowsPerHour*2 <= 12 {
-			t.model.NRowsPerHour *= 2
-			t.model.ScrollOffset *= 2
+		if t.model.ViewParams.NRowsPerHour*2 <= 12 {
+			t.model.ViewParams.NRowsPerHour *= 2
+			t.model.ViewParams.ScrollOffset *= 2
 		}
 	case '-':
-		if (t.model.NRowsPerHour % 2) == 0 {
-			t.model.NRowsPerHour /= 2
-			t.model.ScrollOffset /= 2
+		if (t.model.ViewParams.NRowsPerHour % 2) == 0 {
+			t.model.ViewParams.NRowsPerHour /= 2
+			t.model.ViewParams.ScrollOffset /= 2
 		} else {
-			t.model.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.model.NRowsPerHour))
+			t.model.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.model.ViewParams.NRowsPerHour))
 		}
 	}
 }
@@ -341,7 +363,7 @@ func (t *TUIController) writeModel() {
 }
 
 func (t *TUIController) updateCursorPos(x, y int) {
-	t.model.cursorX, t.model.cursorY = x, y
+	t.model.cursorPos.X, t.model.cursorPos.Y = x, y
 }
 
 func (t *TUIController) startEdit(id model.EventID) {
@@ -394,8 +416,8 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event)
 			case tcell.Button2:
 				id := eventsInfo.Event
-				if id != 0 && t.model.TimeAtY(y).IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
-					t.model.GetCurrentDay().SplitEvent(id, t.model.TimeAtY(y))
+				if id != 0 && t.tui.TimeAtY(y).IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
+					t.model.GetCurrentDay().SplitEvent(id, t.tui.TimeAtY(y))
 				}
 			case tcell.Button1:
 				// we've clicked while not editing
@@ -420,7 +442,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 		case ui.ToolsUIPanelType:
 			switch buttons {
 			case tcell.Button1:
-				cat := t.model.GetCategoryForPos(x, y)
+				cat := t.tui.GetCategoryForPos(x, y)
 				if cat != nil {
 					t.model.CurrentCategory = *cat
 				}
@@ -431,25 +453,25 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 }
 
 func (t *TUIController) resizeStep(newY int) {
-	delta := newY - t.model.cursorY
+	delta := newY - t.model.cursorPos.Y
 	offset := t.model.TimeForDistance(delta)
 	event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
-	event.End = event.End.Offset(offset).Snap(t.model.NRowsPerHour)
+	event.End = event.End.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
 }
 
 func (t *TUIController) moveStep(newY int) {
-	delta := newY - t.model.cursorY
+	delta := newY - t.model.cursorPos.Y
 	offset := t.model.TimeForDistance(delta)
 	if t.movePropagate {
 		following := t.model.GetCurrentDay().GetEventsFrom(t.EditedEvent)
 		for _, ptr := range following {
-			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.NRowsPerHour)
-			ptr.End = ptr.End.Offset(offset).Snap(t.model.NRowsPerHour)
+			ptr.Start = ptr.Start.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
+			ptr.End = ptr.End.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
 		}
 	} else {
 		event := t.model.GetCurrentDay().GetEvent(t.EditedEvent)
-		event.Start = event.Start.Offset(offset).Snap(t.model.NRowsPerHour)
-		event.End = event.End.Offset(offset).Snap(t.model.NRowsPerHour)
+		event.Start = event.Start.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
+		event.End = event.End.Offset(offset).Snap(t.model.ViewParams.NRowsPerHour)
 	}
 }
 

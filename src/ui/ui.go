@@ -34,6 +34,10 @@ type MainUIPanel interface {
 	UIPane
 	Close()
 	NeedsSync()
+
+	// TODO: remove, this will be part of info returned to controller on query
+	TimeAtY(y int) model.Timestamp
+	GetCategoryForPos(x, y int) *model.Category
 }
 
 type EventHoverState int
@@ -60,6 +64,7 @@ type TimelinePanelPositionInfo struct{}
 type ToolsPanelPositionInfo struct{}
 type StatusPanelPositionInfo struct{}
 type EventsPanelPositionInfo struct {
-	Event      model.EventID
-	HoverState EventHoverState
+	Event           model.EventID
+	HoverState      EventHoverState
+	timeUnderCursor model.Timestamp
 }
