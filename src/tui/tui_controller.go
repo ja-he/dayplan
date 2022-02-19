@@ -190,9 +190,11 @@ func (t *TUIController) startMouseResize(eventsInfo ui.EventsPanelPositionInfo) 
 	t.EditedEvent = eventsInfo.Event
 }
 
-func (t *TUIController) startMouseEventCreation(cursorPosY int) {
+func (t *TUIController) startMouseEventCreation(info ui.EventsPanelPositionInfo) {
 	// find out cursor time
-	start := t.tui.TimeAtY(cursorPosY)
+	start := info.TimeUnderCursor
+
+	t.model.Log.Add("DEBUG", fmt.Sprintf("creation called for '%s'", info.TimeUnderCursor.ToString()))
 
 	// create event at time with cat etc.
 	e := model.Event{}
@@ -416,8 +418,8 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event)
 			case tcell.Button2:
 				id := eventsInfo.Event
-				if id != 0 && t.tui.TimeAtY(y).IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
-					t.model.GetCurrentDay().SplitEvent(id, t.tui.TimeAtY(y))
+				if id != 0 && eventsInfo.TimeUnderCursor.IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
+					t.model.GetCurrentDay().SplitEvent(id, eventsInfo.TimeUnderCursor)
 				}
 			case tcell.Button1:
 				// we've clicked while not editing
@@ -425,7 +427,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				// creation, resizing or moving
 				switch eventsInfo.HoverState {
 				case ui.EventHoverStateNone:
-					t.startMouseEventCreation(y)
+					t.startMouseEventCreation(eventsInfo)
 				case ui.EventHoverStateResize:
 					t.startMouseResize(eventsInfo)
 				case ui.EventHoverStateMove:

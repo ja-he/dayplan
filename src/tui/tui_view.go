@@ -121,15 +121,17 @@ func (t *TUI) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
 					hover = ui.EventHoverStateMove
 				}
 				return ui.EventsPanelPositionInfo{
-					Event:      currentDay.Events[i].ID,
-					HoverState: hover,
+					Event:           currentDay.Events[i].ID,
+					HoverState:      hover,
+					TimeUnderCursor: t.TimeAtY(y),
 				}
 			}
 		}
 	}
 	return ui.EventsPanelPositionInfo{
-		Event:      0,
-		HoverState: ui.EventHoverStateNone,
+		Event:           0,
+		HoverState:      ui.EventHoverStateNone,
+		TimeUnderCursor: t.TimeAtY(y),
 	}
 }
 
