@@ -87,14 +87,24 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		categoryStyling.AddStyleFromInput(styledInput)
 	}
 
+	toolsWidth := 20
+	statusHeight := 2
+
 	renderer := NewTUIRenderer()
+	screenSize := func() (w, h int) { return renderer.screen.Size() }
+	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
+	toolsDimensions := func() (x, y, w, h int) { w, h = screenSize(); return w - toolsWidth, 0, toolsWidth, h - statusHeight }
+	statusDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, h - statusHeight, w, statusHeight }
+
 	tuiModel := NewTUIModel(categoryStyling)
 	w, h := renderer.GetScreenDimensions()
 	tui := TUI{
-		renderer: renderer,
+		renderer:   renderer,
+		dimensions: screenDimensions,
 
 		tools: &ToolsPanel{
 			renderer:        renderer,
+			dimensions:      toolsDimensions,
 			currentCategory: &tuiModel.CurrentCategory,
 			categories:      &tuiModel.CategoryStyling,
 			horizPadding:    1,
@@ -102,8 +112,8 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			gap:             0,
 		},
 		status: &StatusPanel{
-			renderer: renderer,
-
+			renderer:    renderer,
+			dimensions:  statusDimensions,
 			currentDate: &tuiModel.CurrentDate,
 			activeView:  &tuiModel.activeView,
 		},
@@ -635,7 +645,7 @@ func (t *TUIController) Run() {
 						return
 					}
 					// render
-					t.tui.Draw(0, 0, t.model.UIDim.screenWidth, t.model.UIDim.screenHeight)
+					t.tui.Draw()
 				case ControllerEventExit:
 					return
 				}

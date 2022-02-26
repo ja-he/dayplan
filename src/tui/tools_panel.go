@@ -15,6 +15,8 @@ var errorCategoryStyle = tcell.StyleDefault.Background(tcell.ColorIndianRed)
 type ToolsPanel struct {
 	renderer *TUIRenderer
 
+	dimensions func() (x, y, w, h int)
+
 	currentCategory *model.Category
 	categories      *category_style.CategoryStyling
 
@@ -23,7 +25,9 @@ type ToolsPanel struct {
 	lastBoxesDrawn map[model.Category]util.Rect
 }
 
-func (p *ToolsPanel) Draw(x, y, w, h int) {
+func (p *ToolsPanel) Draw() {
+	x, y, w, h := p.dimensions()
+
 	boxes := p.getCategoryBoxes(x, y, w, h)
 	for cat, box := range boxes {
 		style, err := p.categories.GetStyle(cat)

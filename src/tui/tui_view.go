@@ -21,6 +21,9 @@ import (
 type TUI struct {
 	renderer *TUIRenderer
 
+	dimensions func() (x, y, w, h int)
+
+	// get rid of -> closure
 	uiDimensions UIDims
 
 	tools  ui.UIPane
@@ -382,7 +385,7 @@ func (t *TUI) drawLog() {
 	}
 }
 
-func (t *TUI) Draw(x, y, w, h int) {
+func (t *TUI) Draw() {
 
 	t.renderer.Clear()
 
@@ -398,7 +401,7 @@ func (t *TUI) Draw(x, y, w, h int) {
 		t.drawWeather()
 		t.drawTimeline()
 		t.drawEvents()
-		t.tools.Draw(t.uiDimensions.ToolsOffset(), 0, t.uiDimensions.ToolsWidth(), t.uiDimensions.screenHeight-t.uiDimensions.StatusHeight())
+		t.tools.Draw()
 		t.drawEditor()
 	case ui.ViewWeek:
 		start, end := t.currentDate.Week()
@@ -495,7 +498,7 @@ func (t *TUI) Draw(x, y, w, h int) {
 			}
 		}
 	}
-	t.status.Draw(0, t.uiDimensions.StatusOffset(), t.uiDimensions.screenWidth, t.uiDimensions.StatusHeight())
+	t.status.Draw()
 	t.drawLog()
 	t.drawSummary()
 	t.drawHelp()

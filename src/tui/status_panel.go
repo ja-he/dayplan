@@ -11,11 +11,15 @@ import (
 type StatusPanel struct {
 	renderer *TUIRenderer
 
+	dimensions func() (x, y, w, h int)
+
 	currentDate *model.Date
 	activeView  *ui.ActiveView
 }
 
-func (p *StatusPanel) Draw(x, y, w, h int) {
+func (p *StatusPanel) Draw() {
+	_, y, w, h := p.dimensions()
+
 	var firstDay, lastDay model.Date
 	switch *p.activeView {
 	case ui.ViewDay:
