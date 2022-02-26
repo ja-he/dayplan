@@ -27,6 +27,8 @@ const (
 type UIPane interface {
 	Draw()
 
+	Dimensions() (x, y, w, h int)
+
 	GetPositionInfo(x, y int) PositionInfo
 }
 

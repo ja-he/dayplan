@@ -23,9 +23,6 @@ type TUI struct {
 
 	dimensions func() (x, y, w, h int)
 
-	// get rid of -> closure
-	uiDimensions UIDims
-
 	tools  ui.UIPane
 	status ui.UIPane
 
@@ -49,8 +46,63 @@ type TUI struct {
 	positions map[model.EventID]util.Rect
 }
 
+func (t *TUI) Dimensions() (x, y, w, h int) {
+	return t.dimensions()
+}
+
+func (t *TUI) whichPane(x, y int) ui.UIPaneType {
+	// TODO: right now, this hardcodes some stuff it shouldn't.
+	//       that's a painpoint of trying to keep compilation alive across the
+	//       refactoring process; once done, it should be as easy as asking every
+	//       pane for dimensions and then delegating to the pane that contains the
+	//       position.
+	_, _, w, h := t.Dimensions()
+	fakeStatusHeight := 2
+	mainPaneHeight := h - fakeStatusHeight
+	fakeStatusOffset := mainPaneHeight - fakeStatusHeight
+	fakeWeatherOffset := 0
+	fakeWeatherWidth := 20
+	fakeTimelineOffset := fakeWeatherOffset + fakeWeatherWidth
+	fakeTimelineWidth := 10
+	fakeToolsWidth := 20
+	fakeToolsOffset := w - fakeToolsWidth
+	fakeEventsOffset := fakeTimelineOffset + fakeTimelineWidth
+	fakeEventsWidth := w - fakeToolsWidth - fakeEventsOffset
+
+	if x < 0 || y < 0 {
+		panic("negative x or y")
+	}
+	if x > w || y > h {
+		panic(fmt.Sprintf("x or y too large (x,y = %d,%d | screen = %d,%d)", x, y, w, h))
+	}
+
+	statusPane := util.Rect{X: 0, Y: fakeStatusOffset, W: w, H: fakeStatusHeight}
+	weatherPane := util.Rect{X: fakeWeatherOffset, Y: 0, W: fakeWeatherWidth, H: mainPaneHeight}
+	timelinePane := util.Rect{X: fakeTimelineOffset, Y: 0, W: fakeTimelineWidth, H: mainPaneHeight}
+	eventsPane := util.Rect{X: fakeEventsOffset, Y: 0, W: fakeEventsWidth, H: mainPaneHeight}
+	toolsPane := util.Rect{X: fakeToolsOffset, Y: 0, W: fakeToolsWidth, H: mainPaneHeight}
+
+	if statusPane.Contains(x, y) {
+		return ui.StatusUIPanelType
+	}
+	if weatherPane.Contains(x, y) {
+		return ui.WeatherUIPanelType
+	}
+	if timelinePane.Contains(x, y) {
+		return ui.TimelineUIPanelType
+	}
+	if eventsPane.Contains(x, y) {
+		return ui.EventsUIPanelType
+	}
+	if toolsPane.Contains(x, y) {
+		return ui.ToolsUIPanelType
+	}
+
+	panic(fmt.Sprintf("Unknown UI pos (%d,%d)", x, y))
+}
+
 func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
-	paneType := p.uiDimensions.WhichUIPane(x, y)
+	paneType := p.whichPane(x, y)
 
 	switch paneType {
 	case ui.ToolsUIPanelType:
@@ -142,8 +194,18 @@ func (v *TUI) NeedsSync() {
 }
 
 func (t *TUI) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
-	if x >= t.uiDimensions.EventsOffset() &&
-		x < (t.uiDimensions.EventsOffset()+t.uiDimensions.EventsWidth()) {
+	// TODO: this function is here temporarily, excluse the hacks
+	_, _, w, _ := t.Dimensions()
+	fakeWeatherOffset := 0
+	fakeWeatherWidth := 20
+	fakeTimelineOffset := fakeWeatherOffset + fakeWeatherWidth
+	fakeTimelineWidth := 10
+	fakeToolsWidth := 20
+	fakeEventsOffset := fakeTimelineOffset + fakeTimelineWidth
+	fakeEventsWidth := w - fakeToolsWidth - fakeEventsOffset
+
+	if x >= fakeEventsOffset &&
+		x < (fakeEventsOffset+fakeEventsWidth) {
 		currentDay := t.days.GetDay(*t.currentDate)
 		for i := len(currentDay.Events) - 1; i >= 0; i-- {
 			eventPos := t.positions[currentDay.Events[i].ID]
@@ -280,7 +342,9 @@ func (t *TUI) drawHelp() {
 func (t *TUI) drawSummary() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if *t.showSummary {
-		y, w, h := 2, t.uiDimensions.screenWidth, t.uiDimensions.screenHeight
+		y := 2
+		_, _, w, h := t.Dimensions()
+
 		t.renderer.DrawBox(style, 0, 0, w, h)
 		dateString := ""
 		switch *t.activeView {
@@ -347,7 +411,7 @@ func (t *TUI) drawSummary() {
 			style, _ := t.categories.GetStyle(category)
 			catLen := 20
 			durationLen := 20
-			barWidth := int(float64(duration) / float64(maxDuration) * float64(t.uiDimensions.screenWidth-catLen-durationLen))
+			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
 			t.renderer.DrawBox(style, catLen+durationLen, y, barWidth, 1)
 			t.renderer.DrawText(0, y, catLen, 0, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
 			t.renderer.DrawText(catLen, y, durationLen, 0, style, "("+util.DurationToString(duration)+")")
@@ -359,7 +423,9 @@ func (t *TUI) drawSummary() {
 func (t *TUI) drawLog() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if *t.showLog {
-		x, y, w, h := 0, 2, t.uiDimensions.screenWidth, t.uiDimensions.screenHeight
+		_, _, w, h := t.Dimensions()
+		x, y := 0, 2
+
 		t.renderer.DrawBox(style, 0, 0, w, h)
 		title := "LOG"
 		t.renderer.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
@@ -386,6 +452,8 @@ func (t *TUI) drawLog() {
 }
 
 func (t *TUI) Draw() {
+	_, _, w, h := t.Dimensions()
+	fakeStatusHeight := 2 // TODO: hardcoded just for now
 
 	t.renderer.Clear()
 
@@ -406,8 +474,8 @@ func (t *TUI) Draw() {
 	case ui.ViewWeek:
 		start, end := t.currentDate.Week()
 		nDays := start.DaysUntil(end) + 1
-		if nDays > t.uiDimensions.screenWidth {
-			t.renderer.DrawText(0, 0, t.uiDimensions.screenWidth, t.uiDimensions.screenHeight,
+		if nDays > w {
+			t.renderer.DrawText(0, 0, w, h,
 				tcell.StyleDefault.Foreground(tcell.ColorRebeccaPurple),
 				"refusing to render week on screen with fewer columns than days")
 			return
@@ -416,19 +484,19 @@ func (t *TUI) Draw() {
 		{
 			firstDayXOffset := 10
 			x := firstDayXOffset
-			dayWidth := (t.uiDimensions.screenWidth - firstDayXOffset) / nDays
+			dayWidth := (w - firstDayXOffset) / nDays
 
-			t.drawTimelineTmp(0, 0, firstDayXOffset, t.uiDimensions.screenHeight-t.uiDimensions.statusHeight, make([]timestampStyle, 0), nil)
+			t.drawTimelineTmp(0, 0, firstDayXOffset, h-fakeStatusHeight, make([]timestampStyle, 0), nil)
 
 			for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
 				if drawDate == *t.currentDate {
-					t.renderer.DrawBox(dayBGEmph, x, 0, dayWidth, t.uiDimensions.screenHeight)
+					t.renderer.DrawBox(dayBGEmph, x, 0, dayWidth, h)
 				} else {
-					t.renderer.DrawBox(dayBG, x, 0, dayWidth, t.uiDimensions.screenHeight)
+					t.renderer.DrawBox(dayBG, x, 0, dayWidth, h)
 				}
 				day := t.days.GetDay(drawDate)
 				if day != nil {
-					positions := t.ComputeRects(day, x, 0, dayWidth, t.uiDimensions.screenHeight-t.uiDimensions.statusHeight)
+					positions := t.ComputeRects(day, x, 0, dayWidth, h-fakeStatusHeight)
 					for _, e := range day.Events {
 						p := positions[e.ID]
 						style, err := t.categories.GetStyle(e.Cat)
@@ -443,7 +511,7 @@ func (t *TUI) Draw() {
 					}
 				} else {
 					loadingText := "⋮"
-					t.renderer.DrawText(x, t.uiDimensions.screenHeight/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
+					t.renderer.DrawText(x, h/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
 						loadingStyle,
 						loadingText)
 				}
@@ -454,8 +522,8 @@ func (t *TUI) Draw() {
 	case ui.ViewMonth:
 		start, end := t.currentDate.MonthBounds()
 		nDays := start.DaysUntil(end) + 1
-		if nDays > t.uiDimensions.screenWidth {
-			t.renderer.DrawText(0, 0, t.uiDimensions.screenWidth, t.uiDimensions.screenHeight,
+		if nDays > w {
+			t.renderer.DrawText(0, 0, w, h,
 				tcell.StyleDefault.Foreground(tcell.ColorRebeccaPurple),
 				"refusing to render month on screen with fewer columns than days")
 			return
@@ -464,19 +532,19 @@ func (t *TUI) Draw() {
 		{
 			firstDayXOffset := 10
 			x := firstDayXOffset
-			dayWidth := (t.uiDimensions.screenWidth - firstDayXOffset) / nDays
+			dayWidth := (w - firstDayXOffset) / nDays
 
-			t.drawTimelineTmp(0, 0, firstDayXOffset, t.uiDimensions.screenHeight-t.uiDimensions.statusHeight, make([]timestampStyle, 0), nil)
+			t.drawTimelineTmp(0, 0, firstDayXOffset, h-fakeStatusHeight, make([]timestampStyle, 0), nil)
 
 			for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
 				if drawDate == *t.currentDate {
-					t.renderer.DrawBox(dayBGEmph, x, 0, dayWidth, t.uiDimensions.screenHeight)
+					t.renderer.DrawBox(dayBGEmph, x, 0, dayWidth, h)
 				} else {
-					t.renderer.DrawBox(dayBG, x, 0, dayWidth, t.uiDimensions.screenHeight)
+					t.renderer.DrawBox(dayBG, x, 0, dayWidth, h)
 				}
 				day := t.days.GetDay(drawDate)
 				if day != nil {
-					positions := t.ComputeRects(day, x, 0, dayWidth, t.uiDimensions.screenHeight-t.uiDimensions.statusHeight)
+					positions := t.ComputeRects(day, x, 0, dayWidth, h-fakeStatusHeight)
 					for _, e := range day.Events {
 						p := positions[e.ID]
 						style, err := t.categories.GetStyle(e.Cat)
@@ -490,7 +558,7 @@ func (t *TUI) Draw() {
 					}
 				} else {
 					loadingText := "⋮"
-					t.renderer.DrawText(x, t.uiDimensions.screenHeight/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
+					t.renderer.DrawText(x, h/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
 						loadingStyle,
 						loadingText)
 				}
@@ -507,6 +575,10 @@ func (t *TUI) Draw() {
 }
 
 func (t *TUI) drawWeather() {
+	// TODO: right now, this hardcodes some stuff it shouldn't.
+	fakeWeatherOffset := 0
+	fakeWeatherWidth := 20
+
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		y := t.toY(timestamp)
 
@@ -525,13 +597,13 @@ func (t *TUI) drawWeather() {
 				weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xfff0cc)).Foreground(tcell.ColorBlack)
 			}
 
-			t.renderer.DrawBox(weatherStyle, t.uiDimensions.WeatherOffset(), y, t.uiDimensions.WeatherWidth(), t.viewParams.NRowsPerHour)
+			t.renderer.DrawBox(weatherStyle, fakeWeatherOffset, y, fakeWeatherWidth, t.viewParams.NRowsPerHour)
 
-			t.renderer.DrawText(t.uiDimensions.WeatherOffset(), y, t.uiDimensions.WeatherWidth(), 0, weatherStyle, weather.Info)
-			t.renderer.DrawText(t.uiDimensions.WeatherOffset(), y+1, t.uiDimensions.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
-			t.renderer.DrawText(t.uiDimensions.WeatherOffset(), y+2, t.uiDimensions.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%d%% clouds", weather.Clouds))
-			t.renderer.DrawText(t.uiDimensions.WeatherOffset(), y+3, t.uiDimensions.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%d%% humidity", weather.Humidity))
-			t.renderer.DrawText(t.uiDimensions.WeatherOffset(), y+4, t.uiDimensions.WeatherWidth(), 0, weatherStyle, fmt.Sprintf("%2.0f%% chance of rain", 100.0*weather.PrecipitationProbability))
+			t.renderer.DrawText(fakeWeatherOffset, y, fakeWeatherWidth, 0, weatherStyle, weather.Info)
+			t.renderer.DrawText(fakeWeatherOffset, y+1, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
+			t.renderer.DrawText(fakeWeatherOffset, y+2, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%d%% clouds", weather.Clouds))
+			t.renderer.DrawText(fakeWeatherOffset, y+3, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%d%% humidity", weather.Humidity))
+			t.renderer.DrawText(fakeWeatherOffset, y+4, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%2.0f%% chance of rain", 100.0*weather.PrecipitationProbability))
 		}
 	}
 }
@@ -542,6 +614,12 @@ type timestampStyle struct {
 }
 
 func (t *TUI) drawTimeline() {
+	// TODO
+	fakeWeatherOffset := 0
+	fakeWeatherWidth := 20
+	fakeTimelineOffset := fakeWeatherOffset + fakeWeatherWidth
+	fakeTimelineWidth := 10
+
 	suntimes := t.days.GetSuntimes(*t.currentDate)
 
 	special := []timestampStyle{}
@@ -557,10 +635,10 @@ func (t *TUI) drawTimeline() {
 		special = append(special, timestampStyle{nowTime, nowStyle})
 	}
 
-	x := t.uiDimensions.TimelineOffset()
+	x := fakeTimelineOffset
 	y := 0
-	w := t.uiDimensions.TimelineWidth()
-	_, h := t.renderer.GetScreenDimensions()
+	w := fakeTimelineWidth
+	_, _, _, h := t.Dimensions()
 
 	t.drawTimelineTmp(x, y, w, h, special, suntimes)
 }
@@ -617,12 +695,22 @@ func (t *TUI) drawTimelineTmp(
 }
 
 func (t *TUI) drawEvents() {
+	// TODO
+	_, _, w, h := t.Dimensions()
+	fakeWeatherOffset := 0
+	fakeWeatherWidth := 20
+	fakeTimelineOffset := fakeWeatherOffset + fakeWeatherWidth
+	fakeTimelineWidth := 10
+	fakeToolsWidth := 20
+	fakeEventsOffset := fakeTimelineOffset + fakeTimelineWidth
+	fakeEventsWidth := w - fakeToolsWidth - fakeEventsOffset
+
 	day := t.days.GetDay(*t.currentDate)
 	if day == nil {
 		t.logWriter.Add("DEBUG", "current day nil on render; skipping")
 		return
 	}
-	t.positions = t.ComputeRects(day, t.uiDimensions.EventsOffset(), 0, t.uiDimensions.EventsWidth()-2, t.uiDimensions.screenHeight)
+	t.positions = t.ComputeRects(day, fakeEventsOffset, 0, fakeEventsWidth-2, h)
 	for _, e := range day.Events {
 		style, err := t.categories.GetStyle(e.Cat)
 		if err != nil {

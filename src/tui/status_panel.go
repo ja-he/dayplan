@@ -17,6 +17,10 @@ type StatusPanel struct {
 	activeView  *ui.ActiveView
 }
 
+func (p *StatusPanel) Dimensions() (x, y, w, h int) {
+	return p.dimensions()
+}
+
 func (p *StatusPanel) Draw() {
 	_, y, w, h := p.dimensions()
 

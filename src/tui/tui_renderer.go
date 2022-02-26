@@ -50,6 +50,7 @@ func (r *TUIRenderer) NeedsSync() {
 	r.needsSync = true
 }
 
+// TODO: remove again, probably, antipattern with ui dims being queriable per pane i think
 func (r *TUIRenderer) GetScreenDimensions() (int, int) {
 	r.screen.SetStyle(tcell.StyleDefault)
 	return r.screen.Size()

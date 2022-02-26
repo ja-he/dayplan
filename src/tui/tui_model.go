@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/ja-he/dayplan/src/category_style"
@@ -9,7 +8,6 @@ import (
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/program"
 	"github.com/ja-he/dayplan/src/ui"
-	"github.com/ja-he/dayplan/src/util"
 	"github.com/ja-he/dayplan/src/weather"
 )
 
@@ -59,88 +57,6 @@ func toString(av ui.ActiveView) string {
 	}
 }
 
-type UIDims struct {
-	weatherOffset, timelineOffset, eventsOffset, toolsOffset int
-	statusHeight                                             int
-	screenWidth, screenHeight                                int
-}
-
-func (d *UIDims) WhichUIPane(x, y int) ui.UIPaneType {
-	if x < 0 || y < 0 {
-		panic("negative x or y")
-	}
-	if x > d.screenWidth || y > d.screenHeight {
-		panic(fmt.Sprintf("x or y too large (x,y = %d,%d | screen = %d,%d)", x, y, d.screenWidth, d.screenHeight))
-	}
-
-	mainPaneHeight := d.screenHeight - d.StatusHeight()
-
-	statusPane := util.Rect{X: 0, Y: d.StatusOffset(), W: d.screenWidth, H: d.StatusHeight()}
-	weatherPane := util.Rect{X: d.WeatherOffset(), Y: 0, W: d.WeatherWidth(), H: mainPaneHeight}
-	timelinePane := util.Rect{X: d.TimelineOffset(), Y: 0, W: d.TimelineWidth(), H: mainPaneHeight}
-	eventsPane := util.Rect{X: d.EventsOffset(), Y: 0, W: d.EventsWidth(), H: mainPaneHeight}
-	toolsPane := util.Rect{X: d.ToolsOffset(), Y: 0, W: d.ToolsWidth(), H: mainPaneHeight}
-
-	if statusPane.Contains(x, y) {
-		return ui.StatusUIPanelType
-	}
-	if weatherPane.Contains(x, y) {
-		return ui.WeatherUIPanelType
-	}
-	if timelinePane.Contains(x, y) {
-		return ui.TimelineUIPanelType
-	}
-	if eventsPane.Contains(x, y) {
-		return ui.EventsUIPanelType
-	}
-	if toolsPane.Contains(x, y) {
-		return ui.ToolsUIPanelType
-	}
-
-	panic(fmt.Sprintf("Unknown UI pos (%d,%d)", x, y))
-}
-
-func (d *UIDims) ScreenSize() (int, int) {
-	return d.screenWidth, d.screenHeight
-}
-
-func (d *UIDims) ScreenResize(width, height int) {
-	if height <= d.statusHeight {
-		panic(fmt.Sprintf("screensize of %d too little with statusline height of %d", height, d.statusHeight))
-	}
-
-	toolsWidth := d.ToolsWidth()
-	d.toolsOffset = width - toolsWidth
-	if d.toolsOffset >= width {
-		panic("offset > width")
-	}
-
-	d.screenWidth = width
-	d.screenHeight = height
-}
-
-func (d *UIDims) Initialize(weatherWidth, timelineWidth, toolsWidth int,
-	screenWidth, screenHeight int) {
-	d.weatherOffset = 0
-	d.timelineOffset = d.weatherOffset + weatherWidth
-	d.eventsOffset = d.timelineOffset + timelineWidth
-	d.toolsOffset = screenWidth - toolsWidth
-	d.statusHeight = 2
-	d.screenWidth = screenWidth
-	d.screenHeight = screenHeight
-}
-
-func (ui *UIDims) WeatherOffset() int  { return ui.weatherOffset }
-func (ui *UIDims) WeatherWidth() int   { return ui.timelineOffset - ui.weatherOffset }
-func (ui *UIDims) TimelineOffset() int { return ui.timelineOffset }
-func (ui *UIDims) TimelineWidth() int  { return ui.eventsOffset - ui.timelineOffset }
-func (ui *UIDims) EventsOffset() int   { return ui.eventsOffset }
-func (ui *UIDims) EventsWidth() int    { return (ui.toolsOffset - ui.eventsOffset) }
-func (ui *UIDims) ToolsOffset() int    { return ui.toolsOffset }
-func (ui *UIDims) ToolsWidth() int     { return ui.screenWidth - ui.ToolsOffset() }
-func (ui *UIDims) StatusHeight() int   { return ui.statusHeight }
-func (ui *UIDims) StatusOffset() int   { return ui.screenHeight - ui.statusHeight }
-
 type DayWithInfo struct {
 	Day      *model.Day
 	SunTimes *model.SunTimes
@@ -156,9 +72,6 @@ type CursorPos struct {
 }
 
 type TUIModel struct {
-	// TODO: remove from here
-	UIDim *UIDims
-
 	cursorPos CursorPos
 
 	CategoryStyling category_style.CategoryStyling
@@ -185,33 +98,6 @@ type TUIModel struct {
 type DaysData struct {
 	daysMutex sync.RWMutex
 	days      map[model.Date]DayWithInfo
-}
-
-func (t *TUIModel) ScrollUp(by int) {
-	eventviewTopRow := 0
-	if t.ViewParams.ScrollOffset-by >= eventviewTopRow {
-		t.ViewParams.ScrollOffset -= by
-	} else {
-		t.ScrollTop()
-	}
-}
-
-func (t *TUIModel) ScrollDown(by int) {
-	eventviewBottomRow := t.UIDim.screenHeight - t.UIDim.statusHeight
-	if t.ViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.ViewParams.NRowsPerHour) {
-		t.ViewParams.ScrollOffset += by
-	} else {
-		t.ScrollBottom()
-	}
-}
-
-func (t *TUIModel) ScrollTop() {
-	t.ViewParams.ScrollOffset = 0
-}
-
-func (t *TUIModel) ScrollBottom() {
-	eventviewBottomRow := t.UIDim.screenHeight - t.UIDim.statusHeight
-	t.ViewParams.ScrollOffset = 24*t.ViewParams.NRowsPerHour - eventviewBottomRow
 }
 
 func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {

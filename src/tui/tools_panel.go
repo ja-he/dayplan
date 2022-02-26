@@ -25,6 +25,10 @@ type ToolsPanel struct {
 	lastBoxesDrawn map[model.Category]util.Rect
 }
 
+func (p *ToolsPanel) Dimensions() (x, y, w, h int) {
+	return p.dimensions()
+}
+
 func (p *ToolsPanel) Draw() {
 	x, y, w, h := p.dimensions()
 

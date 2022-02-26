@@ -49,6 +49,10 @@ type TUIController struct {
 	fhMutex       sync.RWMutex
 	FileHandlers  map[model.Date]*filehandling.FileHandler
 	bump          chan ControllerEvent
+
+	// TODO: remove, obviously
+	tmpStatusYOffsetGetter func() int
+
 	// NOTE(ja-he):
 	//   a `tcell.Screen` unites rendering and event polling functionalities.
 	//   holding this interface pointer allows us to leave the rendering to the
@@ -91,13 +95,12 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	statusHeight := 2
 
 	renderer := NewTUIRenderer()
-	screenSize := func() (w, h int) { return renderer.screen.Size() }
+	screenSize := func() (w, h int) { return renderer.GetScreenDimensions() }
 	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
 	toolsDimensions := func() (x, y, w, h int) { w, h = screenSize(); return w - toolsWidth, 0, toolsWidth, h - statusHeight }
 	statusDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, h - statusHeight, w, statusHeight }
 
 	tuiModel := NewTUIModel(categoryStyling)
-	w, h := renderer.GetScreenDimensions()
 	tui := TUI{
 		renderer:   renderer,
 		dimensions: screenDimensions,
@@ -135,8 +138,6 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 		positions: make(map[model.EventID]util.Rect),
 	}
-	tui.uiDimensions.Initialize(20, 10, 20, w, h)
-	tuiModel.UIDim = &tui.uiDimensions
 
 	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
 	owmApiKeyProvided := (programData.OwmApiKey != "")
@@ -169,6 +170,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 
 	tuiController := TUIController{}
+	tuiController.tmpStatusYOffsetGetter = func() int { _, y, _, _ := statusDimensions(); return y }
 	tuiModel.ProgramData = programData
 	tuiController.screenEvents = renderer.GetEventPollable()
 
@@ -191,6 +193,33 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	tuiController.loadDaysForView(tuiController.model.activeView)
 
 	return &tuiController
+}
+
+func (t *TUIController) ScrollUp(by int) {
+	eventviewTopRow := 0
+	if t.model.ViewParams.ScrollOffset-by >= eventviewTopRow {
+		t.model.ViewParams.ScrollOffset -= by
+	} else {
+		t.ScrollTop()
+	}
+}
+
+func (t *TUIController) ScrollDown(by int) {
+	eventviewBottomRow := t.tmpStatusYOffsetGetter()
+	if t.model.ViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.model.ViewParams.NRowsPerHour) {
+		t.model.ViewParams.ScrollOffset += by
+	} else {
+		t.ScrollBottom()
+	}
+}
+
+func (t *TUIController) ScrollTop() {
+	t.model.ViewParams.ScrollOffset = 0
+}
+
+func (t *TUIController) ScrollBottom() {
+	eventviewBottomRow := t.tmpStatusYOffsetGetter()
+	t.model.ViewParams.ScrollOffset = 24*t.model.ViewParams.NRowsPerHour - eventviewBottomRow
 }
 
 func (t *TUIController) abortEdit() {
@@ -330,9 +359,9 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.loadDaysForView(prevView)
 		t.model.activeView = prevView
 	case tcell.KeyCtrlU:
-		t.model.ScrollUp(10)
+		t.ScrollUp(10)
 	case tcell.KeyCtrlD:
-		t.model.ScrollDown(10)
+		t.ScrollDown(10)
 	}
 	switch e.Rune() {
 	case 'u':
@@ -352,15 +381,15 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	case 'q':
 		t.bump <- ControllerEventExit
 	case 'g':
-		t.model.ScrollTop()
+		t.ScrollTop()
 	case 'G':
-		t.model.ScrollBottom()
+		t.ScrollBottom()
 	case 'w':
 		t.writeModel()
 	case 'j':
-		t.model.ScrollDown(1)
+		t.ScrollDown(1)
 	case 'k':
-		t.model.ScrollUp(1)
+		t.ScrollUp(1)
 	case 'h':
 		t.goToPreviousDay()
 	case 'l':
@@ -430,16 +459,16 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 		case ui.WeatherUIPanelType:
 			switch buttons {
 			case tcell.WheelUp:
-				t.model.ScrollUp(1)
+				t.ScrollUp(1)
 			case tcell.WheelDown:
-				t.model.ScrollDown(1)
+				t.ScrollDown(1)
 			}
 		case ui.TimelineUIPanelType:
 			switch buttons {
 			case tcell.WheelUp:
-				t.model.ScrollUp(1)
+				t.ScrollUp(1)
 			case tcell.WheelDown:
-				t.model.ScrollDown(1)
+				t.ScrollDown(1)
 			}
 		case ui.EventsUIPanelType:
 			eventsInfo := *positionInfo.GetExtraEventsInfo()
@@ -470,9 +499,9 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 					t.startEdit(eventsInfo.Event)
 				}
 			case tcell.WheelUp:
-				t.model.ScrollUp(1)
+				t.ScrollUp(1)
 			case tcell.WheelDown:
-				t.model.ScrollDown(1)
+				t.ScrollDown(1)
 			}
 		case ui.ToolsUIPanelType:
 			toolsInfo := *positionInfo.GetExtraToolsInfo()
@@ -683,7 +712,6 @@ func (t *TUIController) Run() {
 			switch ev.(type) {
 			case *tcell.EventResize:
 				t.tui.NeedsSync()
-				t.model.UIDim.ScreenResize((*t.screenEvents).Size())
 			}
 
 			t.bump <- ControllerEventRender
