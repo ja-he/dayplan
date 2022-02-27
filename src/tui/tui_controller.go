@@ -105,20 +105,34 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		renderer:   renderer,
 		dimensions: screenDimensions,
 
-		tools: &ToolsPanel{
-			renderer:        renderer,
-			dimensions:      toolsDimensions,
-			currentCategory: &tuiModel.CurrentCategory,
-			categories:      &tuiModel.CategoryStyling,
-			horizPadding:    1,
-			vertPadding:     1,
-			gap:             0,
-		},
-		status: &StatusPanel{
-			renderer:    renderer,
-			dimensions:  statusDimensions,
+		dayViewMainPane: &DayViewMainPane{
+			renderer:   renderer,
+			dimensions: screenDimensions,
+			tools: &ToolsPanel{
+				renderer:        renderer,
+				dimensions:      toolsDimensions,
+				currentCategory: &tuiModel.CurrentCategory,
+				categories:      &tuiModel.CategoryStyling,
+				horizPadding:    1,
+				vertPadding:     1,
+				gap:             0,
+			},
+			status: &StatusPanel{
+				renderer:    renderer,
+				dimensions:  statusDimensions,
+				currentDate: &tuiModel.CurrentDate,
+				activeView:  &tuiModel.activeView,
+			},
+			days:        &tuiModel.Days,
 			currentDate: &tuiModel.CurrentDate,
-			activeView:  &tuiModel.activeView,
+			categories:  &tuiModel.CategoryStyling,
+			logReader:   &tuiModel.Log,
+			logWriter:   &tuiModel.Log,
+			weather:     &tuiModel.Weather,
+			viewParams:  &tuiModel.ViewParams,
+			cursor:      &tuiModel.cursorPos,
+
+			positions: make(map[model.EventID]util.Rect),
 		},
 
 		days:            &tuiModel.Days,
@@ -132,11 +146,8 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		activeView:      &tuiModel.activeView,
 		logReader:       &tuiModel.Log,
 		logWriter:       &tuiModel.Log,
-		weather:         &tuiModel.Weather,
 		viewParams:      &tuiModel.ViewParams,
 		cursor:          &tuiModel.cursorPos,
-
-		positions: make(map[model.EventID]util.Rect),
 	}
 
 	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
