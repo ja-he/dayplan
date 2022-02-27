@@ -16,11 +16,11 @@ type EventsPane struct {
 
 	dimensions func() (x, y, w, h int)
 
-	days        *DaysData
-	currentDate *model.Date
-	categories  *category_style.CategoryStyling
-	viewParams  *ViewParams
-	cursor      *CursorPos
+	day func() *model.Day
+
+	categories *category_style.CategoryStyling
+	viewParams *ViewParams
+	cursor     *CursorPos
 
 	logReader potatolog.LogReader
 	logWriter potatolog.LogWriter
@@ -48,7 +48,8 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 func (t *EventsPane) Draw() {
 	x, y, w, h := t.Dimensions()
 
-	day := t.days.GetDay(*t.currentDate)
+	day := t.day()
+
 	if day == nil {
 		t.logWriter.Add("DEBUG", "current day nil on render; skipping")
 		return
@@ -98,7 +99,7 @@ func (t *EventsPane) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
 
 	if x >= dimX &&
 		x < (dimX+dimW) {
-		currentDay := t.days.GetDay(*t.currentDate)
+		currentDay := t.day()
 		for i := len(currentDay.Events) - 1; i >= 0; i-- {
 			eventPos := t.positions[currentDay.Events[i].ID]
 			if eventPos.Contains(x, y) {
