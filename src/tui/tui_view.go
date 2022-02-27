@@ -16,7 +16,7 @@ import (
 )
 
 type TUI struct {
-	renderer *TUIRenderer
+	renderer *TUIScreenHandler
 
 	dimensions func() (x, y, w, h int)
 
@@ -169,16 +169,16 @@ func (t *TUI) drawHelp() {
 		descriptionOffset := keyOffset + maxKeyWidth + pad
 
 		drawMapping := func(keys, description string) {
-			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keys)), y+border+keysDrawn, len([]rune(keys)), 0, keyStyle, keys)
+			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keys)), y+border+keysDrawn, len([]rune(keys)), 1, keyStyle, keys)
 			t.renderer.DrawText(descriptionOffset, y+border+keysDrawn, helpWidth, helpHeight, descriptionStyle, description)
 			keysDrawn++
 		}
 
 		drawOpposedMapping := func(keyA, keyB, description string) {
 			sepText := "/"
-			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText)-len([]rune(keyA)), y+border+keysDrawn, len([]rune(keyA)), 0, keyStyle, keyA)
-			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText), y+border+keysDrawn, len(sepText), 0, helpStyle, sepText)
-			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 0, keyStyle, keyB)
+			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText)-len([]rune(keyA)), y+border+keysDrawn, len([]rune(keyA)), 1, keyStyle, keyA)
+			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText), y+border+keysDrawn, len(sepText), 1, helpStyle, sepText)
+			t.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 1, keyStyle, keyB)
 			t.renderer.DrawText(descriptionOffset, y+border+keysDrawn, helpWidth, helpHeight, descriptionStyle, description)
 			keysDrawn++
 		}
@@ -298,8 +298,8 @@ func (t *TUI) drawSummary() {
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
 			t.renderer.DrawBox(style, catLen+durationLen, y, barWidth, 1)
-			t.renderer.DrawText(0, y, catLen, 0, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
-			t.renderer.DrawText(catLen, y, durationLen, 0, style, "("+util.DurationToString(duration)+")")
+			t.renderer.DrawText(0, y, catLen, 1, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
+			t.renderer.DrawText(catLen, y, durationLen, 1, style, "("+util.DurationToString(duration)+")")
 			y++
 		}
 	}
@@ -318,17 +318,17 @@ func (t *TUI) drawLog() {
 		for i := len(t.logReader.Get()) - 1; i >= 0; i-- {
 			entry := &t.logReader.Get()[i]
 
-			t.renderer.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey).Italic(true), entry.Type)
+			t.renderer.DrawText(x, y, w, 1, style.Foreground(tcell.ColorDarkGrey).Italic(true), entry.Type)
 			x += len(entry.Type) + 1
 
-			t.renderer.DrawText(x, y, w, 0, style, entry.Message)
+			t.renderer.DrawText(x, y, w, 1, style, entry.Message)
 			x += len(entry.Message) + 1
 
-			t.renderer.DrawText(x, y, w, 0, style.Foreground(tcell.ColorDarkGrey), entry.Location)
+			t.renderer.DrawText(x, y, w, 1, style.Foreground(tcell.ColorDarkGrey), entry.Location)
 			x += len(entry.Location) + 1
 
 			timeStr := strings.Join(strings.Split(entry.At.String(), " ")[0:2], " ")
-			t.renderer.DrawText(x, y, w, 0, style.Foreground(tcell.ColorLightGrey), timeStr)
+			t.renderer.DrawText(x, y, w, 1, style.Foreground(tcell.ColorLightGrey), timeStr)
 
 			x = 0
 			y++

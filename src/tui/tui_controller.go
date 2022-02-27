@@ -149,7 +149,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				viewParams: &tuiModel.ViewParams,
 			},
 			weather: &WeatherPane{
-				renderer:    renderer,
+				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: weatherDimensions},
 				dimensions:  weatherDimensions,
 				currentDate: &tuiModel.CurrentDate,
 				weather:     &tuiModel.Weather,

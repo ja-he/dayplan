@@ -10,7 +10,7 @@ import (
 )
 
 type WeatherPane struct {
-	renderer   *TUIRenderer
+	renderer   ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
 
 	weather     *weather.Handler
@@ -24,12 +24,16 @@ func (p *WeatherPane) Dimensions() (x, y, w, h int) {
 
 // TODO: pretty sure this doesn't respect dimensions currently
 func (p *WeatherPane) Draw() {
-	// TODO: right now, this hardcodes some stuff it shouldn't.
-	fakeWeatherOffset := 0
-	fakeWeatherWidth := 20
+	x, y, w, h := p.Dimensions()
+
+	background := tcell.StyleDefault
+	p.renderer.DrawBox(x, y, w, h, background)
 
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
-		y := p.toY(timestamp)
+		row := p.toY(timestamp)
+		if row >= y+h {
+			break
+		}
 
 		index := model.DayAndTime{
 			Date:      *p.currentDate,
@@ -46,13 +50,13 @@ func (p *WeatherPane) Draw() {
 				weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xfff0cc)).Foreground(tcell.ColorBlack)
 			}
 
-			p.renderer.DrawBox(weatherStyle, fakeWeatherOffset, y, fakeWeatherWidth, p.viewParams.NRowsPerHour)
+			p.renderer.DrawBox(x, row, w, p.viewParams.NRowsPerHour, weatherStyle)
 
-			p.renderer.DrawText(fakeWeatherOffset, y, fakeWeatherWidth, 0, weatherStyle, weather.Info)
-			p.renderer.DrawText(fakeWeatherOffset, y+1, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
-			p.renderer.DrawText(fakeWeatherOffset, y+2, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%d%% clouds", weather.Clouds))
-			p.renderer.DrawText(fakeWeatherOffset, y+3, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%d%% humidity", weather.Humidity))
-			p.renderer.DrawText(fakeWeatherOffset, y+4, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%2.0f%% chance of rain", 100.0*weather.PrecipitationProbability))
+			p.renderer.DrawText(x, row, w, 1, weatherStyle, weather.Info)
+			p.renderer.DrawText(x, row+1, w, 1, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
+			p.renderer.DrawText(x, row+2, w, 1, weatherStyle, fmt.Sprintf("%d%% clouds", weather.Clouds))
+			p.renderer.DrawText(x, row+3, w, 1, weatherStyle, fmt.Sprintf("%d%% humidity", weather.Humidity))
+			p.renderer.DrawText(x, row+4, w, 1, weatherStyle, fmt.Sprintf("%2.0f%% chance of rain", 100.0*weather.PrecipitationProbability))
 		}
 	}
 }

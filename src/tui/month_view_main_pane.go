@@ -13,7 +13,7 @@ import (
 )
 
 type MonthViewMainPane struct {
-	renderer *TUIRenderer
+	renderer *TUIScreenHandler
 
 	dimensions func() (x, y, w, h int)
 

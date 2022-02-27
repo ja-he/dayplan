@@ -9,7 +9,7 @@ import (
 )
 
 type TimelinePane struct {
-	renderer *TUIRenderer
+	renderer *TUIScreenHandler
 
 	dimensions func() (x, y, w, h int)
 

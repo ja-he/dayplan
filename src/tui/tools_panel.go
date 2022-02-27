@@ -13,7 +13,7 @@ import (
 var errorCategoryStyle = tcell.StyleDefault.Background(tcell.ColorIndianRed)
 
 type ToolsPanel struct {
-	renderer *TUIRenderer
+	renderer *TUIScreenHandler
 
 	dimensions func() (x, y, w, h int)
 
@@ -42,7 +42,7 @@ func (p *ToolsPanel) Draw() {
 		textHeightOffset := box.H / 2
 		textLen := box.W - 2
 		p.renderer.DrawBox(style, box.X, box.Y, box.W, box.H)
-		p.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 0, style, util.TruncateAt(cat.Name, textLen))
+		p.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, style, util.TruncateAt(cat.Name, textLen))
 		if p.currentCategory.Name == cat.Name {
 			p.renderer.DrawBox(colors.DefaultEmphasize(style), box.X+box.W-1, box.Y, 1, box.H)
 		}
