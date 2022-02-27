@@ -22,7 +22,8 @@ type TUI struct {
 
 	dimensions func() (x, y, w, h int)
 
-	dayViewMainPane ui.UIPane
+	dayViewMainPane  ui.UIPane
+	weekViewMainPane ui.UIPane
 
 	// TODO: split up, probably
 	days            *DaysData
@@ -353,53 +354,7 @@ func (t *TUI) Draw() {
 	case ui.ViewDay:
 		t.dayViewMainPane.Draw()
 	case ui.ViewWeek:
-		start, end := t.currentDate.Week()
-		nDays := start.DaysUntil(end) + 1
-		if nDays > w {
-			t.renderer.DrawText(0, 0, w, h,
-				tcell.StyleDefault.Foreground(tcell.ColorRebeccaPurple),
-				"refusing to render week on screen with fewer columns than days")
-			return
-		}
-
-		{
-			firstDayXOffset := 10
-			x := firstDayXOffset
-			dayWidth := (w - firstDayXOffset) / nDays
-
-			t.drawTimelineTmp(0, 0, firstDayXOffset, h-fakeStatusHeight, make([]timestampStyle, 0), nil)
-
-			for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
-				if drawDate == *t.currentDate {
-					t.renderer.DrawBox(dayBGEmph, x, 0, dayWidth, h)
-				} else {
-					t.renderer.DrawBox(dayBG, x, 0, dayWidth, h)
-				}
-				day := t.days.GetDay(drawDate)
-				if day != nil {
-					positions := t.ComputeRects(day, x, 0, dayWidth, h-fakeStatusHeight)
-					for _, e := range day.Events {
-						p := positions[e.ID]
-						style, err := t.categories.GetStyle(e.Cat)
-						if err != nil {
-							panic(err)
-						}
-						if drawDate != *t.currentDate {
-							style = colors.DefaultDim(style)
-						}
-						t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H)
-						t.renderer.DrawText(p.X, p.Y, p.W, 0, style, util.TruncateAt(e.Name, p.W))
-					}
-				} else {
-					loadingText := "⋮"
-					t.renderer.DrawText(x, h/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
-						loadingStyle,
-						loadingText)
-				}
-				x += dayWidth
-			}
-		}
-
+		t.weekViewMainPane.Draw()
 	case ui.ViewMonth:
 		start, end := t.currentDate.MonthBounds()
 		nDays := start.DaysUntil(end) + 1
@@ -490,10 +445,7 @@ func (t *TUI) drawTimeline() {
 	t.drawTimelineTmp(x, y, w, h, special, suntimes)
 }
 
-// Draw a timeline in the TUI at the provided coordinates in the provided
-// dimensions.
-// Optionally provide highlight times such as for the current timestamp as well
-// as suntimes to be displayed on the timeline.
+// TODO: remove
 func (t *TUI) drawTimelineTmp(
 	x, y, w, h int,
 	highlightTimes []timestampStyle,

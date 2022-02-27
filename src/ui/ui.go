@@ -5,7 +5,9 @@ import "github.com/ja-he/dayplan/src/model"
 type UIPaneType int
 
 const (
-	WeatherUIPanelType UIPaneType = iota
+	_ UIPaneType = iota
+	None
+	WeatherUIPanelType
 	TimelineUIPanelType
 	EventsUIPanelType
 	ToolsUIPanelType
