@@ -152,6 +152,24 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 			positions: make(map[model.EventID]util.Rect),
 		},
+		monthViewMainPane: &MonthViewMainPane{
+			renderer:   renderer,
+			dimensions: screenDimensions,
+			status: &StatusPanel{
+				renderer:    renderer,
+				dimensions:  statusDimensions,
+				currentDate: &tuiModel.CurrentDate,
+				activeView:  &tuiModel.activeView,
+			},
+			days:        &tuiModel.Days,
+			currentDate: &tuiModel.CurrentDate,
+			categories:  &tuiModel.CategoryStyling,
+			logReader:   &tuiModel.Log,
+			logWriter:   &tuiModel.Log,
+			viewParams:  &tuiModel.ViewParams,
+
+			positions: make(map[model.EventID]util.Rect),
+		},
 
 		days:            &tuiModel.Days,
 		currentDate:     &tuiModel.CurrentDate,
