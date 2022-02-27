@@ -10,9 +10,6 @@ import (
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
-	"github.com/ja-he/dayplan/src/weather"
-
-	"github.com/gdamore/tcell/v2"
 )
 
 type DayViewMainPane struct {
@@ -23,13 +20,13 @@ type DayViewMainPane struct {
 	tools    ui.UIPane
 	status   ui.UIPane
 	timeline ui.UIPane
+	weather  ui.UIPane
 
 	days        *DaysData
 	currentDate *model.Date
 	categories  *category_style.CategoryStyling
 	logReader   potatolog.LogReader
 	logWriter   potatolog.LogWriter
-	weather     *weather.Handler
 	viewParams  *ViewParams
 	cursor      *CursorPos
 
@@ -38,13 +35,11 @@ type DayViewMainPane struct {
 }
 
 func (p *DayViewMainPane) Draw() {
-	// TODO
-	p.drawWeather()
-	// TODO timeline
 	p.drawEvents()
 
-	p.tools.Draw()
+	p.weather.Draw()
 	p.timeline.Draw()
+	p.tools.Draw()
 	p.status.Draw()
 }
 
@@ -266,38 +261,4 @@ func (t *DayViewMainPane) ComputeRects(day *model.Day, offsetX, offsetY, width, 
 		positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
 	return positions
-}
-
-func (t *DayViewMainPane) drawWeather() {
-	// TODO: right now, this hardcodes some stuff it shouldn't.
-	fakeWeatherOffset := 0
-	fakeWeatherWidth := 20
-
-	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
-		y := t.toY(timestamp)
-
-		index := model.DayAndTime{
-			Date:      *t.currentDate,
-			Timestamp: timestamp,
-		}
-
-		weather, ok := t.weather.Data[index]
-		if ok {
-			weatherStyle := tcell.StyleDefault.Foreground(tcell.ColorLightBlue)
-			switch {
-			case weather.PrecipitationProbability > .25:
-				weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xccebff)).Foreground(tcell.ColorBlack)
-			case weather.Clouds < 25:
-				weatherStyle = weatherStyle.Background(tcell.NewHexColor(0xfff0cc)).Foreground(tcell.ColorBlack)
-			}
-
-			t.renderer.DrawBox(weatherStyle, fakeWeatherOffset, y, fakeWeatherWidth, t.viewParams.NRowsPerHour)
-
-			t.renderer.DrawText(fakeWeatherOffset, y, fakeWeatherWidth, 0, weatherStyle, weather.Info)
-			t.renderer.DrawText(fakeWeatherOffset, y+1, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%2.0f°C", weather.TempC))
-			t.renderer.DrawText(fakeWeatherOffset, y+2, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%d%% clouds", weather.Clouds))
-			t.renderer.DrawText(fakeWeatherOffset, y+3, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%d%% humidity", weather.Humidity))
-			t.renderer.DrawText(fakeWeatherOffset, y+4, fakeWeatherWidth, 0, weatherStyle, fmt.Sprintf("%2.0f%% chance of rain", 100.0*weather.PrecipitationProbability))
-		}
-	}
 }

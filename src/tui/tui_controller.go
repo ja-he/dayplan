@@ -101,6 +101,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
 	toolsDimensions := func() (x, y, w, h int) { w, h = screenSize(); return w - toolsWidth, 0, toolsWidth, h - statusHeight }
 	statusDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, h - statusHeight, w, statusHeight }
+	weatherDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, weatherWidth, h - statusHeight }
 	dayViewTimelineDimensions := func() (x, y, w, h int) {
 		w, h = screenSize()
 		return 0 + weatherWidth, 0, timelineWidth, h - statusHeight
@@ -147,12 +148,18 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				},
 				viewParams: &tuiModel.ViewParams,
 			},
+			weather: &WeatherPane{
+				renderer:    renderer,
+				dimensions:  weatherDimensions,
+				currentDate: &tuiModel.CurrentDate,
+				weather:     &tuiModel.Weather,
+				viewParams:  &tuiModel.ViewParams,
+			},
 			days:        &tuiModel.Days,
 			currentDate: &tuiModel.CurrentDate,
 			categories:  &tuiModel.CategoryStyling,
 			logReader:   &tuiModel.Log,
 			logWriter:   &tuiModel.Log,
-			weather:     &tuiModel.Weather,
 			viewParams:  &tuiModel.ViewParams,
 			cursor:      &tuiModel.cursorPos,
 
