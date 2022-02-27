@@ -3,9 +3,7 @@ package tui
 import (
 	"math"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/ja-he/dayplan/src/category_style"
-	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
@@ -19,20 +17,21 @@ type WeekViewMainPane struct {
 
 	timeline ui.UIPane
 	status   ui.UIPane
+	days     []ui.UIPane
 
-	days        *DaysData
-	currentDate *model.Date
-	categories  *category_style.CategoryStyling
-	logReader   potatolog.LogReader
-	logWriter   potatolog.LogWriter
-	viewParams  *ViewParams
+	categories *category_style.CategoryStyling
+	logReader  potatolog.LogReader
+	logWriter  potatolog.LogWriter
+	viewParams *ViewParams
 
 	// TODO: get rid of this
 	positions map[model.EventID]util.Rect
 }
 
 func (p *WeekViewMainPane) Draw() {
-	p.drawEvents()
+	for i := range p.days {
+		p.days[i].Draw()
+	}
 
 	p.timeline.Draw()
 	p.status.Draw()
@@ -65,63 +64,6 @@ func (t *WeekViewMainPane) TimeAtY(y int) model.Timestamp {
 
 func (t *WeekViewMainPane) toY(ts model.Timestamp) int {
 	return ((ts.Hour*t.viewParams.NRowsPerHour - t.viewParams.ScrollOffset) + (ts.Minute / (60 / t.viewParams.NRowsPerHour)))
-}
-
-func (t *WeekViewMainPane) drawEvents() {
-	_, _, w, h := t.Dimensions()
-	fakeStatusHeight := 2 // TODO: hardcoded just for now
-
-	// TODO: define all styles here (prep to probably move out further)
-	headerBG := tcell.StyleDefault.Background(colors.ColorFromHexString("#f0f0f0")).Foreground(tcell.ColorBlack)
-	headerBGEmph := colors.DefaultEmphasize(headerBG)
-	dayBG := tcell.StyleDefault
-	dayBGEmph := headerBGEmph
-	loadingStyle := dayBG.Foreground(tcell.ColorLightSeaGreen)
-
-	start, end := t.currentDate.Week()
-	nDays := start.DaysUntil(end) + 1
-	if nDays > w {
-		t.renderer.DrawText(0, 0, w, h,
-			tcell.StyleDefault.Foreground(tcell.ColorRebeccaPurple),
-			"refusing to render week on screen with fewer columns than days")
-		return
-	}
-
-	{
-		firstDayXOffset := 10
-		x := firstDayXOffset
-		dayWidth := (w - firstDayXOffset) / nDays
-
-		for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
-			if drawDate == *t.currentDate {
-				t.renderer.DrawBox(dayBGEmph, x, 0, dayWidth, h)
-			} else {
-				t.renderer.DrawBox(dayBG, x, 0, dayWidth, h)
-			}
-			day := t.days.GetDay(drawDate)
-			if day != nil {
-				positions := t.ComputeRects(day, x, 0, dayWidth, h-fakeStatusHeight)
-				for _, e := range day.Events {
-					p := positions[e.ID]
-					style, err := t.categories.GetStyle(e.Cat)
-					if err != nil {
-						panic(err)
-					}
-					if drawDate != *t.currentDate {
-						style = colors.DefaultDim(style)
-					}
-					t.renderer.DrawBox(style, p.X, p.Y, p.W, p.H)
-					t.renderer.DrawText(p.X, p.Y, p.W, 0, style, util.TruncateAt(e.Name, p.W))
-				}
-			} else {
-				loadingText := "⋮"
-				t.renderer.DrawText(x, h/2-len([]rune(loadingText)), 1, len([]rune(loadingText)),
-					loadingStyle,
-					loadingText)
-			}
-			x += dayWidth
-		}
-	}
 }
 
 func (t *WeekViewMainPane) ComputeRects(day *model.Day, offsetX, offsetY, width, height int) map[model.EventID]util.Rect {

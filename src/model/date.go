@@ -230,6 +230,15 @@ func (d Date) Week() (monday Date, sunday Date) {
 	return d, d.Forward(6)
 }
 
+// GetDayInWeek returns the date that is on the weekday for the given index in
+// the week the receiver is in.
+//
+// Index here means that 0 is Monday, 6 is Sunday.
+func (d Date) GetDayInWeek(index int) Date {
+	start, _ := d.Week()
+	return start.Forward(index)
+}
+
 func (d Date) MonthBounds() (first Date, last Date) {
 	first = d.getFirstOfMonth()
 	last = d.getLastOfMonth()

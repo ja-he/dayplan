@@ -336,3 +336,20 @@ func TestDaysUntil(t *testing.T) {
 		}
 	}
 }
+
+func TestGetDayInWeek(t *testing.T) {
+	{
+		testcase := "getting Monday for a Wednesday"
+		input := Date{2022, 3, 9}
+
+		expected := Date{2022, 3, 7}
+		result := input.GetDayInWeek(0)
+
+		if result != expected {
+			log.Fatalf("testcase '%s' for `GetDayInWeek` failed: expected %s, got %s",
+				testcase, expected.ToString(), result.ToString())
+		}
+	}
+
+	// TODO
+}

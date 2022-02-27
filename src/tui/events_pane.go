@@ -25,6 +25,11 @@ type EventsPane struct {
 	logReader potatolog.LogReader
 	logWriter potatolog.LogWriter
 
+	padRight       int
+	drawTimestamps bool
+	drawNames      bool
+	isCurrent      func() bool
+
 	// TODO: get rid of this
 	positions map[model.EventID]util.Rect
 }
@@ -52,41 +57,62 @@ func (t *EventsPane) Draw() {
 
 	if day == nil {
 		t.logWriter.Add("DEBUG", "current day nil on render; skipping")
+		// TODO: just draw this, man
 		return
 	}
-	t.positions = t.ComputeRects(day, x, y, w-2, h)
+	t.positions = t.ComputeRects(day, x, y, w-t.padRight, h)
 	for _, e := range day.Events {
 		style, err := t.categories.GetStyle(e.Cat)
 		if err != nil {
 			t.logWriter.Add("ERROR", err.Error())
 		}
+		if !t.isCurrent() {
+			style = colors.DefaultDim(style)
+		}
+
 		// based on event state, draw a box or maybe a smaller one, or ...
 		p := t.positions[e.ID]
+		var timestampWidth int
+		if t.drawTimestamps {
+			timestampWidth = 5
+		} else {
+			timestampWidth = 0
+		}
+		namePadding := 1
+		nameWidth := p.W - (2 * namePadding) - timestampWidth
 		hovered := t.getEventForPos(t.cursor.X, t.cursor.Y)
 		if hovered.Event != e.ID {
 			t.renderer.DrawBox(p.X, p.Y, p.W, p.H, style)
-			t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
-			t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-			t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+			t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
+			if t.drawTimestamps {
+				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
+				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+			}
 		} else {
 			selStyle := colors.DefaultEmphasize(style)
 			switch hovered.HoverState {
 			case ui.EventHoverStateResize:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H-1, style)
 				t.renderer.DrawBox(p.X, p.Y+p.H-1, p.W, 1, selStyle)
-				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, style, util.TruncateAt(e.Name, p.W-7))
-				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
+				if t.drawTimestamps {
+					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+				}
 			case ui.EventHoverStateMove:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, selStyle)
-				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
-				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
-				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
+				if t.drawTimestamps {
+					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+				}
 			case ui.EventHoverStateEdit:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, style)
-				t.renderer.DrawText(p.X+1, p.Y, p.W-7, p.H, selStyle, util.TruncateAt(e.Name, p.W-7))
-				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
+				if t.drawTimestamps {
+					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+				}
 			default:
 				panic("don't know this hover state!")
 			}
