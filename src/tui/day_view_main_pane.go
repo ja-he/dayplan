@@ -20,8 +20,9 @@ type DayViewMainPane struct {
 
 	dimensions func() (x, y, w, h int)
 
-	tools  ui.UIPane
-	status ui.UIPane
+	tools    ui.UIPane
+	status   ui.UIPane
+	timeline ui.UIPane
 
 	days        *DaysData
 	currentDate *model.Date
@@ -43,6 +44,7 @@ func (p *DayViewMainPane) Draw() {
 	p.drawEvents()
 
 	p.tools.Draw()
+	p.timeline.Draw()
 	p.status.Draw()
 }
 

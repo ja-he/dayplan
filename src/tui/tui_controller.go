@@ -93,12 +93,18 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 	toolsWidth := 20
 	statusHeight := 2
+	weatherWidth := 20
+	timelineWidth := 10
 
 	renderer := NewTUIRenderer()
 	screenSize := func() (w, h int) { return renderer.GetScreenDimensions() }
 	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
 	toolsDimensions := func() (x, y, w, h int) { w, h = screenSize(); return w - toolsWidth, 0, toolsWidth, h - statusHeight }
 	statusDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, h - statusHeight, w, statusHeight }
+	dayViewTimelineDimensions := func() (x, y, w, h int) {
+		w, h = screenSize()
+		return 0 + weatherWidth, 0, timelineWidth, h - statusHeight
+	}
 
 	tuiModel := NewTUIModel(categoryStyling)
 	tui := TUI{
@@ -122,6 +128,19 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				dimensions:  statusDimensions,
 				currentDate: &tuiModel.CurrentDate,
 				activeView:  &tuiModel.activeView,
+			},
+			timeline: &TimelinePane{
+				renderer:   renderer,
+				dimensions: dayViewTimelineDimensions,
+				suntimes:   tuiModel.GetCurrentSuntimes,
+				currentTime: func() *model.Timestamp {
+					if tuiModel.CurrentDate.Is(time.Now()) {
+						return model.NewTimestampFromGotime(time.Now())
+					} else {
+						return nil
+					}
+				},
+				viewParams: &tuiModel.ViewParams,
 			},
 			days:        &tuiModel.Days,
 			currentDate: &tuiModel.CurrentDate,
