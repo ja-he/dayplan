@@ -105,6 +105,10 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		w, h = screenSize()
 		return 0 + weatherWidth, 0, timelineWidth, h - statusHeight
 	}
+	weekViewTimelineDimensions := func() (x, y, w, h int) {
+		w, h = screenSize()
+		return 0, 0, timelineWidth, h - statusHeight
+	}
 
 	tuiModel := NewTUIModel(categoryStyling)
 	tui := TUI{
@@ -161,6 +165,13 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				dimensions:  statusDimensions,
 				currentDate: &tuiModel.CurrentDate,
 				activeView:  &tuiModel.activeView,
+			},
+			timeline: &TimelinePane{
+				renderer:    renderer,
+				dimensions:  weekViewTimelineDimensions,
+				suntimes:    func() *model.SunTimes { return nil },
+				currentTime: func() *model.Timestamp { return nil },
+				viewParams:  &tuiModel.ViewParams,
 			},
 			days:        &tuiModel.Days,
 			currentDate: &tuiModel.CurrentDate,

@@ -2,7 +2,6 @@ package tui
 
 import (
 	"math"
-	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/ja-he/dayplan/src/category_style"
@@ -18,8 +17,8 @@ type WeekViewMainPane struct {
 
 	dimensions func() (x, y, w, h int)
 
-	// TODO timeline
-	status ui.UIPane
+	timeline ui.UIPane
+	status   ui.UIPane
 
 	days        *DaysData
 	currentDate *model.Date
@@ -33,9 +32,9 @@ type WeekViewMainPane struct {
 }
 
 func (p *WeekViewMainPane) Draw() {
-	// TODO timeline
 	p.drawEvents()
 
+	p.timeline.Draw()
 	p.status.Draw()
 }
 
@@ -92,8 +91,6 @@ func (t *WeekViewMainPane) drawEvents() {
 		firstDayXOffset := 10
 		x := firstDayXOffset
 		dayWidth := (w - firstDayXOffset) / nDays
-
-		t.drawTimelineTmp(0, 0, firstDayXOffset, h-fakeStatusHeight, make([]timestampStyle, 0), nil)
 
 		for drawDate := start; drawDate != end.Next(); drawDate = drawDate.Next() {
 			if drawDate == *t.currentDate {
@@ -157,52 +154,4 @@ func (t *WeekViewMainPane) ComputeRects(day *model.Day, offsetX, offsetY, width,
 		positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
 	return positions
-}
-
-// TODO: remove
-func (t *WeekViewMainPane) drawTimelineTmp(
-	x, y, w, h int,
-	highlightTimes []timestampStyle,
-	suntimes *model.SunTimes) {
-
-	timestampLength := 5
-	timestampLPad := strings.Repeat(" ", w-timestampLength-1)
-	timestampRPad := " "
-	emptyTimestamp := strings.Repeat(" ", timestampLength)
-	defaultStyle := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
-
-	if t.viewParams.NRowsPerHour == 0 {
-		panic("RES IS ZERO?!")
-	}
-
-	for virtRow := 0; virtRow <= h; virtRow++ {
-		timestamp := t.TimeAtY(virtRow)
-
-		if timestamp.Hour >= 24 {
-			break
-		}
-
-		var timestampString string
-		if timestamp.Minute == 0 {
-			timestampString = timestamp.ToString()
-		} else {
-			timestampString = emptyTimestamp
-		}
-		timeText := timestampLPad + timestampString + timestampRPad
-
-		var style tcell.Style
-		if suntimes != nil && (!(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set))) {
-			style = defaultStyle.Background(tcell.ColorBlack)
-		} else {
-			style = defaultStyle
-		}
-
-		t.renderer.DrawText(x, virtRow+y, w, 1, style, timeText)
-	}
-	for _, timestampStyle := range highlightTimes {
-		timestamp := timestampStyle.timestamp
-		style := timestampStyle.style
-		timeText := timestampLPad + timestamp.ToString() + timestampRPad
-		t.renderer.DrawText(x, t.toY(timestamp)+y, w, 1, style, timeText)
-	}
 }
