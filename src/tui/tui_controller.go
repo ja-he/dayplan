@@ -101,9 +101,21 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
 	toolsDimensions := func() (x, y, w, h int) { w, h = screenSize(); return w - toolsWidth, 0, toolsWidth, h - statusHeight }
 	statusDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, h - statusHeight, w, statusHeight }
-	weatherDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, weatherWidth, h - statusHeight }
+	dayViewMainPaneDimensions := screenDimensions
+	weatherDimensions := func() (x, y, w, h int) {
+		x, y, _, h = dayViewMainPaneDimensions()
+		return x, y, weatherWidth, h - statusHeight
+	}
+	dayViewEventsPaneDimensions := func() (x, y, w, h int) {
+		ox, oy, ow, oh := dayViewMainPaneDimensions()
+		x = ox + weatherWidth + timelineWidth
+		y = oy
+		w = ow - x - toolsWidth
+		h = oh - statusHeight
+		return x, y, w, h
+	}
 	dayViewTimelineDimensions := func() (x, y, w, h int) {
-		w, h = screenSize()
+		_, _, w, h = dayViewMainPaneDimensions()
 		return 0 + weatherWidth, 0, timelineWidth, h - statusHeight
 	}
 	weekViewTimelineDimensions := func() (x, y, w, h int) {
@@ -119,7 +131,19 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 		dayViewMainPane: &DayViewMainPane{
 			renderer:   renderer,
-			dimensions: screenDimensions,
+			dimensions: dayViewMainPaneDimensions,
+			events: &EventsPane{
+				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewEventsPaneDimensions},
+				dimensions:  dayViewEventsPaneDimensions,
+				days:        &tuiModel.Days,
+				currentDate: &tuiModel.CurrentDate,
+				categories:  &tuiModel.CategoryStyling,
+				viewParams:  &tuiModel.ViewParams,
+				cursor:      &tuiModel.cursorPos,
+				logReader:   &tuiModel.Log,
+				logWriter:   &tuiModel.Log,
+				positions:   make(map[model.EventID]util.Rect),
+			},
 			tools: &ToolsPanel{
 				renderer:        renderer,
 				dimensions:      toolsDimensions,
@@ -155,15 +179,6 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				weather:     &tuiModel.Weather,
 				viewParams:  &tuiModel.ViewParams,
 			},
-			days:        &tuiModel.Days,
-			currentDate: &tuiModel.CurrentDate,
-			categories:  &tuiModel.CategoryStyling,
-			logReader:   &tuiModel.Log,
-			logWriter:   &tuiModel.Log,
-			viewParams:  &tuiModel.ViewParams,
-			cursor:      &tuiModel.cursorPos,
-
-			positions: make(map[model.EventID]util.Rect),
 		},
 		weekViewMainPane: &WeekViewMainPane{
 			renderer:   renderer,
