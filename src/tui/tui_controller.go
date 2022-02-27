@@ -135,7 +135,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			return baseX + timelineWidth + (dayIndex * dayWidth), baseY, dayWidth, baseH - statusHeight
 		}
 	}
-	weekdayPane := func(dayIndex int) *EventsPane {
+	weekdayPane := func(dayIndex int) ui.UIPane {
 		return &EventsPane{
 			renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: weekdayDimensions(dayIndex)},
 			dimensions:     weekdayDimensions(dayIndex),
@@ -152,10 +152,104 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			positions:      make(map[model.EventID]util.Rect),
 		}
 	}
+	monthdayDimensions := func(dayIndex int) func() (x, y, w, h int) {
+		return func() (x, y, w, h int) {
+			baseX, baseY, baseW, baseH := monthViewMainPaneDimensions()
+			eventsWidth := baseW - timelineWidth
+			dayWidth := eventsWidth / 31
+			return baseX + timelineWidth + (dayIndex * dayWidth), baseY, dayWidth, baseH - statusHeight
+		}
+	}
+	monthdayPane := func(dayIndex int) ui.UIPane {
+		return &MaybeEventsPane{
+			condition: func() bool { return tuiModel.CurrentDate.GetDayInMonth(dayIndex).Month == tuiModel.CurrentDate.Month },
+			eventsPane: &EventsPane{
+				renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: monthdayDimensions(dayIndex)},
+				dimensions:     monthdayDimensions(dayIndex),
+				day:            func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInMonth(dayIndex)) },
+				categories:     &tuiModel.CategoryStyling,
+				viewParams:     &tuiModel.ViewParams,
+				cursor:         &tuiModel.cursorPos,
+				padRight:       0,
+				drawTimestamps: false,
+				drawNames:      false,
+				isCurrent:      func() bool { return tuiModel.CurrentDate.GetDayInMonth(dayIndex) == tuiModel.CurrentDate },
+				logReader:      &tuiModel.Log,
+				logWriter:      &tuiModel.Log,
+				positions:      make(map[model.EventID]util.Rect),
+			},
+		}
+	}
 
 	weekViewEventsPanes := make([]ui.UIPane, 7)
 	for i := range weekViewEventsPanes {
 		weekViewEventsPanes[i] = weekdayPane(i)
+	}
+
+	monthViewEventsPanes := make([]ui.UIPane, 31)
+	for i := range monthViewEventsPanes {
+		monthViewEventsPanes[i] = monthdayPane(i)
+	}
+
+	statusPane := &StatusPanel{
+		renderer:    renderer,
+		dimensions:  statusDimensions,
+		currentDate: &tuiModel.CurrentDate,
+		dayWidth: func() int {
+			_, _, w, _ := statusDimensions()
+			switch tuiModel.activeView {
+			case ui.ViewDay:
+				return w - timelineWidth
+			case ui.ViewWeek:
+				return (w - timelineWidth) / 7
+			case ui.ViewMonth:
+				return (w - timelineWidth) / 31
+			default:
+				panic("unknown view for status rendering")
+			}
+		},
+		totalDaysInPeriod: func() int {
+			switch tuiModel.activeView {
+			case ui.ViewDay:
+				return 1
+			case ui.ViewWeek:
+				return 7
+			case ui.ViewMonth:
+				return tuiModel.CurrentDate.GetLastOfMonth().Day
+			default:
+				panic("unknown view for status rendering")
+			}
+		},
+		passedDaysInPeriod: func() int {
+			switch tuiModel.activeView {
+			case ui.ViewDay:
+				return 1
+			case ui.ViewWeek:
+				switch tuiModel.CurrentDate.ToWeekday() {
+				case time.Monday:
+					return 1
+				case time.Tuesday:
+					return 2
+				case time.Wednesday:
+					return 3
+				case time.Thursday:
+					return 4
+				case time.Friday:
+					return 5
+				case time.Saturday:
+					return 6
+				case time.Sunday:
+					return 7
+				default:
+					panic("unknown weekday for status rendering")
+				}
+			case ui.ViewMonth:
+				return tuiModel.CurrentDate.Day
+			default:
+				panic("unknown view for status rendering")
+			}
+		},
+		firstDayXOffset: func() int { return timelineWidth },
 	}
 
 	tui := TUI{
@@ -189,12 +283,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				vertPadding:     1,
 				gap:             0,
 			},
-			status: &StatusPanel{
-				renderer:    renderer,
-				dimensions:  statusDimensions,
-				currentDate: &tuiModel.CurrentDate,
-				activeView:  &tuiModel.activeView,
-			},
+			status: statusPane,
 			timeline: &TimelinePane{
 				renderer:   renderer,
 				dimensions: dayViewTimelineDimensions,
@@ -219,12 +308,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		weekViewMainPane: &WeekViewMainPane{
 			renderer:   renderer,
 			dimensions: weekViewMainPaneDimensions,
-			status: &StatusPanel{
-				renderer:    renderer,
-				dimensions:  statusDimensions,
-				currentDate: &tuiModel.CurrentDate,
-				activeView:  &tuiModel.activeView,
-			},
+			status:     statusPane,
 			timeline: &TimelinePane{
 				renderer:    renderer,
 				dimensions:  weekViewTimelineDimensions,
@@ -243,12 +327,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		monthViewMainPane: &MonthViewMainPane{
 			renderer:   renderer,
 			dimensions: monthViewMainPaneDimensions,
-			status: &StatusPanel{
-				renderer:    renderer,
-				dimensions:  statusDimensions,
-				currentDate: &tuiModel.CurrentDate,
-				activeView:  &tuiModel.activeView,
-			},
+			status:     statusPane,
 			timeline: &TimelinePane{
 				renderer:    renderer,
 				dimensions:  monthViewTimelineDimensions,
@@ -256,14 +335,11 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				currentTime: func() *model.Timestamp { return nil },
 				viewParams:  &tuiModel.ViewParams,
 			},
-			days:        &tuiModel.Days,
-			currentDate: &tuiModel.CurrentDate,
-			categories:  &tuiModel.CategoryStyling,
-			logReader:   &tuiModel.Log,
-			logWriter:   &tuiModel.Log,
-			viewParams:  &tuiModel.ViewParams,
-
-			positions: make(map[model.EventID]util.Rect),
+			days:       monthViewEventsPanes,
+			categories: &tuiModel.CategoryStyling,
+			logReader:  &tuiModel.Log,
+			logWriter:  &tuiModel.Log,
+			viewParams: &tuiModel.ViewParams,
 		},
 
 		days:            &tuiModel.Days,

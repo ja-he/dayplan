@@ -46,7 +46,7 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 		tools:          ui.ToolsPanelPositionInfo{},
 		status:         ui.StatusPanelPositionInfo{},
 		events:         p.getEventForPos(x, y),
-		timestampGuess: p.TimeAtY(y),
+		timestampGuess: p.viewParams.TimeAtY(y),
 	}
 }
 
@@ -83,7 +83,9 @@ func (t *EventsPane) Draw() {
 		hovered := t.getEventForPos(t.cursor.X, t.cursor.Y)
 		if hovered.Event != e.ID {
 			t.renderer.DrawBox(p.X, p.Y, p.W, p.H, style)
-			t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
+			if t.drawNames {
+				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
+			}
 			if t.drawTimestamps {
 				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
@@ -94,21 +96,27 @@ func (t *EventsPane) Draw() {
 			case ui.EventHoverStateResize:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H-1, style)
 				t.renderer.DrawBox(p.X, p.Y+p.H-1, p.W, 1, selStyle)
-				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
+				if t.drawNames {
+					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
+				}
 				if t.drawTimestamps {
 					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
 				}
 			case ui.EventHoverStateMove:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, selStyle)
-				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
+				if t.drawNames {
+					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
+				}
 				if t.drawTimestamps {
 					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
 					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
 				}
 			case ui.EventHoverStateEdit:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, style)
-				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
+				if t.drawNames {
+					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
+				}
 				if t.drawTimestamps {
 					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
@@ -141,7 +149,7 @@ func (t *EventsPane) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
 				return ui.EventsPanelPositionInfo{
 					Event:           currentDay.Events[i].ID,
 					HoverState:      hover,
-					TimeUnderCursor: t.TimeAtY(y),
+					TimeUnderCursor: t.viewParams.TimeAtY(y),
 				}
 			}
 		}
@@ -149,17 +157,8 @@ func (t *EventsPane) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
 	return ui.EventsPanelPositionInfo{
 		Event:           0,
 		HoverState:      ui.EventHoverStateNone,
-		TimeUnderCursor: t.TimeAtY(y),
+		TimeUnderCursor: t.viewParams.TimeAtY(y),
 	}
-}
-
-// TODO: remove, this will be part of info returned to controller on query
-func (t *EventsPane) TimeAtY(y int) model.Timestamp {
-	minutes := y*(60/t.viewParams.NRowsPerHour) + t.viewParams.ScrollOffset*(60/t.viewParams.NRowsPerHour)
-
-	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
-
-	return ts
 }
 
 func (t *EventsPane) ComputeRects(day *model.Day, offsetX, offsetY, width, height int) map[model.EventID]util.Rect {
@@ -196,4 +195,35 @@ func (t *EventsPane) ComputeRects(day *model.Day, offsetX, offsetY, width, heigh
 
 func (t *EventsPane) toY(ts model.Timestamp) int {
 	return ((ts.Hour*t.viewParams.NRowsPerHour - t.viewParams.ScrollOffset) + (ts.Minute / (60 / t.viewParams.NRowsPerHour)))
+}
+
+// this type exists to allow us to represent the variable length months in
+// panes easily.
+type MaybeEventsPane struct {
+	eventsPane ui.UIPane
+	condition  func() bool
+}
+
+func (p *MaybeEventsPane) Draw() {
+	if p.condition() {
+		p.eventsPane.Draw()
+	}
+}
+func (p *MaybeEventsPane) Dimensions() (x, y, w, h int) { return p.eventsPane.Dimensions() }
+func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
+	someInfo := p.eventsPane.GetPositionInfo(x, y)
+	if p.condition() {
+		return someInfo
+	} else {
+		timestampGuess, _ := someInfo.GetCursorTimestampGuess()
+		return &TUIPositionInfo{
+			paneType:       ui.None,
+			weather:        ui.WeatherPanelPositionInfo{},
+			timeline:       ui.TimelinePanelPositionInfo{},
+			tools:          ui.ToolsPanelPositionInfo{},
+			status:         ui.StatusPanelPositionInfo{},
+			events:         ui.EventsPanelPositionInfo{},
+			timestampGuess: *timestampGuess,
+		}
+	}
 }

@@ -67,6 +67,12 @@ type ViewParams struct {
 	ScrollOffset int
 }
 
+func (p *ViewParams) TimeAtY(y int) model.Timestamp {
+	minutes := y*(60/p.NRowsPerHour) + p.ScrollOffset*(60/p.NRowsPerHour)
+	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
+	return ts
+}
+
 type CursorPos struct {
 	X, Y int
 }
