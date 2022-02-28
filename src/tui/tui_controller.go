@@ -97,10 +97,16 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	statusHeight := 2
 	weatherWidth := 20
 	timelineWidth := 10
+	helpWidth := 80
+	helpHeight := 30
 
 	renderer := NewTUIRenderer()
 	screenSize := func() (w, h int) { return renderer.GetScreenDimensions() }
 	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
+	helpDimensions := func() (x, y, w, h int) {
+		w, h = screenSize()
+		return (w / 2) - (helpWidth / 2), (h / 2) - (helpHeight / 2), helpWidth, helpHeight
+	}
 	toolsDimensions := func() (x, y, w, h int) { w, h = screenSize(); return w - toolsWidth, 0, toolsWidth, h - statusHeight }
 	statusDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, h - statusHeight, w, statusHeight }
 	dayViewMainPaneDimensions := screenDimensions
@@ -393,6 +399,11 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			condition:   func() bool { return tuiModel.showLog },
 			titleString: func() string { return "LOG" },
 			logReader:   &tuiModel.Log,
+		},
+		help: &HelpPane{
+			renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: helpDimensions},
+			dimensions: helpDimensions,
+			condition:  func() bool { return tuiModel.showHelp },
 		},
 
 		eventEditor: &tuiModel.EventEditor,
