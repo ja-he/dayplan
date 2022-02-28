@@ -99,14 +99,20 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	timelineWidth := 10
 	helpWidth := 80
 	helpHeight := 30
+	editorWidth := 80
+	editorHeight := 20
 
 	renderer := NewTUIRenderer()
 	screenSize := func() (w, h int) { return renderer.GetScreenDimensions() }
 	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
-	helpDimensions := func() (x, y, w, h int) {
-		w, h = screenSize()
-		return (w / 2) - (helpWidth / 2), (h / 2) - (helpHeight / 2), helpWidth, helpHeight
+	centeredFloat := func(floatWidth, floatHeight int) func() (x, y, w, h int) {
+		return func() (x, y, w, h int) {
+			screenWidth, screenHeight := screenSize()
+			return (screenWidth / 2) - (floatWidth / 2), (screenHeight / 2) - (floatHeight / 2), floatWidth, floatHeight
+		}
 	}
+	helpDimensions := centeredFloat(helpWidth, helpHeight)
+	editorDimensions := centeredFloat(editorWidth, editorHeight)
 	toolsDimensions := func() (x, y, w, h int) { w, h = screenSize(); return w - toolsWidth, 0, toolsWidth, h - statusHeight }
 	statusDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, h - statusHeight, w, statusHeight }
 	dayViewMainPaneDimensions := screenDimensions
@@ -405,12 +411,16 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			dimensions: helpDimensions,
 			condition:  func() bool { return tuiModel.showHelp },
 		},
+		editor: &EditorPane{
+			renderer:         &TUIConstrainedRenderer{screenHandler: renderer, constraint: editorDimensions},
+			cursorController: renderer,
+			dimensions:       editorDimensions,
+			condition:        func() bool { return tuiModel.EventEditor.Active },
+			name:             func() string { return tuiModel.EventEditor.TmpEventInfo.Name },
+			cursorPos:        func() int { return tuiModel.EventEditor.CursorPos },
+		},
 
-		eventEditor: &tuiModel.EventEditor,
-		showHelp:    &tuiModel.showHelp,
-		showLog:     &tuiModel.showLog,
-		activeView:  &tuiModel.activeView,
-		logWriter:   &tuiModel.Log,
+		activeView: &tuiModel.activeView,
 	}
 
 	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")

@@ -2,7 +2,6 @@ package tui
 
 import (
 	"github.com/ja-he/dayplan/src/model"
-	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
 
 	"github.com/gdamore/tcell/v2"
@@ -20,14 +19,10 @@ type TUI struct {
 	summary ui.UIPane
 	log     ui.UIPane
 
-	help ui.UIPane
+	help   ui.UIPane
+	editor ui.UIPane
 
-	// TODO: split up, probably
-	eventEditor *EventEditor
-	showHelp    *bool
-	showLog     *bool
-	activeView  *ui.ActiveView
-	logWriter   potatolog.LogWriter
+	activeView *ui.ActiveView
 }
 
 func (t *TUI) Dimensions() (x, y, w, h int) {
@@ -109,32 +104,6 @@ func (v *TUI) NeedsSync() {
 	v.renderer.NeedsSync()
 }
 
-const editorWidth = 80
-const editorHeight = 20
-
-func (t *TUI) getScreenCenter() (int, int) {
-	w, h := t.renderer.GetScreenDimensions()
-	x := w / 2
-	y := h / 2
-	return x, y
-}
-
-func (t *TUI) drawEditor() {
-	editor := t.eventEditor
-	style := tcell.StyleDefault.Background(tcell.ColorLightGrey).Foreground(tcell.ColorBlack)
-	if editor.Active {
-		x, y := t.getScreenCenter()
-		x -= editorWidth / 2
-		y -= editorHeight / 2
-		t.renderer.DrawBox(style, x, y, editorWidth, editorHeight)
-		t.renderer.DrawText(x+1, y+1, editorWidth-2, editorHeight-2, style, editor.TmpEventInfo.Name)
-		t.renderer.ShowCursor(x+1+(editor.CursorPos%(editorWidth-2)), y+1+(editor.CursorPos/(editorWidth-2)))
-		// TODO(ja-he): wrap at word boundary
-	} else {
-		t.renderer.HideCursor()
-	}
-}
-
 func (t *TUI) Draw() {
 	t.renderer.Clear()
 
@@ -146,7 +115,7 @@ func (t *TUI) Draw() {
 	case ui.ViewMonth:
 		t.monthViewMainPane.Draw()
 	}
-	t.drawEditor()
+	t.editor.Draw()
 	t.log.Draw()
 	t.summary.Draw()
 	t.help.Draw()

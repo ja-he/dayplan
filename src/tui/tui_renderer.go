@@ -16,6 +16,11 @@ type ConstrainedRenderer interface {
 	DrawText(x, y, w, h int, style tcell.Style, text string)
 }
 
+type CursorController interface {
+	HideCursor()
+	ShowCursor(x, y int)
+}
+
 func (r *TUIConstrainedRenderer) Constrain(rawX, rawY, rawW, rawH int) (constrainedX, constrainedY, constrainedW, constrainedH int) {
 	xConstraint, yConstraint, wConstraint, hConstraint := r.constraint()
 
