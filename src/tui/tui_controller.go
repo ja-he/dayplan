@@ -387,12 +387,18 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			},
 			categories: &tuiModel.CategoryStyling,
 		},
+		log: &LogPane{
+			renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
+			dimensions:  screenDimensions,
+			condition:   func() bool { return tuiModel.showLog },
+			titleString: func() string { return "LOG" },
+			logReader:   &tuiModel.Log,
+		},
 
 		eventEditor: &tuiModel.EventEditor,
 		showHelp:    &tuiModel.showHelp,
 		showLog:     &tuiModel.showLog,
 		activeView:  &tuiModel.activeView,
-		logReader:   &tuiModel.Log,
 		logWriter:   &tuiModel.Log,
 	}
 

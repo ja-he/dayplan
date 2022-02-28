@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"strings"
-
 	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
@@ -21,13 +19,13 @@ type TUI struct {
 	monthViewMainPane ui.UIPane
 
 	summary ui.UIPane
+	log     ui.UIPane
 
 	// TODO: split up, probably
 	eventEditor *EventEditor
 	showHelp    *bool
 	showLog     *bool
 	activeView  *ui.ActiveView
-	logReader   potatolog.LogReader
 	logWriter   potatolog.LogWriter
 }
 
@@ -213,37 +211,6 @@ func (t *TUI) drawHelp() {
 	}
 }
 
-func (t *TUI) drawLog() {
-	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
-	if *t.showLog {
-		_, _, w, h := t.Dimensions()
-		x, y := 0, 2
-
-		t.renderer.DrawBox(style, 0, 0, w, h)
-		title := "LOG"
-		t.renderer.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
-		t.renderer.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
-		for i := len(t.logReader.Get()) - 1; i >= 0; i-- {
-			entry := &t.logReader.Get()[i]
-
-			t.renderer.DrawText(x, y, w, 1, style.Foreground(tcell.ColorDarkGrey).Italic(true), entry.Type)
-			x += len(entry.Type) + 1
-
-			t.renderer.DrawText(x, y, w, 1, style, entry.Message)
-			x += len(entry.Message) + 1
-
-			t.renderer.DrawText(x, y, w, 1, style.Foreground(tcell.ColorDarkGrey), entry.Location)
-			x += len(entry.Location) + 1
-
-			timeStr := strings.Join(strings.Split(entry.At.String(), " ")[0:2], " ")
-			t.renderer.DrawText(x, y, w, 1, style.Foreground(tcell.ColorLightGrey), timeStr)
-
-			x = 0
-			y++
-		}
-	}
-}
-
 func (t *TUI) Draw() {
 	t.renderer.Clear()
 
@@ -256,7 +223,7 @@ func (t *TUI) Draw() {
 		t.monthViewMainPane.Draw()
 	}
 	t.drawEditor()
-	t.drawLog()
+	t.log.Draw()
 	t.summary.Draw()
 	t.drawHelp()
 
