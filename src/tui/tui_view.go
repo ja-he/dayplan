@@ -1,16 +1,12 @@
 package tui
 
 import (
-	"fmt"
-	"sort"
 	"strings"
 
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
-	"github.com/ja-he/dayplan/src/util"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -24,20 +20,15 @@ type TUI struct {
 	weekViewMainPane  ui.UIPane
 	monthViewMainPane ui.UIPane
 
+	summary ui.UIPane
+
 	// TODO: split up, probably
-	days            *DaysData
-	currentDate     *model.Date
-	currentCategory *model.Category
-	categories      *category_style.CategoryStyling
-	eventEditor     *EventEditor
-	showHelp        *bool
-	showSummary     *bool
-	showLog         *bool
-	activeView      *ui.ActiveView
-	logReader       potatolog.LogReader
-	logWriter       potatolog.LogWriter
-	viewParams      *ViewParams
-	cursor          *CursorPos
+	eventEditor *EventEditor
+	showHelp    *bool
+	showLog     *bool
+	activeView  *ui.ActiveView
+	logReader   potatolog.LogReader
+	logWriter   potatolog.LogWriter
 }
 
 func (t *TUI) Dimensions() (x, y, w, h int) {
@@ -222,89 +213,6 @@ func (t *TUI) drawHelp() {
 	}
 }
 
-// Draws the time summary view over top of all previously drawn contents, if it
-// is currently active.
-func (t *TUI) drawSummary() {
-	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
-	if *t.showSummary {
-		y := 2
-		_, _, w, h := t.Dimensions()
-
-		t.renderer.DrawBox(style, 0, 0, w, h)
-		dateString := ""
-		switch *t.activeView {
-		case ui.ViewDay:
-			dateString = t.currentDate.ToString()
-		case ui.ViewWeek:
-			start, end := t.currentDate.Week()
-			dateString = fmt.Sprintf("week %s..%s", start.ToString(), end.ToString())
-		case ui.ViewMonth:
-			dateString = fmt.Sprintf("%s %d", t.currentDate.ToGotime().Month().String(), t.currentDate.Year)
-		}
-		title := fmt.Sprintf("SUMMARY (%s)", dateString)
-		t.renderer.DrawBox(style.Background(tcell.ColorLightGrey), 0, 0, w, 1)
-		t.renderer.DrawText(w/2-len(title)/2, 0, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
-
-		summary := make(map[model.Category]int)
-		switch *t.activeView {
-		case ui.ViewDay:
-			day := t.days.GetDay(*t.currentDate)
-			if day == nil {
-				return
-			}
-			summary = day.SumUpByCategory()
-		case ui.ViewWeek:
-			start, end := t.currentDate.Week()
-			for current := start; current != end.Next(); current = current.Next() {
-				day := t.days.GetDay(current)
-				if day == nil {
-					return
-				}
-				tmpSummary := day.SumUpByCategory()
-				for k, v := range tmpSummary {
-					summary[k] += v
-				}
-			}
-		case ui.ViewMonth:
-			start, end := t.currentDate.MonthBounds()
-			for current := start; current != end.Next(); current = current.Next() {
-				day := t.days.GetDay(current)
-				if day == nil {
-					return
-				}
-				tmpSummary := day.SumUpByCategory()
-				for k, v := range tmpSummary {
-					summary[k] += v
-				}
-			}
-		}
-		maxDuration := 0
-		categories := make([]model.Category, len(summary))
-		{ // get sorted keys to have deterministic order
-			i := 0
-			for category, duration := range summary {
-				categories[i] = category
-				if duration > maxDuration {
-					maxDuration = duration
-				}
-				i++
-			}
-			sort.Sort(model.ByName(categories))
-		}
-		for _, category := range categories {
-			duration := summary[category]
-			style, _ := t.categories.GetStyle(category)
-			catLen := 20
-			durationLen := 20
-			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
-			t.renderer.DrawBox(style, catLen+durationLen, y, barWidth, 1)
-			t.renderer.DrawText(0, y, catLen, 1, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
-			t.renderer.DrawText(catLen, y, durationLen, 1, style, "("+util.DurationToString(duration)+")")
-			y++
-		}
-	}
-}
-
 func (t *TUI) drawLog() {
 	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
 	if *t.showLog {
@@ -349,7 +257,7 @@ func (t *TUI) Draw() {
 	}
 	t.drawEditor()
 	t.drawLog()
-	t.drawSummary()
+	t.summary.Draw()
 	t.drawHelp()
 
 	t.renderer.Show()

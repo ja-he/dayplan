@@ -342,19 +342,58 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			viewParams: &tuiModel.ViewParams,
 		},
 
-		days:            &tuiModel.Days,
-		currentDate:     &tuiModel.CurrentDate,
-		currentCategory: &tuiModel.CurrentCategory,
-		categories:      &tuiModel.CategoryStyling,
-		eventEditor:     &tuiModel.EventEditor,
-		showHelp:        &tuiModel.showHelp,
-		showSummary:     &tuiModel.showSummary,
-		showLog:         &tuiModel.showLog,
-		activeView:      &tuiModel.activeView,
-		logReader:       &tuiModel.Log,
-		logWriter:       &tuiModel.Log,
-		viewParams:      &tuiModel.ViewParams,
-		cursor:          &tuiModel.cursorPos,
+		summary: &SummaryPane{
+			renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
+			dimensions: screenDimensions,
+			condition:  func() bool { return tuiModel.showSummary },
+			titleString: func() string {
+				dateString := ""
+				switch tuiModel.activeView {
+				case ui.ViewDay:
+					dateString = tuiModel.CurrentDate.ToString()
+				case ui.ViewWeek:
+					start, end := tuiModel.CurrentDate.Week()
+					dateString = fmt.Sprintf("week %s..%s", start.ToString(), end.ToString())
+				case ui.ViewMonth:
+					dateString = fmt.Sprintf("%s %d", tuiModel.CurrentDate.ToGotime().Month().String(), tuiModel.CurrentDate.Year)
+				}
+				return fmt.Sprintf("SUMMARY (%s)", dateString)
+			},
+			days: func() []*model.Day {
+				switch tuiModel.activeView {
+				case ui.ViewDay:
+					result := make([]*model.Day, 1)
+					result[0] = tuiModel.Days.GetDay(tuiModel.CurrentDate)
+					return result
+				case ui.ViewWeek:
+					result := make([]*model.Day, 7)
+					start, end := tuiModel.CurrentDate.Week()
+					for current, i := start, 0; current != end.Next(); current = current.Next() {
+						result[i] = tuiModel.Days.GetDay(current)
+						i++
+					}
+					return result
+				case ui.ViewMonth:
+					start, end := tuiModel.CurrentDate.MonthBounds()
+					result := make([]*model.Day, end.Day)
+					for current, i := start, 0; current != end.Next(); current = current.Next() {
+						result[i] = tuiModel.Days.GetDay(current)
+						i++
+					}
+					return result
+				default:
+					panic("unknown view in summary data gathering")
+				}
+			},
+			categories: &tuiModel.CategoryStyling,
+		},
+
+		eventEditor: &tuiModel.EventEditor,
+		showHelp:    &tuiModel.showHelp,
+		showLog:     &tuiModel.showLog,
+		activeView:  &tuiModel.activeView,
+		logReader:   &tuiModel.Log,
+		logWriter:   &tuiModel.Log,
 	}
 
 	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
