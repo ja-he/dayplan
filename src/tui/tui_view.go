@@ -16,11 +16,11 @@ type TUI struct {
 	weekViewMainPane  ui.UIPane
 	monthViewMainPane ui.UIPane
 
-	summary ui.UIPane
-	log     ui.UIPane
+	summary ui.ConditionalOverlayPane
+	log     ui.ConditionalOverlayPane
 
-	help   ui.UIPane
-	editor ui.UIPane
+	help   ui.ConditionalOverlayPane
+	editor ui.ConditionalOverlayPane
 
 	activeView *ui.ActiveView
 }

@@ -40,6 +40,11 @@ type MainUIPanel interface {
 	NeedsSync()
 }
 
+type ConditionalOverlayPane interface {
+	UIPane
+	Condition() bool
+}
+
 type EventHoverState int
 
 const (

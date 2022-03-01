@@ -21,6 +21,8 @@ type SummaryPane struct {
 	categories *category_style.CategoryStyling
 }
 
+func (p *SummaryPane) Condition() bool { return p.condition() }
+
 func (p *SummaryPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }

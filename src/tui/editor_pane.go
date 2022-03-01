@@ -15,6 +15,8 @@ type EditorPane struct {
 	cursorPos func() int
 }
 
+func (p *EditorPane) Condition() bool { return p.condition() }
+
 func (p *EditorPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }

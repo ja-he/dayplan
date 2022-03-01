@@ -18,6 +18,8 @@ type LogPane struct {
 	titleString func() string
 }
 
+func (p *LogPane) Condition() bool { return p.condition() }
+
 func (p *LogPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
