@@ -225,7 +225,7 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 		return someInfo
 	} else {
 		return &TUIPositionInfo{
-			paneType: ui.None,
+			paneType: ui.NoUIPane,
 			weather:  nil,
 			timeline: nil,
 			tools:    nil,
