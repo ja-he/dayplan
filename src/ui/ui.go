@@ -45,33 +45,48 @@ type ConditionalOverlayPane interface {
 	Condition() bool
 }
 
-type EventHoverState int
+type EventBoxPart int
 
 const (
-	EventHoverStateNone EventHoverState = iota
-	EventHoverStateMove
-	EventHoverStateResize
-	EventHoverStateEdit
+	_ EventBoxPart = iota
+	EventBoxNowhere
+	EventBoxInterior
+	EventBoxBottomRight
+	EventBoxTopEdge
 )
+
+func (p EventBoxPart) ToString() string {
+	switch p {
+	case EventBoxNowhere:
+		return "EventBoxNowhere"
+	case EventBoxInterior:
+		return "EventBoxInterior"
+	case EventBoxBottomRight:
+		return "EventBoxBottomRight"
+	case EventBoxTopEdge:
+		return "EventBoxTopEdge"
+	}
+	return "[unknown event box part]"
+}
 
 type PositionInfo interface {
 	PaneType() UIPaneType
 
-	GetExtraWeatherInfo() *WeatherPanelPositionInfo
-	GetExtraTimelineInfo() *TimelinePanelPositionInfo
-	GetExtraEventsInfo() *EventsPanelPositionInfo
-	GetExtraToolsInfo() *ToolsPanelPositionInfo
-	GetExtraStatusInfo() *StatusPanelPositionInfo
+	GetExtraWeatherInfo() WeatherPanelPositionInfo
+	GetExtraTimelineInfo() TimelinePanelPositionInfo
+	GetExtraEventsInfo() EventsPanelPositionInfo
+	GetExtraToolsInfo() ToolsPanelPositionInfo
+	GetExtraStatusInfo() StatusPanelPositionInfo
 }
 
-type WeatherPanelPositionInfo struct{}
-type TimelinePanelPositionInfo struct{}
-type ToolsPanelPositionInfo struct {
-	Category *model.Category
+type WeatherPanelPositionInfo interface{}
+type TimelinePanelPositionInfo interface{}
+type ToolsPanelPositionInfo interface {
+	Category() *model.Category
 }
-type StatusPanelPositionInfo struct{}
-type EventsPanelPositionInfo struct {
-	Event           model.EventID
-	HoverState      EventHoverState
-	TimeUnderCursor model.Timestamp
+type StatusPanelPositionInfo interface{}
+type EventsPanelPositionInfo interface {
+	Event() model.EventID
+	EventBoxPart() EventBoxPart
+	Time() model.Timestamp
 }

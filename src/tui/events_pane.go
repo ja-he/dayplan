@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/ja-he/dayplan/src/category_style"
@@ -41,10 +42,10 @@ func (p *EventsPane) Dimensions() (x, y, w, h int) {
 func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
 		paneType: ui.EventsUIPanelType,
-		weather:  ui.WeatherPanelPositionInfo{},
-		timeline: ui.TimelinePanelPositionInfo{},
-		tools:    ui.ToolsPanelPositionInfo{},
-		status:   ui.StatusPanelPositionInfo{},
+		weather:  nil,
+		timeline: nil,
+		tools:    nil,
+		status:   nil,
 		events:   p.getEventForPos(x, y),
 	}
 }
@@ -80,7 +81,7 @@ func (t *EventsPane) Draw() {
 		namePadding := 1
 		nameWidth := p.W - (2 * namePadding) - timestampWidth
 		hovered := t.getEventForPos(t.cursor.X, t.cursor.Y)
-		if hovered.Event != e.ID {
+		if hovered == nil || hovered.Event() != e.ID || hovered.EventBoxPart() == ui.EventBoxNowhere {
 			t.renderer.DrawBox(p.X, p.Y, p.W, p.H, style)
 			if t.drawNames {
 				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
@@ -91,8 +92,8 @@ func (t *EventsPane) Draw() {
 			}
 		} else {
 			selStyle := colors.DefaultEmphasize(style)
-			switch hovered.HoverState {
-			case ui.EventHoverStateResize:
+			switch hovered.EventBoxPart() {
+			case ui.EventBoxBottomRight:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H-1, style)
 				t.renderer.DrawBox(p.X, p.Y+p.H-1, p.W, 1, selStyle)
 				if t.drawNames {
@@ -102,7 +103,7 @@ func (t *EventsPane) Draw() {
 					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
 					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
 				}
-			case ui.EventHoverStateMove:
+			case ui.EventBoxInterior:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, selStyle)
 				if t.drawNames {
 					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
@@ -111,7 +112,7 @@ func (t *EventsPane) Draw() {
 					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
 					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
 				}
-			case ui.EventHoverStateEdit:
+			case ui.EventBoxTopEdge:
 				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, style)
 				if t.drawNames {
 					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
@@ -121,7 +122,7 @@ func (t *EventsPane) Draw() {
 					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
 				}
 			default:
-				panic("don't know this hover state!")
+				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart().ToString()))
 			}
 		}
 	}
@@ -136,29 +137,39 @@ func (t *EventsPane) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
 		for i := len(currentDay.Events) - 1; i >= 0; i-- {
 			eventPos := t.positions[currentDay.Events[i].ID]
 			if eventPos.Contains(x, y) {
-				var hover ui.EventHoverState
+				var hover ui.EventBoxPart
 				switch {
 				case y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5:
-					hover = ui.EventHoverStateResize
+					hover = ui.EventBoxBottomRight
 				case y == (eventPos.Y):
-					hover = ui.EventHoverStateEdit
+					hover = ui.EventBoxTopEdge
 				default:
-					hover = ui.EventHoverStateMove
+					hover = ui.EventBoxInterior
 				}
-				return ui.EventsPanelPositionInfo{
-					Event:           currentDay.Events[i].ID,
-					HoverState:      hover,
-					TimeUnderCursor: t.viewParams.TimeAtY(y),
+				return &EventsPanelPositionInfo{
+					eventID:      currentDay.Events[i].ID,
+					eventBoxPart: hover,
+					time:         t.viewParams.TimeAtY(y),
 				}
 			}
 		}
 	}
-	return ui.EventsPanelPositionInfo{
-		Event:           0,
-		HoverState:      ui.EventHoverStateNone,
-		TimeUnderCursor: t.viewParams.TimeAtY(y),
+	return &EventsPanelPositionInfo{
+		eventID:      0,
+		eventBoxPart: ui.EventBoxNowhere,
+		time:         t.viewParams.TimeAtY(y),
 	}
 }
+
+type EventsPanelPositionInfo struct {
+	eventID      model.EventID
+	eventBoxPart ui.EventBoxPart
+	time         model.Timestamp
+}
+
+func (i *EventsPanelPositionInfo) Event() model.EventID          { return i.eventID }
+func (i *EventsPanelPositionInfo) EventBoxPart() ui.EventBoxPart { return i.eventBoxPart }
+func (i *EventsPanelPositionInfo) Time() model.Timestamp         { return i.time }
 
 func (t *EventsPane) ComputeRects(day *model.Day, offsetX, offsetY, width, height int) map[model.EventID]util.Rect {
 	active_stack := make([]model.Event, 0)
@@ -216,11 +227,11 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	} else {
 		return &TUIPositionInfo{
 			paneType: ui.None,
-			weather:  ui.WeatherPanelPositionInfo{},
-			timeline: ui.TimelinePanelPositionInfo{},
-			tools:    ui.ToolsPanelPositionInfo{},
-			status:   ui.StatusPanelPositionInfo{},
-			events:   ui.EventsPanelPositionInfo{},
+			weather:  nil,
+			timeline: nil,
+			tools:    nil,
+			status:   nil,
+			events:   nil,
 		}
 	}
 }

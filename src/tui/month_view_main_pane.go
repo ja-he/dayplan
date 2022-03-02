@@ -36,12 +36,5 @@ func (p *MonthViewMainPane) Dimensions() (x, y, w, h int) {
 }
 
 func (p *MonthViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	return &TUIPositionInfo{
-		paneType: ui.None,
-		weather:  ui.WeatherPanelPositionInfo{},
-		timeline: ui.TimelinePanelPositionInfo{},
-		tools:    ui.ToolsPanelPositionInfo{},
-		status:   ui.StatusPanelPositionInfo{},
-		events:   ui.EventsPanelPositionInfo{},
-	}
+	return nil
 }

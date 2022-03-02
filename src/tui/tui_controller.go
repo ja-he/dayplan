@@ -538,21 +538,21 @@ func (t *TUIController) endEdit() {
 
 func (t *TUIController) startMouseMove(eventsInfo ui.EventsPanelPositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateMoving)
-	t.EditedEvent.ID = eventsInfo.Event
-	t.EditedEvent.prevEditStepTimestamp = eventsInfo.TimeUnderCursor
+	t.EditedEvent.ID = eventsInfo.Event()
+	t.EditedEvent.prevEditStepTimestamp = eventsInfo.Time()
 }
 
 func (t *TUIController) startMouseResize(eventsInfo ui.EventsPanelPositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateResizing)
-	t.EditedEvent.ID = eventsInfo.Event
-	t.EditedEvent.prevEditStepTimestamp = eventsInfo.TimeUnderCursor
+	t.EditedEvent.ID = eventsInfo.Event()
+	t.EditedEvent.prevEditStepTimestamp = eventsInfo.Time()
 }
 
 func (t *TUIController) startMouseEventCreation(info ui.EventsPanelPositionInfo) {
 	// find out cursor time
-	start := info.TimeUnderCursor
+	start := info.Time()
 
-	t.model.Log.Add("DEBUG", fmt.Sprintf("creation called for '%s'", info.TimeUnderCursor.ToString()))
+	t.model.Log.Add("DEBUG", fmt.Sprintf("creation called for '%s'", info.Time().ToString()))
 
 	// create event at time with cat etc.
 	e := model.Event{}
@@ -768,32 +768,32 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				t.ScrollDown(1)
 			}
 		case ui.EventsUIPanelType:
-			eventsInfo := *positionInfo.GetExtraEventsInfo()
+			eventsInfo := positionInfo.GetExtraEventsInfo()
 			t.model.Log.Add("DEBUG", fmt.Sprint(eventsInfo))
 
 			// if button clicked, handle
 			switch buttons {
 			case tcell.Button3:
-				t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event)
+				t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event())
 			case tcell.Button2:
-				id := eventsInfo.Event
-				if id != 0 && eventsInfo.TimeUnderCursor.IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
-					t.model.GetCurrentDay().SplitEvent(id, eventsInfo.TimeUnderCursor)
+				id := eventsInfo.Event()
+				if id != 0 && eventsInfo.Time().IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
+					t.model.GetCurrentDay().SplitEvent(id, eventsInfo.Time())
 				}
 			case tcell.Button1:
 				// we've clicked while not editing
 				// now we need to check where the cursor is and either start event
 				// creation, resizing or moving
-				switch eventsInfo.HoverState {
-				case ui.EventHoverStateNone:
+				switch eventsInfo.EventBoxPart() {
+				case ui.EventBoxNowhere:
 					t.startMouseEventCreation(eventsInfo)
-				case ui.EventHoverStateResize:
+				case ui.EventBoxBottomRight:
 					t.startMouseResize(eventsInfo)
-				case ui.EventHoverStateMove:
+				case ui.EventBoxInterior:
 					t.movePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove(eventsInfo)
-				case ui.EventHoverStateEdit:
-					t.startEdit(eventsInfo.Event)
+				case ui.EventBoxTopEdge:
+					t.startEdit(eventsInfo.Event())
 				}
 			case tcell.WheelUp:
 				t.ScrollUp(1)
@@ -801,11 +801,11 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 				t.ScrollDown(1)
 			}
 		case ui.ToolsUIPanelType:
-			toolsInfo := *positionInfo.GetExtraToolsInfo()
+			toolsInfo := positionInfo.GetExtraToolsInfo()
 			t.model.Log.Add("DEBUG", fmt.Sprint("tools info:", toolsInfo))
 			switch buttons {
 			case tcell.Button1:
-				cat := toolsInfo.Category
+				cat := toolsInfo.Category()
 				if cat != nil {
 					t.model.CurrentCategory = *cat
 				}

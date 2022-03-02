@@ -80,20 +80,20 @@ type TUIPositionInfo struct {
 	events   ui.EventsPanelPositionInfo
 }
 
-func (t *TUIPositionInfo) GetExtraWeatherInfo() *ui.WeatherPanelPositionInfo {
-	return &ui.WeatherPanelPositionInfo{}
+func (t *TUIPositionInfo) GetExtraWeatherInfo() ui.WeatherPanelPositionInfo {
+	return nil
 }
-func (t *TUIPositionInfo) GetExtraTimelineInfo() *ui.TimelinePanelPositionInfo {
-	return &ui.TimelinePanelPositionInfo{}
+func (t *TUIPositionInfo) GetExtraTimelineInfo() ui.TimelinePanelPositionInfo {
+	return nil
 }
-func (t *TUIPositionInfo) GetExtraToolsInfo() *ui.ToolsPanelPositionInfo {
-	return &t.tools
+func (t *TUIPositionInfo) GetExtraToolsInfo() ui.ToolsPanelPositionInfo {
+	return t.tools
 }
-func (t *TUIPositionInfo) GetExtraStatusInfo() *ui.StatusPanelPositionInfo {
-	return &ui.StatusPanelPositionInfo{}
+func (t *TUIPositionInfo) GetExtraStatusInfo() ui.StatusPanelPositionInfo {
+	return nil
 }
-func (t *TUIPositionInfo) GetExtraEventsInfo() *ui.EventsPanelPositionInfo {
-	return &t.events
+func (t *TUIPositionInfo) GetExtraEventsInfo() ui.EventsPanelPositionInfo {
+	return t.events
 }
 
 func (t *TUIPositionInfo) PaneType() ui.UIPaneType {

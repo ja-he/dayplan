@@ -42,14 +42,7 @@ func (p *WeekViewMainPane) Dimensions() (x, y, w, h int) {
 }
 
 func (p *WeekViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	return &TUIPositionInfo{
-		paneType: ui.None,
-		weather:  ui.WeatherPanelPositionInfo{},
-		timeline: ui.TimelinePanelPositionInfo{},
-		tools:    ui.ToolsPanelPositionInfo{},
-		status:   ui.StatusPanelPositionInfo{},
-		events:   ui.EventsPanelPositionInfo{},
-	}
+	return nil
 }
 
 // TODO: remove, this will be part of info returned to controller on query

@@ -80,10 +80,16 @@ func (p *ToolsPanel) getCategoryForpos(x, y int) *model.Category {
 func (p *ToolsPanel) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
 		paneType: ui.ToolsUIPanelType,
-		weather:  ui.WeatherPanelPositionInfo{},
-		timeline: ui.TimelinePanelPositionInfo{},
-		tools:    ui.ToolsPanelPositionInfo{Category: p.getCategoryForpos(x, y)},
-		status:   ui.StatusPanelPositionInfo{},
-		events:   ui.EventsPanelPositionInfo{},
+		weather:  nil,
+		timeline: nil,
+		tools:    &ToolsPanelPositionInfo{category: p.getCategoryForpos(x, y)},
+		status:   nil,
+		events:   nil,
 	}
 }
+
+type ToolsPanelPositionInfo struct {
+	category *model.Category
+}
+
+func (i *ToolsPanelPositionInfo) Category() *model.Category { return i.category }
