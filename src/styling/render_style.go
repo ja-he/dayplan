@@ -19,4 +19,6 @@ type DrawStyling interface {
 
 	Italicized() DrawStyling
 	Bolded() DrawStyling
+
+	ToString() string
 }

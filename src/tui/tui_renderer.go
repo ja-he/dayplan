@@ -53,6 +53,7 @@ func (r *TUIConstrainedRenderer) Constrain(rawX, rawY, rawW, rawH int) (constrai
 	return constrainedX, constrainedY, constrainedW, constrainedH
 }
 
+// TODO: should probably change the drawn text manually.
 func (r *TUIConstrainedRenderer) DrawText(x, y, w, h int, styling styling.DrawStyling, text string) {
 	cx, cy, cw, ch := r.Constrain(x, y, w, h)
 
