@@ -8,7 +8,7 @@ import (
 	"github.com/ja-he/dayplan/src/util"
 )
 
-type StatusPanel struct {
+type StatusPane struct {
 	renderer *TUIScreenHandler
 
 	dimensions func() (x, y, w, h int)
@@ -21,11 +21,11 @@ type StatusPanel struct {
 	firstDayXOffset    func() int
 }
 
-func (p *StatusPanel) Dimensions() (x, y, w, h int) {
+func (p *StatusPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
-func (p *StatusPanel) Draw() {
+func (p *StatusPane) Draw() {
 	_, y, _, h := p.dimensions()
 
 	dateWidth := 10 // 2020-02-12 is 10 wide
@@ -47,6 +47,6 @@ func (p *StatusPanel) Draw() {
 	p.renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(p.currentDate.ToWeekday().String(), dateWidth))
 }
 
-func (p *StatusPanel) GetPositionInfo(x, y int) ui.PositionInfo {
+func (p *StatusPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
 }

@@ -41,7 +41,7 @@ func (p *EventsPane) Dimensions() (x, y, w, h int) {
 
 func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
-		paneType: ui.EventsUIPanelType,
+		paneType: ui.EventsUIPaneType,
 		weather:  nil,
 		timeline: nil,
 		tools:    nil,
@@ -128,7 +128,7 @@ func (t *EventsPane) Draw() {
 	}
 }
 
-func (t *EventsPane) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
+func (t *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 	dimX, _, dimW, _ := t.Dimensions()
 
 	if x >= dimX &&
@@ -146,7 +146,7 @@ func (t *EventsPane) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
 				default:
 					hover = ui.EventBoxInterior
 				}
-				return &EventsPanelPositionInfo{
+				return &EventsPanePositionInfo{
 					eventID:      currentDay.Events[i].ID,
 					eventBoxPart: hover,
 					time:         t.viewParams.TimeAtY(y),
@@ -154,22 +154,22 @@ func (t *EventsPane) getEventForPos(x, y int) ui.EventsPanelPositionInfo {
 			}
 		}
 	}
-	return &EventsPanelPositionInfo{
+	return &EventsPanePositionInfo{
 		eventID:      0,
 		eventBoxPart: ui.EventBoxNowhere,
 		time:         t.viewParams.TimeAtY(y),
 	}
 }
 
-type EventsPanelPositionInfo struct {
+type EventsPanePositionInfo struct {
 	eventID      model.EventID
 	eventBoxPart ui.EventBoxPart
 	time         model.Timestamp
 }
 
-func (i *EventsPanelPositionInfo) Event() model.EventID          { return i.eventID }
-func (i *EventsPanelPositionInfo) EventBoxPart() ui.EventBoxPart { return i.eventBoxPart }
-func (i *EventsPanelPositionInfo) Time() model.Timestamp         { return i.time }
+func (i *EventsPanePositionInfo) Event() model.EventID          { return i.eventID }
+func (i *EventsPanePositionInfo) EventBoxPart() ui.EventBoxPart { return i.eventBoxPart }
+func (i *EventsPanePositionInfo) Time() model.Timestamp         { return i.time }
 
 func (t *EventsPane) ComputeRects(day *model.Day, offsetX, offsetY, width, height int) map[model.EventID]util.Rect {
 	active_stack := make([]model.Event, 0)

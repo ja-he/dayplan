@@ -42,7 +42,7 @@ type EditedEvent struct {
 
 type TUIController struct {
 	model         *TUIModel
-	tui           ui.MainUIPanel
+	tui           ui.MainUIPane
 	editState     EditState
 	EditedEvent   EditedEvent
 	movePropagate bool
@@ -211,7 +211,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		monthViewEventsPanes[i] = monthdayPane(i)
 	}
 
-	statusPane := &StatusPanel{
+	statusPane := &StatusPane{
 		renderer:    renderer,
 		dimensions:  statusDimensions,
 		currentDate: &tuiModel.CurrentDate,
@@ -294,7 +294,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				logWriter:      &tuiModel.Log,
 				positions:      make(map[model.EventID]util.Rect),
 			},
-			tools: &ToolsPanel{
+			tools: &ToolsPane{
 				renderer:        renderer,
 				dimensions:      toolsDimensions,
 				currentCategory: &tuiModel.CurrentCategory,
@@ -536,19 +536,19 @@ func (t *TUIController) endEdit() {
 	t.model.GetCurrentDay().UpdateEventOrder()
 }
 
-func (t *TUIController) startMouseMove(eventsInfo ui.EventsPanelPositionInfo) {
+func (t *TUIController) startMouseMove(eventsInfo ui.EventsPanePositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateMoving)
 	t.EditedEvent.ID = eventsInfo.Event()
 	t.EditedEvent.prevEditStepTimestamp = eventsInfo.Time()
 }
 
-func (t *TUIController) startMouseResize(eventsInfo ui.EventsPanelPositionInfo) {
+func (t *TUIController) startMouseResize(eventsInfo ui.EventsPanePositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateResizing)
 	t.EditedEvent.ID = eventsInfo.Event()
 	t.EditedEvent.prevEditStepTimestamp = eventsInfo.Time()
 }
 
-func (t *TUIController) startMouseEventCreation(info ui.EventsPanelPositionInfo) {
+func (t *TUIController) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 	// find out cursor time
 	start := info.Time()
 
@@ -752,22 +752,22 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 
 		paneType := positionInfo.PaneType()
 		switch paneType {
-		case ui.StatusUIPanelType:
-		case ui.WeatherUIPanelType:
+		case ui.StatusUIPaneType:
+		case ui.WeatherUIPaneType:
 			switch buttons {
 			case tcell.WheelUp:
 				t.ScrollUp(1)
 			case tcell.WheelDown:
 				t.ScrollDown(1)
 			}
-		case ui.TimelineUIPanelType:
+		case ui.TimelineUIPaneType:
 			switch buttons {
 			case tcell.WheelUp:
 				t.ScrollUp(1)
 			case tcell.WheelDown:
 				t.ScrollDown(1)
 			}
-		case ui.EventsUIPanelType:
+		case ui.EventsUIPaneType:
 			eventsInfo := positionInfo.GetExtraEventsInfo()
 			t.model.Log.Add("DEBUG", fmt.Sprint(eventsInfo))
 
@@ -800,7 +800,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			case tcell.WheelDown:
 				t.ScrollDown(1)
 			}
-		case ui.ToolsUIPanelType:
+		case ui.ToolsUIPaneType:
 			toolsInfo := positionInfo.GetExtraToolsInfo()
 			t.model.Log.Add("DEBUG", fmt.Sprint("tools info:", toolsInfo))
 			switch buttons {

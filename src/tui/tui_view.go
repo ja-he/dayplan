@@ -73,26 +73,26 @@ func (p *TUI) getCurrentlyActivePanesInOrder() []ui.UIPane {
 
 type TUIPositionInfo struct {
 	paneType ui.UIPaneType
-	weather  ui.WeatherPanelPositionInfo
-	timeline ui.TimelinePanelPositionInfo
-	tools    ui.ToolsPanelPositionInfo
-	status   ui.StatusPanelPositionInfo
-	events   ui.EventsPanelPositionInfo
+	weather  ui.WeatherPanePositionInfo
+	timeline ui.TimelinePanePositionInfo
+	tools    ui.ToolsPanePositionInfo
+	status   ui.StatusPanePositionInfo
+	events   ui.EventsPanePositionInfo
 }
 
-func (t *TUIPositionInfo) GetExtraWeatherInfo() ui.WeatherPanelPositionInfo {
+func (t *TUIPositionInfo) GetExtraWeatherInfo() ui.WeatherPanePositionInfo {
 	return nil
 }
-func (t *TUIPositionInfo) GetExtraTimelineInfo() ui.TimelinePanelPositionInfo {
+func (t *TUIPositionInfo) GetExtraTimelineInfo() ui.TimelinePanePositionInfo {
 	return nil
 }
-func (t *TUIPositionInfo) GetExtraToolsInfo() ui.ToolsPanelPositionInfo {
+func (t *TUIPositionInfo) GetExtraToolsInfo() ui.ToolsPanePositionInfo {
 	return t.tools
 }
-func (t *TUIPositionInfo) GetExtraStatusInfo() ui.StatusPanelPositionInfo {
+func (t *TUIPositionInfo) GetExtraStatusInfo() ui.StatusPanePositionInfo {
 	return nil
 }
-func (t *TUIPositionInfo) GetExtraEventsInfo() ui.EventsPanelPositionInfo {
+func (t *TUIPositionInfo) GetExtraEventsInfo() ui.EventsPanePositionInfo {
 	return t.events
 }
 

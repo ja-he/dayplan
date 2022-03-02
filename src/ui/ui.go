@@ -7,14 +7,14 @@ type UIPaneType int
 const (
 	_ UIPaneType = iota
 	None
-	WeatherUIPanelType
-	TimelineUIPanelType
-	EventsUIPanelType
-	ToolsUIPanelType
-	StatusUIPanelType
-	EditorUIPanelType
-	LogUIPanelType
-	SummaryUIPanelType
+	WeatherUIPaneType
+	TimelineUIPaneType
+	EventsUIPaneType
+	ToolsUIPaneType
+	StatusUIPaneType
+	EditorUIPaneType
+	LogUIPaneType
+	SummaryUIPaneType
 )
 
 // The active view of the day(s), which could be a single day, a
@@ -37,7 +37,7 @@ type UIPane interface {
 	GetPositionInfo(x, y int) PositionInfo
 }
 
-type MainUIPanel interface {
+type MainUIPane interface {
 	UIPane
 	Close()
 	NeedsSync()
@@ -75,20 +75,20 @@ func (p EventBoxPart) ToString() string {
 type PositionInfo interface {
 	PaneType() UIPaneType
 
-	GetExtraWeatherInfo() WeatherPanelPositionInfo
-	GetExtraTimelineInfo() TimelinePanelPositionInfo
-	GetExtraEventsInfo() EventsPanelPositionInfo
-	GetExtraToolsInfo() ToolsPanelPositionInfo
-	GetExtraStatusInfo() StatusPanelPositionInfo
+	GetExtraWeatherInfo() WeatherPanePositionInfo
+	GetExtraTimelineInfo() TimelinePanePositionInfo
+	GetExtraEventsInfo() EventsPanePositionInfo
+	GetExtraToolsInfo() ToolsPanePositionInfo
+	GetExtraStatusInfo() StatusPanePositionInfo
 }
 
-type WeatherPanelPositionInfo interface{}
-type TimelinePanelPositionInfo interface{}
-type ToolsPanelPositionInfo interface {
+type WeatherPanePositionInfo interface{}
+type TimelinePanePositionInfo interface{}
+type ToolsPanePositionInfo interface {
 	Category() *model.Category
 }
-type StatusPanelPositionInfo interface{}
-type EventsPanelPositionInfo interface {
+type StatusPanePositionInfo interface{}
+type EventsPanePositionInfo interface {
 	Event() model.EventID
 	EventBoxPart() EventBoxPart
 	Time() model.Timestamp

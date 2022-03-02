@@ -12,7 +12,7 @@ import (
 
 var errorCategoryStyle = tcell.StyleDefault.Background(tcell.ColorIndianRed)
 
-type ToolsPanel struct {
+type ToolsPane struct {
 	renderer *TUIScreenHandler
 
 	dimensions func() (x, y, w, h int)
@@ -25,11 +25,11 @@ type ToolsPanel struct {
 	lastBoxesDrawn map[model.Category]util.Rect
 }
 
-func (p *ToolsPanel) Dimensions() (x, y, w, h int) {
+func (p *ToolsPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
-func (p *ToolsPanel) Draw() {
+func (p *ToolsPane) Draw() {
 	x, y, w, h := p.dimensions()
 
 	boxes := p.getCategoryBoxes(x, y, w, h)
@@ -50,7 +50,7 @@ func (p *ToolsPanel) Draw() {
 	p.lastBoxesDrawn = boxes
 }
 
-func (p *ToolsPanel) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rect {
+func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rect {
 	i := 0
 
 	result := make(map[model.Category]util.Rect)
@@ -68,7 +68,7 @@ func (p *ToolsPanel) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Re
 	return result
 }
 
-func (p *ToolsPanel) getCategoryForpos(x, y int) *model.Category {
+func (p *ToolsPane) getCategoryForpos(x, y int) *model.Category {
 	for cat, box := range p.lastBoxesDrawn {
 		if box.Contains(x, y) {
 			return &cat
@@ -77,19 +77,19 @@ func (p *ToolsPanel) getCategoryForpos(x, y int) *model.Category {
 	return nil
 }
 
-func (p *ToolsPanel) GetPositionInfo(x, y int) ui.PositionInfo {
+func (p *ToolsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
-		paneType: ui.ToolsUIPanelType,
+		paneType: ui.ToolsUIPaneType,
 		weather:  nil,
 		timeline: nil,
-		tools:    &ToolsPanelPositionInfo{category: p.getCategoryForpos(x, y)},
+		tools:    &ToolsPanePositionInfo{category: p.getCategoryForpos(x, y)},
 		status:   nil,
 		events:   nil,
 	}
 }
 
-type ToolsPanelPositionInfo struct {
+type ToolsPanePositionInfo struct {
 	category *model.Category
 }
 
-func (i *ToolsPanelPositionInfo) Category() *model.Category { return i.category }
+func (i *ToolsPanePositionInfo) Category() *model.Category { return i.category }
