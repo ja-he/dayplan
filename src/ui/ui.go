@@ -12,6 +12,9 @@ const (
 	EventsUIPanelType
 	ToolsUIPanelType
 	StatusUIPanelType
+	EditorUIPanelType
+	LogUIPanelType
+	SummaryUIPanelType
 )
 
 // The active view of the day(s), which could be a single day, a
