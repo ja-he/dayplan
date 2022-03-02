@@ -4,16 +4,12 @@ import (
 	"log"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/ja-he/dayplan/src/styling"
 )
 
 type TUIScreenHandler struct {
 	screen    tcell.Screen
 	needsSync bool
-}
-
-type ConstrainedRenderer interface {
-	DrawBox(x, y, w, h int, style tcell.Style)
-	DrawText(x, y, w, h int, style tcell.Style, text string)
 }
 
 type CursorController interface {
@@ -57,15 +53,15 @@ func (r *TUIConstrainedRenderer) Constrain(rawX, rawY, rawW, rawH int) (constrai
 	return constrainedX, constrainedY, constrainedW, constrainedH
 }
 
-func (r *TUIConstrainedRenderer) DrawText(x, y, w, h int, style tcell.Style, text string) {
+func (r *TUIConstrainedRenderer) DrawText(x, y, w, h int, styling styling.DrawStyling, text string) {
 	cx, cy, cw, ch := r.Constrain(x, y, w, h)
 
-	r.screenHandler.DrawText(cx, cy, cw, ch, style, text)
+	r.screenHandler.DrawText(cx, cy, cw, ch, styling.AsTcell(), text)
 }
 
-func (r *TUIConstrainedRenderer) DrawBox(x, y, w, h int, style tcell.Style) {
+func (r *TUIConstrainedRenderer) DrawBox(x, y, w, h int, styling styling.DrawStyling) {
 	cx, cy, cw, ch := r.Constrain(x, y, w, h)
-	r.screenHandler.DrawBox(style, cx, cy, cw, ch)
+	r.screenHandler.DrawBox(styling.AsTcell(), cx, cy, cw, ch)
 }
 
 type TUIConstrainedRenderer struct {

@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/ja-he/dayplan/src/model"
+import (
+	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
+)
 
 type UIPaneType int
 
@@ -92,4 +95,9 @@ type EventsPanePositionInfo interface {
 	Event() model.EventID
 	EventBoxPart() EventBoxPart
 	Time() model.Timestamp
+}
+
+type ConstrainedRenderer interface {
+	DrawBox(x, y, w, h int, style styling.DrawStyling)
+	DrawText(x, y, w, h int, style styling.DrawStyling, text string)
 }

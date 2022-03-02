@@ -2,14 +2,14 @@ package tui
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 )
 
 type StatusPane struct {
-	renderer *TUIScreenHandler
+	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
 
@@ -30,17 +30,17 @@ func (p *StatusPane) Draw() {
 
 	dateWidth := 10 // 2020-02-12 is 10 wide
 
-	bgStyle := tcell.StyleDefault.Background(colors.ColorFromHexString("#f0f0f0")).Foreground(tcell.ColorBlack)
-	bgStyleEmph := colors.DefaultEmphasize(bgStyle)
+	bgStyle := NewStyling((tcell.ColorBlack), styling.ColorFromHexString("#f0f0f0"))
+	bgStyleEmph := bgStyle.DefaultEmphasized()
 	dateStyle := bgStyleEmph
-	weekdayStyle := colors.LightenFG(dateStyle, 60)
+	weekdayStyle := dateStyle.LightenedFG(60)
 
 	// header background
-	p.renderer.DrawBox(bgStyle, 0, y, p.firstDayXOffset()+p.totalDaysInPeriod()*p.dayWidth(), h)
+	p.renderer.DrawBox(0, y, p.firstDayXOffset()+p.totalDaysInPeriod()*p.dayWidth(), h, bgStyle)
 	// header bar (filled for days until current)
-	p.renderer.DrawBox(bgStyleEmph, 0, y, p.firstDayXOffset()+(p.passedDaysInPeriod())*p.dayWidth(), h)
+	p.renderer.DrawBox(0, y, p.firstDayXOffset()+(p.passedDaysInPeriod())*p.dayWidth(), h, bgStyleEmph)
 	// date box background
-	p.renderer.DrawBox(bgStyleEmph, 0, y, dateWidth, h)
+	p.renderer.DrawBox(0, y, dateWidth, h, bgStyleEmph)
 	// date string
 	p.renderer.DrawText(0, y, dateWidth, 1, dateStyle, p.currentDate.ToString())
 	// weekday string

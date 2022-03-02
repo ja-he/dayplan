@@ -7,8 +7,6 @@ import (
 )
 
 type MonthViewMainPane struct {
-	renderer *TUIScreenHandler
-
 	dimensions func() (x, y, w, h int)
 
 	status   ui.UIPane

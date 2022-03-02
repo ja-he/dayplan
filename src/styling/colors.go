@@ -1,4 +1,4 @@
-package colors
+package styling
 
 import (
 	"strconv"
@@ -72,6 +72,11 @@ func Lighten(color tcell.Color, percentage int) tcell.Color {
 	newR, newG, newB := newColor.RGB255()
 
 	return tcell.NewHexColor(int32((int32(newR) << 16) | (int32(newG) << 8) | (int32(newB))))
+}
+
+func DarkenFG(style tcell.Style, percentage int) tcell.Style {
+	_, bg, _ := style.Decompose()
+	return style.Background(Lighten(bg, percentage))
 }
 
 func DarkenBG(style tcell.Style, percentage int) tcell.Style {

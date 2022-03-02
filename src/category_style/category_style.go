@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
 
+	// TODO: this shouldnt use tcell, but use the styling interface instead
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v2"
 )
@@ -81,8 +82,8 @@ func DefaultCategoryStyling() *CategoryStyling {
 
 func StyleFromHex(fg, bg string) tcell.Style {
 	style := tcell.StyleDefault
-	style = style.Foreground(colors.ColorFromHexString(fg))
-	style = style.Background(colors.ColorFromHexString(bg))
+	style = style.Foreground(styling.ColorFromHexString(fg))
+	style = style.Background(styling.ColorFromHexString(bg))
 	return style
 }
 

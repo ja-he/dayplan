@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/ja-he/dayplan/src/category_style"
-	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
@@ -13,7 +12,7 @@ import (
 )
 
 type EventsPane struct {
-	renderer ConstrainedRenderer
+	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
 
@@ -63,11 +62,12 @@ func (t *EventsPane) Draw() {
 	t.positions = t.ComputeRects(day, x, y, w-t.padRight, h)
 	for _, e := range day.Events {
 		style, err := t.categories.GetStyle(e.Cat)
+		styling := FromTcell(style)
 		if err != nil {
 			t.logWriter.Add("ERROR", err.Error())
 		}
 		if !t.isCurrent() {
-			style = colors.DefaultDim(style)
+			styling = styling.DefaultDimmed()
 		}
 
 		// based on event state, draw a box or maybe a smaller one, or ...
@@ -82,44 +82,44 @@ func (t *EventsPane) Draw() {
 		nameWidth := p.W - (2 * namePadding) - timestampWidth
 		hovered := t.getEventForPos(t.cursor.X, t.cursor.Y)
 		if hovered == nil || hovered.Event() != e.ID || hovered.EventBoxPart() == ui.EventBoxNowhere {
-			t.renderer.DrawBox(p.X, p.Y, p.W, p.H, style)
+			t.renderer.DrawBox(p.X, p.Y, p.W, p.H, styling)
 			if t.drawNames {
-				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
+				t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, styling, util.TruncateAt(e.Name, nameWidth))
 			}
 			if t.drawTimestamps {
-				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+				t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, styling, e.Start.ToString())
+				t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, styling, e.End.ToString())
 			}
 		} else {
-			selStyle := colors.DefaultEmphasize(style)
+			selectionStyling := styling.DefaultEmphasized()
 			switch hovered.EventBoxPart() {
 			case ui.EventBoxBottomRight:
-				t.renderer.DrawBox(p.X, p.Y, p.W, p.H-1, style)
-				t.renderer.DrawBox(p.X, p.Y+p.H-1, p.W, 1, selStyle)
+				t.renderer.DrawBox(p.X, p.Y, p.W, p.H-1, styling)
+				t.renderer.DrawBox(p.X, p.Y+p.H-1, p.W, 1, selectionStyling)
 				if t.drawNames {
-					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, style, util.TruncateAt(e.Name, nameWidth))
+					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, styling, util.TruncateAt(e.Name, nameWidth))
 				}
 				if t.drawTimestamps {
-					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, styling, e.Start.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selectionStyling, e.End.ToString())
 				}
 			case ui.EventBoxInterior:
-				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, selStyle)
+				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, selectionStyling)
 				if t.drawNames {
-					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
+					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selectionStyling, util.TruncateAt(e.Name, nameWidth))
 				}
 				if t.drawTimestamps {
-					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, selStyle, e.Start.ToString())
-					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selStyle, e.End.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, selectionStyling, e.Start.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, selectionStyling, e.End.ToString())
 				}
 			case ui.EventBoxTopEdge:
-				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, style)
+				t.renderer.DrawBox(p.X, p.Y, p.W, p.H, styling)
 				if t.drawNames {
-					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selStyle, util.TruncateAt(e.Name, nameWidth))
+					t.renderer.DrawText(p.X+namePadding, p.Y, nameWidth, p.H, selectionStyling, util.TruncateAt(e.Name, nameWidth))
 				}
 				if t.drawTimestamps {
-					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, style, e.Start.ToString())
-					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, style, e.End.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y, 5, 1, styling, e.Start.ToString())
+					t.renderer.DrawText(p.X+p.W-5, p.Y+p.H-1, 5, 1, styling, e.End.ToString())
 				}
 			default:
 				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart().ToString()))

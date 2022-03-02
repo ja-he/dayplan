@@ -11,7 +11,7 @@ import (
 )
 
 type SummaryPane struct {
-	renderer   ConstrainedRenderer
+	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
 
 	condition   func() bool
@@ -30,14 +30,19 @@ func (p *SummaryPane) Dimensions() (x, y, w, h int) {
 // Draws the time summary view over top of all previously drawn contents, if it
 // is currently active.
 func (p *SummaryPane) Draw() {
-	style := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
+
+	// TODO: these are temporarily still hardcoded, will be moved with
+	//       customizable styling being implemented
+	defaultStyling := NewStyling(tcell.ColorBlack, tcell.ColorWhite)
+	titleBoxStyling := NewStyling(tcell.ColorBlack, tcell.ColorLightGrey).Bolded()
+
 	if p.condition() {
 		x, y, w, h := p.Dimensions()
 
-		p.renderer.DrawBox(x, y, w, h, style)
+		p.renderer.DrawBox(x, y, w, h, defaultStyling)
 		title := p.titleString()
-		p.renderer.DrawBox(x, y, w, 1, style.Background(tcell.ColorLightGrey))
-		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, style.Background(tcell.ColorLightGrey).Bold(true), title)
+		p.renderer.DrawBox(x, y, w, 1, titleBoxStyling)
+		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, titleBoxStyling, title)
 
 		summary := make(map[model.Category]int)
 
@@ -69,12 +74,13 @@ func (p *SummaryPane) Draw() {
 		for _, category := range categories {
 			duration := summary[category]
 			style, _ := p.categories.GetStyle(category)
+			categoryStyling := FromTcell(style)
 			catLen := 20
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
-			p.renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, style)
-			p.renderer.DrawText(x, y+row, catLen, 1, tcell.StyleDefault, util.TruncateAt(category.Name, catLen))
-			p.renderer.DrawText(x+catLen, y+row, durationLen, 1, style, "("+util.DurationToString(duration)+")")
+			p.renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
+			p.renderer.DrawText(x, y+row, catLen, 1, defaultStyling, util.TruncateAt(category.Name, catLen))
+			p.renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+util.DurationToString(duration)+")")
 			row++
 		}
 	}

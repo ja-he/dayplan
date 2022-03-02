@@ -212,7 +212,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 
 	statusPane := &StatusPane{
-		renderer:    renderer,
+		renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: statusDimensions},
 		dimensions:  statusDimensions,
 		currentDate: &tuiModel.CurrentDate,
 		dayWidth: func() int {
@@ -277,7 +277,6 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		dimensions: screenDimensions,
 
 		dayViewMainPane: &DayViewMainPane{
-			renderer:   renderer,
 			dimensions: dayViewMainPaneDimensions,
 			events: &EventsPane{
 				renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewEventsPaneDimensions},
@@ -295,7 +294,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				positions:      make(map[model.EventID]util.Rect),
 			},
 			tools: &ToolsPane{
-				renderer:        renderer,
+				renderer:        &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewEventsPaneDimensions},
 				dimensions:      toolsDimensions,
 				currentCategory: &tuiModel.CurrentCategory,
 				categories:      &tuiModel.CategoryStyling,
@@ -305,7 +304,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			},
 			status: statusPane,
 			timeline: &TimelinePane{
-				renderer:   renderer,
+				renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewTimelineDimensions},
 				dimensions: dayViewTimelineDimensions,
 				suntimes:   tuiModel.GetCurrentSuntimes,
 				currentTime: func() *model.Timestamp {
@@ -326,11 +325,10 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			},
 		},
 		weekViewMainPane: &WeekViewMainPane{
-			renderer:   renderer,
 			dimensions: weekViewMainPaneDimensions,
 			status:     statusPane,
 			timeline: &TimelinePane{
-				renderer:    renderer,
+				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: weekViewTimelineDimensions},
 				dimensions:  weekViewTimelineDimensions,
 				suntimes:    func() *model.SunTimes { return nil },
 				currentTime: func() *model.Timestamp { return nil },
@@ -345,11 +343,10 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			positions: make(map[model.EventID]util.Rect),
 		},
 		monthViewMainPane: &MonthViewMainPane{
-			renderer:   renderer,
 			dimensions: monthViewMainPaneDimensions,
 			status:     statusPane,
 			timeline: &TimelinePane{
-				renderer:    renderer,
+				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: monthViewTimelineDimensions},
 				dimensions:  monthViewTimelineDimensions,
 				suntimes:    func() *model.SunTimes { return nil },
 				currentTime: func() *model.Timestamp { return nil },

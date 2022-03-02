@@ -11,8 +11,6 @@ import (
 )
 
 type WeekViewMainPane struct {
-	renderer *TUIScreenHandler
-
 	dimensions func() (x, y, w, h int)
 
 	timeline ui.UIPane

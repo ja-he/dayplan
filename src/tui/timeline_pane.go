@@ -5,11 +5,12 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 )
 
 type TimelinePane struct {
-	renderer *TUIScreenHandler
+	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
 
@@ -24,6 +25,13 @@ func (p *TimelinePane) Dimensions() (x, y, w, h int) {
 }
 
 func (p *TimelinePane) Draw() {
+
+	// TODO: these are temporarily still hardcoded, will be moved with
+	//       customizable styling being implemented
+	dayStyling := NewStyling(tcell.ColorLightGray, tcell.ColorWhite)
+	nightStyling := NewStyling(tcell.ColorLightGray, tcell.ColorBlack)
+	currentTimeStyling := NewStyling(tcell.ColorWhite, tcell.ColorRed).Bolded()
+
 	x, y, w, h := p.dimensions()
 	suntimes := p.suntimes()
 	currentTime := p.currentTime()
@@ -32,7 +40,6 @@ func (p *TimelinePane) Draw() {
 	timestampLPad := strings.Repeat(" ", w-timestampLength-1)
 	timestampRPad := " "
 	emptyTimestamp := strings.Repeat(" ", timestampLength)
-	defaultStyle := tcell.StyleDefault.Foreground(tcell.ColorLightGray)
 
 	if p.viewParams.NRowsPerHour == 0 {
 		panic("RES IS ZERO?!")
@@ -53,20 +60,19 @@ func (p *TimelinePane) Draw() {
 		}
 		timeText := timestampLPad + timestampString + timestampRPad
 
-		var style tcell.Style
+		var styling styling.DrawStyling
 		if suntimes != nil && (!(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set))) {
-			style = defaultStyle.Background(tcell.ColorBlack)
+			styling = nightStyling
 		} else {
-			style = defaultStyle
+			styling = dayStyling
 		}
 
-		p.renderer.DrawText(x, virtRow+y, w, 1, style, timeText)
+		p.renderer.DrawText(x, virtRow+y, w, 1, styling, timeText)
 	}
 
 	if currentTime != nil {
-		style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorRed).Bold(true)
 		timeText := timestampLPad + currentTime.ToString() + timestampRPad
-		p.renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, style, timeText)
+		p.renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, currentTimeStyling, timeText)
 	}
 }
 

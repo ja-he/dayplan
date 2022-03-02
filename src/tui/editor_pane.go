@@ -6,7 +6,7 @@ import (
 )
 
 type EditorPane struct {
-	renderer         ConstrainedRenderer
+	renderer         ui.ConstrainedRenderer
 	cursorController CursorController
 	dimensions       func() (x, y, w, h int)
 	condition        func() bool
@@ -25,7 +25,7 @@ func (p *EditorPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 
 // Draw the help popup.
 func (p *EditorPane) Draw() {
-	style := tcell.StyleDefault.Background(tcell.ColorLightGrey).Foreground(tcell.ColorBlack)
+	style := NewStyling(tcell.ColorBlack, tcell.ColorLightGrey)
 	if p.condition() {
 		x, y, w, h := p.Dimensions()
 

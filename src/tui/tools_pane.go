@@ -4,7 +4,6 @@ import "github.com/gdamore/tcell/v2"
 
 import (
 	"github.com/ja-he/dayplan/src/category_style"
-	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
@@ -13,7 +12,7 @@ import (
 var errorCategoryStyle = tcell.StyleDefault.Background(tcell.ColorIndianRed)
 
 type ToolsPane struct {
-	renderer *TUIScreenHandler
+	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
 
@@ -38,13 +37,14 @@ func (p *ToolsPane) Draw() {
 		if err != nil {
 			style = errorCategoryStyle
 		}
+		styling := FromTcell(style)
 
 		textHeightOffset := box.H / 2
 		textLen := box.W - 2
-		p.renderer.DrawBox(style, box.X, box.Y, box.W, box.H)
-		p.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, style, util.TruncateAt(cat.Name, textLen))
+		p.renderer.DrawBox(box.X, box.Y, box.W, box.H, styling)
+		p.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(cat.Name, textLen))
 		if p.currentCategory.Name == cat.Name {
-			p.renderer.DrawBox(colors.DefaultEmphasize(style), box.X+box.W-1, box.Y, 1, box.H)
+			p.renderer.DrawBox(box.X+box.W-1, box.Y, 1, box.H, styling.DefaultEmphasized())
 		}
 	}
 	p.lastBoxesDrawn = boxes

@@ -9,6 +9,8 @@ import (
 )
 
 type TUI struct {
+	// TODO: I don't think I even want the TUI to handle the sync; in any case it
+	//       shouldn't have to need this; remove.
 	renderer *TUIScreenHandler
 
 	dimensions func() (x, y, w, h int)

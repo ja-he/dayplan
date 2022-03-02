@@ -8,8 +8,6 @@ import (
 )
 
 type DayViewMainPane struct {
-	renderer *TUIScreenHandler
-
 	dimensions func() (x, y, w, h int)
 
 	events   ui.UIPane

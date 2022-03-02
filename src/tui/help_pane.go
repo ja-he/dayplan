@@ -2,12 +2,11 @@ package tui
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"github.com/ja-he/dayplan/src/colors"
 	"github.com/ja-he/dayplan/src/ui"
 )
 
 type HelpPane struct {
-	renderer   ConstrainedRenderer
+	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
 	condition  func() bool
 }
@@ -24,12 +23,14 @@ func (p *HelpPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 func (p *HelpPane) Draw() {
 	if p.condition() {
 
-		helpStyle := tcell.StyleDefault.Background(tcell.ColorLightGrey)
-		keyStyle := colors.DefaultEmphasize(helpStyle).Bold(true)
-		descriptionStyle := helpStyle.Italic(true)
+		// TODO: these are temporarily still hardcoded, will be moved with
+		//       customizable styling being implemented
+		helpStyling := NewStyling(tcell.ColorBlack, tcell.ColorLightGrey)
+		keyStyling := helpStyling.DefaultEmphasized().Bolded()
+		descriptionStyling := helpStyling.Italicized()
 
 		x, y, w, h := p.Dimensions()
-		p.renderer.DrawBox(x, y, w, h, helpStyle)
+		p.renderer.DrawBox(x, y, w, h, helpStyling)
 
 		keysDrawn := 0
 		const border = 1
@@ -39,17 +40,17 @@ func (p *HelpPane) Draw() {
 		descriptionOffset := keyOffset + maxKeyWidth + pad
 
 		drawMapping := func(keys, description string) {
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keys)), y+border+keysDrawn, len([]rune(keys)), 1, keyStyle, keys)
-			p.renderer.DrawText(descriptionOffset, y+border+keysDrawn, w, h, descriptionStyle, description)
+			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keys)), y+border+keysDrawn, len([]rune(keys)), 1, keyStyling, keys)
+			p.renderer.DrawText(descriptionOffset, y+border+keysDrawn, w, h, descriptionStyling, description)
 			keysDrawn++
 		}
 
 		drawOpposedMapping := func(keyA, keyB, description string) {
 			sepText := "/"
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText)-len([]rune(keyA)), y+border+keysDrawn, len([]rune(keyA)), 1, keyStyle, keyA)
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText), y+border+keysDrawn, len(sepText), 1, helpStyle, sepText)
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 1, keyStyle, keyB)
-			p.renderer.DrawText(descriptionOffset, y+border+keysDrawn, w, h, descriptionStyle, description)
+			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText)-len([]rune(keyA)), y+border+keysDrawn, len([]rune(keyA)), 1, keyStyling, keyA)
+			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText), y+border+keysDrawn, len(sepText), 1, helpStyling, sepText)
+			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 1, keyStyling, keyB)
+			p.renderer.DrawText(descriptionOffset, y+border+keysDrawn, w, h, descriptionStyling, description)
 			keysDrawn++
 		}
 
