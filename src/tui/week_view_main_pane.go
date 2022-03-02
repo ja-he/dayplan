@@ -43,13 +43,12 @@ func (p *WeekViewMainPane) Dimensions() (x, y, w, h int) {
 
 func (p *WeekViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
-		paneType:       ui.None,
-		weather:        ui.WeatherPanelPositionInfo{},
-		timeline:       ui.TimelinePanelPositionInfo{},
-		tools:          ui.ToolsPanelPositionInfo{},
-		status:         ui.StatusPanelPositionInfo{},
-		events:         ui.EventsPanelPositionInfo{},
-		timestampGuess: *model.NewTimestamp("00:00"),
+		paneType: ui.None,
+		weather:  ui.WeatherPanelPositionInfo{},
+		timeline: ui.TimelinePanelPositionInfo{},
+		tools:    ui.ToolsPanelPositionInfo{},
+		status:   ui.StatusPanelPositionInfo{},
+		events:   ui.EventsPanelPositionInfo{},
 	}
 }
 

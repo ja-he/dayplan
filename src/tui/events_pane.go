@@ -40,13 +40,12 @@ func (p *EventsPane) Dimensions() (x, y, w, h int) {
 
 func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
-		paneType:       ui.EventsUIPanelType,
-		weather:        ui.WeatherPanelPositionInfo{},
-		timeline:       ui.TimelinePanelPositionInfo{},
-		tools:          ui.ToolsPanelPositionInfo{},
-		status:         ui.StatusPanelPositionInfo{},
-		events:         p.getEventForPos(x, y),
-		timestampGuess: p.viewParams.TimeAtY(y),
+		paneType: ui.EventsUIPanelType,
+		weather:  ui.WeatherPanelPositionInfo{},
+		timeline: ui.TimelinePanelPositionInfo{},
+		tools:    ui.ToolsPanelPositionInfo{},
+		status:   ui.StatusPanelPositionInfo{},
+		events:   p.getEventForPos(x, y),
 	}
 }
 
@@ -215,15 +214,13 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	if p.condition() {
 		return someInfo
 	} else {
-		timestampGuess, _ := someInfo.GetCursorTimestampGuess()
 		return &TUIPositionInfo{
-			paneType:       ui.None,
-			weather:        ui.WeatherPanelPositionInfo{},
-			timeline:       ui.TimelinePanelPositionInfo{},
-			tools:          ui.ToolsPanelPositionInfo{},
-			status:         ui.StatusPanelPositionInfo{},
-			events:         ui.EventsPanelPositionInfo{},
-			timestampGuess: *timestampGuess,
+			paneType: ui.None,
+			weather:  ui.WeatherPanelPositionInfo{},
+			timeline: ui.TimelinePanelPositionInfo{},
+			tools:    ui.ToolsPanelPositionInfo{},
+			status:   ui.StatusPanelPositionInfo{},
+			events:   ui.EventsPanelPositionInfo{},
 		}
 	}
 }

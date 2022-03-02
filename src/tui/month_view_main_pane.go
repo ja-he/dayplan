@@ -2,7 +2,6 @@ package tui
 
 import (
 	"github.com/ja-he/dayplan/src/category_style"
-	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
 )
@@ -38,12 +37,11 @@ func (p *MonthViewMainPane) Dimensions() (x, y, w, h int) {
 
 func (p *MonthViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return &TUIPositionInfo{
-		paneType:       ui.None,
-		weather:        ui.WeatherPanelPositionInfo{},
-		timeline:       ui.TimelinePanelPositionInfo{},
-		tools:          ui.ToolsPanelPositionInfo{},
-		status:         ui.StatusPanelPositionInfo{},
-		events:         ui.EventsPanelPositionInfo{},
-		timestampGuess: *model.NewTimestamp("00:00"),
+		paneType: ui.None,
+		weather:  ui.WeatherPanelPositionInfo{},
+		timeline: ui.TimelinePanelPositionInfo{},
+		tools:    ui.ToolsPanelPositionInfo{},
+		status:   ui.StatusPanelPositionInfo{},
+		events:   ui.EventsPanelPositionInfo{},
 	}
 }

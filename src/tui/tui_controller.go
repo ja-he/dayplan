@@ -53,6 +53,14 @@ type TUIController struct {
 	// TODO: remove, obviously
 	tmpStatusYOffsetGetter func() int
 
+	// When creating or editing events with the mouse, we probably don't want to
+	// end the edit if the mouse leaves the events pane. Instead the more
+	// intuitive behavior for users is that it simply continue as long as the
+	// mouse button is held, regardless of the actual pane under the cursor.
+	// This helps guess at timestamps for those edits without having the panes
+	// awkwardly accessing information that they shouldn't need to.
+	timestampGuesser func(int, int) model.Timestamp
+
 	// NOTE(ja-he):
 	//   a `tcell.Screen` unites rendering and event polling functionalities.
 	//   holding this interface pointer allows us to leave the rendering to the
@@ -476,6 +484,11 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 
 	tuiController.loadDaysForView(tuiController.model.activeView)
 
+	tuiController.timestampGuesser = func(cursorX, cursorY int) model.Timestamp {
+		_, yOffset, _, _ := dayViewEventsPaneDimensions()
+		return tuiModel.ViewParams.TimeAtY(yOffset + cursorY)
+	}
+
 	return &tuiController
 }
 
@@ -832,14 +845,12 @@ func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
 	case *tcell.EventMouse:
 		x, y := e.Position()
 
-		positionInfo := t.tui.GetPositionInfo(x, y)
-
 		buttons := e.Buttons()
 
 		switch buttons {
 		case tcell.Button1:
-			timeUnderCursor, _ := positionInfo.GetCursorTimestampGuess()
-			t.resizeStep(*timeUnderCursor)
+			timestampGuess := t.timestampGuesser(x, y)
+			t.resizeStep(timestampGuess)
 		case tcell.ButtonNone:
 			t.endEdit()
 		}
@@ -891,14 +902,13 @@ func (t *TUIController) handleMouseMoveEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		x, y := e.Position()
-		positionInfo := t.tui.GetPositionInfo(x, y)
 
 		buttons := e.Buttons()
 
 		switch buttons {
 		case tcell.Button1:
-			timestampGuess, _ := positionInfo.GetCursorTimestampGuess()
-			t.moveStep(*timestampGuess)
+			timestampGuess := t.timestampGuesser(x, y)
+			t.moveStep(timestampGuess)
 		case tcell.ButtonNone:
 			t.endEdit()
 		}
