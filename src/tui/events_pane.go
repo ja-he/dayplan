@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
@@ -18,7 +17,7 @@ type EventsPane struct {
 
 	day func() *model.Day
 
-	categories *category_style.CategoryStyling
+	categories *CategoryStyling
 	viewParams *ViewParams
 	cursor     *CursorPos
 

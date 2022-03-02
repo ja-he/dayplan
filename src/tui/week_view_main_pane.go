@@ -3,7 +3,6 @@ package tui
 import (
 	"math"
 
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
@@ -17,7 +16,7 @@ type WeekViewMainPane struct {
 	status   ui.UIPane
 	days     []ui.UIPane
 
-	categories *category_style.CategoryStyling
+	categories *CategoryStyling
 	logReader  potatolog.LogReader
 	logWriter  potatolog.LogWriter
 	viewParams *ViewParams

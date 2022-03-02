@@ -4,7 +4,6 @@ import (
 	"sort"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
@@ -18,7 +17,7 @@ type SummaryPane struct {
 	titleString func() string
 	days        func() []*model.Day
 
-	categories *category_style.CategoryStyling
+	categories *CategoryStyling
 }
 
 func (p *SummaryPane) Condition() bool { return p.condition() }

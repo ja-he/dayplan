@@ -3,7 +3,6 @@ package tui
 import "github.com/gdamore/tcell/v2"
 
 import (
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
@@ -17,7 +16,7 @@ type ToolsPane struct {
 	dimensions func() (x, y, w, h int)
 
 	currentCategory *model.Category
-	categories      *category_style.CategoryStyling
+	categories      *CategoryStyling
 
 	horizPadding, vertPadding, gap int
 

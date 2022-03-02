@@ -1,4 +1,11 @@
-package category_style
+package tui
+
+// TODO(ja-he):
+//   This file contains multiple orthogonal functionalities and should be split
+//   up.
+//   It also does not belong in the TUI package and is here temporarily until
+//   customizable styling is properly implemented (in whatever shape that will
+//   take).
 
 import (
 	"fmt"

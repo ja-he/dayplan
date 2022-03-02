@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
 )
@@ -14,7 +13,7 @@ type MonthViewMainPane struct {
 
 	days []ui.UIPane
 
-	categories *category_style.CategoryStyling
+	categories *CategoryStyling
 	logReader  potatolog.LogReader
 	logWriter  potatolog.LogWriter
 	viewParams *ViewParams

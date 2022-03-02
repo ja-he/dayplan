@@ -3,7 +3,6 @@ package tui
 import (
 	"sync"
 
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/program"
@@ -80,7 +79,7 @@ type CursorPos struct {
 type TUIModel struct {
 	cursorPos CursorPos
 
-	CategoryStyling category_style.CategoryStyling
+	CategoryStyling CategoryStyling
 
 	ProgramData program.Data
 
@@ -106,7 +105,7 @@ type DaysData struct {
 	days      map[model.Date]DayWithInfo
 }
 
-func NewTUIModel(cs category_style.CategoryStyling) *TUIModel {
+func NewTUIModel(cs CategoryStyling) *TUIModel {
 	var t TUIModel
 
 	t.Days = DaysData{

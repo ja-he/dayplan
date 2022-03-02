@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/program"
@@ -88,10 +87,10 @@ func (s EditState) toString() string {
 
 func NewTUIController(date model.Date, programData program.Data) *TUIController {
 	// read category styles
-	var categoryStyling category_style.CategoryStyling
-	categoryStyling = *category_style.EmptyCategoryStyling()
+	var categoryStyling CategoryStyling
+	categoryStyling = *EmptyCategoryStyling()
 	styleFilePath := programData.BaseDirPath + "/" + "category-styles.yaml"
-	styledInputs, err := category_style.ReadCategoryStylingFile(styleFilePath)
+	styledInputs, err := ReadCategoryStylingFile(styleFilePath)
 	if err != nil {
 		panic(err)
 	}
@@ -294,7 +293,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				positions:      make(map[model.EventID]util.Rect),
 			},
 			tools: &ToolsPane{
-				renderer:        &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewEventsPaneDimensions},
+				renderer:        &TUIConstrainedRenderer{screenHandler: renderer, constraint: toolsDimensions},
 				dimensions:      toolsDimensions,
 				currentCategory: &tuiModel.CurrentCategory,
 				categories:      &tuiModel.CategoryStyling,
