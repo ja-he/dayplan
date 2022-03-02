@@ -3,6 +3,7 @@ package tui
 import (
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/ui"
+	"github.com/ja-he/dayplan/src/util"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -25,14 +26,49 @@ type TUI struct {
 	activeView *ui.ActiveView
 }
 
-func (t *TUI) Dimensions() (x, y, w, h int) {
-	return t.dimensions()
+func (p *TUI) Dimensions() (x, y, w, h int) {
+	return p.dimensions()
 }
 
 func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
-	// TODO: other panes?
+	panes := p.getCurrentlyActivePanesInOrder()
+	lastIdx := len(panes) - 1
 
-	return p.dayViewMainPane.GetPositionInfo(x, y)
+	// go through panes in reverse order (topmost drawn to bottommost drawn)
+	for i := range panes {
+		if util.NewRect(panes[lastIdx-i].Dimensions()).Contains(x, y) {
+			return panes[lastIdx-i].GetPositionInfo(x, y)
+		}
+	}
+
+	panic("argh!")
+}
+
+func (p *TUI) getCurrentlyActivePanesInOrder() []ui.UIPane {
+	panes := make([]ui.UIPane, 0)
+
+	switch *p.activeView {
+	case ui.ViewDay:
+		panes = append(panes, p.dayViewMainPane)
+	case ui.ViewWeek:
+		panes = append(panes, p.weekViewMainPane)
+	case ui.ViewMonth:
+		panes = append(panes, p.monthViewMainPane)
+	}
+	if p.editor.Condition() {
+		panes = append(panes, p.editor)
+	}
+	if p.log.Condition() {
+		panes = append(panes, p.log)
+	}
+	if p.summary.Condition() {
+		panes = append(panes, p.summary)
+	}
+	if p.help.Condition() {
+		panes = append(panes, p.help)
+	}
+
+	return panes
 }
 
 type TUIPositionTimestampGuessingWrapper struct {
@@ -107,18 +143,10 @@ func (v *TUI) NeedsSync() {
 func (t *TUI) Draw() {
 	t.renderer.Clear()
 
-	switch *t.activeView {
-	case ui.ViewDay:
-		t.dayViewMainPane.Draw()
-	case ui.ViewWeek:
-		t.weekViewMainPane.Draw()
-	case ui.ViewMonth:
-		t.monthViewMainPane.Draw()
+	panes := t.getCurrentlyActivePanesInOrder()
+	for _, pane := range panes {
+		pane.Draw()
 	}
-	t.editor.Draw()
-	t.log.Draw()
-	t.summary.Draw()
-	t.help.Draw()
 
 	t.renderer.Show()
 }

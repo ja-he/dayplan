@@ -36,3 +36,8 @@ func DurationToString(minutes int) string {
 	mins := minutes % 60
 	return fmt.Sprintf("%dh %dmin", hours, mins)
 }
+
+// NewRect constructs and returns a Rect.
+func NewRect(x, y, w, h int) *Rect {
+	return &Rect{X: x, Y: y, W: w, H: h}
+}
