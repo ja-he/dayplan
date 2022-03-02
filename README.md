@@ -42,7 +42,8 @@ As it still uses `go install` under the hood, the binary should be in your
 ## Usage
 
 - Help messages are available e.g. via `-h`
-- in TUI mode the key `?` toggles a help popup panel showing basic controls
+- in TUI mode the key <kbd>?</kbd> toggles a help popup panel showing basic
+	controls
 
 ### Regular TUI Usage
 
@@ -53,7 +54,8 @@ graphical calendar application might work.
 These events can then be shuffled around, resized, renamed, etc. as the day goes
 on and it turns out that one task actually took a lot longer or that phone call
 fell through. Thus you end up with a list of the (important) events of the day.
-Make sure you use the `w` key to write the events of the day to its file.
+Make sure you use the <kbd>w</kbd> key to write the events of the day to its
+file.
 
 ### Getting Summaries
 
@@ -72,11 +74,11 @@ $ dayplan summarize --from 2021-11-01 --til 2021-11-30 \
 
 ### Views
 
-Using `ESC` you can switch from a single day's view to a week view, and from
-there to the full month. You can still scroll through the days and events in
-this mode but not perform any edits.
+Using <kbd>ESC</kbd> you can switch from a single day's view to a week view, and
+from there to the full month. You can still scroll through the days and events
+in this mode but not perform any edits.
 
-Using `i` you can step back into the day view.
+Using <kbd>i</kbd> you can step back into the day view.
 
 ### Configuration and Defaults
 
