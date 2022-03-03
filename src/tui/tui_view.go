@@ -57,6 +57,9 @@ func (p *TUI) getCurrentlyActivePanesInOrder() []ui.UIPane {
 	case ui.ViewMonth:
 		panes = append(panes, p.monthViewMainPane)
 	}
+	// TODO: this change breaks the cursor hiding, as that is done in the draw
+	//       call when !condition. it should be done differently anyways though,
+	//       imo.
 	if p.editor.Condition() {
 		panes = append(panes, p.editor)
 	}

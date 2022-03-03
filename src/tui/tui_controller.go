@@ -673,6 +673,11 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.model.activeView = nextView
 	case 'q':
 		t.bump <- ControllerEventExit
+	case 'd':
+		eventsInfo := t.tui.GetPositionInfo(t.model.cursorPos.X, t.model.cursorPos.Y).GetExtraEventsInfo()
+		if eventsInfo != nil {
+			t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event())
+		}
 	case 'g':
 		t.ScrollTop()
 	case 'G':
