@@ -3,8 +3,8 @@ package tui
 import (
 	"sort"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 )
@@ -12,6 +12,7 @@ import (
 type SummaryPane struct {
 	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
+	stylesheet styling.Stylesheet
 
 	condition   func() bool
 	titleString func() string
@@ -30,18 +31,13 @@ func (p *SummaryPane) Dimensions() (x, y, w, h int) {
 // is currently active.
 func (p *SummaryPane) Draw() {
 
-	// TODO: these are temporarily still hardcoded, will be moved with
-	//       customizable styling being implemented
-	defaultStyling := NewStyling(tcell.ColorBlack, tcell.ColorWhite)
-	titleBoxStyling := NewStyling(tcell.ColorBlack, tcell.ColorLightGrey).Bolded()
-
 	if p.condition() {
 		x, y, w, h := p.Dimensions()
 
-		p.renderer.DrawBox(x, y, w, h, defaultStyling)
+		p.renderer.DrawBox(x, y, w, h, p.stylesheet.SummaryDefault())
 		title := p.titleString()
-		p.renderer.DrawBox(x, y, w, 1, titleBoxStyling)
-		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, titleBoxStyling, title)
+		p.renderer.DrawBox(x, y, w, 1, p.stylesheet.SummaryTitleBox())
+		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.stylesheet.SummaryTitleBox(), title)
 
 		summary := make(map[model.Category]int)
 
@@ -78,7 +74,7 @@ func (p *SummaryPane) Draw() {
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
 			p.renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
-			p.renderer.DrawText(x, y+row, catLen, 1, defaultStyling, util.TruncateAt(category.Name, catLen))
+			p.renderer.DrawText(x, y+row, catLen, 1, p.stylesheet.SummaryDefault(), util.TruncateAt(category.Name, catLen))
 			p.renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+util.DurationToString(duration)+")")
 			row++
 		}

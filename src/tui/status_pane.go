@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"github.com/gdamore/tcell/v2"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -12,6 +11,8 @@ type StatusPane struct {
 	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
+
+	stylesheet styling.Stylesheet
 
 	currentDate *model.Date
 
@@ -30,7 +31,7 @@ func (p *StatusPane) Draw() {
 
 	dateWidth := 10 // 2020-02-12 is 10 wide
 
-	bgStyle := NewStyling((tcell.ColorBlack), styling.ColorFromHexString("#f0f0f0"))
+	bgStyle := p.stylesheet.Status()
 	bgStyleEmph := bgStyle.DefaultEmphasized()
 	dateStyle := bgStyleEmph
 	weekdayStyle := dateStyle.LightenedFG(60)

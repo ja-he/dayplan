@@ -6,6 +6,7 @@ import (
 
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 )
@@ -14,6 +15,7 @@ type EventsPane struct {
 	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
+	stylesheet styling.Stylesheet
 
 	day func() *model.Day
 
@@ -64,6 +66,7 @@ func (t *EventsPane) Draw() {
 		styling := FromTcell(style)
 		if err != nil {
 			t.logWriter.Add("ERROR", err.Error())
+			styling = t.stylesheet.CategoryFallback()
 		}
 		if !t.isCurrent() {
 			styling = styling.DefaultDimmed()

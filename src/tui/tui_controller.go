@@ -9,6 +9,7 @@ import (
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/program"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 	"github.com/ja-he/dayplan/src/weather"
@@ -85,6 +86,46 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
+type TUIStylesheet struct {
+	normal           styling.DrawStyling
+	weatherRegular   styling.DrawStyling
+	weatherSunny     styling.DrawStyling
+	weatherRainy     styling.DrawStyling
+	timelineDay      styling.DrawStyling
+	timelineNight    styling.DrawStyling
+	timelineNow      styling.DrawStyling
+	status           styling.DrawStyling
+	categoryFallback styling.DrawStyling
+	logDefault       styling.DrawStyling
+	logTitleBox      styling.DrawStyling
+	logEntryType     styling.DrawStyling
+	logEntryLocation styling.DrawStyling
+	logEntryTime     styling.DrawStyling
+	help             styling.DrawStyling
+	editor           styling.DrawStyling
+	summaryDefault   styling.DrawStyling
+	summaryTitleBox  styling.DrawStyling
+}
+
+func (s *TUIStylesheet) Normal() styling.DrawStyling           { return s.normal }
+func (s *TUIStylesheet) WeatherRegular() styling.DrawStyling   { return s.weatherRegular }
+func (s *TUIStylesheet) WeatherSunny() styling.DrawStyling     { return s.weatherSunny }
+func (s *TUIStylesheet) WeatherRainy() styling.DrawStyling     { return s.weatherRainy }
+func (s *TUIStylesheet) TimelineDay() styling.DrawStyling      { return s.timelineDay }
+func (s *TUIStylesheet) TimelineNight() styling.DrawStyling    { return s.timelineNight }
+func (s *TUIStylesheet) TimelineNow() styling.DrawStyling      { return s.timelineNow }
+func (s *TUIStylesheet) Status() styling.DrawStyling           { return s.status }
+func (s *TUIStylesheet) CategoryFallback() styling.DrawStyling { return s.categoryFallback }
+func (s *TUIStylesheet) LogDefault() styling.DrawStyling       { return s.logDefault }
+func (s *TUIStylesheet) LogTitleBox() styling.DrawStyling      { return s.logTitleBox }
+func (s *TUIStylesheet) LogEntryType() styling.DrawStyling     { return s.logEntryType }
+func (s *TUIStylesheet) LogEntryLocation() styling.DrawStyling { return s.logEntryLocation }
+func (s *TUIStylesheet) LogEntryTime() styling.DrawStyling     { return s.logEntryTime }
+func (s *TUIStylesheet) Help() styling.DrawStyling             { return s.help }
+func (s *TUIStylesheet) Editor() styling.DrawStyling           { return s.editor }
+func (s *TUIStylesheet) SummaryDefault() styling.DrawStyling   { return s.summaryDefault }
+func (s *TUIStylesheet) SummaryTitleBox() styling.DrawStyling  { return s.summaryTitleBox }
+
 func NewTUIController(date model.Date, programData program.Data) *TUIController {
 	// read category styles
 	var categoryStyling CategoryStyling
@@ -96,6 +137,35 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 	for _, styledInput := range styledInputs {
 		categoryStyling.AddStyleFromInput(styledInput)
+	}
+
+	stylesheet := TUIStylesheet{
+		normal: NewStyling(tcell.ColorBlack, tcell.ColorWhite),
+
+		weatherRegular: NewStyling(tcell.ColorLightBlue, tcell.ColorWhite),
+		weatherRainy:   NewStyling(tcell.ColorBlack, tcell.NewHexColor(0xccebff)),
+		weatherSunny:   NewStyling(tcell.ColorBlack, tcell.NewHexColor(0xfff0cc)),
+
+		timelineDay:   NewStyling(tcell.ColorLightGray, tcell.ColorWhite),
+		timelineNight: NewStyling(tcell.ColorLightGray, tcell.ColorBlack),
+		timelineNow:   NewStyling(tcell.ColorWhite, tcell.ColorRed).Bolded(),
+
+		status: NewStyling((tcell.ColorBlack), styling.ColorFromHexString("#f0f0f0")),
+
+		categoryFallback: NewStyling(tcell.ColorBlack, tcell.ColorIndianRed),
+
+		logDefault:       NewStyling(tcell.ColorBlack, tcell.ColorWhite),
+		logTitleBox:      NewStyling(tcell.ColorBlack, tcell.ColorLightGrey).Bolded(),
+		logEntryType:     NewStyling(tcell.ColorDarkGrey, tcell.ColorWhite).Italicized(),
+		logEntryLocation: NewStyling(tcell.ColorDarkGrey, tcell.ColorWhite),
+		logEntryTime:     NewStyling(tcell.ColorLightGrey, tcell.ColorWhite),
+
+		help: NewStyling(tcell.ColorBlack, tcell.ColorLightGrey),
+
+		editor: NewStyling(tcell.ColorBlack, tcell.ColorLightGrey),
+
+		summaryDefault:  NewStyling(tcell.ColorBlack, tcell.ColorWhite),
+		summaryTitleBox: NewStyling(tcell.ColorBlack, tcell.ColorLightGrey).Bolded(),
 	}
 
 	tuiModel := NewTUIModel(categoryStyling)
@@ -158,6 +228,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		return &EventsPane{
 			renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: weekdayDimensions(dayIndex)},
 			dimensions:     weekdayDimensions(dayIndex),
+			stylesheet:     &stylesheet,
 			day:            func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInWeek(dayIndex)) },
 			categories:     &tuiModel.CategoryStyling,
 			viewParams:     &tuiModel.ViewParams,
@@ -185,6 +256,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			eventsPane: &EventsPane{
 				renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: monthdayDimensions(dayIndex)},
 				dimensions:     monthdayDimensions(dayIndex),
+				stylesheet:     &stylesheet,
 				day:            func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInMonth(dayIndex)) },
 				categories:     &tuiModel.CategoryStyling,
 				viewParams:     &tuiModel.ViewParams,
@@ -213,6 +285,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	statusPane := &StatusPane{
 		renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: statusDimensions},
 		dimensions:  statusDimensions,
+		stylesheet:  &stylesheet,
 		currentDate: &tuiModel.CurrentDate,
 		dayWidth: func() int {
 			_, _, w, _ := statusDimensions()
@@ -280,6 +353,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			events: &EventsPane{
 				renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewEventsPaneDimensions},
 				dimensions:     dayViewEventsPaneDimensions,
+				stylesheet:     &stylesheet,
 				day:            tuiModel.GetCurrentDay,
 				categories:     &tuiModel.CategoryStyling,
 				viewParams:     &tuiModel.ViewParams,
@@ -295,6 +369,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			tools: &ToolsPane{
 				renderer:        &TUIConstrainedRenderer{screenHandler: renderer, constraint: toolsDimensions},
 				dimensions:      toolsDimensions,
+				stylesheet:      &stylesheet,
 				currentCategory: &tuiModel.CurrentCategory,
 				categories:      &tuiModel.CategoryStyling,
 				horizPadding:    1,
@@ -305,6 +380,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			timeline: &TimelinePane{
 				renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewTimelineDimensions},
 				dimensions: dayViewTimelineDimensions,
+				stylesheet: &stylesheet,
 				suntimes:   tuiModel.GetCurrentSuntimes,
 				currentTime: func() *model.Timestamp {
 					if tuiModel.CurrentDate.Is(time.Now()) {
@@ -318,6 +394,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			weather: &WeatherPane{
 				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: weatherDimensions},
 				dimensions:  weatherDimensions,
+				stylesheet:  &stylesheet,
 				currentDate: &tuiModel.CurrentDate,
 				weather:     &tuiModel.Weather,
 				viewParams:  &tuiModel.ViewParams,
@@ -329,6 +406,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			timeline: &TimelinePane{
 				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: weekViewTimelineDimensions},
 				dimensions:  weekViewTimelineDimensions,
+				stylesheet:  &stylesheet,
 				suntimes:    func() *model.SunTimes { return nil },
 				currentTime: func() *model.Timestamp { return nil },
 				viewParams:  &tuiModel.ViewParams,
@@ -347,6 +425,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			timeline: &TimelinePane{
 				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: monthViewTimelineDimensions},
 				dimensions:  monthViewTimelineDimensions,
+				stylesheet:  &stylesheet,
 				suntimes:    func() *model.SunTimes { return nil },
 				currentTime: func() *model.Timestamp { return nil },
 				viewParams:  &tuiModel.ViewParams,
@@ -361,6 +440,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		summary: &SummaryPane{
 			renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
 			dimensions: screenDimensions,
+			stylesheet: &stylesheet,
 			condition:  func() bool { return tuiModel.showSummary },
 			titleString: func() string {
 				dateString := ""
@@ -406,6 +486,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		log: &LogPane{
 			renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
 			dimensions:  screenDimensions,
+			stylesheet:  &stylesheet,
 			condition:   func() bool { return tuiModel.showLog },
 			titleString: func() string { return "LOG" },
 			logReader:   &tuiModel.Log,
@@ -413,12 +494,14 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		help: &HelpPane{
 			renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: helpDimensions},
 			dimensions: helpDimensions,
+			stylesheet: &stylesheet,
 			condition:  func() bool { return tuiModel.showHelp },
 		},
 		editor: &EditorPane{
 			renderer:         &TUIConstrainedRenderer{screenHandler: renderer, constraint: editorDimensions},
 			cursorController: renderer,
 			dimensions:       editorDimensions,
+			stylesheet:       &stylesheet,
 			condition:        func() bool { return tuiModel.EventEditor.Active },
 			name:             func() string { return tuiModel.EventEditor.TmpEventInfo.Name },
 			cursorPos:        func() int { return tuiModel.EventEditor.CursorPos },

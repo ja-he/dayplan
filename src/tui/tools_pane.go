@@ -1,19 +1,18 @@
 package tui
 
-import "github.com/gdamore/tcell/v2"
-
 import (
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 )
-
-var errorCategoryStyle = tcell.StyleDefault.Background(tcell.ColorIndianRed)
 
 type ToolsPane struct {
 	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
+
+	stylesheet styling.Stylesheet
 
 	currentCategory *model.Category
 	categories      *CategoryStyling
@@ -32,11 +31,13 @@ func (p *ToolsPane) Draw() {
 
 	boxes := p.getCategoryBoxes(x, y, w, h)
 	for cat, box := range boxes {
-		style, err := p.categories.GetStyle(cat)
+		categoryStyle, err := p.categories.GetStyle(cat)
+		var styling styling.DrawStyling
 		if err != nil {
-			style = errorCategoryStyle
+			styling = p.stylesheet.CategoryFallback()
+		} else {
+			styling = FromTcell(categoryStyle)
 		}
-		styling := FromTcell(style)
 
 		textHeightOffset := box.H / 2
 		textLen := box.W - 2

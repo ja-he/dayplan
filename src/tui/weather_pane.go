@@ -3,8 +3,8 @@ package tui
 import (
 	"fmt"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/weather"
 )
@@ -12,6 +12,7 @@ import (
 type WeatherPane struct {
 	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
+	stylesheet styling.Stylesheet
 
 	weather     *weather.Handler
 	currentDate *model.Date
@@ -26,14 +27,7 @@ func (p *WeatherPane) Dimensions() (x, y, w, h int) {
 func (p *WeatherPane) Draw() {
 	x, y, w, h := p.Dimensions()
 
-	// TODO: these are temporarily still hardcoded, will be moved with
-	//       customizable styling being implemented
-	backgroundStyling := NewStyling(tcell.ColorBlack, tcell.ColorWhite)
-	regularStyling := NewStyling(tcell.ColorLightBlue, tcell.ColorWhite)
-	rainyStyling := NewStyling(tcell.ColorBlack, tcell.NewHexColor(0xccebff))
-	sunnyStyling := NewStyling(tcell.ColorBlack, tcell.NewHexColor(0xfff0cc))
-
-	p.renderer.DrawBox(x, y, w, h, backgroundStyling)
+	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal())
 
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		row := p.toY(timestamp)
@@ -48,12 +42,12 @@ func (p *WeatherPane) Draw() {
 
 		weather, ok := p.weather.Data[index]
 		if ok {
-			weatherStyling := regularStyling
+			weatherStyling := p.stylesheet.WeatherRegular()
 			switch {
 			case weather.PrecipitationProbability > .25:
-				weatherStyling = rainyStyling
+				weatherStyling = p.stylesheet.WeatherRainy()
 			case weather.Clouds < 25:
-				weatherStyling = sunnyStyling
+				weatherStyling = p.stylesheet.WeatherSunny()
 			}
 
 			p.renderer.DrawBox(x, row, w, p.viewParams.NRowsPerHour, weatherStyling)

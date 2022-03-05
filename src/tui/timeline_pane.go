@@ -3,7 +3,6 @@ package tui
 import (
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -13,6 +12,7 @@ type TimelinePane struct {
 	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
+	stylesheet styling.Stylesheet
 
 	suntimes    func() *model.SunTimes
 	currentTime func() *model.Timestamp
@@ -25,12 +25,6 @@ func (p *TimelinePane) Dimensions() (x, y, w, h int) {
 }
 
 func (p *TimelinePane) Draw() {
-
-	// TODO: these are temporarily still hardcoded, will be moved with
-	//       customizable styling being implemented
-	dayStyling := NewStyling(tcell.ColorLightGray, tcell.ColorWhite)
-	nightStyling := NewStyling(tcell.ColorLightGray, tcell.ColorBlack)
-	currentTimeStyling := NewStyling(tcell.ColorWhite, tcell.ColorRed).Bolded()
 
 	x, y, w, h := p.dimensions()
 	suntimes := p.suntimes()
@@ -62,9 +56,9 @@ func (p *TimelinePane) Draw() {
 
 		var styling styling.DrawStyling
 		if suntimes != nil && (!(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set))) {
-			styling = nightStyling
+			styling = p.stylesheet.TimelineNight()
 		} else {
-			styling = dayStyling
+			styling = p.stylesheet.TimelineDay()
 		}
 
 		p.renderer.DrawText(x, virtRow+y, w, 1, styling, timeText)
@@ -72,7 +66,7 @@ func (p *TimelinePane) Draw() {
 
 	if currentTime != nil {
 		timeText := timestampLPad + currentTime.ToString() + timestampRPad
-		p.renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, currentTimeStyling, timeText)
+		p.renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, p.stylesheet.TimelineNow(), timeText)
 	}
 }
 
