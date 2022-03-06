@@ -5,6 +5,7 @@ import (
 
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 )
@@ -16,7 +17,7 @@ type WeekViewMainPane struct {
 	status   ui.UIPane
 	days     []ui.UIPane
 
-	categories *CategoryStyling
+	categories *styling.CategoryStyling
 	logReader  potatolog.LogReader
 	logWriter  potatolog.LogWriter
 	viewParams *ViewParams

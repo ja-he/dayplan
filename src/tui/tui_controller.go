@@ -128,10 +128,10 @@ func (s *TUIStylesheet) SummaryTitleBox() styling.DrawStyling  { return s.summar
 
 func NewTUIController(date model.Date, programData program.Data) *TUIController {
 	// read category styles
-	var categoryStyling CategoryStyling
-	categoryStyling = *EmptyCategoryStyling()
+	var categoryStyling styling.CategoryStyling
+	categoryStyling = *styling.EmptyCategoryStyling()
 	styleFilePath := programData.BaseDirPath + "/" + "category-styles.yaml"
-	styledInputs, err := ReadCategoryStylingFile(styleFilePath)
+	styledInputs, err := styling.ReadCategoryStylingFile(styleFilePath)
 	if err != nil {
 		panic(err)
 	}
@@ -140,32 +140,32 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 
 	stylesheet := TUIStylesheet{
-		normal: NewStyling(tcell.ColorBlack, tcell.ColorWhite),
+		normal: styling.NewTUIStyling(tcell.ColorBlack, tcell.ColorWhite),
 
-		weatherRegular: NewStyling(tcell.ColorLightBlue, tcell.ColorWhite),
-		weatherRainy:   NewStyling(tcell.ColorBlack, tcell.NewHexColor(0xccebff)),
-		weatherSunny:   NewStyling(tcell.ColorBlack, tcell.NewHexColor(0xfff0cc)),
+		weatherRegular: styling.NewTUIStyling(tcell.ColorLightBlue, tcell.ColorWhite),
+		weatherRainy:   styling.NewTUIStyling(tcell.ColorBlack, tcell.NewHexColor(0xccebff)),
+		weatherSunny:   styling.NewTUIStyling(tcell.ColorBlack, tcell.NewHexColor(0xfff0cc)),
 
-		timelineDay:   NewStyling(tcell.ColorLightGray, tcell.ColorWhite),
-		timelineNight: NewStyling(tcell.ColorLightGray, tcell.ColorBlack),
-		timelineNow:   NewStyling(tcell.ColorWhite, tcell.ColorRed).Bolded(),
+		timelineDay:   styling.NewTUIStyling(tcell.ColorLightGray, tcell.ColorWhite),
+		timelineNight: styling.NewTUIStyling(tcell.ColorLightGray, tcell.ColorBlack),
+		timelineNow:   styling.NewTUIStyling(tcell.ColorWhite, tcell.ColorRed).Bolded(),
 
-		status: NewStyling((tcell.ColorBlack), styling.ColorFromHexString("#f0f0f0")),
+		status: styling.NewTUIStyling((tcell.ColorBlack), styling.ColorFromHexString("#f0f0f0")),
 
-		categoryFallback: NewStyling(tcell.ColorBlack, tcell.ColorIndianRed),
+		categoryFallback: styling.NewTUIStyling(tcell.ColorBlack, tcell.ColorIndianRed),
 
-		logDefault:       NewStyling(tcell.ColorBlack, tcell.ColorWhite),
-		logTitleBox:      NewStyling(tcell.ColorBlack, tcell.ColorLightGrey).Bolded(),
-		logEntryType:     NewStyling(tcell.ColorDarkGrey, tcell.ColorWhite).Italicized(),
-		logEntryLocation: NewStyling(tcell.ColorDarkGrey, tcell.ColorWhite),
-		logEntryTime:     NewStyling(tcell.ColorLightGrey, tcell.ColorWhite),
+		logDefault:       styling.NewTUIStyling(tcell.ColorBlack, tcell.ColorWhite),
+		logTitleBox:      styling.NewTUIStyling(tcell.ColorBlack, tcell.ColorLightGrey).Bolded(),
+		logEntryType:     styling.NewTUIStyling(tcell.ColorDarkGrey, tcell.ColorWhite).Italicized(),
+		logEntryLocation: styling.NewTUIStyling(tcell.ColorDarkGrey, tcell.ColorWhite),
+		logEntryTime:     styling.NewTUIStyling(tcell.ColorLightGrey, tcell.ColorWhite),
 
-		help: NewStyling(tcell.ColorBlack, tcell.ColorLightGrey),
+		help: styling.NewTUIStyling(tcell.ColorBlack, tcell.ColorLightGrey),
 
-		editor: NewStyling(tcell.ColorBlack, tcell.ColorLightGrey),
+		editor: styling.NewTUIStyling(tcell.ColorBlack, tcell.ColorLightGrey),
 
-		summaryDefault:  NewStyling(tcell.ColorBlack, tcell.ColorWhite),
-		summaryTitleBox: NewStyling(tcell.ColorBlack, tcell.ColorLightGrey).Bolded(),
+		summaryDefault:  styling.NewTUIStyling(tcell.ColorBlack, tcell.ColorWhite),
+		summaryTitleBox: styling.NewTUIStyling(tcell.ColorBlack, tcell.ColorLightGrey).Bolded(),
 	}
 
 	tuiModel := NewTUIModel(categoryStyling)

@@ -15,7 +15,7 @@ type ToolsPane struct {
 	stylesheet styling.Stylesheet
 
 	currentCategory *model.Category
-	categories      *CategoryStyling
+	categories      *styling.CategoryStyling
 
 	horizPadding, vertPadding, gap int
 
@@ -36,7 +36,7 @@ func (p *ToolsPane) Draw() {
 		if err != nil {
 			styling = p.stylesheet.CategoryFallback()
 		} else {
-			styling = FromTcell(categoryStyle)
+			styling = categoryStyle
 		}
 
 		textHeightOffset := box.H / 2

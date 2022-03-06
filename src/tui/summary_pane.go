@@ -18,7 +18,7 @@ type SummaryPane struct {
 	titleString func() string
 	days        func() []*model.Day
 
-	categories *CategoryStyling
+	categories *styling.CategoryStyling
 }
 
 func (p *SummaryPane) Condition() bool { return p.condition() }
@@ -69,7 +69,7 @@ func (p *SummaryPane) Draw() {
 		for _, category := range categories {
 			duration := summary[category]
 			style, _ := p.categories.GetStyle(category)
-			categoryStyling := FromTcell(style)
+			categoryStyling := style
 			catLen := 20
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))

@@ -19,7 +19,7 @@ type EventsPane struct {
 
 	day func() *model.Day
 
-	categories *CategoryStyling
+	categories *styling.CategoryStyling
 	viewParams *ViewParams
 	cursor     *CursorPos
 
@@ -63,7 +63,7 @@ func (t *EventsPane) Draw() {
 	t.positions = t.ComputeRects(day, x, y, w-t.padRight, h)
 	for _, e := range day.Events {
 		style, err := t.categories.GetStyle(e.Cat)
-		styling := FromTcell(style)
+		styling := style
 		if err != nil {
 			t.logWriter.Add("ERROR", err.Error())
 			styling = t.stylesheet.CategoryFallback()
