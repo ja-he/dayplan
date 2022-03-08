@@ -12,6 +12,8 @@ type HelpPane struct {
 	condition  func() bool
 }
 
+func (p *HelpPane) EnsureHidden() {}
+
 func (p *HelpPane) Condition() bool { return p.condition() }
 
 func (p *HelpPane) Dimensions() (x, y, w, h int) {

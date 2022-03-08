@@ -16,6 +16,8 @@ type EditorPane struct {
 	cursorPos func() int
 }
 
+func (p *EditorPane) EnsureHidden() { p.cursorController.HideCursor() }
+
 func (p *EditorPane) Condition() bool { return p.condition() }
 
 func (p *EditorPane) Dimensions() (x, y, w, h int) {
@@ -33,7 +35,5 @@ func (p *EditorPane) Draw() {
 		p.renderer.DrawText(x+1, y+1, w-2, h-2, p.stylesheet.Editor(), p.name())
 		p.cursorController.ShowCursor(x+1+(p.cursorPos()%(w-2)), y+1+(p.cursorPos()/(w-2)))
 		// TODO(ja-he): wrap at word boundary
-	} else {
-		p.cursorController.HideCursor()
 	}
 }

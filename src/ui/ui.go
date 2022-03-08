@@ -92,6 +92,9 @@ type ConditionalOverlayPane interface {
 	UIPane
 	// The condition which determines, whether this pane should be visible.
 	Condition() bool
+	// Inform the pane that it is not being shown so that it can take potential
+	// actions to ensure that, e.g., hide the terminal cursor, if necessary.
+	EnsureHidden()
 }
 
 // The type of an event box (the visual representation of an event in the user

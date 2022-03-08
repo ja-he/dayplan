@@ -33,47 +33,56 @@ func (p *TUI) Dimensions() (x, y, w, h int) {
 }
 
 func (p *TUI) GetPositionInfo(x, y int) ui.PositionInfo {
-	panes := p.getCurrentlyActivePanesInOrder()
-	lastIdx := len(panes) - 1
+	activePanes, _ := p.getCurrentlyActivePanesInOrder()
+	lastIdx := len(activePanes) - 1
 
 	// go through panes in reverse order (topmost drawn to bottommost drawn)
-	for i := range panes {
-		if util.NewRect(panes[lastIdx-i].Dimensions()).Contains(x, y) {
-			return panes[lastIdx-i].GetPositionInfo(x, y)
+	for i := range activePanes {
+		if util.NewRect(activePanes[lastIdx-i].Dimensions()).Contains(x, y) {
+			return activePanes[lastIdx-i].GetPositionInfo(x, y)
 		}
 	}
 
 	panic("argh!")
 }
 
-func (p *TUI) getCurrentlyActivePanesInOrder() []ui.UIPane {
-	panes := make([]ui.UIPane, 0)
+func (p *TUI) getCurrentlyActivePanesInOrder() (active []ui.UIPane, inactive []ui.ConditionalOverlayPane) {
+	active = make([]ui.UIPane, 0)
+	inactive = make([]ui.ConditionalOverlayPane, 0)
 
 	switch *p.activeView {
 	case ui.ViewDay:
-		panes = append(panes, p.dayViewMainPane)
+		active = append(active, p.dayViewMainPane)
 	case ui.ViewWeek:
-		panes = append(panes, p.weekViewMainPane)
+		active = append(active, p.weekViewMainPane)
 	case ui.ViewMonth:
-		panes = append(panes, p.monthViewMainPane)
+		active = append(active, p.monthViewMainPane)
 	}
 	// TODO: this change breaks the cursor hiding, as that is done in the draw
 	//       call when !condition. it should be done differently anyways though,
 	//       imo.
 	if p.editor.Condition() {
-		panes = append(panes, p.editor)
+		active = append(active, p.editor)
+	} else {
+		inactive = append(inactive, p.editor)
 	}
 	if p.log.Condition() {
-		panes = append(panes, p.log)
+		active = append(active, p.log)
+	} else {
+		inactive = append(inactive, p.log)
 	}
 	if p.summary.Condition() {
-		panes = append(panes, p.summary)
+		active = append(active, p.summary)
+	} else {
+		inactive = append(inactive, p.summary)
 	}
 	if p.help.Condition() {
-		panes = append(panes, p.help)
+		active = append(active, p.help)
+	} else {
+		inactive = append(inactive, p.help)
 	}
 
-	return panes
+	return active, inactive
 }
 
 type TUIPositionInfo struct {
@@ -116,9 +125,12 @@ func (v *TUI) NeedsSync() {
 func (t *TUI) Draw() {
 	t.renderer.Clear()
 
-	panes := t.getCurrentlyActivePanesInOrder()
-	for _, pane := range panes {
+	active, inactive := t.getCurrentlyActivePanesInOrder()
+	for _, pane := range active {
 		pane.Draw()
+	}
+	for _, pane := range inactive {
+		pane.EnsureHidden()
 	}
 
 	t.renderer.Show()
