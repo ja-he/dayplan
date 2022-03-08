@@ -5,35 +5,61 @@ import (
 	"github.com/ja-he/dayplan/src/styling"
 )
 
-// UIPaneType is the type of the bottommost meaningful UI pane.
+// PaneType is the type of the bottommost meaningful UI pane.
 //
 // It's conceivable that panes could have sub-panes for convenience in rendering
 // that aren't meaningfully different from the top pane or their individual
 // purpose isn't relevant outside of the pane structure.
-type UIPaneType int
+type PaneType int
 
 const (
-	_ UIPaneType = iota
-	// NoUIPane describes anything that is not on a meaningful UI Pane, perhaps
-	// in padding space.
-	NoUIPane
-	// WeatherUIPaneType represents a pane displaying weather information.
-	WeatherUIPaneType
-	// TimelineUIPaneType represnets a timeline.
-	TimelineUIPaneType
-	// EventsUIPaneType represents an events pane.
-	EventsUIPaneType
-	// ToolsUIPaneType represents a tools pane.
-	ToolsUIPaneType
-	// StatusUIPaneType represents a status pane (or status bar).
-	StatusUIPaneType
-	// EditorUIPaneType represents an editor (popup/floating) pane.
-	EditorUIPaneType
-	// LogUIPaneType represents a log pane.
-	LogUIPaneType
-	// SummaryUIPaneType represents a summary pane.
-	SummaryUIPaneType
+	_ PaneType = iota
+	// NoPane describes anything that is not on a meaningful UI Pane, perhaps in
+	// padding space.
+	NoPane
+	// WeatherPaneType represents a pane displaying weather information.
+	WeatherPaneType
+	// TimelinePaneType represnets a timeline.
+	TimelinePaneType
+	// EventsPaneType represents an events pane.
+	EventsPaneType
+	// ToolsPaneType represents a tools pane.
+	ToolsPaneType
+	// StatusPaneType represents a status pane (or status bar).
+	StatusPaneType
+	// EditorPaneType represents an editor (popup/floating) pane.
+	EditorPaneType
+	// LogPaneType represents a log pane.
+	LogPaneType
+	// SummaryPaneType represents a summary pane.
+	SummaryPaneType
 )
+
+// ToString returns the name of this pane type as a string, primarily for
+// debugging and logging purposes.
+func (t PaneType) ToString() string {
+	switch t {
+	case NoPane:
+		return "NoPane"
+	case WeatherPaneType:
+		return "WeatherPaneType"
+	case TimelinePaneType:
+		return "TimelinePaneType"
+	case EventsPaneType:
+		return "EventsPaneType"
+	case ToolsPaneType:
+		return "ToolsPaneType"
+	case StatusPaneType:
+		return "StatusPaneType"
+	case EditorPaneType:
+		return "EditorPaneType"
+	case LogPaneType:
+		return "LogPaneType"
+	case SummaryPaneType:
+		return "SummaryPaneType"
+	}
+	return "[UNKNOWN]"
+}
 
 // ActiveView is the active view of the UI, which could be a single day, a week
 // or a full month (or in the future any other stretch of time that's to be
@@ -52,23 +78,23 @@ const (
 	ViewMonth
 )
 
-// A rectangular pane in a user interface.
+// Pane is a rectangular pane in a user interface.
 // It can be drawn or queried for information.
-type UIPane interface {
-	// Draw this pane.
+type Pane interface {
+	// Draw draws this pane.
 	// Renders whatever contents the pane is supposed to display to whatever UI is
 	// currently in use.
 	Draw()
 
-	// Get the dimensions (x-axis offset, y-axis offset, width, height) for this
-	// pane.
+	// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
+	// height) for this pane.
 	Dimensions() (x, y, w, h int)
 
-	// Get the dimensions (x-axis offset, y-axis offset, width, height) for this
-	// pane.
+	// GetPositionInfo returns information on a requested position in this pane.
 	GetPositionInfo(x, y int) PositionInfo
 }
 
+// RootPane is the root pane in a UI.
 // TODO:
 //  - probably doesn't make much sense actually
 //    - 'close' roughly means do necessary teardown to cleanly end UI
@@ -76,20 +102,21 @@ type UIPane interface {
 //    - needs sync is also sort of TUI specific? probably? and this one i've
 //      definitely wanted the controller to handle, maybe by directly putting
 //      a call to the renderer into a callback triggered on resize?
-type MainUIPane interface {
-	UIPane
+type RootPane interface {
+	Pane
 	Close()
 	NeedsSync()
 }
 
-// A UI pane that is only visible given some condition holds true.
+// ConditionalOverlayPane is a UI pane that is only visible given some
+// condition holds true.
 //
 // The condition can be queried by whatever parent holds the pane.
 // It's probably best that the parent conditionally draws, but internal
 // verification of the condition before executing draw calls is also an option.
 type ConditionalOverlayPane interface {
-	// Implements the `UIPane` interface.
-	UIPane
+	// Implements the Pane interface.
+	Pane
 	// The condition which determines, whether this pane should be visible.
 	Condition() bool
 	// Inform the pane that it is not being shown so that it can take potential
@@ -97,8 +124,8 @@ type ConditionalOverlayPane interface {
 	EnsureHidden()
 }
 
-// The type of an event box (the visual representation of an event in the user
-// interface).
+// EventBoxPart describes the part of an event box (the visual representation
+// of an event in the user interface).
 // For example this could describe what part of an event the mouse is hovering
 // over.
 type EventBoxPart int
@@ -116,7 +143,7 @@ const (
 	EventBoxInterior
 )
 
-// Convert an an `EventBoxPart` to a string.
+// ToString converts an an EventBoxPart to a string.
 func (p EventBoxPart) ToString() string {
 	switch p {
 	case EventBoxNowhere:
@@ -131,54 +158,8 @@ func (p EventBoxPart) ToString() string {
 	return "[unknown event box part]"
 }
 
-// Describes a position in the user interface.
-//
-// Retrievers should initially check for the type of pane they are receiving
-// information on and can then retreive the relevant additional information from
-// the relevant `GetExtra...` function.
-// Note that that information will likely be invalid, if it doesn't correspond
-// to the pane type indicated.
-type PositionInfo interface {
-	// The type of pane to which the information pertains.
-	PaneType() UIPaneType
-
-	// Additional information on a position in a weather pane.
-	GetExtraWeatherInfo() WeatherPanePositionInfo
-	// Additional information on a position in a timeline pane.
-	GetExtraTimelineInfo() TimelinePanePositionInfo
-	// Additional information on a position in a events pane.
-	GetExtraEventsInfo() EventsPanePositionInfo
-	// Additional information on a position in a tools pane.
-	GetExtraToolsInfo() ToolsPanePositionInfo
-	// Additional information on a position in a status pane.
-	GetExtraStatusInfo() StatusPanePositionInfo
-
-	// NOTE: additional functions to be expected, corresponding to pane types.
-}
-
-// Information on a position in a weather pane.
-type WeatherPanePositionInfo interface{}
-
-// Information on a position in a timeline pane.
-type TimelinePanePositionInfo interface{}
-
-// Information on a position in a tools pane.
-type ToolsPanePositionInfo interface {
-	Category() *model.Category
-}
-
-// Information on a position in a status pane.
-type StatusPanePositionInfo interface{}
-
-// Information on a position in a events pane.
-type EventsPanePositionInfo interface {
-	Event() model.EventID
-	EventBoxPart() EventBoxPart
-	Time() model.Timestamp
-}
-
-// A renderer that is assumed to be constrained to certain dimensions, i.E. it
-// does not draw outside of them.
+// ConstrainedRenderer is a renderer that is assumed to be constrained to
+// certain dimensions, i.E. it does not draw outside of them.
 type ConstrainedRenderer interface {
 	// Draw a box of the indicated dimensions at the indicated location but
 	// limited to the constraint (bounding box) of the renderer.
@@ -192,4 +173,43 @@ type ConstrainedRenderer interface {
 	// it is truncated to fit and drawn at the corrected coordinates with the
 	// corrected dimensions.
 	DrawText(x, y, w, h int, style styling.DrawStyling, text string)
+}
+
+// RootPaneRendererControl is the set of functions of a renderer (e.g.,
+// tcell.Screen) that the root pane needs to use to have full control over a
+// render cycle. Other panes should not need this access to the renderer.
+type RootPaneRendererControl interface {
+	NeedsSync()
+	Fini()
+	Clear()
+	Show()
+}
+
+// ViewParams represents the zoom and scroll of a timeline  in the UI.
+type ViewParams struct {
+	// NRowsPerHour is the number of rows in the UI that represent an hour in the
+	// timeline.
+	NRowsPerHour int
+	// ScrollOffset is the offset in rows by which the UI is scrolled.
+	// (An unscrolled UI would have 00:00 at the very top.)
+	ScrollOffset int
+}
+
+// MouseCursorPos represents the position of a mouse cursor on the UI's
+// x-y-plane, which has its origin 0,0 in the top left.
+type MouseCursorPos struct {
+	X, Y int
+}
+
+// TimeAtY is the time that corresponds to a given y-position.
+func (p *ViewParams) TimeAtY(y int) model.Timestamp {
+	minutes := y*(60/p.NRowsPerHour) + p.ScrollOffset*(60/p.NRowsPerHour)
+	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
+	return ts
+}
+
+// TextCursorController offers control of a text cursor, such as for a terminal.
+type TextCursorController interface {
+	HideCursor()
+	ShowCursor(x, y int)
 }

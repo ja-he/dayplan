@@ -62,23 +62,8 @@ type DayWithInfo struct {
 	SunTimes *model.SunTimes
 }
 
-type ViewParams struct {
-	NRowsPerHour int
-	ScrollOffset int
-}
-
-func (p *ViewParams) TimeAtY(y int) model.Timestamp {
-	minutes := y*(60/p.NRowsPerHour) + p.ScrollOffset*(60/p.NRowsPerHour)
-	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
-	return ts
-}
-
-type CursorPos struct {
-	X, Y int
-}
-
 type TUIModel struct {
-	cursorPos CursorPos
+	cursorPos ui.MouseCursorPos
 
 	CategoryStyling styling.CategoryStyling
 
@@ -93,7 +78,7 @@ type TUIModel struct {
 	showHelp    bool
 	showSummary bool
 
-	ViewParams ViewParams
+	ViewParams ui.ViewParams
 
 	CurrentCategory model.Category
 	activeView      ui.ActiveView

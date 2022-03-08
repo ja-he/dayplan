@@ -1,4 +1,4 @@
-package tui
+package panes
 
 import (
 	"github.com/ja-he/dayplan/src/model"
@@ -7,6 +7,8 @@ import (
 	"github.com/ja-he/dayplan/src/util"
 )
 
+// ToolsPane shows tools for editing.
+// Currently it only offers a selection of categories to select from.
 type ToolsPane struct {
 	renderer ui.ConstrainedRenderer
 
@@ -22,10 +24,14 @@ type ToolsPane struct {
 	lastBoxesDrawn map[model.Category]util.Rect
 }
 
+// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
+// height) for this pane.
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *ToolsPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
+// Draw draws this pane.
 func (p *ToolsPane) Draw() {
 	x, y, w, h := p.dimensions()
 
@@ -68,7 +74,7 @@ func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rec
 	return result
 }
 
-func (p *ToolsPane) getCategoryForpos(x, y int) *model.Category {
+func (p *ToolsPane) getCategoryForPos(x, y int) *model.Category {
 	for cat, box := range p.lastBoxesDrawn {
 		if box.Contains(x, y) {
 			return &cat
@@ -77,19 +83,47 @@ func (p *ToolsPane) getCategoryForpos(x, y int) *model.Category {
 	return nil
 }
 
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *ToolsPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	return &TUIPositionInfo{
-		paneType: ui.ToolsUIPaneType,
-		weather:  nil,
-		timeline: nil,
-		tools:    &ToolsPanePositionInfo{category: p.getCategoryForpos(x, y)},
-		status:   nil,
-		events:   nil,
-	}
+	return ui.NewPositionInfo(
+		ui.ToolsPaneType,
+		nil,
+		nil,
+		&ToolsPanePositionInfo{category: p.getCategoryForPos(x, y)},
+		nil,
+		nil,
+	)
 }
 
+// ToolsPanePositionInfo conveys information on a position in a tools pane,
+// importantly the possible category displayed at that position.
 type ToolsPanePositionInfo struct {
 	category *model.Category
 }
 
+// Category gives the category at the position, or nil if none (e.g., because
+// in padding space).
 func (i *ToolsPanePositionInfo) Category() *model.Category { return i.category }
+
+// NewToolsPane constructs and returns a new ToolsPane.
+func NewToolsPane(
+	renderer ui.ConstrainedRenderer,
+	dimensions func() (x, y, w, h int),
+	stylesheet styling.Stylesheet,
+	currentCategory *model.Category,
+	categories *styling.CategoryStyling,
+	horizPadding int,
+	vertPadding int,
+	gap int,
+) *ToolsPane {
+	return &ToolsPane{
+		renderer:        renderer,
+		dimensions:      dimensions,
+		stylesheet:      stylesheet,
+		currentCategory: currentCategory,
+		categories:      categories,
+		horizPadding:    horizPadding,
+		vertPadding:     vertPadding,
+		gap:             gap,
+	}
+}

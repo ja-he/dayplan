@@ -11,6 +11,7 @@ import (
 	"github.com/ja-he/dayplan/src/program"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
+	"github.com/ja-he/dayplan/src/ui/panes"
 	"github.com/ja-he/dayplan/src/util"
 	"github.com/ja-he/dayplan/src/weather"
 
@@ -42,7 +43,7 @@ type EditedEvent struct {
 
 type TUIController struct {
 	model         *TUIModel
-	tui           ui.MainUIPane
+	rootPane      ui.RootPane
 	editState     EditState
 	EditedEvent   EditedEvent
 	movePropagate bool
@@ -224,23 +225,23 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			return baseX + timelineWidth + (dayIndex * dayWidth), baseY, dayWidth, baseH - statusHeight
 		}
 	}
-	weekdayPane := func(dayIndex int) ui.UIPane {
-		return &EventsPane{
-			renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: weekdayDimensions(dayIndex)},
-			dimensions:     weekdayDimensions(dayIndex),
-			stylesheet:     &stylesheet,
-			day:            func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInWeek(dayIndex)) },
-			categories:     &tuiModel.CategoryStyling,
-			viewParams:     &tuiModel.ViewParams,
-			cursor:         &tuiModel.cursorPos,
-			padRight:       0,
-			drawTimestamps: false,
-			drawNames:      true,
-			isCurrent:      func() bool { return tuiModel.CurrentDate.GetDayInWeek(dayIndex) == tuiModel.CurrentDate },
-			logReader:      &tuiModel.Log,
-			logWriter:      &tuiModel.Log,
-			positions:      make(map[model.EventID]util.Rect),
-		}
+	weekdayPane := func(dayIndex int) ui.Pane {
+		return panes.NewEventsPane(
+			&TUIConstrainedRenderer{screenHandler: renderer, constraint: weekdayDimensions(dayIndex)},
+			weekdayDimensions(dayIndex),
+			&stylesheet,
+			func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInWeek(dayIndex)) },
+			&tuiModel.CategoryStyling,
+			&tuiModel.ViewParams,
+			&tuiModel.cursorPos,
+			0,
+			false,
+			true,
+			func() bool { return tuiModel.CurrentDate.GetDayInWeek(dayIndex) == tuiModel.CurrentDate },
+			&tuiModel.Log,
+			&tuiModel.Log,
+			make(map[model.EventID]util.Rect),
+		)
 	}
 	monthdayDimensions := func(dayIndex int) func() (x, y, w, h int) {
 		return func() (x, y, w, h int) {
@@ -250,44 +251,44 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			return baseX + timelineWidth + (dayIndex * dayWidth), baseY, dayWidth, baseH - statusHeight
 		}
 	}
-	monthdayPane := func(dayIndex int) ui.UIPane {
-		return &MaybeEventsPane{
-			condition: func() bool { return tuiModel.CurrentDate.GetDayInMonth(dayIndex).Month == tuiModel.CurrentDate.Month },
-			eventsPane: &EventsPane{
-				renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: monthdayDimensions(dayIndex)},
-				dimensions:     monthdayDimensions(dayIndex),
-				stylesheet:     &stylesheet,
-				day:            func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInMonth(dayIndex)) },
-				categories:     &tuiModel.CategoryStyling,
-				viewParams:     &tuiModel.ViewParams,
-				cursor:         &tuiModel.cursorPos,
-				padRight:       0,
-				drawTimestamps: false,
-				drawNames:      false,
-				isCurrent:      func() bool { return tuiModel.CurrentDate.GetDayInMonth(dayIndex) == tuiModel.CurrentDate },
-				logReader:      &tuiModel.Log,
-				logWriter:      &tuiModel.Log,
-				positions:      make(map[model.EventID]util.Rect),
-			},
-		}
+	monthdayPane := func(dayIndex int) ui.Pane {
+		return panes.NewMaybeEventsPane(
+			func() bool { return tuiModel.CurrentDate.GetDayInMonth(dayIndex).Month == tuiModel.CurrentDate.Month },
+			panes.NewEventsPane(
+				&TUIConstrainedRenderer{screenHandler: renderer, constraint: monthdayDimensions(dayIndex)},
+				monthdayDimensions(dayIndex),
+				&stylesheet,
+				func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInMonth(dayIndex)) },
+				&tuiModel.CategoryStyling,
+				&tuiModel.ViewParams,
+				&tuiModel.cursorPos,
+				0,
+				false,
+				false,
+				func() bool { return tuiModel.CurrentDate.GetDayInMonth(dayIndex) == tuiModel.CurrentDate },
+				&tuiModel.Log,
+				&tuiModel.Log,
+				make(map[model.EventID]util.Rect),
+			),
+		)
 	}
 
-	weekViewEventsPanes := make([]ui.UIPane, 7)
+	weekViewEventsPanes := make([]ui.Pane, 7)
 	for i := range weekViewEventsPanes {
 		weekViewEventsPanes[i] = weekdayPane(i)
 	}
 
-	monthViewEventsPanes := make([]ui.UIPane, 31)
+	monthViewEventsPanes := make([]ui.Pane, 31)
 	for i := range monthViewEventsPanes {
 		monthViewEventsPanes[i] = monthdayPane(i)
 	}
 
-	statusPane := &StatusPane{
-		renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: statusDimensions},
-		dimensions:  statusDimensions,
-		stylesheet:  &stylesheet,
-		currentDate: &tuiModel.CurrentDate,
-		dayWidth: func() int {
+	statusPane := panes.NewStatusPane(
+		&TUIConstrainedRenderer{screenHandler: renderer, constraint: statusDimensions},
+		statusDimensions,
+		&stylesheet,
+		&tuiModel.CurrentDate,
+		func() int {
 			_, _, w, _ := statusDimensions()
 			switch tuiModel.activeView {
 			case ui.ViewDay:
@@ -300,7 +301,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				panic("unknown view for status rendering")
 			}
 		},
-		totalDaysInPeriod: func() int {
+		func() int {
 			switch tuiModel.activeView {
 			case ui.ViewDay:
 				return 1
@@ -312,7 +313,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				panic("unknown view for status rendering")
 			}
 		},
-		passedDaysInPeriod: func() int {
+		func() int {
 			switch tuiModel.activeView {
 			case ui.ViewDay:
 				return 1
@@ -341,108 +342,106 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				panic("unknown view for status rendering")
 			}
 		},
-		firstDayXOffset: func() int { return timelineWidth },
-	}
+		func() int { return timelineWidth },
+	)
 
-	tui := TUI{
-		renderer:   renderer,
-		dimensions: screenDimensions,
+	tui := panes.NewRootPane(
+		renderer,
+		screenDimensions,
 
-		dayViewMainPane: &DayViewMainPane{
-			dimensions: dayViewMainPaneDimensions,
-			events: &EventsPane{
-				renderer:       &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewEventsPaneDimensions},
-				dimensions:     dayViewEventsPaneDimensions,
-				stylesheet:     &stylesheet,
-				day:            tuiModel.GetCurrentDay,
-				categories:     &tuiModel.CategoryStyling,
-				viewParams:     &tuiModel.ViewParams,
-				cursor:         &tuiModel.cursorPos,
-				padRight:       2,
-				drawTimestamps: true,
-				drawNames:      true,
-				isCurrent:      func() bool { return true },
-				logReader:      &tuiModel.Log,
-				logWriter:      &tuiModel.Log,
-				positions:      make(map[model.EventID]util.Rect),
-			},
-			tools: &ToolsPane{
-				renderer:        &TUIConstrainedRenderer{screenHandler: renderer, constraint: toolsDimensions},
-				dimensions:      toolsDimensions,
-				stylesheet:      &stylesheet,
-				currentCategory: &tuiModel.CurrentCategory,
-				categories:      &tuiModel.CategoryStyling,
-				horizPadding:    1,
-				vertPadding:     1,
-				gap:             0,
-			},
-			status: statusPane,
-			timeline: &TimelinePane{
-				renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewTimelineDimensions},
-				dimensions: dayViewTimelineDimensions,
-				stylesheet: &stylesheet,
-				suntimes:   tuiModel.GetCurrentSuntimes,
-				currentTime: func() *model.Timestamp {
+		panes.NewDayViewMainPane(
+			dayViewMainPaneDimensions,
+			panes.NewEventsPane(
+				&TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewEventsPaneDimensions},
+				dayViewEventsPaneDimensions,
+				&stylesheet,
+				tuiModel.GetCurrentDay,
+				&tuiModel.CategoryStyling,
+				&tuiModel.ViewParams,
+				&tuiModel.cursorPos,
+				2,
+				true,
+				true,
+				func() bool { return true },
+				&tuiModel.Log,
+				&tuiModel.Log,
+				make(map[model.EventID]util.Rect),
+			),
+			panes.NewToolsPane(
+				&TUIConstrainedRenderer{screenHandler: renderer, constraint: toolsDimensions},
+				toolsDimensions,
+				&stylesheet,
+				&tuiModel.CurrentCategory,
+				&tuiModel.CategoryStyling,
+				1,
+				1,
+				0,
+			),
+			statusPane,
+			panes.NewTimelinePane(
+				&TUIConstrainedRenderer{screenHandler: renderer, constraint: dayViewTimelineDimensions},
+				dayViewTimelineDimensions,
+				&stylesheet,
+				tuiModel.GetCurrentSuntimes,
+				func() *model.Timestamp {
 					if tuiModel.CurrentDate.Is(time.Now()) {
 						return model.NewTimestampFromGotime(time.Now())
 					} else {
 						return nil
 					}
 				},
-				viewParams: &tuiModel.ViewParams,
-			},
-			weather: &WeatherPane{
-				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: weatherDimensions},
-				dimensions:  weatherDimensions,
-				stylesheet:  &stylesheet,
-				currentDate: &tuiModel.CurrentDate,
-				weather:     &tuiModel.Weather,
-				viewParams:  &tuiModel.ViewParams,
-			},
-		},
-		weekViewMainPane: &WeekViewMainPane{
-			dimensions: weekViewMainPaneDimensions,
-			status:     statusPane,
-			timeline: &TimelinePane{
-				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: weekViewTimelineDimensions},
-				dimensions:  weekViewTimelineDimensions,
-				stylesheet:  &stylesheet,
-				suntimes:    func() *model.SunTimes { return nil },
-				currentTime: func() *model.Timestamp { return nil },
-				viewParams:  &tuiModel.ViewParams,
-			},
-			days:       weekViewEventsPanes,
-			categories: &tuiModel.CategoryStyling,
-			logReader:  &tuiModel.Log,
-			logWriter:  &tuiModel.Log,
-			viewParams: &tuiModel.ViewParams,
+				&tuiModel.ViewParams,
+			),
+			panes.NewWeatherPane(
+				&TUIConstrainedRenderer{screenHandler: renderer, constraint: weatherDimensions},
+				weatherDimensions,
+				&stylesheet,
+				&tuiModel.CurrentDate,
+				&tuiModel.Weather,
+				&tuiModel.ViewParams,
+			),
+		),
+		panes.NewWeekViewMainPane(
+			weekViewMainPaneDimensions,
+			statusPane,
+			panes.NewTimelinePane(
+				&TUIConstrainedRenderer{screenHandler: renderer, constraint: weekViewTimelineDimensions},
+				weekViewTimelineDimensions,
+				&stylesheet,
+				func() *model.SunTimes { return nil },
+				func() *model.Timestamp { return nil },
+				&tuiModel.ViewParams,
+			),
+			weekViewEventsPanes,
+			&tuiModel.CategoryStyling,
+			&tuiModel.Log,
+			&tuiModel.Log,
+			&tuiModel.ViewParams,
+		),
+		panes.NewMonthViewMainPane(
+			monthViewMainPaneDimensions,
+			statusPane,
+			panes.NewTimelinePane(
+				&TUIConstrainedRenderer{screenHandler: renderer, constraint: monthViewTimelineDimensions},
+				monthViewTimelineDimensions,
+				&stylesheet,
+				func() *model.SunTimes { return nil },
+				func() *model.Timestamp { return nil },
+				&tuiModel.ViewParams,
+			),
+			monthViewEventsPanes,
+			&tuiModel.CategoryStyling,
+			&tuiModel.Log,
+			&tuiModel.Log,
+			&tuiModel.ViewParams,
+		),
 
-			positions: make(map[model.EventID]util.Rect),
-		},
-		monthViewMainPane: &MonthViewMainPane{
-			dimensions: monthViewMainPaneDimensions,
-			status:     statusPane,
-			timeline: &TimelinePane{
-				renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: monthViewTimelineDimensions},
-				dimensions:  monthViewTimelineDimensions,
-				stylesheet:  &stylesheet,
-				suntimes:    func() *model.SunTimes { return nil },
-				currentTime: func() *model.Timestamp { return nil },
-				viewParams:  &tuiModel.ViewParams,
-			},
-			days:       monthViewEventsPanes,
-			categories: &tuiModel.CategoryStyling,
-			logReader:  &tuiModel.Log,
-			logWriter:  &tuiModel.Log,
-			viewParams: &tuiModel.ViewParams,
-		},
-
-		summary: &SummaryPane{
-			renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
-			dimensions: screenDimensions,
-			stylesheet: &stylesheet,
-			condition:  func() bool { return tuiModel.showSummary },
-			titleString: func() string {
+		panes.NewSummaryPane(
+			&TUIConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
+			screenDimensions,
+			&stylesheet,
+			func() bool { return tuiModel.showSummary },
+			func() string {
 				dateString := ""
 				switch tuiModel.activeView {
 				case ui.ViewDay:
@@ -455,7 +454,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 				}
 				return fmt.Sprintf("SUMMARY (%s)", dateString)
 			},
-			days: func() []*model.Day {
+			func() []*model.Day {
 				switch tuiModel.activeView {
 				case ui.ViewDay:
 					result := make([]*model.Day, 1)
@@ -481,34 +480,34 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 					panic("unknown view in summary data gathering")
 				}
 			},
-			categories: &tuiModel.CategoryStyling,
-		},
-		log: &LogPane{
-			renderer:    &TUIConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
-			dimensions:  screenDimensions,
-			stylesheet:  &stylesheet,
-			condition:   func() bool { return tuiModel.showLog },
-			titleString: func() string { return "LOG" },
-			logReader:   &tuiModel.Log,
-		},
-		help: &HelpPane{
-			renderer:   &TUIConstrainedRenderer{screenHandler: renderer, constraint: helpDimensions},
-			dimensions: helpDimensions,
-			stylesheet: &stylesheet,
-			condition:  func() bool { return tuiModel.showHelp },
-		},
-		editor: &EditorPane{
-			renderer:         &TUIConstrainedRenderer{screenHandler: renderer, constraint: editorDimensions},
-			cursorController: renderer,
-			dimensions:       editorDimensions,
-			stylesheet:       &stylesheet,
-			condition:        func() bool { return tuiModel.EventEditor.Active },
-			name:             func() string { return tuiModel.EventEditor.TmpEventInfo.Name },
-			cursorPos:        func() int { return tuiModel.EventEditor.CursorPos },
-		},
+			&tuiModel.CategoryStyling,
+		),
+		panes.NewLogPane(
+			&TUIConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
+			screenDimensions,
+			&stylesheet,
+			func() bool { return tuiModel.showLog },
+			func() string { return "LOG" },
+			&tuiModel.Log,
+		),
+		panes.NewHelpPane(
+			&TUIConstrainedRenderer{screenHandler: renderer, constraint: helpDimensions},
+			helpDimensions,
+			&stylesheet,
+			func() bool { return tuiModel.showHelp },
+		),
+		panes.NewEditorPane(
+			&TUIConstrainedRenderer{screenHandler: renderer, constraint: editorDimensions},
+			renderer,
+			editorDimensions,
+			&stylesheet,
+			func() bool { return tuiModel.EventEditor.Active },
+			func() string { return tuiModel.EventEditor.TmpEventInfo.Name },
+			func() int { return tuiModel.EventEditor.CursorPos },
+		),
 
-		activeView: &tuiModel.activeView,
-	}
+		func() *ui.ActiveView { return &tuiModel.activeView },
+	)
 
 	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
 	owmApiKeyProvided := (programData.OwmApiKey != "")
@@ -558,7 +557,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		tuiController.model.Days.AddDay(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
 	}
 
-	tuiController.tui = &tui
+	tuiController.rootPane = tui
 	tuiController.model.CurrentCategory.Name = "default"
 
 	tuiController.loadDaysForView(tuiController.model.activeView)
@@ -757,7 +756,7 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	case 'q':
 		t.bump <- ControllerEventExit
 	case 'd':
-		eventsInfo := t.tui.GetPositionInfo(t.model.cursorPos.X, t.model.cursorPos.Y).GetExtraEventsInfo()
+		eventsInfo := t.rootPane.GetPositionInfo(t.model.cursorPos.X, t.model.cursorPos.Y).GetExtraEventsInfo()
 		if eventsInfo != nil {
 			t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event())
 		}
@@ -827,7 +826,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 		x, y := e.Position()
 		t.updateCursorPos(x, y)
 
-		positionInfo := t.tui.GetPositionInfo(x, y)
+		positionInfo := t.rootPane.GetPositionInfo(x, y)
 		if positionInfo == nil {
 			return
 		}
@@ -836,22 +835,22 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 
 		paneType := positionInfo.PaneType()
 		switch paneType {
-		case ui.StatusUIPaneType:
-		case ui.WeatherUIPaneType:
+		case ui.StatusPaneType:
+		case ui.WeatherPaneType:
 			switch buttons {
 			case tcell.WheelUp:
 				t.ScrollUp(1)
 			case tcell.WheelDown:
 				t.ScrollDown(1)
 			}
-		case ui.TimelineUIPaneType:
+		case ui.TimelinePaneType:
 			switch buttons {
 			case tcell.WheelUp:
 				t.ScrollUp(1)
 			case tcell.WheelDown:
 				t.ScrollDown(1)
 			}
-		case ui.EventsUIPaneType:
+		case ui.EventsPaneType:
 			eventsInfo := positionInfo.GetExtraEventsInfo()
 			t.model.Log.Add("DEBUG", fmt.Sprint(eventsInfo))
 
@@ -884,7 +883,7 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			case tcell.WheelDown:
 				t.ScrollDown(1)
 			}
-		case ui.ToolsUIPaneType:
+		case ui.ToolsPaneType:
 			toolsInfo := positionInfo.GetExtraToolsInfo()
 			t.model.Log.Add("DEBUG", fmt.Sprint("tools info:", toolsInfo))
 			switch buttons {
@@ -1037,7 +1036,7 @@ func (t *TUIController) Run() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer t.tui.Close()
+		defer t.rootPane.Close()
 		for {
 
 			select {
@@ -1051,7 +1050,7 @@ func (t *TUIController) Run() {
 						return
 					}
 					// render
-					t.tui.Draw()
+					t.rootPane.Draw()
 				case ControllerEventExit:
 					return
 				}
@@ -1088,7 +1087,7 @@ func (t *TUIController) Run() {
 
 			switch ev.(type) {
 			case *tcell.EventResize:
-				t.tui.NeedsSync()
+				t.rootPane.NeedsSync()
 			}
 
 			t.bump <- ControllerEventRender

@@ -12,11 +12,6 @@ type TUIScreenHandler struct {
 	needsSync bool
 }
 
-type CursorController interface {
-	HideCursor()
-	ShowCursor(x, y int)
-}
-
 func (r *TUIConstrainedRenderer) Constrain(rawX, rawY, rawW, rawH int) (constrainedX, constrainedY, constrainedW, constrainedH int) {
 	xConstraint, yConstraint, wConstraint, hConstraint := r.constraint()
 

@@ -1,4 +1,4 @@
-package tui
+package panes
 
 import (
 	"strings"
@@ -8,6 +8,7 @@ import (
 	"github.com/ja-he/dayplan/src/ui"
 )
 
+// LogPane shows the log, with the most recent log entries at the top.
 type LogPane struct {
 	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
@@ -19,16 +20,23 @@ type LogPane struct {
 	titleString func() string
 }
 
+// EnsureHidden informs the pane that it is not being shown so that it can take
+// potential actions to ensure that, e.g., hide the terminal cursor, if
+// necessary.
 func (p *LogPane) EnsureHidden() {}
 
+// Condition returns whether this pane should be visible.
 func (p *LogPane) Condition() bool { return p.condition() }
 
+// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
+// height) for this pane.
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *LogPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
-// Draws the time summary view over top of all previously drawn contents, if it
-// is currently active.
+// Draw draws the time summary view over top of all previously drawn contents,
+// if it is currently active.
 func (p *LogPane) Draw() {
 
 	if p.condition() {
@@ -60,6 +68,26 @@ func (p *LogPane) Draw() {
 	}
 }
 
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *LogPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
+}
+
+// NewLogPane constructs and returns a new LogPane.
+func NewLogPane(
+	renderer ui.ConstrainedRenderer,
+	dimensions func() (x, y, w, h int),
+	stylesheet styling.Stylesheet,
+	condition func() bool,
+	titleString func() string,
+	logReader potatolog.LogReader,
+) *LogPane {
+	return &LogPane{
+		renderer:    renderer,
+		dimensions:  dimensions,
+		stylesheet:  stylesheet,
+		condition:   condition,
+		titleString: titleString,
+		logReader:   logReader,
+	}
 }

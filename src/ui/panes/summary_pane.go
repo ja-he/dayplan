@@ -1,4 +1,4 @@
-package tui
+package panes
 
 import (
 	"sort"
@@ -9,6 +9,9 @@ import (
 	"github.com/ja-he/dayplan/src/util"
 )
 
+// SummaryPane shows a summary of the set of days it is provided.
+// It shows all events' times summed up (by Summarize, meaning without counting
+// any time multiple times) and visualizes the results in simple bars.
 type SummaryPane struct {
 	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
@@ -21,16 +24,23 @@ type SummaryPane struct {
 	categories *styling.CategoryStyling
 }
 
+// EnsureHidden informs the pane that it is not being shown so that it can take
+// potential actions to ensure that, e.g., hide the terminal cursor, if
+// necessary.
 func (p *SummaryPane) EnsureHidden() {}
 
+// Condition returns whether this pane should be visible.
 func (p *SummaryPane) Condition() bool { return p.condition() }
 
+// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
+// height) for this pane.
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *SummaryPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
-// Draws the time summary view over top of all previously drawn contents, if it
-// is currently active.
+// Draw draws the time summary view over top of all previously drawn contents,
+// if it is currently active.
 func (p *SummaryPane) Draw() {
 
 	if p.condition() {
@@ -83,6 +93,28 @@ func (p *SummaryPane) Draw() {
 	}
 }
 
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *SummaryPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
+}
+
+// NewSummaryPane constructs and returns a new SummaryPane.
+func NewSummaryPane(
+	renderer ui.ConstrainedRenderer,
+	dimensions func() (x, y, w, h int),
+	stylesheet styling.Stylesheet,
+	condition func() bool,
+	titleString func() string,
+	days func() []*model.Day,
+	categories *styling.CategoryStyling,
+) *SummaryPane {
+	return &SummaryPane{
+		renderer:    renderer,
+		dimensions:  dimensions,
+		stylesheet:  stylesheet,
+		condition:   condition,
+		titleString: titleString,
+		days:        days,
+		categories:  categories,
+	}
 }

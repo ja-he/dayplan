@@ -1,10 +1,11 @@
-package tui
+package panes
 
 import (
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 )
 
+// HelpPane conditionally be hidden or display a set of keyboad shortcuts.
 type HelpPane struct {
 	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
@@ -12,17 +13,25 @@ type HelpPane struct {
 	condition  func() bool
 }
 
+// EnsureHidden informs the pane that it is not being shown so that it can take
+// potential actions to ensure that, e.g., hide the terminal cursor, if
+// necessary.
 func (p *HelpPane) EnsureHidden() {}
 
+// Condition returns whether this pane should be visible.
 func (p *HelpPane) Condition() bool { return p.condition() }
 
+// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
+// height) for this pane.
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *HelpPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *HelpPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 
-// Draw the help popup.
+// Draw draws the help popup.
 func (p *HelpPane) Draw() {
 	if p.condition() {
 
@@ -87,5 +96,20 @@ func (p *HelpPane) Draw() {
 
 		drawMapping("u", "update weather (requires some envvars)")
 		space()
+	}
+}
+
+// NewHelpPane constructs and returns a new HelpPane.
+func NewHelpPane(
+	renderer ui.ConstrainedRenderer,
+	dimensions func() (x, y, w, h int),
+	stylesheet styling.Stylesheet,
+	condition func() bool,
+) *HelpPane {
+	return &HelpPane{
+		renderer:   renderer,
+		dimensions: dimensions,
+		stylesheet: stylesheet,
+		condition:  condition,
 	}
 }

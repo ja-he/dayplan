@@ -1,4 +1,4 @@
-package tui
+package panes
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"github.com/ja-he/dayplan/src/weather"
 )
 
+// WeatherPane shows a timeline of hourly weather information blocks at a
+// timescale that can be in line with an similarly positioned TimelinePane.
 type WeatherPane struct {
 	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
@@ -16,14 +18,17 @@ type WeatherPane struct {
 
 	weather     *weather.Handler
 	currentDate *model.Date
-	viewParams  *ViewParams
+	viewParams  *ui.ViewParams
 }
 
+// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
+// height) for this pane.
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *WeatherPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
-// TODO: pretty sure this doesn't respect dimensions currently
+// Draw draws this pane.
 func (p *WeatherPane) Draw() {
 	x, y, w, h := p.Dimensions()
 
@@ -62,10 +67,30 @@ func (p *WeatherPane) Draw() {
 }
 
 // TODO: remove
-func (t *WeatherPane) toY(ts model.Timestamp) int {
-	return ((ts.Hour*t.viewParams.NRowsPerHour - t.viewParams.ScrollOffset) + (ts.Minute / (60 / t.viewParams.NRowsPerHour)))
+func (p *WeatherPane) toY(ts model.Timestamp) int {
+	return ((ts.Hour*p.viewParams.NRowsPerHour - p.viewParams.ScrollOffset) + (ts.Minute / (60 / p.viewParams.NRowsPerHour)))
 }
 
+// GetPositionInfo returns information on a requested position in this pane.
 func (p *WeatherPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
+}
+
+// NewWeatherPane constructs and returns a new WeatherPane.
+func NewWeatherPane(
+	renderer ui.ConstrainedRenderer,
+	dimensions func() (x, y, w, h int),
+	stylesheet styling.Stylesheet,
+	currentDate *model.Date,
+	weather *weather.Handler,
+	viewParams *ui.ViewParams,
+) *WeatherPane {
+	return &WeatherPane{
+		renderer:    renderer,
+		dimensions:  dimensions,
+		stylesheet:  stylesheet,
+		currentDate: currentDate,
+		weather:     weather,
+		viewParams:  viewParams,
+	}
 }
