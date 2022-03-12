@@ -1,4 +1,4 @@
-package tui
+package control
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/model"
-	"github.com/ja-he/dayplan/src/program"
 	"github.com/ja-he/dayplan/src/styling"
+	"github.com/ja-he/dayplan/src/tui"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/ui/panes"
 	"github.com/ja-he/dayplan/src/util"
@@ -19,19 +19,19 @@ import (
 )
 
 // TODO: this absolutely does not belong here
-func (t *TUIController) GetDayFromFileHandler(date model.Date) *model.Day {
+func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 	t.fhMutex.RLock()
 	fh, ok := t.FileHandlers[date]
 	t.fhMutex.RUnlock()
 	if ok {
-		tmp := fh.Read(t.model.CategoryStyling.GetKnownCategoriesByName())
+		tmp := fh.Read(t.data.CategoryStyling.GetKnownCategoriesByName())
 		return tmp
 	} else {
-		newHandler := filehandling.NewFileHandler(t.model.ProgramData.BaseDirPath + "/days/" + date.ToString())
+		newHandler := filehandling.NewFileHandler(t.data.EnvData.BaseDirPath + "/days/" + date.ToString())
 		t.fhMutex.Lock()
 		t.FileHandlers[date] = newHandler
 		t.fhMutex.Unlock()
-		tmp := newHandler.Read(t.model.CategoryStyling.GetKnownCategoriesByName())
+		tmp := newHandler.Read(t.data.CategoryStyling.GetKnownCategoriesByName())
 		return tmp
 	}
 }
@@ -41,8 +41,8 @@ type EditedEvent struct {
 	prevEditStepTimestamp model.Timestamp
 }
 
-type TUIController struct {
-	model            *TUIModel
+type Controller struct {
+	data             *ControlData
 	rootPane         ui.Pane
 	editState        EditState
 	EditedEvent      EditedEvent
@@ -62,9 +62,9 @@ type TUIController struct {
 	// awkwardly accessing information that they shouldn't need to.
 	timestampGuesser func(int, int) model.Timestamp
 
-	screenEvents      EventPollable
-	initializedScreen InitializedScreen
-	syncer            ScreenSynchronizer
+	screenEvents      tui.EventPollable
+	initializedScreen tui.InitializedScreen
+	syncer            tui.ScreenSynchronizer
 }
 
 type EditState int
@@ -83,11 +83,11 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewTUIController(date model.Date, programData program.Data) *TUIController {
+func NewController(date model.Date, envData EnvData) *Controller {
 	// read category styles
 	var categoryStyling styling.CategoryStyling
 	categoryStyling = *styling.EmptyCategoryStyling()
-	styleFilePath := programData.BaseDirPath + "/" + "category-styles.yaml"
+	styleFilePath := envData.BaseDirPath + "/" + "category-styles.yaml"
 	styledInputs, err := styling.ReadCategoryStylingFile(styleFilePath)
 	if err != nil {
 		panic(err)
@@ -125,7 +125,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		SummaryTitleBox: styling.StyleFromHex("#000000", "#f0f0f0").Bolded(),
 	}
 
-	tuiModel := NewTUIModel(categoryStyling)
+	data := NewControlData(categoryStyling)
 
 	toolsWidth := 20
 	statusHeight := 2
@@ -136,7 +136,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	editorWidth := 80
 	editorHeight := 20
 
-	renderer := NewTUIScreenHandler()
+	renderer := tui.NewTUIScreenHandler()
 	screenSize := renderer.GetScreenDimensions
 	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
 	centeredFloat := func(floatWidth, floatHeight int) func() (x, y, w, h int) {
@@ -183,19 +183,19 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 	weekdayPane := func(dayIndex int) ui.Pane {
 		return panes.NewEventsPane(
-			&ConstrainedRenderer{screenHandler: renderer, constraint: weekdayDimensions(dayIndex)},
+			tui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
 			weekdayDimensions(dayIndex),
 			stylesheet,
-			func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInWeek(dayIndex)) },
-			&tuiModel.CategoryStyling,
-			&tuiModel.ViewParams,
-			&tuiModel.cursorPos,
+			func() *model.Day { return data.Days.GetDay(data.CurrentDate.GetDayInWeek(dayIndex)) },
+			&data.CategoryStyling,
+			&data.ViewParams,
+			&data.cursorPos,
 			0,
 			false,
 			true,
-			func() bool { return tuiModel.CurrentDate.GetDayInWeek(dayIndex) == tuiModel.CurrentDate },
-			&tuiModel.Log,
-			&tuiModel.Log,
+			func() bool { return data.CurrentDate.GetDayInWeek(dayIndex) == data.CurrentDate },
+			&data.Log,
+			&data.Log,
 			make(map[model.EventID]util.Rect),
 		)
 	}
@@ -209,21 +209,21 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 	monthdayPane := func(dayIndex int) ui.Pane {
 		return panes.NewMaybeEventsPane(
-			func() bool { return tuiModel.CurrentDate.GetDayInMonth(dayIndex).Month == tuiModel.CurrentDate.Month },
+			func() bool { return data.CurrentDate.GetDayInMonth(dayIndex).Month == data.CurrentDate.Month },
 			panes.NewEventsPane(
-				&ConstrainedRenderer{screenHandler: renderer, constraint: monthdayDimensions(dayIndex)},
+				tui.NewConstrainedRenderer(renderer, monthdayDimensions(dayIndex)),
 				monthdayDimensions(dayIndex),
 				stylesheet,
-				func() *model.Day { return tuiModel.Days.GetDay(tuiModel.CurrentDate.GetDayInMonth(dayIndex)) },
-				&tuiModel.CategoryStyling,
-				&tuiModel.ViewParams,
-				&tuiModel.cursorPos,
+				func() *model.Day { return data.Days.GetDay(data.CurrentDate.GetDayInMonth(dayIndex)) },
+				&data.CategoryStyling,
+				&data.ViewParams,
+				&data.cursorPos,
 				0,
 				false,
 				false,
-				func() bool { return tuiModel.CurrentDate.GetDayInMonth(dayIndex) == tuiModel.CurrentDate },
-				&tuiModel.Log,
-				&tuiModel.Log,
+				func() bool { return data.CurrentDate.GetDayInMonth(dayIndex) == data.CurrentDate },
+				&data.Log,
+				&data.Log,
 				make(map[model.EventID]util.Rect),
 			),
 		)
@@ -240,13 +240,13 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	}
 
 	statusPane := panes.NewStatusPane(
-		&ConstrainedRenderer{screenHandler: renderer, constraint: statusDimensions},
+		tui.NewConstrainedRenderer(renderer, statusDimensions),
 		statusDimensions,
 		stylesheet,
-		&tuiModel.CurrentDate,
+		&data.CurrentDate,
 		func() int {
 			_, _, w, _ := statusDimensions()
-			switch tuiModel.activeView {
+			switch data.activeView {
 			case ui.ViewDay:
 				return w - timelineWidth
 			case ui.ViewWeek:
@@ -258,23 +258,23 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 			}
 		},
 		func() int {
-			switch tuiModel.activeView {
+			switch data.activeView {
 			case ui.ViewDay:
 				return 1
 			case ui.ViewWeek:
 				return 7
 			case ui.ViewMonth:
-				return tuiModel.CurrentDate.GetLastOfMonth().Day
+				return data.CurrentDate.GetLastOfMonth().Day
 			default:
 				panic("unknown view for status rendering")
 			}
 		},
 		func() int {
-			switch tuiModel.activeView {
+			switch data.activeView {
 			case ui.ViewDay:
 				return 1
 			case ui.ViewWeek:
-				switch tuiModel.CurrentDate.ToWeekday() {
+				switch data.CurrentDate.ToWeekday() {
 				case time.Monday:
 					return 1
 				case time.Tuesday:
@@ -293,7 +293,7 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 					panic("unknown weekday for status rendering")
 				}
 			case ui.ViewMonth:
-				return tuiModel.CurrentDate.Day
+				return data.CurrentDate.Day
 			default:
 				panic("unknown view for status rendering")
 			}
@@ -301,134 +301,134 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		func() int { return timelineWidth },
 	)
 
-	tui := panes.NewRootPane(
+	rootPane := panes.NewRootPane(
 		renderer,
 		screenDimensions,
 
 		panes.NewDayViewMainPane(
 			dayViewMainPaneDimensions,
 			panes.NewEventsPane(
-				&ConstrainedRenderer{screenHandler: renderer, constraint: dayViewEventsPaneDimensions},
+				tui.NewConstrainedRenderer(renderer, dayViewEventsPaneDimensions),
 				dayViewEventsPaneDimensions,
 				stylesheet,
-				tuiModel.GetCurrentDay,
-				&tuiModel.CategoryStyling,
-				&tuiModel.ViewParams,
-				&tuiModel.cursorPos,
+				data.GetCurrentDay,
+				&data.CategoryStyling,
+				&data.ViewParams,
+				&data.cursorPos,
 				2,
 				true,
 				true,
 				func() bool { return true },
-				&tuiModel.Log,
-				&tuiModel.Log,
+				&data.Log,
+				&data.Log,
 				make(map[model.EventID]util.Rect),
 			),
 			panes.NewToolsPane(
-				&ConstrainedRenderer{screenHandler: renderer, constraint: toolsDimensions},
+				tui.NewConstrainedRenderer(renderer, toolsDimensions),
 				toolsDimensions,
 				stylesheet,
-				&tuiModel.CurrentCategory,
-				&tuiModel.CategoryStyling,
+				&data.CurrentCategory,
+				&data.CategoryStyling,
 				1,
 				1,
 				0,
 			),
 			statusPane,
 			panes.NewTimelinePane(
-				&ConstrainedRenderer{screenHandler: renderer, constraint: dayViewTimelineDimensions},
+				tui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),
 				dayViewTimelineDimensions,
 				stylesheet,
-				tuiModel.GetCurrentSuntimes,
+				data.GetCurrentSuntimes,
 				func() *model.Timestamp {
-					if tuiModel.CurrentDate.Is(time.Now()) {
+					if data.CurrentDate.Is(time.Now()) {
 						return model.NewTimestampFromGotime(time.Now())
 					} else {
 						return nil
 					}
 				},
-				&tuiModel.ViewParams,
+				&data.ViewParams,
 			),
 			panes.NewWeatherPane(
-				&ConstrainedRenderer{screenHandler: renderer, constraint: weatherDimensions},
+				tui.NewConstrainedRenderer(renderer, weatherDimensions),
 				weatherDimensions,
 				stylesheet,
-				&tuiModel.CurrentDate,
-				&tuiModel.Weather,
-				&tuiModel.ViewParams,
+				&data.CurrentDate,
+				&data.Weather,
+				&data.ViewParams,
 			),
 		),
 		panes.NewWeekViewMainPane(
 			weekViewMainPaneDimensions,
 			statusPane,
 			panes.NewTimelinePane(
-				&ConstrainedRenderer{screenHandler: renderer, constraint: weekViewTimelineDimensions},
+				tui.NewConstrainedRenderer(renderer, weekViewTimelineDimensions),
 				weekViewTimelineDimensions,
 				stylesheet,
 				func() *model.SunTimes { return nil },
 				func() *model.Timestamp { return nil },
-				&tuiModel.ViewParams,
+				&data.ViewParams,
 			),
 			weekViewEventsPanes,
-			&tuiModel.CategoryStyling,
-			&tuiModel.Log,
-			&tuiModel.Log,
-			&tuiModel.ViewParams,
+			&data.CategoryStyling,
+			&data.Log,
+			&data.Log,
+			&data.ViewParams,
 		),
 		panes.NewMonthViewMainPane(
 			monthViewMainPaneDimensions,
 			statusPane,
 			panes.NewTimelinePane(
-				&ConstrainedRenderer{screenHandler: renderer, constraint: monthViewTimelineDimensions},
+				tui.NewConstrainedRenderer(renderer, monthViewTimelineDimensions),
 				monthViewTimelineDimensions,
 				stylesheet,
 				func() *model.SunTimes { return nil },
 				func() *model.Timestamp { return nil },
-				&tuiModel.ViewParams,
+				&data.ViewParams,
 			),
 			monthViewEventsPanes,
-			&tuiModel.CategoryStyling,
-			&tuiModel.Log,
-			&tuiModel.Log,
-			&tuiModel.ViewParams,
+			&data.CategoryStyling,
+			&data.Log,
+			&data.Log,
+			&data.ViewParams,
 		),
 
 		panes.NewSummaryPane(
-			&ConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
+			tui.NewConstrainedRenderer(renderer, screenDimensions),
 			screenDimensions,
 			stylesheet,
-			func() bool { return tuiModel.showSummary },
+			func() bool { return data.showSummary },
 			func() string {
 				dateString := ""
-				switch tuiModel.activeView {
+				switch data.activeView {
 				case ui.ViewDay:
-					dateString = tuiModel.CurrentDate.ToString()
+					dateString = data.CurrentDate.ToString()
 				case ui.ViewWeek:
-					start, end := tuiModel.CurrentDate.Week()
+					start, end := data.CurrentDate.Week()
 					dateString = fmt.Sprintf("week %s..%s", start.ToString(), end.ToString())
 				case ui.ViewMonth:
-					dateString = fmt.Sprintf("%s %d", tuiModel.CurrentDate.ToGotime().Month().String(), tuiModel.CurrentDate.Year)
+					dateString = fmt.Sprintf("%s %d", data.CurrentDate.ToGotime().Month().String(), data.CurrentDate.Year)
 				}
 				return fmt.Sprintf("SUMMARY (%s)", dateString)
 			},
 			func() []*model.Day {
-				switch tuiModel.activeView {
+				switch data.activeView {
 				case ui.ViewDay:
 					result := make([]*model.Day, 1)
-					result[0] = tuiModel.Days.GetDay(tuiModel.CurrentDate)
+					result[0] = data.Days.GetDay(data.CurrentDate)
 					return result
 				case ui.ViewWeek:
 					result := make([]*model.Day, 7)
-					start, end := tuiModel.CurrentDate.Week()
+					start, end := data.CurrentDate.Week()
 					for current, i := start, 0; current != end.Next(); current = current.Next() {
-						result[i] = tuiModel.Days.GetDay(current)
+						result[i] = data.Days.GetDay(current)
 						i++
 					}
 					return result
 				case ui.ViewMonth:
-					start, end := tuiModel.CurrentDate.MonthBounds()
+					start, end := data.CurrentDate.MonthBounds()
 					result := make([]*model.Day, end.Day)
 					for current, i := start, 0; current != end.Next(); current = current.Next() {
-						result[i] = tuiModel.Days.GetDay(current)
+						result[i] = data.Days.GetDay(current)
 						i++
 					}
 					return result
@@ -436,47 +436,47 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 					panic("unknown view in summary data gathering")
 				}
 			},
-			&tuiModel.CategoryStyling,
+			&data.CategoryStyling,
 		),
 		panes.NewLogPane(
-			&ConstrainedRenderer{screenHandler: renderer, constraint: screenDimensions},
+			tui.NewConstrainedRenderer(renderer, screenDimensions),
 			screenDimensions,
 			stylesheet,
-			func() bool { return tuiModel.showLog },
+			func() bool { return data.showLog },
 			func() string { return "LOG" },
-			&tuiModel.Log,
+			&data.Log,
 		),
 		panes.NewHelpPane(
-			&ConstrainedRenderer{screenHandler: renderer, constraint: helpDimensions},
+			tui.NewConstrainedRenderer(renderer, helpDimensions),
 			helpDimensions,
 			stylesheet,
-			func() bool { return tuiModel.showHelp },
+			func() bool { return data.showHelp },
 		),
 		panes.NewEditorPane(
-			&ConstrainedRenderer{screenHandler: renderer, constraint: editorDimensions},
+			tui.NewConstrainedRenderer(renderer, editorDimensions),
 			renderer,
 			editorDimensions,
 			stylesheet,
-			func() bool { return tuiModel.EventEditor.Active },
-			func() string { return tuiModel.EventEditor.TmpEventInfo.Name },
-			func() int { return tuiModel.EventEditor.CursorPos },
+			func() bool { return data.EventEditor.Active },
+			func() string { return data.EventEditor.TmpEventInfo.Name },
+			func() int { return data.EventEditor.CursorPos },
 		),
 
-		func() *ui.ActiveView { return &tuiModel.activeView },
+		func() *ui.ActiveView { return &data.activeView },
 	)
 
-	coordinatesProvided := (programData.Latitude != "" && programData.Longitude != "")
-	owmApiKeyProvided := (programData.OwmApiKey != "")
+	coordinatesProvided := (envData.Latitude != "" && envData.Longitude != "")
+	owmApiKeyProvided := (envData.OwmApiKey != "")
 
 	// intialize weather handler if geographic location and api key provided
 	if coordinatesProvided && owmApiKeyProvided {
-		tuiModel.Weather = *weather.NewHandler(programData.Latitude, programData.Longitude, programData.OwmApiKey)
+		data.Weather = *weather.NewHandler(envData.Latitude, envData.Longitude, envData.OwmApiKey)
 	} else {
 		if !owmApiKeyProvided {
-			tuiModel.Log.Add("ERROR", "no OWM API key provided -> no weather data")
+			data.Log.Add("ERROR", "no OWM API key provided -> no weather data")
 		}
 		if !coordinatesProvided {
-			tuiModel.Log.Add("ERROR", "no lat-/longitude provided -> no weather data")
+			data.Log.Add("ERROR", "no lat-/longitude provided -> no weather data")
 		}
 	}
 
@@ -484,122 +484,122 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 	// TODO
 	var suntimes model.SunTimes
 	if !coordinatesProvided {
-		tuiModel.Log.Add("ERROR", "could not fetch lat-&longitude -> no sunrise/-set times known")
+		data.Log.Add("ERROR", "could not fetch lat-&longitude -> no sunrise/-set times known")
 	} else {
-		latF, parseErr := strconv.ParseFloat(programData.Latitude, 64)
-		lonF, parseErr := strconv.ParseFloat(programData.Longitude, 64)
+		latF, parseErr := strconv.ParseFloat(envData.Latitude, 64)
+		lonF, parseErr := strconv.ParseFloat(envData.Longitude, 64)
 		if parseErr != nil {
-			tuiModel.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
+			data.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
 		} else {
 			suntimes = date.GetSunTimes(latF, lonF)
 		}
 	}
 
-	tuiController := TUIController{}
-	tuiController.tmpStatusYOffsetGetter = func() int { _, y, _, _ := statusDimensions(); return y }
-	tuiModel.ProgramData = programData
-	tuiController.screenEvents = renderer.GetEventPollable()
+	controller := Controller{}
+	controller.tmpStatusYOffsetGetter = func() int { _, y, _, _ := statusDimensions(); return y }
+	data.EnvData = envData
+	controller.screenEvents = renderer.GetEventPollable()
 
-	tuiController.fhMutex.Lock()
-	defer tuiController.fhMutex.Unlock()
-	tuiController.FileHandlers = make(map[model.Date]*filehandling.FileHandler)
-	tuiController.FileHandlers[date] = filehandling.NewFileHandler(tuiModel.ProgramData.BaseDirPath + "/days/" + date.ToString())
+	controller.fhMutex.Lock()
+	defer controller.fhMutex.Unlock()
+	controller.FileHandlers = make(map[model.Date]*filehandling.FileHandler)
+	controller.FileHandlers[date] = filehandling.NewFileHandler(data.EnvData.BaseDirPath + "/days/" + date.ToString())
 
-	tuiController.model = tuiModel
-	tuiController.model.CurrentDate = date
-	if tuiController.FileHandlers[date] == nil {
-		tuiController.model.Days.AddDay(date, &model.Day{}, &suntimes)
+	controller.data = data
+	controller.data.CurrentDate = date
+	if controller.FileHandlers[date] == nil {
+		controller.data.Days.AddDay(date, &model.Day{}, &suntimes)
 	} else {
-		tuiController.model.Days.AddDay(date, tuiController.FileHandlers[date].Read(tuiController.model.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
+		controller.data.Days.AddDay(date, controller.FileHandlers[date].Read(controller.data.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
 	}
 
-	tuiController.rootPane = tui
-	tuiController.model.CurrentCategory.Name = "default"
+	controller.rootPane = rootPane
+	controller.data.CurrentCategory.Name = "default"
 
-	tuiController.loadDaysForView(tuiController.model.activeView)
+	controller.loadDaysForView(controller.data.activeView)
 
-	tuiController.timestampGuesser = func(cursorX, cursorY int) model.Timestamp {
+	controller.timestampGuesser = func(cursorX, cursorY int) model.Timestamp {
 		_, yOffset, _, _ := dayViewEventsPaneDimensions()
-		return tuiModel.ViewParams.TimeAtY(yOffset + cursorY)
+		return data.ViewParams.TimeAtY(yOffset + cursorY)
 	}
 
-	tuiController.initializedScreen = renderer
-	tuiController.syncer = renderer
+	controller.initializedScreen = renderer
+	controller.syncer = renderer
 
-	return &tuiController
+	return &controller
 }
 
-func (t *TUIController) ScrollUp(by int) {
+func (t *Controller) ScrollUp(by int) {
 	eventviewTopRow := 0
-	if t.model.ViewParams.ScrollOffset-by >= eventviewTopRow {
-		t.model.ViewParams.ScrollOffset -= by
+	if t.data.ViewParams.ScrollOffset-by >= eventviewTopRow {
+		t.data.ViewParams.ScrollOffset -= by
 	} else {
 		t.ScrollTop()
 	}
 }
 
-func (t *TUIController) ScrollDown(by int) {
+func (t *Controller) ScrollDown(by int) {
 	eventviewBottomRow := t.tmpStatusYOffsetGetter()
-	if t.model.ViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.model.ViewParams.NRowsPerHour) {
-		t.model.ViewParams.ScrollOffset += by
+	if t.data.ViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.data.ViewParams.NRowsPerHour) {
+		t.data.ViewParams.ScrollOffset += by
 	} else {
 		t.ScrollBottom()
 	}
 }
 
-func (t *TUIController) ScrollTop() {
-	t.model.ViewParams.ScrollOffset = 0
+func (t *Controller) ScrollTop() {
+	t.data.ViewParams.ScrollOffset = 0
 }
 
-func (t *TUIController) ScrollBottom() {
+func (t *Controller) ScrollBottom() {
 	eventviewBottomRow := t.tmpStatusYOffsetGetter()
-	t.model.ViewParams.ScrollOffset = 24*t.model.ViewParams.NRowsPerHour - eventviewBottomRow
+	t.data.ViewParams.ScrollOffset = 24*t.data.ViewParams.NRowsPerHour - eventviewBottomRow
 }
 
-func (t *TUIController) abortEdit() {
+func (t *Controller) abortEdit() {
 	t.editState = EditStateNone
 	t.EditedEvent = EditedEvent{0, model.Timestamp{Hour: 0, Minute: 0}}
-	t.model.EventEditor.Active = false
+	t.data.EventEditor.Active = false
 }
 
-func (t *TUIController) endEdit() {
+func (t *Controller) endEdit() {
 	t.editState = EditStateNone
 	t.EditedEvent = EditedEvent{0, model.Timestamp{Hour: 0, Minute: 0}}
-	if t.model.EventEditor.Active {
-		t.model.EventEditor.Active = false
-		tmp := t.model.EventEditor.TmpEventInfo
-		t.model.GetCurrentDay().GetEvent(tmp.ID).Name = tmp.Name
+	if t.data.EventEditor.Active {
+		t.data.EventEditor.Active = false
+		tmp := t.data.EventEditor.TmpEventInfo
+		t.data.GetCurrentDay().GetEvent(tmp.ID).Name = tmp.Name
 	}
-	t.model.GetCurrentDay().UpdateEventOrder()
+	t.data.GetCurrentDay().UpdateEventOrder()
 }
 
-func (t *TUIController) startMouseMove(eventsInfo ui.EventsPanePositionInfo) {
+func (t *Controller) startMouseMove(eventsInfo ui.EventsPanePositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateMoving)
 	t.EditedEvent.ID = eventsInfo.Event()
 	t.EditedEvent.prevEditStepTimestamp = eventsInfo.Time()
 }
 
-func (t *TUIController) startMouseResize(eventsInfo ui.EventsPanePositionInfo) {
+func (t *Controller) startMouseResize(eventsInfo ui.EventsPanePositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateResizing)
 	t.EditedEvent.ID = eventsInfo.Event()
 	t.EditedEvent.prevEditStepTimestamp = eventsInfo.Time()
 }
 
-func (t *TUIController) startMouseEventCreation(info ui.EventsPanePositionInfo) {
+func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 	// find out cursor time
 	start := info.Time()
 
-	t.model.Log.Add("DEBUG", fmt.Sprintf("creation called for '%s'", info.Time().ToString()))
+	t.data.Log.Add("DEBUG", fmt.Sprintf("creation called for '%s'", info.Time().ToString()))
 
 	// create event at time with cat etc.
 	e := model.Event{}
-	e.Cat = t.model.CurrentCategory
+	e.Cat = t.data.CurrentCategory
 	e.Name = ""
 	e.Start = start
 	e.End = start.OffsetMinutes(+10)
 
 	// give to model, get ID
-	newEventID := t.model.GetCurrentDay().AddEvent(e)
+	newEventID := t.data.GetCurrentDay().AddEvent(e)
 
 	// save ID as edited event
 	t.EditedEvent.ID = newEventID
@@ -609,27 +609,27 @@ func (t *TUIController) startMouseEventCreation(info ui.EventsPanePositionInfo) 
 	t.editState = (EditStateMouseEditing | EditStateResizing)
 }
 
-func (t *TUIController) goToDay(newDate model.Date) {
-	t.model.Log.Add("DEBUG", "going to "+newDate.ToString())
+func (t *Controller) goToDay(newDate model.Date) {
+	t.data.Log.Add("DEBUG", "going to "+newDate.ToString())
 
-	t.model.CurrentDate = newDate
-	t.loadDaysForView(t.model.activeView)
+	t.data.CurrentDate = newDate
+	t.loadDaysForView(t.data.activeView)
 }
 
-func (t *TUIController) goToPreviousDay() {
-	prevDay := t.model.CurrentDate.Prev()
+func (t *Controller) goToPreviousDay() {
+	prevDay := t.data.CurrentDate.Prev()
 	t.goToDay(prevDay)
 }
 
-func (t *TUIController) goToNextDay() {
-	nextDay := t.model.CurrentDate.Next()
+func (t *Controller) goToNextDay() {
+	nextDay := t.data.CurrentDate.Next()
 	t.goToDay(nextDay)
 }
 
 // Loads the requested date's day from its file handler, if it has
 // not already been loaded.
-func (t *TUIController) loadDay(date model.Date) {
-	if !t.model.Days.HasDay(date) {
+func (t *Controller) loadDay(date model.Date) {
+	if !t.data.Days.HasDay(date) {
 		// load file
 		newDay := t.GetDayFromFileHandler(date)
 		if newDay == nil {
@@ -637,18 +637,18 @@ func (t *TUIController) loadDay(date model.Date) {
 		}
 
 		var suntimes model.SunTimes
-		coordinatesProvided := (t.model.ProgramData.Latitude != "" && t.model.ProgramData.Longitude != "")
+		coordinatesProvided := (t.data.EnvData.Latitude != "" && t.data.EnvData.Longitude != "")
 		if coordinatesProvided {
-			latF, parseErr := strconv.ParseFloat(t.model.ProgramData.Latitude, 64)
-			lonF, parseErr := strconv.ParseFloat(t.model.ProgramData.Longitude, 64)
+			latF, parseErr := strconv.ParseFloat(t.data.EnvData.Latitude, 64)
+			lonF, parseErr := strconv.ParseFloat(t.data.EnvData.Longitude, 64)
 			if parseErr != nil {
-				t.model.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
+				t.data.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
 			} else {
 				suntimes = date.GetSunTimes(latF, lonF)
 			}
 		}
 
-		t.model.Days.AddDay(date, newDay, &suntimes)
+		t.data.Days.AddDay(date, newDay, &suntimes)
 	}
 }
 
@@ -657,13 +657,13 @@ func (t *TUIController) loadDay(date model.Date) {
 // first to last day of the month.
 // Warning: does not guarantee days will be loaded (non-nil) after
 // this returns.
-func (t *TUIController) loadDaysForView(view ui.ActiveView) {
+func (t *Controller) loadDaysForView(view ui.ActiveView) {
 	switch view {
 	case ui.ViewDay:
-		t.loadDay(t.model.CurrentDate)
+		t.loadDay(t.data.CurrentDate)
 	case ui.ViewWeek:
 		{
-			monday, sunday := t.model.CurrentDate.Week()
+			monday, sunday := t.data.CurrentDate.Week()
 			for current := monday; current != sunday.Next(); current = current.Next() {
 				go func(d model.Date) {
 					t.loadDay(d)
@@ -673,7 +673,7 @@ func (t *TUIController) loadDaysForView(view ui.ActiveView) {
 		}
 	case ui.ViewMonth:
 		{
-			first, last := t.model.CurrentDate.MonthBounds()
+			first, last := t.data.CurrentDate.MonthBounds()
 			for current := first; current != last.Next(); current = current.Next() {
 				go func(d model.Date) {
 					t.loadDay(d)
@@ -686,12 +686,12 @@ func (t *TUIController) loadDaysForView(view ui.ActiveView) {
 	}
 }
 
-func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
+func (t *Controller) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Key() {
 	case tcell.KeyESC:
-		prevView := PrevView(t.model.activeView)
+		prevView := PrevView(t.data.activeView)
 		t.loadDaysForView(prevView)
-		t.model.activeView = prevView
+		t.data.activeView = prevView
 	case tcell.KeyCtrlU:
 		t.ScrollUp(10)
 	case tcell.KeyCtrlD:
@@ -700,24 +700,24 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	switch e.Rune() {
 	case 'u':
 		go func() {
-			err := t.model.Weather.Update()
+			err := t.data.Weather.Update()
 			if err != nil {
-				t.model.Log.Add("ERROR", err.Error())
+				t.data.Log.Add("ERROR", err.Error())
 			} else {
-				t.model.Log.Add("DEBUG", "successfully retrieved weather data")
+				t.data.Log.Add("DEBUG", "successfully retrieved weather data")
 			}
 			t.controllerEvents <- ControllerEventRender
 		}()
 	case 'i':
-		nextView := NextView(t.model.activeView)
+		nextView := NextView(t.data.activeView)
 		t.loadDaysForView(nextView)
-		t.model.activeView = nextView
+		t.data.activeView = nextView
 	case 'q':
 		t.controllerEvents <- ControllerEventExit
 	case 'd':
-		eventsInfo := t.rootPane.GetPositionInfo(t.model.cursorPos.X, t.model.cursorPos.Y).GetExtraEventsInfo()
+		eventsInfo := t.rootPane.GetPositionInfo(t.data.cursorPos.X, t.data.cursorPos.Y).GetExtraEventsInfo()
 		if eventsInfo != nil {
-			t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event())
+			t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
 		}
 	case 'g':
 		t.ScrollTop()
@@ -734,49 +734,49 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 	case 'l':
 		t.goToNextDay()
 	case 'S':
-		t.model.showSummary = !t.model.showSummary
+		t.data.showSummary = !t.data.showSummary
 	case 'E':
-		t.model.showLog = !t.model.showLog
+		t.data.showLog = !t.data.showLog
 	case '?':
-		t.model.showHelp = !t.model.showHelp
+		t.data.showHelp = !t.data.showHelp
 	case 'c':
 		// TODO: all that's needed to clear model (appropriately)?
-		t.model.Days.AddDay(t.model.CurrentDate, model.NewDay(), t.model.GetCurrentSuntimes())
+		t.data.Days.AddDay(t.data.CurrentDate, model.NewDay(), t.data.GetCurrentSuntimes())
 	case '+':
-		if t.model.ViewParams.NRowsPerHour*2 <= 12 {
-			t.model.ViewParams.NRowsPerHour *= 2
-			t.model.ViewParams.ScrollOffset *= 2
+		if t.data.ViewParams.NRowsPerHour*2 <= 12 {
+			t.data.ViewParams.NRowsPerHour *= 2
+			t.data.ViewParams.ScrollOffset *= 2
 		}
 	case '-':
-		if (t.model.ViewParams.NRowsPerHour % 2) == 0 {
-			t.model.ViewParams.NRowsPerHour /= 2
-			t.model.ViewParams.ScrollOffset /= 2
+		if (t.data.ViewParams.NRowsPerHour % 2) == 0 {
+			t.data.ViewParams.NRowsPerHour /= 2
+			t.data.ViewParams.ScrollOffset /= 2
 		} else {
-			t.model.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.model.ViewParams.NRowsPerHour))
+			t.data.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.data.ViewParams.NRowsPerHour))
 		}
 	}
 }
 
-func (t *TUIController) writeModel() {
+func (t *Controller) writeModel() {
 	go func() {
 		t.fhMutex.RLock()
-		t.FileHandlers[t.model.CurrentDate].Write(t.model.GetCurrentDay())
+		t.FileHandlers[t.data.CurrentDate].Write(t.data.GetCurrentDay())
 		t.fhMutex.RUnlock()
 	}()
 }
 
-func (t *TUIController) updateCursorPos(x, y int) {
-	t.model.cursorPos.X, t.model.cursorPos.Y = x, y
+func (t *Controller) updateCursorPos(x, y int) {
+	t.data.cursorPos.X, t.data.cursorPos.Y = x, y
 }
 
-func (t *TUIController) startEdit(id model.EventID) {
-	t.model.EventEditor.Active = true
-	t.model.EventEditor.TmpEventInfo = *t.model.GetCurrentDay().GetEvent(id)
-	t.model.EventEditor.CursorPos = len([]rune(t.model.EventEditor.TmpEventInfo.Name))
+func (t *Controller) startEdit(id model.EventID) {
+	t.data.EventEditor.Active = true
+	t.data.EventEditor.TmpEventInfo = *t.data.GetCurrentDay().GetEvent(id)
+	t.data.EventEditor.CursorPos = len([]rune(t.data.EventEditor.TmpEventInfo.Name))
 	t.editState = EditStateEditing
 }
 
-func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
+func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
 		t.handleNoneEditKeyInput(e)
@@ -811,16 +811,16 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			}
 		case ui.EventsPaneType:
 			eventsInfo := positionInfo.GetExtraEventsInfo()
-			t.model.Log.Add("DEBUG", fmt.Sprint(eventsInfo))
+			t.data.Log.Add("DEBUG", fmt.Sprint(eventsInfo))
 
 			// if button clicked, handle
 			switch buttons {
 			case tcell.Button3:
-				t.model.GetCurrentDay().RemoveEvent(eventsInfo.Event())
+				t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
 			case tcell.Button2:
 				id := eventsInfo.Event()
-				if id != 0 && eventsInfo.Time().IsAfter(t.model.GetCurrentDay().GetEvent(id).Start) {
-					t.model.GetCurrentDay().SplitEvent(id, eventsInfo.Time())
+				if id != 0 && eventsInfo.Time().IsAfter(t.data.GetCurrentDay().GetEvent(id).Start) {
+					t.data.GetCurrentDay().SplitEvent(id, eventsInfo.Time())
 				}
 			case tcell.Button1:
 				// we've clicked while not editing
@@ -844,12 +844,12 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 			}
 		case ui.ToolsPaneType:
 			toolsInfo := positionInfo.GetExtraToolsInfo()
-			t.model.Log.Add("DEBUG", fmt.Sprint("tools info:", toolsInfo))
+			t.data.Log.Add("DEBUG", fmt.Sprint("tools info:", toolsInfo))
 			switch buttons {
 			case tcell.Button1:
 				cat := toolsInfo.Category()
 				if cat != nil {
-					t.model.CurrentCategory = *cat
+					t.data.CurrentCategory = *cat
 				}
 			}
 		default:
@@ -857,32 +857,32 @@ func (t *TUIController) handleNoneEditEvent(ev tcell.Event) {
 	}
 }
 
-func (t *TUIController) resizeStep(nextCursortime model.Timestamp) {
+func (t *Controller) resizeStep(nextCursortime model.Timestamp) {
 	prevCursortime := t.EditedEvent.prevEditStepTimestamp
 	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
-	event := t.model.GetCurrentDay().GetEvent(t.EditedEvent.ID)
-	event.End = event.End.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
+	event := t.data.GetCurrentDay().GetEvent(t.EditedEvent.ID)
+	event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
 	t.EditedEvent.prevEditStepTimestamp = nextCursortime
 }
 
-func (t *TUIController) moveStep(nextCursortime model.Timestamp) {
+func (t *Controller) moveStep(nextCursortime model.Timestamp) {
 	prevCursortime := t.EditedEvent.prevEditStepTimestamp
 	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
 	if t.movePropagate {
-		following := t.model.GetCurrentDay().GetEventsFrom(t.EditedEvent.ID)
+		following := t.data.GetCurrentDay().GetEventsFrom(t.EditedEvent.ID)
 		for _, ptr := range following {
-			ptr.Start = ptr.Start.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
-			ptr.End = ptr.End.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
+			ptr.Start = ptr.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
+			ptr.End = ptr.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
 		}
 	} else {
-		event := t.model.GetCurrentDay().GetEvent(t.EditedEvent.ID)
-		event.Start = event.Start.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
-		event.End = event.End.OffsetMinutes(offset).Snap(t.model.ViewParams.NRowsPerHour)
+		event := t.data.GetCurrentDay().GetEvent(t.EditedEvent.ID)
+		event.Start = event.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
+		event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
 	}
 	t.EditedEvent.prevEditStepTimestamp = nextCursortime
 }
 
-func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
+func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		x, y := e.Position()
@@ -901,10 +901,10 @@ func (t *TUIController) handleMouseResizeEditEvent(ev tcell.Event) {
 	}
 }
 
-func (t *TUIController) handleEditEvent(ev tcell.Event) {
+func (t *Controller) handleEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
-		editor := &t.model.EventEditor
+		editor := &t.data.EventEditor
 
 		switch e.Key() {
 		case tcell.KeyEsc:
@@ -940,7 +940,7 @@ func (t *TUIController) handleEditEvent(ev tcell.Event) {
 	}
 }
 
-func (t *TUIController) handleMouseMoveEditEvent(ev tcell.Event) {
+func (t *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		x, y := e.Position()
@@ -987,7 +987,7 @@ func emptyRenderEvents(c chan ControllerEvent) bool {
 	}
 }
 
-func (t *TUIController) Run() {
+func (t *Controller) Run() {
 	t.controllerEvents = make(chan ControllerEvent, 32)
 	var wg sync.WaitGroup
 

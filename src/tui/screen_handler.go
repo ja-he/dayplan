@@ -135,6 +135,16 @@ type ConstrainedRenderer struct {
 	constraint func() (x, y, w, h int)
 }
 
+func NewConstrainedRenderer(
+	screenHandler *ScreenHandler,
+	constraint func() (x, y, w, h int),
+) *ConstrainedRenderer {
+	return &ConstrainedRenderer{
+		screenHandler: screenHandler,
+		constraint:    constraint,
+	}
+}
+
 // DrawText draws the given text, within the given dimensions, constrained by
 // the set constraint, in the given style.
 // TODO: should probably change the drawn text manually.

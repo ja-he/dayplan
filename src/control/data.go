@@ -1,15 +1,22 @@
-package tui
+package control
 
 import (
 	"sync"
 
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
-	"github.com/ja-he/dayplan/src/program"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/weather"
 )
+
+
+type EnvData struct {
+	BaseDirPath string
+	OwmApiKey   string
+	Latitude    string
+	Longitude   string
+}
 
 // For a given active view, returns the 'previous', i.E. 'stepping
 // out' from an inner view to an outer one.
@@ -62,12 +69,12 @@ type DayWithInfo struct {
 	SunTimes *model.SunTimes
 }
 
-type TUIModel struct {
+type ControlData struct {
 	cursorPos ui.MouseCursorPos
 
 	CategoryStyling styling.CategoryStyling
 
-	ProgramData program.Data
+	EnvData EnvData
 
 	Days        DaysData
 	CurrentDate model.Date
@@ -91,8 +98,8 @@ type DaysData struct {
 	days      map[model.Date]DayWithInfo
 }
 
-func NewTUIModel(cs styling.CategoryStyling) *TUIModel {
-	var t TUIModel
+func NewControlData(cs styling.CategoryStyling) *ControlData {
+	var t ControlData
 
 	t.Days = DaysData{
 		days: make(map[model.Date]DayWithInfo),
@@ -115,12 +122,12 @@ func (d *DaysData) HasDay(date model.Date) bool {
 	return ok
 }
 
-func (t *TUIModel) GetCurrentDay() *model.Day {
+func (t *ControlData) GetCurrentDay() *model.Day {
 	return t.Days.GetDay(t.CurrentDate)
 }
 
 // Get the suntimes of the current date of the model.
-func (t *TUIModel) GetCurrentSuntimes() *model.SunTimes {
+func (t *ControlData) GetCurrentSuntimes() *model.SunTimes {
 	return t.Days.GetSuntimes(t.CurrentDate)
 }
 

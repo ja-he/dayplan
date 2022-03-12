@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"github.com/ja-he/dayplan/src/cli"
+	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/model"
-	"github.com/ja-he/dayplan/src/program"
-	"github.com/ja-he/dayplan/src/tui"
 
 	"github.com/jessevdk/go-flags"
 )
@@ -31,14 +30,14 @@ func main() {
 		cmd.Execute([]string{})
 	}
 
-	var programData program.Data
+	var envData control.EnvData
 
 	// set up dir per option
 	dayplanHome := os.Getenv("DAYPLAN_HOME")
 	if dayplanHome == "" {
-		programData.BaseDirPath = os.Getenv("HOME") + "/.config/dayplan"
+		envData.BaseDirPath = os.Getenv("HOME") + "/.config/dayplan"
 	} else {
-		programData.BaseDirPath = strings.TrimRight(dayplanHome, "/")
+		envData.BaseDirPath = strings.TrimRight(dayplanHome, "/")
 	}
 
 	// infer initial day either from input file or current date
@@ -53,12 +52,12 @@ func main() {
 		}
 	}
 
-	programData.OwmApiKey = os.Getenv("OWM_API_KEY")
+	envData.OwmApiKey = os.Getenv("OWM_API_KEY")
 
-	programData.Latitude = os.Getenv("LATITUDE")
-	programData.Longitude = os.Getenv("LONGITUDE")
+	envData.Latitude = os.Getenv("LATITUDE")
+	envData.Longitude = os.Getenv("LONGITUDE")
 
-	controller := tui.NewTUIController(initialDay, programData)
+	controller := control.NewController(initialDay, envData)
 
 	controller.Run()
 }

@@ -1,4 +1,4 @@
-package tui
+package control
 
 import (
 	"github.com/ja-he/dayplan/src/model"
