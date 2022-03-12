@@ -55,7 +55,7 @@ func (p *HelpPane) Draw() {
 			sepText := "/"
 			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText)-len([]rune(keyA)), y+border+keysDrawn, len([]rune(keyA)), 1, p.stylesheet.Help.DefaultEmphasized().Bolded(), keyA)
 			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText), y+border+keysDrawn, len(sepText), 1, p.stylesheet.Help, sepText)
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 1, p.stylesheet.Help, keyB)
+			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 1, p.stylesheet.Help.DefaultEmphasized().Bolded(), keyB)
 			p.renderer.DrawText(descriptionOffset, y+border+keysDrawn, w, h, p.stylesheet.Help.Italicized(), description)
 			keysDrawn++
 		}
