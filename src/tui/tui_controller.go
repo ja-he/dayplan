@@ -42,14 +42,14 @@ type EditedEvent struct {
 }
 
 type TUIController struct {
-	model         *TUIModel
-	rootPane      ui.Pane
-	editState     EditState
-	EditedEvent   EditedEvent
-	movePropagate bool
-	fhMutex       sync.RWMutex
-	FileHandlers  map[model.Date]*filehandling.FileHandler
-	bump          chan ControllerEvent
+	model            *TUIModel
+	rootPane         ui.Pane
+	editState        EditState
+	EditedEvent      EditedEvent
+	movePropagate    bool
+	fhMutex          sync.RWMutex
+	FileHandlers     map[model.Date]*filehandling.FileHandler
+	controllerEvents chan ControllerEvent
 
 	// TODO: remove, obviously
 	tmpStatusYOffsetGetter func() int
@@ -667,7 +667,7 @@ func (t *TUIController) loadDaysForView(view ui.ActiveView) {
 			for current := monday; current != sunday.Next(); current = current.Next() {
 				go func(d model.Date) {
 					t.loadDay(d)
-					t.bump <- ControllerEventRender
+					t.controllerEvents <- ControllerEventRender
 				}(current)
 			}
 		}
@@ -677,7 +677,7 @@ func (t *TUIController) loadDaysForView(view ui.ActiveView) {
 			for current := first; current != last.Next(); current = current.Next() {
 				go func(d model.Date) {
 					t.loadDay(d)
-					t.bump <- ControllerEventRender
+					t.controllerEvents <- ControllerEventRender
 				}(current)
 			}
 		}
@@ -706,14 +706,14 @@ func (t *TUIController) handleNoneEditKeyInput(e *tcell.EventKey) {
 			} else {
 				t.model.Log.Add("DEBUG", "successfully retrieved weather data")
 			}
-			t.bump <- ControllerEventRender
+			t.controllerEvents <- ControllerEventRender
 		}()
 	case 'i':
 		nextView := NextView(t.model.activeView)
 		t.loadDaysForView(nextView)
 		t.model.activeView = nextView
 	case 'q':
-		t.bump <- ControllerEventExit
+		t.controllerEvents <- ControllerEventExit
 	case 'd':
 		eventsInfo := t.rootPane.GetPositionInfo(t.model.cursorPos.X, t.model.cursorPos.Y).GetExtraEventsInfo()
 		if eventsInfo != nil {
@@ -988,7 +988,7 @@ func emptyRenderEvents(c chan ControllerEvent) bool {
 }
 
 func (t *TUIController) Run() {
-	t.bump = make(chan ControllerEvent, 32)
+	t.controllerEvents = make(chan ControllerEvent, 32)
 	var wg sync.WaitGroup
 
 	// Run the main render loop, that renders or exits when prompted accordingly
@@ -999,11 +999,11 @@ func (t *TUIController) Run() {
 		for {
 
 			select {
-			case controllerEvent := <-t.bump:
+			case controllerEvent := <-t.controllerEvents:
 				switch controllerEvent {
 				case ControllerEventRender:
 					// empty all further render events before rendering
-					exitEventEncounteredOnEmpty := emptyRenderEvents(t.bump)
+					exitEventEncounteredOnEmpty := emptyRenderEvents(t.controllerEvents)
 					// exit if an exit event was coming up
 					if exitEventEncounteredOnEmpty {
 						return
@@ -1023,7 +1023,7 @@ func (t *TUIController) Run() {
 			now := time.Now()
 			next := now.Round(1 * time.Minute).Add(1 * time.Minute)
 			time.Sleep(time.Until(next))
-			t.bump <- ControllerEventRender
+			t.controllerEvents <- ControllerEventRender
 		}
 	}()
 
@@ -1049,7 +1049,7 @@ func (t *TUIController) Run() {
 				t.syncer.NeedsSync()
 			}
 
-			t.bump <- ControllerEventRender
+			t.controllerEvents <- ControllerEventRender
 		}
 	}()
 
