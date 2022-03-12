@@ -94,20 +94,6 @@ type Pane interface {
 	GetPositionInfo(x, y int) PositionInfo
 }
 
-// RootPane is the root pane in a UI.
-// TODO:
-//  - probably doesn't make much sense actually
-//    - 'close' roughly means do necessary teardown to cleanly end UI
-//      - but UI was constructed in controller, why leave closing it to this?
-//    - needs sync is also sort of TUI specific? probably? and this one i've
-//      definitely wanted the controller to handle, maybe by directly putting
-//      a call to the renderer into a callback triggered on resize?
-type RootPane interface {
-	Pane
-	Close()
-	NeedsSync()
-}
-
 // ConditionalOverlayPane is a UI pane that is only visible given some
 // condition holds true.
 //
@@ -175,12 +161,11 @@ type ConstrainedRenderer interface {
 	DrawText(x, y, w, h int, style styling.DrawStyling, text string)
 }
 
-// RootPaneRendererControl is the set of functions of a renderer (e.g.,
+// RenderOrchestratorControl is the set of functions of a renderer (e.g.,
 // tcell.Screen) that the root pane needs to use to have full control over a
 // render cycle. Other panes should not need this access to the renderer.
-type RootPaneRendererControl interface {
-	NeedsSync()
-	Fini()
+type RenderOrchestratorControl interface {
+	// TODO: naming: RenderOrchestratorControl?
 	Clear()
 	Show()
 }

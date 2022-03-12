@@ -42,11 +42,6 @@ func (s *ScreenHandler) init() {
 	s.screen.Clear()
 }
 
-// EventPollable only allows access to PollEvent of a tcell.Screen.
-type EventPollable interface {
-	PollEvent() tcell.Event
-}
-
 // GetEventPollable returns the underlying screen as an EventPollable.
 func (s *ScreenHandler) GetEventPollable() EventPollable {
 	return s.screen
@@ -190,4 +185,21 @@ func (r *ConstrainedRenderer) constrain(rawX, rawY, rawW, rawH int) (constrained
 	}
 
 	return constrainedX, constrainedY, constrainedW, constrainedH
+}
+
+// EventPollable only allows access to PollEvent of a tcell.Screen.
+type EventPollable interface {
+	PollEvent() tcell.Event
+}
+
+// InitializedScreen allows access only to the finalizing functionality of an
+// initialized screen.
+type InitializedScreen interface {
+	Fini()
+}
+
+// ScreenSynchronizer allows access only to a screen handler's synchronization
+// notification functionality.
+type ScreenSynchronizer interface {
+	NeedsSync()
 }

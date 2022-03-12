@@ -8,9 +8,7 @@ import (
 // RootPane acts as the root UI pane, wrapping all subpanes, managing the
 // render cycle, invoking the subpanes' rendering, etc.
 type RootPane struct {
-	// TODO: I don't think I even want the root pane to handle the sync; in any
-	//       case it shouldn't have to need this; remove.
-	renderer ui.RootPaneRendererControl
+	renderer ui.RenderOrchestratorControl
 
 	dimensions func() (x, y, w, h int)
 
@@ -88,17 +86,6 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	return active, inactive
 }
 
-// Close calls Fini() on the renderer, which, e.g., in the case of tcell.Screen
-// finalizes the screen and releases all resources.
-func (p *RootPane) Close() {
-	p.renderer.Fini()
-}
-
-// NeedsSync informs the renderer of the need for sync, e.g., on a resize.
-func (p *RootPane) NeedsSync() {
-	p.renderer.NeedsSync()
-}
-
 // Draw draws this pane.
 func (p *RootPane) Draw() {
 	p.renderer.Clear()
@@ -116,7 +103,7 @@ func (p *RootPane) Draw() {
 
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
-	renderer ui.RootPaneRendererControl,
+	renderer ui.RenderOrchestratorControl,
 	dimensions func() (x, y, w, h int),
 	dayViewMainPane ui.Pane,
 	weekViewMainPane ui.Pane,

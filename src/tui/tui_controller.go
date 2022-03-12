@@ -43,7 +43,7 @@ type EditedEvent struct {
 
 type TUIController struct {
 	model         *TUIModel
-	rootPane      ui.RootPane
+	rootPane      ui.Pane
 	editState     EditState
 	EditedEvent   EditedEvent
 	movePropagate bool
@@ -62,7 +62,9 @@ type TUIController struct {
 	// awkwardly accessing information that they shouldn't need to.
 	timestampGuesser func(int, int) model.Timestamp
 
-	screenEvents EventPollable
+	screenEvents      EventPollable
+	initializedScreen InitializedScreen
+	syncer            ScreenSynchronizer
 }
 
 type EditState int
@@ -520,6 +522,9 @@ func NewTUIController(date model.Date, programData program.Data) *TUIController 
 		_, yOffset, _, _ := dayViewEventsPaneDimensions()
 		return tuiModel.ViewParams.TimeAtY(yOffset + cursorY)
 	}
+
+	tuiController.initializedScreen = renderer
+	tuiController.syncer = renderer
 
 	return &tuiController
 }
@@ -990,7 +995,7 @@ func (t *TUIController) Run() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer t.rootPane.Close()
+		defer t.initializedScreen.Fini()
 		for {
 
 			select {
@@ -1041,7 +1046,7 @@ func (t *TUIController) Run() {
 
 			switch ev.(type) {
 			case *tcell.EventResize:
-				t.rootPane.NeedsSync()
+				t.syncer.NeedsSync()
 			}
 
 			t.bump <- ControllerEventRender
