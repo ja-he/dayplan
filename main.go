@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ja-he/dayplan/src/cli"
 	"github.com/ja-he/dayplan/src/control"
+	"github.com/ja-he/dayplan/src/control/cli"
 	"github.com/ja-he/dayplan/src/model"
 
 	"github.com/jessevdk/go-flags"
