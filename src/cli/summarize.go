@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ja-he/dayplan/src/category_style"
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/program"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/util"
 )
 
@@ -45,10 +45,10 @@ func summarize() {
 	}
 
 	// read category styles (crucially, the priorities)
-	var categoryStyling category_style.CategoryStyling
-	categoryStyling = *category_style.EmptyCategoryStyling()
+	var categoryStyling styling.CategoryStyling
+	categoryStyling = *styling.EmptyCategoryStyling()
 	styleFilePath := programData.BaseDirPath + "/" + "category-styles.yaml"
-	styledInputs, err := category_style.ReadCategoryStylingFile(styleFilePath)
+	styledInputs, err := styling.ReadCategoryStylingFile(styleFilePath)
 	if err != nil {
 		panic(err)
 	}

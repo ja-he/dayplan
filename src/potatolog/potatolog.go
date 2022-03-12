@@ -35,3 +35,13 @@ func (l *Log) Add(entryType, message string) {
 func (l *Log) Get() []LogEntry {
 	return l.entries
 }
+
+// LogWriter allows adding to a log.
+type LogWriter interface {
+	Add(entryType, message string)
+}
+
+// LogReader allows reading access to a log.
+type LogReader interface {
+	Get() []LogEntry
+}

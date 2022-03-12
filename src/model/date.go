@@ -48,7 +48,7 @@ func (d Date) Prev() Date {
 }
 
 func (d Date) Next() Date {
-	if d == d.getLastOfMonth() {
+	if d == d.GetLastOfMonth() {
 		d.Day = 1
 		if d.Month == 12 {
 			d.Month = 1
@@ -88,7 +88,7 @@ func (d Date) Valid() bool {
 	}
 
 	if d.Day < 1 ||
-		d.Day > d.getLastOfMonth().Day {
+		d.Day > d.GetLastOfMonth().Day {
 		return false
 	}
 
@@ -200,7 +200,8 @@ func (a Date) DaysUntil(b Date) int {
 	return counter
 }
 
-func (d Date) getLastOfMonth() Date {
+// GetLastOfMonth returns the last date of the month of the receiver.
+func (d Date) GetLastOfMonth() Date {
 	var lastDay int
 
 	switch {
@@ -230,9 +231,26 @@ func (d Date) Week() (monday Date, sunday Date) {
 	return d, d.Forward(6)
 }
 
+// GetDayInWeek returns the date that is on the weekday for the given index in
+// the week the receiver is in.
+//
+// Index here means that 0 is Monday, 6 is Sunday.
+func (d Date) GetDayInWeek(index int) Date {
+	start, _ := d.Week()
+	return start.Forward(index)
+}
+
+// GetDayInMonth returns the indexed day in the month of the receiver.
+//
+// Note that indexing 0 will return the first of the month.
+func (d Date) GetDayInMonth(index int) Date {
+	start, _ := d.MonthBounds()
+	return start.Forward(index)
+}
+
 func (d Date) MonthBounds() (first Date, last Date) {
 	first = d.getFirstOfMonth()
-	last = d.getLastOfMonth()
+	last = d.GetLastOfMonth()
 
 	return first, last
 }
