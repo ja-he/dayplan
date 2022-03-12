@@ -39,8 +39,8 @@ func (p *EditorPane) Draw() {
 	if p.condition() {
 		x, y, w, h := p.Dimensions()
 
-		p.renderer.DrawBox(x, y, w, h, p.stylesheet.Editor())
-		p.renderer.DrawText(x+1, y+1, w-2, h-2, p.stylesheet.Editor(), p.name())
+		p.renderer.DrawBox(x, y, w, h, p.stylesheet.Editor)
+		p.renderer.DrawText(x+1, y+1, w-2, h-2, p.stylesheet.Editor, p.name())
 		p.cursorController.ShowCursor(x+1+(p.cursorPos()%(w-2)), y+1+(p.cursorPos()/(w-2)))
 		// TODO(ja-he): wrap at word boundary
 	}

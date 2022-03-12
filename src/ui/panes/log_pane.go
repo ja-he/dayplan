@@ -43,24 +43,24 @@ func (p *LogPane) Draw() {
 		x, y, w, h := p.Dimensions()
 		row := 2
 
-		p.renderer.DrawBox(x, y, w, h, p.stylesheet.LogDefault())
+		p.renderer.DrawBox(x, y, w, h, p.stylesheet.LogDefault)
 		title := p.titleString()
-		p.renderer.DrawBox(x, y, w, 1, p.stylesheet.LogTitleBox())
-		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.stylesheet.LogTitleBox(), title)
+		p.renderer.DrawBox(x, y, w, 1, p.stylesheet.LogTitleBox)
+		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.stylesheet.LogTitleBox, title)
 		for i := len(p.logReader.Get()) - 1; i >= 0; i-- {
 			entry := &p.logReader.Get()[i]
 
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryType(), entry.Type)
+			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryType, entry.Type)
 			x += len(entry.Type) + 1
 
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogDefault(), entry.Message)
+			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogDefault, entry.Message)
 			x += len(entry.Message) + 1
 
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryLocation(), entry.Location)
+			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryLocation, entry.Location)
 			x += len(entry.Location) + 1
 
 			timeStr := strings.Join(strings.Split(entry.At.String(), " ")[0:2], " ")
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryTime(), timeStr)
+			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryTime, timeStr)
 
 			x = 0
 			row++

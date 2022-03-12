@@ -78,7 +78,7 @@ func (p *EventsPane) Draw() {
 		styling := style
 		if err != nil {
 			p.logWriter.Add("ERROR", err.Error())
-			styling = p.stylesheet.CategoryFallback()
+			styling = p.stylesheet.CategoryFallback
 		}
 		if !p.isCurrent() {
 			styling = styling.DefaultDimmed()

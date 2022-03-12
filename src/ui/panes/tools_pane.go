@@ -40,7 +40,7 @@ func (p *ToolsPane) Draw() {
 		categoryStyle, err := p.categories.GetStyle(cat)
 		var styling styling.DrawStyling
 		if err != nil {
-			styling = p.stylesheet.CategoryFallback()
+			styling = p.stylesheet.CategoryFallback
 		} else {
 			styling = categoryStyle
 		}

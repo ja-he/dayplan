@@ -37,7 +37,7 @@ func (p *StatusPane) Draw() {
 
 	dateWidth := 10 // 2020-02-12 is 10 wide
 
-	bgStyle := p.stylesheet.Status()
+	bgStyle := p.stylesheet.Status
 	bgStyleEmph := bgStyle.DefaultEmphasized()
 	dateStyle := bgStyleEmph
 	weekdayStyle := dateStyle.LightenedFG(60)

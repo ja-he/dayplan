@@ -64,9 +64,9 @@ func (p *TimelinePane) Draw() {
 
 		var styling styling.DrawStyling
 		if suntimes != nil && (!(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set))) {
-			styling = p.stylesheet.TimelineNight()
+			styling = p.stylesheet.TimelineNight
 		} else {
-			styling = p.stylesheet.TimelineDay()
+			styling = p.stylesheet.TimelineDay
 		}
 
 		p.renderer.DrawText(x, virtRow+y, w, 1, styling, timeText)
@@ -74,7 +74,7 @@ func (p *TimelinePane) Draw() {
 
 	if currentTime != nil {
 		timeText := timestampLPad + currentTime.ToString() + timestampRPad
-		p.renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, p.stylesheet.TimelineNow(), timeText)
+		p.renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, p.stylesheet.TimelineNow, timeText)
 	}
 }
 

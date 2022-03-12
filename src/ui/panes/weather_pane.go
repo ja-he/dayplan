@@ -32,7 +32,7 @@ func (p *WeatherPane) Dimensions() (x, y, w, h int) {
 func (p *WeatherPane) Draw() {
 	x, y, w, h := p.Dimensions()
 
-	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal())
+	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
 
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		row := p.toY(timestamp)
@@ -47,12 +47,12 @@ func (p *WeatherPane) Draw() {
 
 		weather, ok := p.weather.Data[index]
 		if ok {
-			weatherStyling := p.stylesheet.WeatherRegular()
+			weatherStyling := p.stylesheet.WeatherRegular
 			switch {
 			case weather.PrecipitationProbability > .25:
-				weatherStyling = p.stylesheet.WeatherRainy()
+				weatherStyling = p.stylesheet.WeatherRainy
 			case weather.Clouds < 25:
-				weatherStyling = p.stylesheet.WeatherSunny()
+				weatherStyling = p.stylesheet.WeatherSunny
 			}
 
 			p.renderer.DrawBox(x, row, w, p.viewParams.NRowsPerHour, weatherStyling)

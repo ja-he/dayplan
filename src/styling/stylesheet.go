@@ -1,31 +1,31 @@
 package styling
 
 // Stylesheet represents all styles used by the application for rendering.
-type Stylesheet interface {
-	Normal() DrawStyling
+type Stylesheet struct {
+	Normal DrawStyling
 
-	WeatherRegular() DrawStyling
-	WeatherSunny() DrawStyling
-	WeatherRainy() DrawStyling
+	WeatherRegular DrawStyling
+	WeatherSunny   DrawStyling
+	WeatherRainy   DrawStyling
 
-	TimelineDay() DrawStyling
-	TimelineNight() DrawStyling
-	TimelineNow() DrawStyling
+	TimelineDay   DrawStyling
+	TimelineNight DrawStyling
+	TimelineNow   DrawStyling
 
-	Status() DrawStyling
+	Status DrawStyling
 
-	CategoryFallback() DrawStyling
+	CategoryFallback DrawStyling
 
-	LogDefault() DrawStyling
-	LogTitleBox() DrawStyling
-	LogEntryType() DrawStyling
-	LogEntryLocation() DrawStyling
-	LogEntryTime() DrawStyling
+	LogDefault       DrawStyling
+	LogTitleBox      DrawStyling
+	LogEntryType     DrawStyling
+	LogEntryLocation DrawStyling
+	LogEntryTime     DrawStyling
 
-	Help() DrawStyling
+	Help DrawStyling
 
-	Editor() DrawStyling
+	Editor DrawStyling
 
-	SummaryDefault() DrawStyling
-	SummaryTitleBox() DrawStyling
+	SummaryDefault  DrawStyling
+	SummaryTitleBox DrawStyling
 }

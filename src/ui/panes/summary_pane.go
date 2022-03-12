@@ -46,10 +46,10 @@ func (p *SummaryPane) Draw() {
 	if p.condition() {
 		x, y, w, h := p.Dimensions()
 
-		p.renderer.DrawBox(x, y, w, h, p.stylesheet.SummaryDefault())
+		p.renderer.DrawBox(x, y, w, h, p.stylesheet.SummaryDefault)
 		title := p.titleString()
-		p.renderer.DrawBox(x, y, w, 1, p.stylesheet.SummaryTitleBox())
-		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.stylesheet.SummaryTitleBox(), title)
+		p.renderer.DrawBox(x, y, w, 1, p.stylesheet.SummaryTitleBox)
+		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.stylesheet.SummaryTitleBox, title)
 
 		summary := make(map[model.Category]int)
 
@@ -86,7 +86,7 @@ func (p *SummaryPane) Draw() {
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
 			p.renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
-			p.renderer.DrawText(x, y+row, catLen, 1, p.stylesheet.SummaryDefault(), util.TruncateAt(category.Name, catLen))
+			p.renderer.DrawText(x, y+row, catLen, 1, p.stylesheet.SummaryDefault, util.TruncateAt(category.Name, catLen))
 			p.renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+util.DurationToString(duration)+")")
 			row++
 		}
