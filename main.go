@@ -8,6 +8,7 @@ import (
 	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/control/cli"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
 
 	"github.com/jessevdk/go-flags"
 )
@@ -57,7 +58,19 @@ func main() {
 	envData.Latitude = os.Getenv("LATITUDE")
 	envData.Longitude = os.Getenv("LONGITUDE")
 
-	controller := control.NewController(initialDay, envData)
+	// read category styles
+	var categoryStyling styling.CategoryStyling
+	categoryStyling = *styling.EmptyCategoryStyling()
+	styleFilePath := envData.BaseDirPath + "/" + "category-styles.yaml"
+	styledInputs, err := styling.ReadCategoryStylingFile(styleFilePath)
+	if err != nil {
+		panic(err)
+	}
+	for _, styledInput := range styledInputs {
+		categoryStyling.AddStyleFromInput(styledInput)
+	}
+
+	controller := control.NewController(initialDay, envData, categoryStyling)
 
 	controller.Run()
 }

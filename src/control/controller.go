@@ -83,19 +83,7 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewController(date model.Date, envData EnvData) *Controller {
-	// read category styles
-	var categoryStyling styling.CategoryStyling
-	categoryStyling = *styling.EmptyCategoryStyling()
-	styleFilePath := envData.BaseDirPath + "/" + "category-styles.yaml"
-	styledInputs, err := styling.ReadCategoryStylingFile(styleFilePath)
-	if err != nil {
-		panic(err)
-	}
-	for _, styledInput := range styledInputs {
-		categoryStyling.AddStyleFromInput(styledInput)
-	}
-
+func NewController(date model.Date, envData EnvData, categoryStyling styling.CategoryStyling) *Controller {
 	stylesheet := styling.Stylesheet{
 		Normal: styling.StyleFromHex("#000000", "#ffffff"),
 
