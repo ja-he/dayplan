@@ -117,16 +117,41 @@ so for example a day with three events might be
 10:00|18:00|misc|Do Absolutely Nothing
 ```
 
-### Categories
+## Configuration
 
-Category styles  are formatted as YAML in in
-`${DAYPLAN_HOME}/category-styles.yaml`.
-Here's an example with two styles defined:
+Dayplan's can be optionally configured in `${DAYPLAN_HOME}/config.yaml`.
+Configuration currently entails theming and categories.
+
+- The general UI colors are defined under `stylesheet`.
+- The categories are listed under `categories`
+
+Here a very short[^longer-example] example of the file format:
 ```yaml
-- name: uni
-  fg: '#000000'
-  bg: '#ffdccc'
-- name: work
-  fg: '#000000'
-  bg: '#ffcccc'
+stylesheet:
+  normal:            { fg: '#000000', bg: '#ffffff' }
+  timeline-day:      { fg: '#c0c0c0', bg: '#ffffff' }
+  timeline-night:    { fg: '#f0f0f0', bg: '#000000' }
+  timeline-now:      { fg: '#ffffff', bg: '#ff0000' }
+  summary-default:   { fg: '#000000', bg: '#ffffff' }
+  summary-title-box: { fg: '#000000', bg: '#f0f0f0', style: { italic: true } }
+
+categories:
+  - name: uni
+    fg: '#000000'
+    bg: '#ffdccc'
+  - name: work
+    fg: '#000000'
+    bg: '#ffcccc'
 ```
+
+[^longer-example]:
+    As these identifiers are very much subject to change pre-v1.0.0, I'm
+    refraining from providing a default 'config.yaml' file in the repo.
+    Please just look through the sources in 'src/config/config.go' to see the
+    yaml-identifiers that are available for stylings.
+
+> #### Note: Terminal Color Support
+>
+> Currently, a true color terminal is required; use of other color codes is not
+> supported.  
+> However, this is not inherent to dayplan; see #24.
