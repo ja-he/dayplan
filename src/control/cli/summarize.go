@@ -2,10 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 
+	"github.com/ja-he/dayplan/src/config"
 	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/model"
@@ -44,16 +46,18 @@ func summarize() {
 		envData.BaseDirPath = strings.TrimRight(dayplanHome, "/")
 	}
 
-	// read category styles (crucially, the priorities)
-	var categoryStyling styling.CategoryStyling
-	categoryStyling = *styling.EmptyCategoryStyling()
-	styleFilePath := envData.BaseDirPath + "/" + "category-styles.yaml"
-	styledInputs, err := styling.ReadCategoryStylingFile(styleFilePath)
+	// read config from file (for the category priorities)
+	yamlData, err := ioutil.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("can't read config file: '%s'", err))
 	}
-	for _, styledInput := range styledInputs {
-		categoryStyling.AddStyleFromInput(styledInput)
+	configData, err := config.ParseConfigAugmentDefaults(yamlData)
+	if err != nil {
+		panic(fmt.Sprintf("can't parse config data: '%s'", err))
+	}
+	categories := styling.EmptyCategoryStyling()
+	for _, category := range configData.Categories {
+		categories.AddStyleFromInput(category)
 	}
 
 	currentDate, err := model.FromString(Opts.SummarizeCommand.FromDay)
@@ -77,7 +81,7 @@ func summarize() {
 	days := make([]model.Day, 0)
 	for currentDate != finalDate.Next() {
 		fh := filehandling.NewFileHandler(envData.BaseDirPath + "/days/" + currentDate.ToString())
-		days = append(days, *fh.Read(categoryStyling.GetKnownCategoriesByName()))
+		days = append(days, *fh.Read(categories.GetKnownCategoriesByName()))
 
 		currentDate = currentDate.Next()
 	}

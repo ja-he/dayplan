@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/ja-he/dayplan/src/config"
 	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/control/cli"
 	"github.com/ja-he/dayplan/src/model"
@@ -58,48 +61,26 @@ func main() {
 	envData.Latitude = os.Getenv("LATITUDE")
 	envData.Longitude = os.Getenv("LONGITUDE")
 
-	// read category styles
+	// read config from file
+	yamlData, err := ioutil.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
+	if err != nil {
+		panic(fmt.Sprintf("can't read config file: '%s'", err))
+	}
+	configData, err := config.ParseConfigAugmentDefaults(yamlData)
+	if err != nil {
+		panic(fmt.Sprintf("can't parse config data: '%s'", err))
+	}
+
+	// get categories from config
 	var categoryStyling styling.CategoryStyling
 	categoryStyling = *styling.EmptyCategoryStyling()
-	styleFilePath := envData.BaseDirPath + "/" + "category-styles.yaml"
-	styledInputs, err := styling.ReadCategoryStylingFile(styleFilePath)
-	if err != nil {
-		panic(err)
-	}
-	for _, styledInput := range styledInputs {
-		categoryStyling.AddStyleFromInput(styledInput)
+	for _, category := range configData.Categories {
+		categoryStyling.AddStyleFromInput(category)
 	}
 
-	stylesheet := styling.Stylesheet{
-		Normal: styling.StyleFromHex("#000000", "#ffffff"),
+	stylesheet := styling.NewStylesheetFromConfig(configData.Stylesheet)
 
-		WeatherRegular: styling.StyleFromHex("#ccebff", "#ffffff"),
-		WeatherRainy:   styling.StyleFromHex("#000000", "#ccebff"),
-		WeatherSunny:   styling.StyleFromHex("#000000", "#fff0cc"),
-
-		TimelineDay:   styling.StyleFromHex("#f0f0f0", "#ffffff"),
-		TimelineNight: styling.StyleFromHex("#f0f0f0", "#000000"),
-		TimelineNow:   styling.StyleFromHex("#ffffff", "#ff0000").Bolded(),
-
-		Status: styling.StyleFromHex(("#000000"), "#f0f0f0"),
-
-		CategoryFallback: styling.StyleFromHex("#000000", "#CD5C5C"),
-
-		LogDefault:       styling.StyleFromHex("#000000", "#ffffff"),
-		LogTitleBox:      styling.StyleFromHex("#000000", "#f0f0f0").Bolded(),
-		LogEntryType:     styling.StyleFromHex("#cccccc", "#ffffff").Italicized(),
-		LogEntryLocation: styling.StyleFromHex("#cccccc", "#ffffff"),
-		LogEntryTime:     styling.StyleFromHex("#f0f0f0", "#ffffff"),
-
-		Help: styling.StyleFromHex("#000000", "#f0f0f0"),
-
-		Editor: styling.StyleFromHex("#000000", "#f0f0f0"),
-
-		SummaryDefault:  styling.StyleFromHex("#000000", "#ffffff"),
-		SummaryTitleBox: styling.StyleFromHex("#000000", "#f0f0f0").Bolded(),
-	}
-
-	controller := control.NewController(initialDay, envData, categoryStyling, stylesheet)
+	controller := control.NewController(initialDay, envData, categoryStyling, *stylesheet)
 
 	controller.Run()
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/ja-he/dayplan/src/config"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -157,4 +158,12 @@ func StyleFromColors(fg, bg colorful.Color) *FallbackStyling {
 		fg: fg,
 		bg: bg,
 	}
+}
+
+func StyleFromConfig(config config.Styling) *FallbackStyling {
+	styling := StyleFromHex(config.Fg, config.Bg)
+	styling.bold = config.Bold
+	styling.italic = config.Italic
+	styling.underlined = config.Underlined
+	return styling
 }

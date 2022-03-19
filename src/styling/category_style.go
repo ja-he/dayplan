@@ -8,11 +8,9 @@ package styling
 
 import (
 	"fmt"
-	"io/ioutil"
 
+	"github.com/ja-he/dayplan/src/config"
 	"github.com/ja-he/dayplan/src/model"
-
-	"gopkg.in/yaml.v2"
 )
 
 // StyledCategory is a category associated with a styling by which it should be
@@ -54,7 +52,7 @@ func EmptyCategoryStyling() *CategoryStyling {
 }
 
 // AddStyleFromInput adds a style from
-func (cs *CategoryStyling) AddStyleFromInput(input StyledCategoryInput) bool {
+func (cs *CategoryStyling) AddStyleFromInput(input config.Category) bool {
 	cat := model.Category{
 		Name:     input.Name,
 		Priority: input.Priority,
@@ -82,33 +80,4 @@ func (cs *CategoryStyling) GetStyle(c model.Category) (DrawStyling, error) {
 		}
 	}
 	return nil, fmt.Errorf("style for category '%s' not found", c.Name)
-}
-
-// TODO: Move the following things out of here (to filesystem, probably)
-
-// StyledCategoryInput represents the deserialized YAML in the category style
-// file.
-type StyledCategoryInput struct {
-	Name     string
-	Fg       string
-	Bg       string
-	Priority int
-}
-
-// ReadCategoryStylingFile reads the category styling file and returns its
-// deserialized entries for constructing a category styling.
-func ReadCategoryStylingFile(filepath string) ([]StyledCategoryInput, error) {
-	result := []StyledCategoryInput{}
-
-	data, err := ioutil.ReadFile(filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	err = yaml.Unmarshal([]byte(data), &result)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
 }

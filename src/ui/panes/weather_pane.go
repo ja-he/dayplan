@@ -47,7 +47,7 @@ func (p *WeatherPane) Draw() {
 
 		weather, ok := p.weather.Data[index]
 		if ok {
-			weatherStyling := p.stylesheet.WeatherRegular
+			weatherStyling := p.stylesheet.WeatherNormal
 			switch {
 			case weather.PrecipitationProbability > .25:
 				weatherStyling = p.stylesheet.WeatherRainy

@@ -1,6 +1,8 @@
 package styling
 
 import (
+	"fmt"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/lucasb-eyer/go-colorful"
 )
@@ -44,7 +46,7 @@ func darkenColorfulColor(color colorful.Color, percentage int) colorful.Color {
 func colorfulColorFromHexString(hex string) colorful.Color {
 	color, err := colorful.Hex(hex)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("unable to create colorful.Color from '%s' due to error: '%s'", hex, err.Error()))
 	}
 	return color
 }
