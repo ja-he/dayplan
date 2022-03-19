@@ -64,7 +64,9 @@ func main() {
 	// read config from file
 	yamlData, err := ioutil.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
 	if err != nil {
-		panic(fmt.Sprintf("can't read config file: '%s'", err))
+		fmt.Fprintf(os.Stderr, "Warning: can't read config file: '%s'.\n", err)
+		fmt.Fprintf(os.Stderr, "         using defaults.\n")
+		yamlData = make([]byte, 0)
 	}
 	configData, err := config.ParseConfigAugmentDefaults(yamlData)
 	if err != nil {
