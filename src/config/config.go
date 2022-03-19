@@ -47,8 +47,14 @@ type Category struct {
 	Priority int    `yaml:"priority,omitempty"`
 }
 
-func ParseConfigAugmentDefaults(yamlData []byte) (Config, error) {
-	defaultConfig := Default(Dark)
+func ParseConfigAugmentDefaults(defaultTheme ColorschemeType, yamlData []byte) (Config, error) {
+	var defaultConfig Config
+	switch defaultTheme {
+	case Dark:
+		defaultConfig = Default(Dark)
+	case Light:
+		defaultConfig = Default(Light)
+	}
 
 	parsedConfig := Config{}
 	err := yaml.Unmarshal(yamlData, &parsedConfig)

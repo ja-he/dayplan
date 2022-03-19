@@ -51,7 +51,7 @@ func summarize() {
 	if err != nil {
 		panic(fmt.Sprintf("can't read config file: '%s'", err))
 	}
-	configData, err := config.ParseConfigAugmentDefaults(yamlData)
+	configData, err := config.ParseConfigAugmentDefaults(config.Light, yamlData)
 	if err != nil {
 		panic(fmt.Sprintf("can't parse config data: '%s'", err))
 	}

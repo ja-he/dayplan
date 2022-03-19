@@ -34,6 +34,16 @@ func main() {
 		cmd.Execute([]string{})
 	}
 
+	var theme config.ColorschemeType
+	switch cli.Opts.Theme {
+	case "light":
+		theme = config.Light
+	case "dark":
+		theme = config.Dark
+	default:
+		theme = config.Dark
+	}
+
 	var envData control.EnvData
 
 	// set up dir per option
@@ -68,7 +78,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "         using defaults.\n")
 		yamlData = make([]byte, 0)
 	}
-	configData, err := config.ParseConfigAugmentDefaults(yamlData)
+	configData, err := config.ParseConfigAugmentDefaults(theme, yamlData)
 	if err != nil {
 		panic(fmt.Sprintf("can't parse config data: '%s'", err))
 	}
