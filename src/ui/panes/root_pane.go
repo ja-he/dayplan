@@ -22,6 +22,8 @@ type RootPane struct {
 	help   ui.ConditionalOverlayPane
 	editor ui.ConditionalOverlayPane
 
+	performanceMetricsOverlay ui.EphemeralPane
+
 	activeView func() *ui.ActiveView
 }
 
@@ -98,6 +100,8 @@ func (p *RootPane) Draw() {
 		pane.EnsureHidden()
 	}
 
+	p.performanceMetricsOverlay.Draw()
+
 	p.renderer.Show()
 }
 
@@ -112,18 +116,20 @@ func NewRootPane(
 	log ui.ConditionalOverlayPane,
 	help ui.ConditionalOverlayPane,
 	editor ui.ConditionalOverlayPane,
+	performanceMetricsOverlay ui.EphemeralPane,
 	activeView func() *ui.ActiveView,
 ) *RootPane {
 	return &RootPane{
-		renderer:          renderer,
-		dimensions:        dimensions,
-		dayViewMainPane:   dayViewMainPane,
-		weekViewMainPane:  weekViewMainPane,
-		monthViewMainPane: monthViewMainPane,
-		summary:           summary,
-		log:               log,
-		help:              help,
-		editor:            editor,
-		activeView:        activeView,
+		renderer:                  renderer,
+		dimensions:                dimensions,
+		dayViewMainPane:           dayViewMainPane,
+		weekViewMainPane:          weekViewMainPane,
+		monthViewMainPane:         monthViewMainPane,
+		summary:                   summary,
+		log:                       log,
+		help:                      help,
+		editor:                    editor,
+		performanceMetricsOverlay: performanceMetricsOverlay,
+		activeView:                activeView,
 	}
 }

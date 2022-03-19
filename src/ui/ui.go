@@ -110,6 +110,13 @@ type ConditionalOverlayPane interface {
 	EnsureHidden()
 }
 
+// An EphemeralPane is a conditional overlay that should be rendered normally,
+// but otherwise treated as though nonexistent. It should for example be ignored
+// when processing mouse clicks.
+type EphemeralPane interface {
+	ConditionalOverlayPane
+}
+
 // EventBoxPart describes the part of an event box (the visual representation
 // of an event in the user interface).
 // For example this could describe what part of an event the mouse is hovering

@@ -150,3 +150,11 @@ func StyleFromHex(fg, bg string) *FallbackStyling {
 		bg: colorfulColorFromHexString(bg),
 	}
 }
+
+// StyleFromColors constructs a style by the given colors.
+func StyleFromColors(fg, bg colorful.Color) *FallbackStyling {
+	return &FallbackStyling{
+		fg: fg,
+		bg: bg,
+	}
+}

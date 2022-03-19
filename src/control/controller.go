@@ -462,6 +462,14 @@ func NewController(date model.Date, envData EnvData) *Controller {
 			func() int { return data.EventEditor.CursorPos },
 		),
 
+		panes.NewPerfPane(
+			tui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) { return 2, 2, 50, 2 }),
+			func() (x, y, w, h int) { return 2, 2, 50, 2 },
+			func() bool { return data.showDebug },
+			&data.renderTimes,
+			&data.eventProcessingTimes,
+		),
+
 		func() *ui.ActiveView { return &data.activeView },
 	)
 
@@ -714,6 +722,8 @@ func (t *Controller) handleNoneEditKeyInput(e *tcell.EventKey) {
 		t.data.activeView = nextView
 	case 'q':
 		t.controllerEvents <- ControllerEventExit
+	case 'P':
+		t.data.showDebug = !t.data.showDebug
 	case 'd':
 		eventsInfo := t.rootPane.GetPositionInfo(t.data.cursorPos.X, t.data.cursorPos.Y).GetExtraEventsInfo()
 		if eventsInfo != nil {
@@ -1002,6 +1012,8 @@ func (t *Controller) Run() {
 			case controllerEvent := <-t.controllerEvents:
 				switch controllerEvent {
 				case ControllerEventRender:
+					start := time.Now()
+
 					// empty all further render events before rendering
 					exitEventEncounteredOnEmpty := emptyRenderEvents(t.controllerEvents)
 					// exit if an exit event was coming up
@@ -1010,6 +1022,9 @@ func (t *Controller) Run() {
 					}
 					// render
 					t.rootPane.Draw()
+
+					end := time.Now()
+					t.data.renderTimes.Add(uint64(end.Sub(start).Microseconds()))
 				case ControllerEventExit:
 					return
 				}
@@ -1033,6 +1048,8 @@ func (t *Controller) Run() {
 		for {
 			ev := t.screenEvents.PollEvent()
 
+			start := time.Now()
+
 			switch t.editState {
 			case EditStateNone:
 				t.handleNoneEditEvent(ev)
@@ -1048,6 +1065,9 @@ func (t *Controller) Run() {
 			case *tcell.EventResize:
 				t.syncer.NeedsSync()
 			}
+
+			end := time.Now()
+			t.data.eventProcessingTimes.Add(uint64(end.Sub(start).Microseconds()))
 
 			t.controllerEvents <- ControllerEventRender
 		}

@@ -7,9 +7,9 @@ import (
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
+	"github.com/ja-he/dayplan/src/util"
 	"github.com/ja-he/dayplan/src/weather"
 )
-
 
 type EnvData struct {
 	BaseDirPath string
@@ -84,6 +84,7 @@ type ControlData struct {
 	showLog     bool
 	showHelp    bool
 	showSummary bool
+	showDebug   bool
 
 	ViewParams ui.ViewParams
 
@@ -91,6 +92,9 @@ type ControlData struct {
 	activeView      ui.ActiveView
 
 	Log potatolog.Log
+
+	renderTimes          util.MetricsHandler
+	eventProcessingTimes util.MetricsHandler
 }
 
 type DaysData struct {
