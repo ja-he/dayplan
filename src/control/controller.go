@@ -83,35 +83,7 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewController(date model.Date, envData EnvData, categoryStyling styling.CategoryStyling) *Controller {
-	stylesheet := styling.Stylesheet{
-		Normal: styling.StyleFromHex("#000000", "#ffffff"),
-
-		WeatherRegular: styling.StyleFromHex("#ccebff", "#ffffff"),
-		WeatherRainy:   styling.StyleFromHex("#000000", "#ccebff"),
-		WeatherSunny:   styling.StyleFromHex("#000000", "#fff0cc"),
-
-		TimelineDay:   styling.StyleFromHex("#f0f0f0", "#ffffff"),
-		TimelineNight: styling.StyleFromHex("#f0f0f0", "#000000"),
-		TimelineNow:   styling.StyleFromHex("#ffffff", "#ff0000").Bolded(),
-
-		Status: styling.StyleFromHex(("#000000"), "#f0f0f0"),
-
-		CategoryFallback: styling.StyleFromHex("#000000", "#CD5C5C"),
-
-		LogDefault:       styling.StyleFromHex("#000000", "#ffffff"),
-		LogTitleBox:      styling.StyleFromHex("#000000", "#f0f0f0").Bolded(),
-		LogEntryType:     styling.StyleFromHex("#cccccc", "#ffffff").Italicized(),
-		LogEntryLocation: styling.StyleFromHex("#cccccc", "#ffffff"),
-		LogEntryTime:     styling.StyleFromHex("#f0f0f0", "#ffffff"),
-
-		Help: styling.StyleFromHex("#000000", "#f0f0f0"),
-
-		Editor: styling.StyleFromHex("#000000", "#f0f0f0"),
-
-		SummaryDefault:  styling.StyleFromHex("#000000", "#ffffff"),
-		SummaryTitleBox: styling.StyleFromHex("#000000", "#f0f0f0").Bolded(),
-	}
+func NewController(date model.Date, envData EnvData, categoryStyling styling.CategoryStyling, stylesheet styling.Stylesheet) *Controller {
 
 	data := NewControlData(categoryStyling)
 
