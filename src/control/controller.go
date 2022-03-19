@@ -138,7 +138,10 @@ func NewController(date model.Date, envData EnvData) *Controller {
 
 	renderer := tui.NewTUIScreenHandler()
 	screenSize := renderer.GetScreenDimensions
-	screenDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, 0, w, h }
+	screenDimensions := func() (x, y, w, h int) {
+		screenWidth, screenHeight := screenSize()
+		return 0, 0, screenWidth, screenHeight
+	}
 	centeredFloat := func(floatWidth, floatHeight int) func() (x, y, w, h int) {
 		return func() (x, y, w, h int) {
 			screenWidth, screenHeight := screenSize()
@@ -147,14 +150,20 @@ func NewController(date model.Date, envData EnvData) *Controller {
 	}
 	helpDimensions := centeredFloat(helpWidth, helpHeight)
 	editorDimensions := centeredFloat(editorWidth, editorHeight)
-	toolsDimensions := func() (x, y, w, h int) { w, h = screenSize(); return w - toolsWidth, 0, toolsWidth, h - statusHeight }
-	statusDimensions := func() (x, y, w, h int) { w, h = screenSize(); return 0, h - statusHeight, w, statusHeight }
+	toolsDimensions := func() (x, y, w, h int) {
+		screenWidth, screeenHeight := screenSize()
+		return screenWidth - toolsWidth, 0, toolsWidth, screeenHeight - statusHeight
+	}
+	statusDimensions := func() (x, y, w, h int) {
+		screenWidth, screeenHeight := screenSize()
+		return 0, screeenHeight - statusHeight, screenWidth, statusHeight
+	}
 	dayViewMainPaneDimensions := screenDimensions
 	weekViewMainPaneDimensions := screenDimensions
 	monthViewMainPaneDimensions := screenDimensions
 	weatherDimensions := func() (x, y, w, h int) {
-		x, y, _, h = dayViewMainPaneDimensions()
-		return x, y, weatherWidth, h - statusHeight
+		mainPaneXOffset, mainPaneYOffset, _, mainPaneHeight := dayViewMainPaneDimensions()
+		return mainPaneXOffset, mainPaneYOffset, weatherWidth, mainPaneHeight - statusHeight
 	}
 	dayViewEventsPaneDimensions := func() (x, y, w, h int) {
 		ox, oy, ow, oh := dayViewMainPaneDimensions()
@@ -165,12 +174,12 @@ func NewController(date model.Date, envData EnvData) *Controller {
 		return x, y, w, h
 	}
 	dayViewTimelineDimensions := func() (x, y, w, h int) {
-		_, _, w, h = dayViewMainPaneDimensions()
-		return 0 + weatherWidth, 0, timelineWidth, h - statusHeight
+		_, _, _, mainPaneHeight := dayViewMainPaneDimensions()
+		return 0 + weatherWidth, 0, timelineWidth, mainPaneHeight - statusHeight
 	}
 	weekViewTimelineDimensions := func() (x, y, w, h int) {
-		w, h = screenSize()
-		return 0, 0, timelineWidth, h - statusHeight
+		_, screenHeight := screenSize()
+		return 0, 0, timelineWidth, screenHeight - statusHeight
 	}
 	monthViewTimelineDimensions := weekViewTimelineDimensions
 	weekdayDimensions := func(dayIndex int) func() (x, y, w, h int) {
