@@ -80,7 +80,10 @@ func (p *SummaryPane) Draw() {
 		row := 2
 		for _, category := range categories {
 			duration := summary[category]
-			style, _ := p.categories.GetStyle(category)
+			style, err := p.categories.GetStyle(category)
+			if err != nil {
+				style = p.stylesheet.CategoryFallback
+			}
 			categoryStyling := style
 			catLen := 20
 			durationLen := 20
