@@ -9,13 +9,13 @@ source .scripts/lint/helpers.sh
 enumerate_stylesheet_identifiers \
   | while read identifier yaml_identifier
     do
-      n_default_defs=$(cat src/config/default.go | grep "\<${identifier}\>" | wc -l)
-      if [ "${n_default_defs}" -ne "2" ]
+      n_usages_in_assignment=$(cat src/styling/stylesheet.go | grep "config\.${identifier}\>" | wc -l)
+      if [ "${n_usages_in_assignment}" -ne "1" ]
       then
-        echo "ERROR: stylesheet component '${identifier}' is not defined exactly twice in the defaults"
+        echo "ERROR: stylesheet component '${identifier}' is not used in exactly one assignment"
         exit 1
       fi
     done || exit 1
 
-echo "SUCCESS: all stylesheet identifiers default-defined"
+echo "SUCCESS: all stylesheet identifiers used in assignments as expected"
 exit 0
