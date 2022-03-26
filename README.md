@@ -28,13 +28,13 @@ For Arch Linux and its derivatives there is an
 ### Manually
 
 All that's really needed is a `go install github.com/ja-he/dayplan@latest`.  
-_However_ there is a small build script `build.sh` available that takes care of
-inserting version and commit information.
+_However_ there is a small build script `.scripts/build.sh` available that takes
+care of inserting version and commit information.
 Therefore the recommended steps are:
 
     git clone https://github.com/ja-he/dayplan
     cd dayplan
-    ./build.sh install
+    ./.scripts/build.sh install
 
 As it still uses `go install` under the hood, the binary should be in your
 `$GOPATH` (or if empty in `$HOME/go/bin`).
