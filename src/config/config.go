@@ -33,11 +33,15 @@ type Stylesheet struct {
 }
 
 type Styling struct {
-	Fg         string `yaml:"fg"`
-	Bg         string `yaml:"bg"`
-	Bold       bool   `yaml:"bold,omitempty"`
-	Italic     bool   `yaml:"italic,omitempty"`
-	Underlined bool   `yaml:"underlined,omitempty"`
+	Fg    string     `yaml:"fg"`
+	Bg    string     `yaml:"bg"`
+	Style *FontStyle `yaml:"style"`
+}
+
+type FontStyle struct {
+	Bold       bool `yaml:"bold,omitempty"`
+	Italic     bool `yaml:"italic,omitempty"`
+	Underlined bool `yaml:"underlined,omitempty"`
 }
 
 type Category struct {
@@ -107,6 +111,11 @@ func (s *Styling) overwriteIfDefined(augment Styling) {
 	if augment.Fg != "" && augment.Bg != "" {
 		s.Fg = augment.Fg
 		s.Bg = augment.Bg
+	}
+	if augment.Style != nil {
+		s.Style.Bold = augment.Style.Bold
+		s.Style.Italic = augment.Style.Italic
+		s.Style.Underlined = augment.Style.Underlined
 	}
 }
 

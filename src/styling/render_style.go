@@ -162,8 +162,10 @@ func StyleFromColors(fg, bg colorful.Color) *FallbackStyling {
 
 func StyleFromConfig(config config.Styling) *FallbackStyling {
 	styling := StyleFromHex(config.Fg, config.Bg)
-	styling.bold = config.Bold
-	styling.italic = config.Italic
-	styling.underlined = config.Underlined
+	if config.Style != nil {
+		styling.bold = config.Style.Bold
+		styling.italic = config.Style.Italic
+		styling.underlined = config.Style.Underlined
+	}
 	return styling
 }
