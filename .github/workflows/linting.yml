@@ -1,0 +1,19 @@
+name: Linting
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Verify stylesheet defaults completeness
+      run: ./.scripts/lint/all-stylesheet-identifiers-default-defined.sh
+    - name: Verify stylesheet components assigned
+      run: ./.scripts/lint/all-stylesheet-identifiers-used-in-assignments.sh

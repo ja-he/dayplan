@@ -35,6 +35,8 @@ func (p *ToolsPane) Dimensions() (x, y, w, h int) {
 func (p *ToolsPane) Draw() {
 	x, y, w, h := p.dimensions()
 
+	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
+
 	boxes := p.getCategoryBoxes(x, y, w, h)
 	for cat, box := range boxes {
 		categoryStyle, err := p.categories.GetStyle(cat)

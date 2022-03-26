@@ -1,13 +1,17 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/ja-he/dayplan/src/config"
 	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/control/cli"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/styling"
 
 	"github.com/jessevdk/go-flags"
 )
@@ -28,6 +32,16 @@ func main() {
 	if cli.Opts.Version {
 		cmd := cli.VersionCommand{}
 		cmd.Execute([]string{})
+	}
+
+	var theme config.ColorschemeType
+	switch cli.Opts.Theme {
+	case "light":
+		theme = config.Light
+	case "dark":
+		theme = config.Dark
+	default:
+		theme = config.Dark
 	}
 
 	var envData control.EnvData
@@ -57,7 +71,28 @@ func main() {
 	envData.Latitude = os.Getenv("LATITUDE")
 	envData.Longitude = os.Getenv("LONGITUDE")
 
-	controller := control.NewController(initialDay, envData)
+	// read config from file
+	yamlData, err := ioutil.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: can't read config file: '%s'.\n", err)
+		fmt.Fprintf(os.Stderr, "         using defaults.\n")
+		yamlData = make([]byte, 0)
+	}
+	configData, err := config.ParseConfigAugmentDefaults(theme, yamlData)
+	if err != nil {
+		panic(fmt.Sprintf("can't parse config data: '%s'", err))
+	}
+
+	// get categories from config
+	var categoryStyling styling.CategoryStyling
+	categoryStyling = *styling.EmptyCategoryStyling()
+	for _, category := range configData.Categories {
+		categoryStyling.AddStyleFromInput(category)
+	}
+
+	stylesheet := styling.NewStylesheetFromConfig(configData.Stylesheet)
+
+	controller := control.NewController(initialDay, envData, categoryStyling, *stylesheet)
 
 	controller.Run()
 }

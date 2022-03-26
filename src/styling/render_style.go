@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/ja-he/dayplan/src/config"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -28,7 +29,7 @@ type DrawStyling interface {
 	ToString() string
 }
 
-// FallbackStyling is a DrawStying that holds non-renderer-specific colors.
+// FallbackStyling is a DrawStyling that holds non-renderer-specific colors.
 type FallbackStyling struct {
 	fg colorful.Color
 	bg colorful.Color
@@ -157,4 +158,16 @@ func StyleFromColors(fg, bg colorful.Color) *FallbackStyling {
 		fg: fg,
 		bg: bg,
 	}
+}
+
+// StyleFromConfig takes a styling as specified in a configuration file and
+// converts it to a usable DrawStyling.
+func StyleFromConfig(config config.Styling) DrawStyling {
+	styling := StyleFromHex(config.Fg, config.Bg)
+	if config.Style != nil {
+		styling.bold = config.Style.Bold
+		styling.italic = config.Style.Italic
+		styling.underlined = config.Style.Underlined
+	}
+	return styling
 }

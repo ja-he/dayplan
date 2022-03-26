@@ -64,6 +64,7 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
 	x, y, w, h := p.Dimensions()
+	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
 
 	day := p.day()
 
