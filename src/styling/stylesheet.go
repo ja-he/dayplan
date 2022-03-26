@@ -34,6 +34,8 @@ type Stylesheet struct {
 	SummaryTitleBox DrawStyling
 }
 
+// NewStylesheetFromConfig constructs a new stylesheet from a given config
+// stylesheet.
 func NewStylesheetFromConfig(config config.Stylesheet) *Stylesheet {
 	stylesheet := Stylesheet{}
 

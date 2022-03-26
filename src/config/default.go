@@ -1,5 +1,6 @@
 package config
 
+// Default returns the default colorscheme for the given type (light or dark).
 func Default(colorschemeType ColorschemeType) Config {
 	return Config{
 		Stylesheet: defaultStylesheet(colorschemeType),

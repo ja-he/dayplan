@@ -29,7 +29,7 @@ type DrawStyling interface {
 	ToString() string
 }
 
-// FallbackStyling is a DrawStying that holds non-renderer-specific colors.
+// FallbackStyling is a DrawStyling that holds non-renderer-specific colors.
 type FallbackStyling struct {
 	fg colorful.Color
 	bg colorful.Color
@@ -160,7 +160,9 @@ func StyleFromColors(fg, bg colorful.Color) *FallbackStyling {
 	}
 }
 
-func StyleFromConfig(config config.Styling) *FallbackStyling {
+// StyleFromConfig takes a styling as specified in a configuration file and
+// converts it to a usable DrawStyling.
+func StyleFromConfig(config config.Styling) DrawStyling {
 	styling := StyleFromHex(config.Fg, config.Bg)
 	if config.Style != nil {
 		styling.bold = config.Style.Bold

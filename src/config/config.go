@@ -6,11 +6,14 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// Config is the configuration data as present in a config file at
+// '${DAYPLAN_HOME}/config.yaml'.
 type Config struct {
 	Stylesheet Stylesheet `yaml:"stylesheet"`
 	Categories []Category `yaml:"categories"`
 }
 
+// A Stylesheet is the stylesheet contents defined in a config file.
 type Stylesheet struct {
 	Normal           Styling `yaml:"normal"`
 	WeatherNormal    Styling `yaml:"weather-normal"`
@@ -32,18 +35,24 @@ type Stylesheet struct {
 	CategoryFallback Styling `yaml:"category-fallback"`
 }
 
+// A Styling is a styling as defined in a config file.
+// It must contain fore- and background colors and can optionally specify font
+// style (bold, italic, underlined).
 type Styling struct {
 	Fg    string     `yaml:"fg"`
 	Bg    string     `yaml:"bg"`
 	Style *FontStyle `yaml:"style"`
 }
 
+// A FontStyle can be any combination of bold, italic, and underlined.
 type FontStyle struct {
 	Bold       bool `yaml:"bold,omitempty"`
 	Italic     bool `yaml:"italic,omitempty"`
 	Underlined bool `yaml:"underlined,omitempty"`
 }
 
+// A Category as defined in a config file.
+// It combines the style definition with the name and priority definition.
 type Category struct {
 	Name     string `yaml:"name,omitempty"`
 	Fg       string `yaml:"fg,omitempty"`
@@ -51,6 +60,8 @@ type Category struct {
 	Priority int    `yaml:"priority,omitempty"`
 }
 
+// ParseConfigAugmentDefaults parses the configuration specified in
+// YAML-formatted data and uses it to augment a given default configuration.
 func ParseConfigAugmentDefaults(defaultTheme ColorschemeType, yamlData []byte) (Config, error) {
 	var defaultConfig Config
 	switch defaultTheme {
@@ -119,6 +130,7 @@ func (s *Styling) overwriteIfDefined(augment Styling) {
 	}
 }
 
+// A ColorschemeType can either be light or dark.
 type ColorschemeType = int
 
 const (
