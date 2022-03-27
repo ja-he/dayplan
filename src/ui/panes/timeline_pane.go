@@ -35,6 +35,9 @@ func (p *TimelinePane) Dimensions() (x, y, w, h int) {
 func (p *TimelinePane) Draw() {
 
 	x, y, w, h := p.dimensions()
+
+	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
+
 	suntimes := p.suntimes()
 	currentTime := p.currentTime()
 
