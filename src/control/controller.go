@@ -790,7 +790,6 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 			}
 		case ui.EventsPaneType:
 			eventsInfo := positionInfo.GetExtraEventsInfo()
-			t.data.Log.Add("DEBUG", fmt.Sprint(eventsInfo))
 
 			// if button clicked, handle
 			switch buttons {
@@ -823,7 +822,6 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 			}
 		case ui.ToolsPaneType:
 			toolsInfo := positionInfo.GetExtraToolsInfo()
-			t.data.Log.Add("DEBUG", fmt.Sprint("tools info:", toolsInfo))
 			switch buttons {
 			case tcell.Button1:
 				cat := toolsInfo.Category()
