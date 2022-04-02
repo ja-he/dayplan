@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ja-he/dayplan/src/filehandling"
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/tui"
@@ -50,6 +51,8 @@ type Controller struct {
 	fhMutex          sync.RWMutex
 	FileHandlers     map[model.Date]*filehandling.FileHandler
 	controllerEvents chan ControllerEvent
+
+	inputTree input.Tree
 
 	// TODO: remove, obviously
 	tmpStatusYOffsetGetter func() int
@@ -503,6 +506,75 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 	controller.initializedScreen = renderer
 	controller.syncer = renderer
 
+	{
+		root := &input.Node{
+			Action: nil,
+			Children: map[input.Key]*input.Node{
+				{Mod: 0, Key: tcell.KeyESC, Ch: 0}: {
+					Action: func() {
+						prevView := PrevView(controller.data.activeView)
+						controller.loadDaysForView(prevView)
+						controller.data.activeView = prevView
+					},
+				},
+				{Mod: 0, Key: tcell.KeyCtrlU, Ch: 0}: {Action: func() { controller.ScrollUp(10) }},
+				{Mod: 0, Key: tcell.KeyCtrlD, Ch: 0}: {Action: func() { controller.ScrollDown(10) }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'u'}: {Action: func() {
+					go func() {
+						err := controller.data.Weather.Update()
+						if err != nil {
+							controller.data.Log.Add("ERROR", err.Error())
+						} else {
+							controller.data.Log.Add("DEBUG", "successfully retrieved weather data")
+						}
+						controller.controllerEvents <- ControllerEventRender
+					}()
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'i'}: {Action: func() {
+					nextView := NextView(controller.data.activeView)
+					controller.loadDaysForView(nextView)
+					controller.data.activeView = nextView
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'q'}: {Action: func() { controller.controllerEvents <- ControllerEventExit }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'P'}: {Action: func() { controller.data.showDebug = !controller.data.showDebug }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'd'}: {Action: func() {
+					eventsInfo := controller.rootPane.GetPositionInfo(controller.data.cursorPos.X, controller.data.cursorPos.Y).GetExtraEventsInfo()
+					if eventsInfo != nil {
+						controller.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
+					}
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {Action: controller.ScrollTop},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'G'}: {Action: controller.ScrollBottom},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'w'}: {Action: controller.writeModel},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() { controller.ScrollDown(1) }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() { controller.ScrollUp(1) }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'h'}: {Action: controller.goToPreviousDay},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'l'}: {Action: controller.goToNextDay},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'S'}: {Action: func() { controller.data.showSummary = !controller.data.showSummary }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'E'}: {Action: func() { controller.data.showLog = !controller.data.showLog }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: '?'}: {Action: func() { controller.data.showHelp = !controller.data.showHelp }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'c'}: {Action: func() {
+					controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: '+'}: {Action: func() {
+					if controller.data.ViewParams.NRowsPerHour*2 <= 12 {
+						controller.data.ViewParams.NRowsPerHour *= 2
+						controller.data.ViewParams.ScrollOffset *= 2
+					}
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: '-'}: {Action: func() {
+					if (controller.data.ViewParams.NRowsPerHour % 2) == 0 {
+						controller.data.ViewParams.NRowsPerHour /= 2
+						controller.data.ViewParams.ScrollOffset /= 2
+					} else {
+						controller.data.Log.Add("WARNING", fmt.Sprintf("can'controller decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
+					}
+				}},
+			},
+		}
+		controller.inputTree = input.Tree{Root: root, Current: root}
+	}
+
 	return &controller
 }
 
@@ -663,82 +735,6 @@ func (t *Controller) loadDaysForView(view ui.ActiveView) {
 	}
 }
 
-func (t *Controller) handleNoneEditKeyInput(e *tcell.EventKey) {
-	switch e.Key() {
-	case tcell.KeyESC:
-		prevView := PrevView(t.data.activeView)
-		t.loadDaysForView(prevView)
-		t.data.activeView = prevView
-	case tcell.KeyCtrlU:
-		t.ScrollUp(10)
-	case tcell.KeyCtrlD:
-		t.ScrollDown(10)
-	}
-	switch e.Rune() {
-	case 'u':
-		go func() {
-			err := t.data.Weather.Update()
-			if err != nil {
-				t.data.Log.Add("ERROR", err.Error())
-			} else {
-				t.data.Log.Add("DEBUG", "successfully retrieved weather data")
-			}
-			t.controllerEvents <- ControllerEventRender
-		}()
-	case 'i':
-		nextView := NextView(t.data.activeView)
-		t.loadDaysForView(nextView)
-		t.data.activeView = nextView
-	case 'q':
-		t.controllerEvents <- ControllerEventExit
-	case 'P':
-		t.data.showDebug = !t.data.showDebug
-	case 'd':
-		posInfo := t.rootPane.GetPositionInfo(t.data.cursorPos.X, t.data.cursorPos.Y)
-		if posInfo != nil {
-			eventsInfo := posInfo.GetExtraEventsInfo()
-			if eventsInfo != nil {
-				t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
-			}
-		}
-	case 'g':
-		t.ScrollTop()
-	case 'G':
-		t.ScrollBottom()
-	case 'w':
-		t.writeModel()
-	case 'j':
-		t.ScrollDown(1)
-	case 'k':
-		t.ScrollUp(1)
-	case 'h':
-		t.goToPreviousDay()
-	case 'l':
-		t.goToNextDay()
-	case 'S':
-		t.data.showSummary = !t.data.showSummary
-	case 'E':
-		t.data.showLog = !t.data.showLog
-	case '?':
-		t.data.showHelp = !t.data.showHelp
-	case 'c':
-		// TODO: all that's needed to clear model (appropriately)?
-		t.data.Days.AddDay(t.data.CurrentDate, model.NewDay(), t.data.GetCurrentSuntimes())
-	case '+':
-		if t.data.ViewParams.NRowsPerHour*2 <= 12 {
-			t.data.ViewParams.NRowsPerHour *= 2
-			t.data.ViewParams.ScrollOffset *= 2
-		}
-	case '-':
-		if (t.data.ViewParams.NRowsPerHour % 2) == 0 {
-			t.data.ViewParams.NRowsPerHour /= 2
-			t.data.ViewParams.ScrollOffset /= 2
-		} else {
-			t.data.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", t.data.ViewParams.NRowsPerHour))
-		}
-	}
-}
-
 func (t *Controller) writeModel() {
 	go func() {
 		t.fhMutex.RLock()
@@ -761,7 +757,13 @@ func (t *Controller) startEdit(id model.EventID) {
 func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
-		t.handleNoneEditKeyInput(e)
+		t.inputTree.Process(
+			input.Key{
+				Mod: 0,
+				Key: e.Key(),
+				Ch:  e.Rune(),
+			},
+		)
 	case *tcell.EventMouse:
 		// get new position
 		x, y := e.Position()
