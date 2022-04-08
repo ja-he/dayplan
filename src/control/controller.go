@@ -694,9 +694,12 @@ func (t *Controller) handleNoneEditKeyInput(e *tcell.EventKey) {
 	case 'P':
 		t.data.showDebug = !t.data.showDebug
 	case 'd':
-		eventsInfo := t.rootPane.GetPositionInfo(t.data.cursorPos.X, t.data.cursorPos.Y).GetExtraEventsInfo()
-		if eventsInfo != nil {
-			t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
+		posInfo := t.rootPane.GetPositionInfo(t.data.cursorPos.X, t.data.cursorPos.Y)
+		if posInfo != nil {
+			eventsInfo := posInfo.GetExtraEventsInfo()
+			if eventsInfo != nil {
+				t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
+			}
 		}
 	case 'g':
 		t.ScrollTop()
