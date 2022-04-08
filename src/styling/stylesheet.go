@@ -6,7 +6,8 @@ import (
 
 // Stylesheet represents all styles used by the application for rendering.
 type Stylesheet struct {
-	Normal DrawStyling
+	Normal           DrawStyling
+	NormalEmphasized DrawStyling
 
 	WeatherNormal DrawStyling
 	WeatherSunny  DrawStyling
