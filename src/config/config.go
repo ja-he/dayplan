@@ -16,6 +16,7 @@ type Config struct {
 // A Stylesheet is the stylesheet contents defined in a config file.
 type Stylesheet struct {
 	Normal           Styling `yaml:"normal"`
+	NormalEmphasized Styling `yaml:"normal-emphasized"`
 	WeatherNormal    Styling `yaml:"weather-normal"`
 	WeatherSunny     Styling `yaml:"weather-sunny"`
 	WeatherRainy     Styling `yaml:"weather-rainy"`
@@ -98,6 +99,7 @@ func (base Stylesheet) augmentWith(augment Stylesheet) Stylesheet {
 	result := base
 
 	result.Normal.overwriteIfDefined(augment.Normal)
+	result.NormalEmphasized.overwriteIfDefined(augment.NormalEmphasized)
 	result.WeatherNormal.overwriteIfDefined(augment.WeatherNormal)
 	result.WeatherSunny.overwriteIfDefined(augment.WeatherSunny)
 	result.WeatherRainy.overwriteIfDefined(augment.WeatherRainy)

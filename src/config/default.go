@@ -18,6 +18,7 @@ func defaultStylesheet(colorschemeType ColorschemeType) Stylesheet {
 	if colorschemeType == Dark {
 		return Stylesheet{
 			Normal:           Styling{Fg: "#ffffff", Bg: "#000000", Style: &FontStyle{}},
+			NormalEmphasized: Styling{Fg: "#ffffff", Bg: "#202020", Style: &FontStyle{}},
 			WeatherNormal:    Styling{Fg: "#f0f0f0", Bg: "#404040", Style: &FontStyle{}},
 			WeatherSunny:     Styling{Fg: "#fff0cc", Bg: "#734700", Style: &FontStyle{}},
 			WeatherRainy:     Styling{Fg: "#ccebff", Bg: "#0067ab", Style: &FontStyle{}},
@@ -31,7 +32,7 @@ func defaultStylesheet(colorschemeType ColorschemeType) Stylesheet {
 			LogEntryLocation: Styling{Fg: "#c0c0c0", Bg: "#000000", Style: &FontStyle{}},
 			LogEntryTime:     Styling{Fg: "#808080", Bg: "#000000", Style: &FontStyle{}},
 			Help:             Styling{Fg: "#ffffff", Bg: "#404040", Style: &FontStyle{}},
-			Editor:           Styling{Fg: "#ffffff", Bg: "#404040", Style: &FontStyle{}},
+			Editor:           Styling{Fg: "#ffffff", Bg: "#606060", Style: &FontStyle{}},
 			SummaryDefault:   Styling{Fg: "#ffffff", Bg: "#000000", Style: &FontStyle{}},
 			SummaryTitleBox:  Styling{Fg: "#f0f0f0", Bg: "#000000", Style: &FontStyle{Bold: true}},
 			CategoryFallback: Styling{Fg: "#882222", Bg: "#ffaaaa", Style: &FontStyle{}},
@@ -39,6 +40,7 @@ func defaultStylesheet(colorschemeType ColorschemeType) Stylesheet {
 	} else {
 		return Stylesheet{
 			Normal:           Styling{Fg: "#000000", Bg: "#ffffff", Style: &FontStyle{}},
+			NormalEmphasized: Styling{Fg: "#000000", Bg: "#f0f0f0", Style: &FontStyle{}},
 			WeatherNormal:    Styling{Fg: "#404040", Bg: "#f0f0f0", Style: &FontStyle{}},
 			WeatherSunny:     Styling{Fg: "#000000", Bg: "#fff0cc", Style: &FontStyle{}},
 			WeatherRainy:     Styling{Fg: "#000000", Bg: "#ccebff", Style: &FontStyle{}},
@@ -52,7 +54,7 @@ func defaultStylesheet(colorschemeType ColorschemeType) Stylesheet {
 			LogEntryLocation: Styling{Fg: "#cccccc", Bg: "#ffffff", Style: &FontStyle{}},
 			LogEntryTime:     Styling{Fg: "#f0f0f0", Bg: "#ffffff", Style: &FontStyle{}},
 			Help:             Styling{Fg: "#000000", Bg: "#f0f0f0", Style: &FontStyle{}},
-			Editor:           Styling{Fg: "#000000", Bg: "#f0f0f0", Style: &FontStyle{}},
+			Editor:           Styling{Fg: "#000000", Bg: "#cccccc", Style: &FontStyle{}},
 			SummaryDefault:   Styling{Fg: "#000000", Bg: "#ffffff", Style: &FontStyle{}},
 			SummaryTitleBox:  Styling{Fg: "#000000", Bg: "#f0f0f0", Style: &FontStyle{Bold: true}},
 			CategoryFallback: Styling{Fg: "#ffaaaa", Bg: "#882222", Style: &FontStyle{}},

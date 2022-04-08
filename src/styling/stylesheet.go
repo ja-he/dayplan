@@ -41,6 +41,7 @@ func NewStylesheetFromConfig(config config.Stylesheet) *Stylesheet {
 	stylesheet := Stylesheet{}
 
 	stylesheet.Normal = StyleFromConfig(config.Normal)
+	stylesheet.NormalEmphasized = StyleFromConfig(config.NormalEmphasized)
 	stylesheet.WeatherNormal = StyleFromConfig(config.WeatherNormal)
 	stylesheet.WeatherSunny = StyleFromConfig(config.WeatherSunny)
 	stylesheet.WeatherRainy = StyleFromConfig(config.WeatherRainy)
