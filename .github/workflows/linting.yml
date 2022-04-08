@@ -17,3 +17,5 @@ jobs:
       run: ./.scripts/lint/all-stylesheet-identifiers-default-defined.sh
     - name: Verify stylesheet components assigned
       run: ./.scripts/lint/all-stylesheet-identifiers-used-in-assignments.sh
+    - name: Verify stylesheet conponents present internally
+      run: ./.scripts/lint/all-stylesheet-identifiers-present-in-stylesheet.sh
