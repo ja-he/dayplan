@@ -13,7 +13,10 @@ type RootPane struct {
 
 	dimensions func() (x, y, w, h int)
 
-	dayViewMainPane   ui.Pane
+	dayViewMainPane interface {
+		ui.Pane
+		input.InputProcessor
+	}
 	weekViewMainPane  ui.Pane
 	monthViewMainPane ui.Pane
 
@@ -108,14 +111,41 @@ func (p *RootPane) Draw() {
 	p.renderer.Show()
 }
 
-func (p *RootPane) HasPartialInput() bool           { return p.inputTree.Active() }
-func (p *RootPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
+func (p *RootPane) inputProcessors() []input.InputProcessor {
+	result := make([]input.InputProcessor, 0)
+
+	switch {
+	case p.activeView() == ui.ViewDay && !p.log.Condition() && !p.summary.Condition() && !p.help.Condition() && !p.editor.Condition():
+		result = append(result, p.dayViewMainPane)
+	}
+
+	return result
+}
+func (p *RootPane) HasPartialInput() bool {
+	for _, processor := range p.inputProcessors() {
+		if processor.HasPartialInput() {
+			return true
+		}
+	}
+	return p.inputTree.Active()
+}
+func (p *RootPane) ProcessInput(key input.Key) bool {
+	for _, processor := range p.inputProcessors() {
+		if processor.ProcessInput(key) {
+			return true
+		}
+	}
+	return p.inputTree.Process(key)
+}
 
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,
 	dimensions func() (x, y, w, h int),
-	dayViewMainPane ui.Pane,
+	dayViewMainPane interface {
+		ui.Pane
+		input.InputProcessor
+	},
 	weekViewMainPane ui.Pane,
 	monthViewMainPane ui.Pane,
 	summary ui.ConditionalOverlayPane,

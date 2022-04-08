@@ -3,6 +3,7 @@ package panes
 import (
 	"fmt"
 
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 )
@@ -18,6 +19,8 @@ type DayViewMainPane struct {
 	status   ui.Pane
 	timeline ui.Pane
 	weather  ui.Pane
+
+	inputTree input.Tree
 }
 
 // Draw draws this pane.
@@ -49,6 +52,9 @@ func (p *DayViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	panic(fmt.Sprint("none of the day view main pane's subpanes contains pos", x, y))
 }
 
+func (p *DayViewMainPane) HasPartialInput() bool           { return p.inputTree.Active() }
+func (p *DayViewMainPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
+
 // NewDayViewMainPane constructs and returns a new DayViewMainPane.
 func NewDayViewMainPane(
 	dimensions func() (x, y, w, h int),
@@ -57,6 +63,7 @@ func NewDayViewMainPane(
 	status ui.Pane,
 	timeline ui.Pane,
 	weather ui.Pane,
+	inputTree input.Tree,
 ) *DayViewMainPane {
 	return &DayViewMainPane{
 		dimensions: dimensions,
@@ -65,5 +72,6 @@ func NewDayViewMainPane(
 		status:     status,
 		timeline:   timeline,
 		weather:    weather,
+		inputTree:  inputTree,
 	}
 }
