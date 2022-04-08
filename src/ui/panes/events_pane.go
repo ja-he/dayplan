@@ -105,16 +105,8 @@ func (p *EventsPane) Draw() {
 		if p.mouseMode() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
-		if hovered == nil || hovered.Event() != e.ID || hovered.EventBoxPart() == ui.EventBoxNowhere {
-			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, styling)
-			if p.drawNames {
-				p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, styling, util.TruncateAt(e.Name, nameWidth))
-			}
-			if p.drawTimestamps {
-				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, styling, e.Start.ToString())
-				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, styling, e.End.ToString())
-			}
-		} else {
+		switch {
+		case hovered != nil && hovered.Event() == e.ID && hovered.EventBoxPart() != ui.EventBoxNowhere:
 			selectionStyling := styling.DefaultEmphasized()
 			switch hovered.EventBoxPart() {
 			case ui.EventBoxBottomRight:
@@ -147,6 +139,15 @@ func (p *EventsPane) Draw() {
 				}
 			default:
 				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart().ToString()))
+			}
+		default:
+			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, styling)
+			if p.drawNames {
+				p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, styling, util.TruncateAt(e.Name, nameWidth))
+			}
+			if p.drawTimestamps {
+				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, styling, e.Start.ToString())
+				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, styling, e.End.ToString())
 			}
 		}
 	}
