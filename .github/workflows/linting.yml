@@ -13,9 +13,5 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Verify stylesheet defaults completeness
-      run: ./.scripts/lint/all-stylesheet-identifiers-default-defined.sh
-    - name: Verify stylesheet components assigned
-      run: ./.scripts/lint/all-stylesheet-identifiers-used-in-assignments.sh
-    - name: Verify stylesheet conponents present internally
-      run: ./.scripts/lint/all-stylesheet-identifiers-present-in-stylesheet.sh
+    - name: Stylesheet verification
+      run: for script in ./.scripts/lint/stylesheet/* ; do $script; done
