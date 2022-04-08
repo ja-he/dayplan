@@ -24,7 +24,7 @@ type RootPane struct {
 
 	performanceMetricsOverlay ui.EphemeralPane
 
-	activeView func() *ui.ActiveView
+	activeView func() ui.ActiveView
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -53,7 +53,7 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	active = make([]ui.Pane, 0)
 	inactive = make([]ui.ConditionalOverlayPane, 0)
 
-	switch *p.activeView() {
+	switch p.activeView() {
 	case ui.ViewDay:
 		active = append(active, p.dayViewMainPane)
 	case ui.ViewWeek:
@@ -117,7 +117,7 @@ func NewRootPane(
 	help ui.ConditionalOverlayPane,
 	editor ui.ConditionalOverlayPane,
 	performanceMetricsOverlay ui.EphemeralPane,
-	activeView func() *ui.ActiveView,
+	activeView func() ui.ActiveView,
 ) *RootPane {
 	return &RootPane{
 		renderer:                  renderer,

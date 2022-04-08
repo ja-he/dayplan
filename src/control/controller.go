@@ -439,7 +439,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			&data.eventProcessingTimes,
 		),
 
-		func() *ui.ActiveView { return &data.activeView },
+		func() ui.ActiveView { return data.activeView },
 	)
 
 	coordinatesProvided := (envData.Latitude != "" && envData.Longitude != "")
