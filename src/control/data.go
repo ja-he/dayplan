@@ -95,6 +95,8 @@ type ControlData struct {
 
 	renderTimes          util.MetricsHandler
 	eventProcessingTimes util.MetricsHandler
+
+	currentPane ui.Pane
 }
 
 type DaysData struct {

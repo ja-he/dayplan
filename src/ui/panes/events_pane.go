@@ -35,6 +35,7 @@ type EventsPane struct {
 	drawTimestamps bool
 	drawNames      bool
 	isCurrent      func() bool
+	getCurrentPane func() ui.Pane
 
 	// TODO: get rid of this
 	positions map[model.EventID]util.Rect
@@ -64,7 +65,11 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
 	x, y, w, h := p.Dimensions()
-	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
+	style := p.stylesheet.Normal
+	if p == p.getCurrentPane() {
+		style = p.stylesheet.NormalEmphasized
+	}
+	p.renderer.DrawBox(x, y, w, h, style)
 
 	day := p.day()
 
@@ -284,6 +289,7 @@ func NewEventsPane(
 	drawTimestamps bool,
 	drawNames bool,
 	isCurrent func() bool,
+	getCurrentPane func() ui.Pane,
 	logReader potatolog.LogReader,
 	logWriter potatolog.LogWriter,
 	positions map[model.EventID]util.Rect,
@@ -300,6 +306,7 @@ func NewEventsPane(
 		drawTimestamps: drawTimestamps,
 		drawNames:      drawNames,
 		isCurrent:      isCurrent,
+		getCurrentPane: getCurrentPane,
 		logReader:      logReader,
 		logWriter:      logWriter,
 		positions:      positions,

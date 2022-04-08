@@ -92,6 +92,9 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 
 	controller.data = NewControlData(categoryStyling)
 
+	getCurrentPane := func() ui.Pane { return controller.data.currentPane }
+	var switchPane func(left bool)
+
 	toolsWidth := 20
 	statusHeight := 2
 	weatherWidth := 20
@@ -170,6 +173,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			false,
 			true,
 			func() bool { return controller.data.CurrentDate.GetDayInWeek(dayIndex) == controller.data.CurrentDate },
+			func() ui.Pane { return nil },
 			&controller.data.Log,
 			&controller.data.Log,
 			make(map[model.EventID]util.Rect),
@@ -202,6 +206,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				false,
 				false,
 				func() bool { return controller.data.CurrentDate.GetDayInMonth(dayIndex) == controller.data.CurrentDate },
+				func() ui.Pane { return nil },
 				&controller.data.Log,
 				&controller.data.Log,
 				make(map[model.EventID]util.Rect),
@@ -281,6 +286,52 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		func() int { return timelineWidth },
 	)
 
+	toolsPane := panes.NewToolsPane(
+		tui.NewConstrainedRenderer(renderer, toolsDimensions),
+		toolsDimensions,
+		stylesheet,
+		&controller.data.CurrentCategory,
+		&controller.data.CategoryStyling,
+		getCurrentPane,
+		1,
+		1,
+		0,
+	)
+	dayEventsPane := panes.NewEventsPane(
+		tui.NewConstrainedRenderer(renderer, dayViewEventsPaneDimensions),
+		dayViewEventsPaneDimensions,
+		stylesheet,
+		controller.data.GetCurrentDay,
+		&controller.data.CategoryStyling,
+		&controller.data.ViewParams,
+		&controller.data.cursorPos,
+		2,
+		true,
+		true,
+		func() bool { return true },
+		getCurrentPane,
+		&controller.data.Log,
+		&controller.data.Log,
+		make(map[model.EventID]util.Rect),
+	)
+	controller.data.currentPane = dayEventsPane
+	switchPane = func(left bool) {
+		switch controller.data.currentPane {
+		case dayEventsPane:
+			if !left {
+				controller.data.currentPane = toolsPane
+			}
+		case toolsPane:
+			if left {
+				controller.data.currentPane = dayEventsPane
+			}
+		case nil:
+			controller.data.Log.Add("ERROR", "cannot switch: pane is nil")
+		default:
+			controller.data.Log.Add("ERROR", "cannot switch: other")
+		}
+	}
+
 	root := &input.Node{
 		Action: nil,
 		Children: map[input.Key]*input.Node{
@@ -289,6 +340,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 					prevView := PrevView(controller.data.activeView)
 					controller.loadDaysForView(prevView)
 					controller.data.activeView = prevView
+					controller.data.currentPane = nil
 				},
 			},
 			{Mod: 0, Key: tcell.KeyCtrlU, Ch: rune(tcell.KeyCtrlU)}: {Action: func() { controller.ScrollUp(10) }},
@@ -308,6 +360,9 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				nextView := NextView(controller.data.activeView)
 				controller.loadDaysForView(nextView)
 				controller.data.activeView = nextView
+				if controller.data.activeView == ui.ViewDay {
+					controller.data.currentPane = dayEventsPane
+				}
 			}},
 			{Mod: 0, Key: tcell.KeyRune, Ch: 'q'}: {Action: func() { controller.controllerEvents <- ControllerEventExit }},
 			{Mod: 0, Key: tcell.KeyRune, Ch: 'P'}: {Action: func() { controller.data.showDebug = !controller.data.showDebug }},
@@ -344,6 +399,19 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 					controller.data.Log.Add("WARNING", fmt.Sprintf("can'controller decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
 				}
 			}},
+			{Mod: 0, Key: tcell.KeyCtrlW, Ch: rune(tcell.KeyCtrlW)}: {
+				Action: nil,
+				Children: map[input.Key]*input.Node{
+					{Mod: 0, Key: tcell.KeyRune, Ch: 'h'}: {Action: func() {
+						controller.data.Log.Add("DEBUG", "<c-w> -> h")
+						switchPane(true)
+					}},
+					{Mod: 0, Key: tcell.KeyRune, Ch: 'l'}: {Action: func() {
+						controller.data.Log.Add("DEBUG", "<c-w> -> l")
+						switchPane(false)
+					}},
+				},
+			},
 		},
 	}
 	inputTree := input.Tree{Root: root, Current: root}
@@ -354,32 +422,8 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 
 		panes.NewDayViewMainPane(
 			dayViewMainPaneDimensions,
-			panes.NewEventsPane(
-				tui.NewConstrainedRenderer(renderer, dayViewEventsPaneDimensions),
-				dayViewEventsPaneDimensions,
-				stylesheet,
-				controller.data.GetCurrentDay,
-				&controller.data.CategoryStyling,
-				&controller.data.ViewParams,
-				&controller.data.cursorPos,
-				2,
-				true,
-				true,
-				func() bool { return true },
-				&controller.data.Log,
-				&controller.data.Log,
-				make(map[model.EventID]util.Rect),
-			),
-			panes.NewToolsPane(
-				tui.NewConstrainedRenderer(renderer, toolsDimensions),
-				toolsDimensions,
-				stylesheet,
-				&controller.data.CurrentCategory,
-				&controller.data.CategoryStyling,
-				1,
-				1,
-				0,
-			),
+			dayEventsPane,
+			toolsPane,
 			statusPane,
 			panes.NewTimelinePane(
 				tui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),

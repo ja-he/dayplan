@@ -19,6 +19,8 @@ type ToolsPane struct {
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
 
+	getCurrentPane func() ui.Pane
+
 	horizPadding, vertPadding, gap int
 
 	lastBoxesDrawn map[model.Category]util.Rect
@@ -35,7 +37,11 @@ func (p *ToolsPane) Dimensions() (x, y, w, h int) {
 func (p *ToolsPane) Draw() {
 	x, y, w, h := p.dimensions()
 
-	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
+	style := p.stylesheet.Normal
+	if p == p.getCurrentPane() {
+		style = p.stylesheet.NormalEmphasized
+	}
+	p.renderer.DrawBox(x, y, w, h, style)
 
 	boxes := p.getCategoryBoxes(x, y, w, h)
 	for cat, box := range boxes {
@@ -114,6 +120,7 @@ func NewToolsPane(
 	stylesheet styling.Stylesheet,
 	currentCategory *model.Category,
 	categories *styling.CategoryStyling,
+	getCurrentPane func() ui.Pane,
 	horizPadding int,
 	vertPadding int,
 	gap int,
@@ -124,6 +131,7 @@ func NewToolsPane(
 		stylesheet:      stylesheet,
 		currentCategory: currentCategory,
 		categories:      categories,
+		getCurrentPane:  getCurrentPane,
 		horizPadding:    horizPadding,
 		vertPadding:     vertPadding,
 		gap:             gap,
