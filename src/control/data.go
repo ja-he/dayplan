@@ -97,6 +97,7 @@ type ControlData struct {
 	eventProcessingTimes util.MetricsHandler
 
 	currentPane ui.Pane
+	mouseMode   bool
 }
 
 type DaysData struct {

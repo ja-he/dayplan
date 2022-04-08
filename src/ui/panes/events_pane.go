@@ -36,6 +36,7 @@ type EventsPane struct {
 	drawNames      bool
 	isCurrent      func() bool
 	getCurrentPane func() ui.Pane
+	mouseMode      func() bool
 
 	// TODO: get rid of this
 	positions map[model.EventID]util.Rect
@@ -100,7 +101,10 @@ func (p *EventsPane) Draw() {
 		}
 		namePadding := 1
 		nameWidth := pos.W - (2 * namePadding) - timestampWidth
-		hovered := p.getEventForPos(p.cursor.X, p.cursor.Y)
+		var hovered ui.EventsPanePositionInfo
+		if p.mouseMode() {
+			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
+		}
 		if hovered == nil || hovered.Event() != e.ID || hovered.EventBoxPart() == ui.EventBoxNowhere {
 			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, styling)
 			if p.drawNames {
@@ -290,6 +294,7 @@ func NewEventsPane(
 	drawNames bool,
 	isCurrent func() bool,
 	getCurrentPane func() ui.Pane,
+	mouseMode func() bool,
 	logReader potatolog.LogReader,
 	logWriter potatolog.LogWriter,
 	positions map[model.EventID]util.Rect,
@@ -307,6 +312,7 @@ func NewEventsPane(
 		drawNames:      drawNames,
 		isCurrent:      isCurrent,
 		getCurrentPane: getCurrentPane,
+		mouseMode:      mouseMode,
 		logReader:      logReader,
 		logWriter:      logWriter,
 		positions:      positions,

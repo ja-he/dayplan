@@ -174,6 +174,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			true,
 			func() bool { return controller.data.CurrentDate.GetDayInWeek(dayIndex) == controller.data.CurrentDate },
 			func() ui.Pane { return nil },
+			func() bool { return controller.data.mouseMode },
 			&controller.data.Log,
 			&controller.data.Log,
 			make(map[model.EventID]util.Rect),
@@ -207,6 +208,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				false,
 				func() bool { return controller.data.CurrentDate.GetDayInMonth(dayIndex) == controller.data.CurrentDate },
 				func() ui.Pane { return nil },
+				func() bool { return controller.data.mouseMode },
 				&controller.data.Log,
 				&controller.data.Log,
 				make(map[model.EventID]util.Rect),
@@ -310,6 +312,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		true,
 		func() bool { return true },
 		getCurrentPane,
+		func() bool { return controller.data.mouseMode },
 		&controller.data.Log,
 		&controller.data.Log,
 		make(map[model.EventID]util.Rect),
@@ -805,12 +808,15 @@ func (t *Controller) startEdit(id model.EventID) {
 func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
+		t.data.mouseMode = false
 		key := input.Key{Mod: 0, Key: e.Key(), Ch: e.Rune()}
 		inputApplied := t.rootPane.ProcessInput(key)
 		if !inputApplied {
 			t.data.Log.Add("ERROR", fmt.Sprintf("could not apply key input %s", key.ToString()))
 		}
 	case *tcell.EventMouse:
+		t.data.mouseMode = true
+
 		// get new position
 		x, y := e.Position()
 		t.updateCursorPos(x, y)
