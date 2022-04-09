@@ -72,7 +72,8 @@ type DayWithInfo struct {
 type ControlData struct {
 	cursorPos ui.MouseCursorPos
 
-	Categories []model.Category
+	Categories      []model.Category
+	CurrentCategory model.Category
 
 	EnvData EnvData
 
@@ -88,8 +89,7 @@ type ControlData struct {
 
 	ViewParams ui.ViewParams
 
-	CurrentCategory model.Category
-	activeView      ui.ActiveView
+	activeView ui.ActiveView
 
 	Log potatolog.Log
 

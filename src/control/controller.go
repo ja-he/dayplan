@@ -298,10 +298,24 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			Action: nil,
 			Children: map[input.Key]*input.Node{
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
-					// TODO(ja-he): next category here
+					for i, cat := range controller.data.Categories {
+						if cat == controller.data.CurrentCategory {
+							if i+1 < len(controller.data.Categories) {
+								controller.data.CurrentCategory = controller.data.Categories[i+1]
+								return
+							}
+						}
+					}
 				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
-					// TODO(ja-he): prev category here
+					for i, cat := range controller.data.Categories {
+						if cat == controller.data.CurrentCategory {
+							if i-1 >= 0 {
+								controller.data.CurrentCategory = controller.data.Categories[i-1]
+								return
+							}
+						}
+					}
 				}},
 			},
 		}
