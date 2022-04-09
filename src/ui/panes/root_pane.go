@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
 )
@@ -23,6 +24,8 @@ type RootPane struct {
 	editor ui.ConditionalOverlayPane
 
 	performanceMetricsOverlay ui.EphemeralPane
+
+	inputTree input.Tree
 
 	activeView func() ui.ActiveView
 }
@@ -105,6 +108,9 @@ func (p *RootPane) Draw() {
 	p.renderer.Show()
 }
 
+func (p *RootPane) HasPartialInput() bool           { return p.inputTree.Active() }
+func (p *RootPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
+
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,
@@ -117,6 +123,7 @@ func NewRootPane(
 	help ui.ConditionalOverlayPane,
 	editor ui.ConditionalOverlayPane,
 	performanceMetricsOverlay ui.EphemeralPane,
+	inputTree input.Tree,
 	activeView func() ui.ActiveView,
 ) *RootPane {
 	return &RootPane{
@@ -130,6 +137,7 @@ func NewRootPane(
 		help:                      help,
 		editor:                    editor,
 		performanceMetricsOverlay: performanceMetricsOverlay,
+		inputTree:                 inputTree,
 		activeView:                activeView,
 	}
 }
