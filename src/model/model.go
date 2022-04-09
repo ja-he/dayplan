@@ -87,8 +87,9 @@ func (e *Event) Snap(minuteResolution int) {
 }
 
 type Day struct {
-	Events []Event
-	idseq  func() EventID
+	Events  []Event
+	Current EventID
+	idseq   func() EventID
 }
 
 func (day *Day) ToSlice() []string {
@@ -122,6 +123,9 @@ func idseq() func() EventID {
 }
 
 func (day *Day) RemoveEvent(id EventID) {
+	if day.Current == id {
+		day.Current = 0
+	} // TODO
 	if id != 0 {
 		index := -1
 		for i := range day.Events {
@@ -145,7 +149,42 @@ func (day *Day) AddEvent(e Event) EventID {
 	e.ID = day.idseq()
 	day.Events = append(day.Events, e)
 	day.UpdateEventOrder()
+	day.Current = e.ID
 	return e.ID
+}
+
+func (day *Day) CurrentPrev() {
+	for i := range day.Events {
+		if day.Events[i].ID == day.Current {
+			if i > 0 {
+				day.Current = day.Events[i-1].ID
+			}
+			return
+		}
+	}
+
+	// in case no event with ID found (e.g. because 0)
+	if len(day.Events) > 0 {
+		day.Current = day.Events[0].ID
+	}
+	return
+}
+
+func (day *Day) CurrentNext() {
+	for i := range day.Events {
+		if day.Events[i].ID == day.Current {
+			if len(day.Events) > i+1 {
+				day.Current = day.Events[i+1].ID
+			}
+			return
+		}
+	}
+
+	// in case no event with ID found (e.g. because 0)
+	if len(day.Events) > 0 {
+		day.Current = day.Events[0].ID
+	}
+	return
 }
 
 func (day *Day) UpdateEventOrder() {

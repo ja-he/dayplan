@@ -340,8 +340,12 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		root := &input.Node{
 			Action: nil,
 			Children: map[input.Key]*input.Node{
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() { controller.ScrollDown(1) }},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() { controller.ScrollUp(1) }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
+					controller.data.GetCurrentDay().CurrentNext()
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
+					controller.data.GetCurrentDay().CurrentPrev()
+				}},
 			},
 		}
 		dayViewInputTree = input.Tree{Root: root, Current: root}
