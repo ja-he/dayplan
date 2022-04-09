@@ -35,7 +35,6 @@ type RootPane struct {
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
-// GetPositionInfo returns information on a requested position in this pane.
 func (p *RootPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
