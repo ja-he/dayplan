@@ -200,6 +200,10 @@ func (p *ViewParams) TimeAtY(y int) model.Timestamp {
 	return ts
 }
 
+func (p *ViewParams) YForTime(time model.Timestamp) int {
+	return ((time.Hour*p.NRowsPerHour - p.ScrollOffset) + (time.Minute / (60 / p.NRowsPerHour)))
+}
+
 // TextCursorController offers control of a text cursor, such as for a terminal.
 type TextCursorController interface {
 	HideCursor()

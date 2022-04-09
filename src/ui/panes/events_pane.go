@@ -236,9 +236,9 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		activeStack = append(activeStack, e)
 		// based on event state, draw a box or maybe a smaller one, or ...
 		x := offsetX
-		y := p.toY(e.Start) + offsetY
+		y := p.viewParams.YForTime(e.Start) + offsetY
 		w := width
-		h := p.toY(e.End) + offsetY - y
+		h := p.viewParams.YForTime(e.End) + offsetY - y
 
 		// scale the width by 3/4 for every extra item on the stack, so for one
 		// item stacked underneath the current items width will be (3/4) ** 1 = 75%
@@ -251,10 +251,6 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
 	return positions
-}
-
-func (p *EventsPane) toY(ts model.Timestamp) int {
-	return ((ts.Hour*p.viewParams.NRowsPerHour - p.viewParams.ScrollOffset) + (ts.Minute / (60 / p.viewParams.NRowsPerHour)))
 }
 
 // MaybeEventsPane wraps an EventsPane with a condition and exposes its

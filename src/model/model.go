@@ -158,6 +158,10 @@ func (day *Day) AddEvent(e Event) EventID {
 	return e.ID
 }
 
+func (day *Day) GetCurrent() *Event {
+	return day.GetEvent(day.Current)
+}
+
 func (day *Day) CurrentPrev() {
 	for i := range day.Events {
 		if day.Events[i].ID == day.Current {

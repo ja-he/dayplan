@@ -321,6 +321,17 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		}
 		toolsInputTree = input.Tree{Root: root, Current: root}
 	}
+	ensureVisible := func(time model.Timestamp) {
+		topRowTime := controller.data.ViewParams.TimeAtY(0)
+		if topRowTime.IsAfter(time) {
+			controller.data.ViewParams.ScrollOffset += (controller.data.ViewParams.YForTime(time))
+		}
+		_, _, _, maxY := dayViewEventsPaneDimensions()
+		bottomRowTime := controller.data.ViewParams.TimeAtY(maxY)
+		if time.IsAfter(bottomRowTime) {
+			controller.data.ViewParams.ScrollOffset += ((controller.data.ViewParams.YForTime(time)) - maxY)
+		}
+	}
 	var dayViewEventsPaneInputTree input.Tree
 	{
 		root := &input.Node{
@@ -328,9 +339,13 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			Children: map[input.Key]*input.Node{
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
 					controller.data.GetCurrentDay().CurrentNext()
+					ensureVisible(controller.data.GetCurrentDay().GetCurrent().Start)
+					ensureVisible(controller.data.GetCurrentDay().GetCurrent().End)
 				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
 					controller.data.GetCurrentDay().CurrentPrev()
+					ensureVisible(controller.data.GetCurrentDay().GetCurrent().End)
+					ensureVisible(controller.data.GetCurrentDay().GetCurrent().Start)
 				}},
 			},
 		}
