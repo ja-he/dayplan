@@ -31,12 +31,13 @@ type EventsPane struct {
 	logReader potatolog.LogReader
 	logWriter potatolog.LogWriter
 
-	padRight       int
-	drawTimestamps bool
-	drawNames      bool
-	isCurrent      func() bool
-	getCurrentPane func() ui.Pane
-	mouseMode      func() bool
+	padRight        int
+	drawTimestamps  bool
+	drawNames       bool
+	isCurrent       func() bool
+	getCurrentPane  func() ui.Pane
+	getCurrentEvent func() model.EventID
+	mouseMode       func() bool
 
 	// TODO: get rid of this
 	positions map[model.EventID]util.Rect
@@ -106,7 +107,17 @@ func (p *EventsPane) Draw() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
 		switch {
-		case hovered != nil && hovered.Event() == e.ID && hovered.EventBoxPart() != ui.EventBoxNowhere:
+		case !p.mouseMode() && p.getCurrentEvent() == e.ID:
+			currentEventStyle := styling.DefaultEmphasized()
+			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, currentEventStyle)
+			if p.drawNames {
+				p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, currentEventStyle, util.TruncateAt(e.Name, nameWidth))
+			}
+			if p.drawTimestamps {
+				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, currentEventStyle, e.Start.ToString())
+				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, currentEventStyle, e.End.ToString())
+			}
+		case p.mouseMode() && hovered != nil && hovered.Event() == e.ID && hovered.EventBoxPart() != ui.EventBoxNowhere:
 			selectionStyling := styling.DefaultEmphasized()
 			switch hovered.EventBoxPart() {
 			case ui.EventBoxBottomRight:
@@ -295,28 +306,30 @@ func NewEventsPane(
 	drawNames bool,
 	isCurrent func() bool,
 	getCurrentPane func() ui.Pane,
+	getCurrentEvent func() model.EventID,
 	mouseMode func() bool,
 	logReader potatolog.LogReader,
 	logWriter potatolog.LogWriter,
 	positions map[model.EventID]util.Rect,
 ) *EventsPane {
 	return &EventsPane{
-		renderer:       renderer,
-		dimensions:     dimensions,
-		stylesheet:     stylesheet,
-		day:            day,
-		categories:     categories,
-		viewParams:     viewParams,
-		cursor:         cursor,
-		padRight:       padRight,
-		drawTimestamps: drawTimestamps,
-		drawNames:      drawNames,
-		isCurrent:      isCurrent,
-		getCurrentPane: getCurrentPane,
-		mouseMode:      mouseMode,
-		logReader:      logReader,
-		logWriter:      logWriter,
-		positions:      positions,
+		renderer:        renderer,
+		dimensions:      dimensions,
+		stylesheet:      stylesheet,
+		day:             day,
+		categories:      categories,
+		viewParams:      viewParams,
+		cursor:          cursor,
+		padRight:        padRight,
+		drawTimestamps:  drawTimestamps,
+		drawNames:       drawNames,
+		isCurrent:       isCurrent,
+		getCurrentPane:  getCurrentPane,
+		getCurrentEvent: getCurrentEvent,
+		mouseMode:       mouseMode,
+		logReader:       logReader,
+		logWriter:       logWriter,
+		positions:       positions,
 	}
 }
 
