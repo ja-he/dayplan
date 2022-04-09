@@ -31,7 +31,7 @@ func (e *Event) Duration() int {
 	return e.Start.DurationInMinutesUntil(e.End)
 }
 
-func NewEvent(s string, knownCategories map[string]*Category) *Event {
+func NewEvent(s string, knownCategories []Category) *Event {
 	var e Event
 
 	args := strings.SplitN(s, "|", 4)
@@ -43,10 +43,15 @@ func NewEvent(s string, knownCategories map[string]*Category) *Event {
 	e.Start = *NewTimestamp(startString)
 	e.End = *NewTimestamp(endString)
 
-	maybeCategory, categoryKnown := knownCategories[catString]
+	var maybeCategory *Category
+	for i := range knownCategories {
+		if knownCategories[i].Name == catString {
+			maybeCategory = &knownCategories[i]
+		}
+	}
 
 	e.Name = nameString
-	if categoryKnown {
+	if maybeCategory != nil {
 		e.Cat = *maybeCategory
 	} else {
 		e.Cat.Name = catString

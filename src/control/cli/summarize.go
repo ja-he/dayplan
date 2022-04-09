@@ -55,9 +55,9 @@ func summarize() {
 	if err != nil {
 		panic(fmt.Sprintf("can't parse config data: '%s'", err))
 	}
-	categories := styling.EmptyCategoryStyling()
+	styledCategories := styling.EmptyCategoryStyling()
 	for _, category := range configData.Categories {
-		categories.AddStyleFromInput(category)
+		styledCategories.AddStyleFromInput(category)
 	}
 
 	currentDate, err := model.FromString(Opts.SummarizeCommand.FromDay)
@@ -81,7 +81,11 @@ func summarize() {
 	days := make([]model.Day, 0)
 	for currentDate != finalDate.Next() {
 		fh := filehandling.NewFileHandler(envData.BaseDirPath + "/days/" + currentDate.ToString())
-		days = append(days, *fh.Read(categories.GetKnownCategoriesByName()))
+		categories := make([]model.Category, 0)
+		for _, cat := range styledCategories.GetAll() {
+			categories = append(categories, cat.Cat)
+		}
+		days = append(days, *fh.Read(categories))
 
 		currentDate = currentDate.Next()
 	}

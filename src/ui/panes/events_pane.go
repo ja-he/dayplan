@@ -27,7 +27,8 @@ type EventsPane struct {
 
 	day func() *model.Day
 
-	categories *styling.CategoryStyling
+	styleForCategory func(model.Category) (styling.DrawStyling, error)
+
 	viewParams *ui.ViewParams
 	cursor     *ui.MouseCursorPos
 
@@ -85,7 +86,7 @@ func (p *EventsPane) Draw() {
 	}
 	p.positions = p.computeRects(day, x, y, w-p.padRight, h)
 	for _, e := range day.Events {
-		style, err := p.categories.GetStyle(e.Cat)
+		style, err := p.styleForCategory(e.Cat)
 		styling := style
 		if err != nil {
 			p.logWriter.Add("ERROR", err.Error())
@@ -305,7 +306,7 @@ func NewEventsPane(
 	stylesheet styling.Stylesheet,
 	inputTree input.Tree,
 	day func() *model.Day,
-	categories *styling.CategoryStyling,
+	styleForCategory func(model.Category) (styling.DrawStyling, error),
 	viewParams *ui.ViewParams,
 	cursor *ui.MouseCursorPos,
 	padRight int,
@@ -320,24 +321,24 @@ func NewEventsPane(
 	positions map[model.EventID]util.Rect,
 ) *EventsPane {
 	return &EventsPane{
-		renderer:        renderer,
-		dimensions:      dimensions,
-		stylesheet:      stylesheet,
-		inputTree:       inputTree,
-		day:             day,
-		categories:      categories,
-		viewParams:      viewParams,
-		cursor:          cursor,
-		padRight:        padRight,
-		drawTimestamps:  drawTimestamps,
-		drawNames:       drawNames,
-		isCurrent:       isCurrent,
-		getCurrentPane:  getCurrentPane,
-		getCurrentEvent: getCurrentEvent,
-		mouseMode:       mouseMode,
-		logReader:       logReader,
-		logWriter:       logWriter,
-		positions:       positions,
+		renderer:         renderer,
+		dimensions:       dimensions,
+		stylesheet:       stylesheet,
+		inputTree:        inputTree,
+		day:              day,
+		styleForCategory: styleForCategory,
+		viewParams:       viewParams,
+		cursor:           cursor,
+		padRight:         padRight,
+		drawTimestamps:   drawTimestamps,
+		drawNames:        drawNames,
+		isCurrent:        isCurrent,
+		getCurrentPane:   getCurrentPane,
+		getCurrentEvent:  getCurrentEvent,
+		mouseMode:        mouseMode,
+		logReader:        logReader,
+		logWriter:        logWriter,
+		positions:        positions,
 	}
 }
 

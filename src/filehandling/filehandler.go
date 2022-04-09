@@ -35,7 +35,7 @@ func (h *FileHandler) Write(day *model.Day) {
 	h.mutex.Unlock()
 }
 
-func (h *FileHandler) Read(knownCategories map[string]*model.Category) *model.Day {
+func (h *FileHandler) Read(knownCategories []model.Category) *model.Day {
 	day := model.NewDay()
 
 	h.mutex.Lock()

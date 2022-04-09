@@ -2,7 +2,6 @@ package panes
 
 import (
 	"github.com/ja-he/dayplan/src/potatolog"
-	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 )
 
@@ -19,7 +18,6 @@ type MonthViewMainPane struct {
 
 	days []ui.Pane
 
-	categories *styling.CategoryStyling
 	logReader  potatolog.LogReader
 	logWriter  potatolog.LogWriter
 	viewParams *ui.ViewParams
@@ -53,7 +51,6 @@ func NewMonthViewMainPane(
 	status ui.Pane,
 	timeline ui.Pane,
 	days []ui.Pane,
-	categories *styling.CategoryStyling,
 	logReader potatolog.LogReader,
 	logWriter potatolog.LogWriter,
 	viewParams *ui.ViewParams,
@@ -63,7 +60,6 @@ func NewMonthViewMainPane(
 		status:     status,
 		timeline:   timeline,
 		days:       days,
-		categories: categories,
 		logReader:  logReader,
 		logWriter:  logWriter,
 		viewParams: viewParams,

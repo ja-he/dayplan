@@ -72,7 +72,7 @@ type DayWithInfo struct {
 type ControlData struct {
 	cursorPos ui.MouseCursorPos
 
-	CategoryStyling styling.CategoryStyling
+	Categories []model.Category
 
 	EnvData EnvData
 
@@ -112,7 +112,10 @@ func NewControlData(cs styling.CategoryStyling) *ControlData {
 		days: make(map[model.Date]DayWithInfo),
 	}
 
-	t.CategoryStyling = cs
+	t.Categories = make([]model.Category, 0)
+	for _, style := range cs.GetAll() {
+		t.Categories = append(t.Categories, style.Cat)
+	}
 
 	t.ViewParams.NRowsPerHour = 6
 	t.ViewParams.ScrollOffset = 8 * t.ViewParams.NRowsPerHour

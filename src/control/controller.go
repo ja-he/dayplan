@@ -25,14 +25,14 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 	fh, ok := t.FileHandlers[date]
 	t.fhMutex.RUnlock()
 	if ok {
-		tmp := fh.Read(t.data.CategoryStyling.GetKnownCategoriesByName())
+		tmp := fh.Read(t.data.Categories)
 		return tmp
 	} else {
 		newHandler := filehandling.NewFileHandler(t.data.EnvData.BaseDirPath + "/days/" + date.ToString())
 		t.fhMutex.Lock()
 		t.FileHandlers[date] = newHandler
 		t.fhMutex.Unlock()
-		tmp := newHandler.Read(t.data.CategoryStyling.GetKnownCategoriesByName())
+		tmp := newHandler.Read(t.data.Categories)
 		return tmp
 	}
 }
@@ -167,7 +167,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			func() *model.Day {
 				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
 			},
-			&controller.data.CategoryStyling,
+			categoryStyling.GetStyle,
 			&controller.data.ViewParams,
 			&controller.data.cursorPos,
 			0,
@@ -203,7 +203,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				func() *model.Day {
 					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
 				},
-				&controller.data.CategoryStyling,
+				categoryStyling.GetStyle,
 				&controller.data.ViewParams,
 				&controller.data.cursorPos,
 				0,
@@ -329,7 +329,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		stylesheet,
 		toolsInputTree,
 		&controller.data.CurrentCategory,
-		&controller.data.CategoryStyling,
+		&categoryStyling,
 		getCurrentPane,
 		1,
 		1,
@@ -341,7 +341,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		stylesheet,
 		dayViewEventsPaneInputTree,
 		controller.data.GetCurrentDay,
-		&controller.data.CategoryStyling,
+		categoryStyling.GetStyle,
 		&controller.data.ViewParams,
 		&controller.data.cursorPos,
 		2,
@@ -506,7 +506,6 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				&controller.data.ViewParams,
 			),
 			weekViewEventsPanes,
-			&controller.data.CategoryStyling,
 			&controller.data.Log,
 			&controller.data.Log,
 			&controller.data.ViewParams,
@@ -523,7 +522,6 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				&controller.data.ViewParams,
 			),
 			monthViewEventsPanes,
-			&controller.data.CategoryStyling,
 			&controller.data.Log,
 			&controller.data.Log,
 			&controller.data.ViewParams,
@@ -573,7 +571,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 					panic("unknown view in summary data gathering")
 				}
 			},
-			&controller.data.CategoryStyling,
+			&categoryStyling,
 		),
 		panes.NewLogPane(
 			tui.NewConstrainedRenderer(renderer, screenDimensions),
@@ -653,7 +651,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 	if controller.FileHandlers[date] == nil {
 		controller.data.Days.AddDay(date, &model.Day{}, &suntimes)
 	} else {
-		controller.data.Days.AddDay(date, controller.FileHandlers[date].Read(controller.data.CategoryStyling.GetKnownCategoriesByName()), &suntimes)
+		controller.data.Days.AddDay(date, controller.FileHandlers[date].Read(controller.data.Categories), &suntimes)
 	}
 
 	controller.rootPane = rootPane

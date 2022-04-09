@@ -16,8 +16,8 @@ func TestStartsDuring(t *testing.T) {
 		// +---|   |
 		//     +---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("06:00|07:30|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("06:00|07:30|work|Get Started", make([]Category, 0))
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -29,8 +29,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts after"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("06:40|07:30|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("06:40|07:30|work|Get Started", make([]Category, 0))
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -42,8 +42,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts at the same time"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("05:50|07:30|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("05:50|07:30|work|Get Started", make([]Category, 0))
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -55,8 +55,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts flush"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("06:30|07:30|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("06:30|07:30|work|Get Started", make([]Category, 0))
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -68,8 +68,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts during (contained, should not matter)"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("05:55|06:20|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("05:55|06:20|work|Get Started", make([]Category, 0))
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -81,8 +81,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts before"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("04:50|07:30|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("04:50|07:30|work|Get Started", make([]Category, 0))
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -104,8 +104,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   +---+
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("05:55|06:20|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("05:55|06:20|work|Get Started", make([]Category, 0))
 
 		expected := true
 		result := b.IsContainedIn(a)
@@ -128,8 +128,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |     |
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("06:40|07:30|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("06:40|07:30|work|Get Started", make([]Category, 0))
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -150,8 +150,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |     |
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("06:30|07:30|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("06:30|07:30|work|Get Started", make([]Category, 0))
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -169,8 +169,8 @@ func TestIsContainedIn(t *testing.T) {
 		// +---|   |
 		//     +---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("05:55|06:40|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("05:55|06:40|work|Get Started", make([]Category, 0))
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -188,8 +188,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   +---+
 		// +----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("05:55|06:40|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("05:55|06:40|work|Get Started", make([]Category, 0))
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -206,8 +206,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   |   |
 		// +---+---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make(map[string]*Category))
-		b := NewEvent("05:50|06:30|work|Get Started", make(map[string]*Category))
+		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
+		b := NewEvent("05:50|06:30|work|Get Started", make([]Category, 0))
 
 		expected := true
 		result := b.IsContainedIn(a)
@@ -219,7 +219,7 @@ func TestIsContainedIn(t *testing.T) {
 }
 
 func TestSumUpByCategory(t *testing.T) {
-	defaultEmptyCategories := make(map[string]*Category)
+	defaultEmptyCategories := make([]Category, 0)
 	{
 		testcase := "single event"
 		model := NewDay()
@@ -300,7 +300,7 @@ func TestSumUpByCategory(t *testing.T) {
 }
 
 func TestFlatten(t *testing.T) {
-	defaultEmptyCategories := make(map[string]*Category)
+	defaultEmptyCategories := make([]Category, 0)
 	{
 		testcase := "single event"
 		day := *NewDay()
@@ -364,9 +364,9 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 	{
-		categories := make(map[string]*Category)
-		categories["eating"] = &Category{Name: "eating", Priority: 0}
-		categories["work"] = &Category{Name: "work", Priority: 20}
+		categories := make([]Category, 0)
+		categories = append(categories, Category{Name: "eating", Priority: 0})
+		categories = append(categories, Category{Name: "work", Priority: 20})
 
 		testcase := "overlap with higher priority (low then high)"
 		input := *NewDay()
@@ -386,11 +386,11 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 	{
-		categories := make(map[string]*Category)
-		categories["eating"] = &Category{Name: "eating", Priority: 0}
-		categories["work"] = &Category{Name: "work", Priority: 20}
+		categories := make([]Category, 0)
+		categories = append(categories, Category{Name: "eating", Priority: 0})
+		categories = append(categories, Category{Name: "work", Priority: 20})
 
-		testcase := "overlap with higher priority (low then high)"
+		testcase := "overlap with higher priority (high then low)"
 		input := *NewDay()
 		input.Events = []Event{
 			*NewEvent("09:00|12:00|work|Work", categories),
@@ -408,31 +408,9 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 	{
-		categories := make(map[string]*Category)
-		categories["eating"] = &Category{Name: "eating", Priority: 0}
-		categories["work"] = &Category{Name: "work", Priority: 20}
-
-		testcase := "overlap with higher priority (high then low)"
-		input := *NewDay()
-		input.Events = []Event{
-			*NewEvent("08:30|09:30|eating|Breakfast", categories),
-			*NewEvent("09:00|12:00|work|Work", categories),
-		}
-		expected := *NewDay()
-		expected.Events = []Event{
-			*NewEvent("08:30|09:00|eating|Breakfast", categories),
-			*NewEvent("09:00|12:00|work|Work", categories),
-		}
-
-		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
-		}
-	}
-	{
-		categories := make(map[string]*Category)
-		categories["eating"] = &Category{Name: "eating", Priority: 0}
-		categories["work"] = &Category{Name: "work", Priority: 20}
+		categories := make([]Category, 0)
+		categories = append(categories, Category{Name: "eating", Priority: 0})
+		categories = append(categories, Category{Name: "work", Priority: 20})
 
 		testcase := "low prio contained in higher prio"
 		input := *NewDay()
@@ -451,9 +429,9 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 	{
-		categories := make(map[string]*Category)
-		categories["eating"] = &Category{Name: "eating", Priority: 0}
-		categories["work"] = &Category{Name: "work", Priority: 20}
+		categories := make([]Category, 0)
+		categories = append(categories, Category{Name: "eating", Priority: 0})
+		categories = append(categories, Category{Name: "work", Priority: 20})
 
 		testcase := "high prio contained in lower prio"
 		input := *NewDay()
@@ -474,9 +452,9 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 	{
-		categories := make(map[string]*Category)
-		categories["eating"] = &Category{Name: "eating", Priority: 0}
-		categories["work"] = &Category{Name: "work", Priority: 20}
+		categories := make([]Category, 0)
+		categories = append(categories, Category{Name: "eating", Priority: 0})
+		categories = append(categories, Category{Name: "work", Priority: 20})
 
 		testcase := "high prio contained in lower prio such that lower former becomes zero-length"
 		input := *NewDay()
@@ -496,9 +474,9 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 	{
-		categories := make(map[string]*Category)
-		categories["eating"] = &Category{Name: "eating", Priority: 0}
-		categories["work"] = &Category{Name: "work", Priority: 20}
+		categories := make([]Category, 0)
+		categories = append(categories, Category{Name: "eating", Priority: 0})
+		categories = append(categories, Category{Name: "work", Priority: 20})
 
 		testcase := "high prio contained in lower prio such that lower latter becomes zero-length"
 		input := *NewDay()
@@ -518,10 +496,10 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 	{
-		categories := make(map[string]*Category)
-		categories["a"] = &Category{Name: "a", Priority: 0}
-		categories["b"] = &Category{Name: "b", Priority: 1}
-		categories["c"] = &Category{Name: "c", Priority: 2}
+		categories := make([]Category, 0)
+		categories = append(categories, Category{Name: "a", Priority: 0})
+		categories = append(categories, Category{Name: "b", Priority: 1})
+		categories = append(categories, Category{Name: "c", Priority: 2})
 
 		testcase := "high prio contained in lower prio such that lower former becomes zero-length, but sort is needed"
 		input := *NewDay()
@@ -543,9 +521,9 @@ func TestFlatten(t *testing.T) {
 		}
 	}
 	{
-		categories := make(map[string]*Category)
-		categories["eating"] = &Category{Name: "eating", Priority: 0}
-		categories["work"] = &Category{Name: "work", Priority: 20}
+		categories := make([]Category, 0)
+		categories = append(categories, Category{Name: "eating", Priority: 0})
+		categories = append(categories, Category{Name: "work", Priority: 20})
 
 		testcase := "high prio starting right at start of lower prio such that lower becomes zero-length"
 		input := *NewDay()
