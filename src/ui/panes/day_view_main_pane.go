@@ -14,13 +14,20 @@ import (
 type DayViewMainPane struct {
 	dimensions func() (x, y, w, h int)
 
-	events   ui.Pane
-	tools    ui.Pane
+	events interface {
+		ui.Pane
+		input.InputProcessor
+	}
+	tools interface {
+		ui.Pane
+		input.InputProcessor
+	}
+
 	status   ui.Pane
 	timeline ui.Pane
 	weather  ui.Pane
 
-	inputTree input.Tree
+	currentPane func() ui.Pane
 }
 
 // Draw draws this pane.
@@ -52,26 +59,45 @@ func (p *DayViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	panic(fmt.Sprint("none of the day view main pane's subpanes contains pos", x, y))
 }
 
-func (p *DayViewMainPane) HasPartialInput() bool           { return p.inputTree.Active() }
-func (p *DayViewMainPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
+func (p *DayViewMainPane) getCurrentInputPane() input.InputProcessor {
+	switch p.currentPane() {
+	case p.events:
+		return p.events
+	case p.tools:
+		return p.tools
+	default:
+		panic("no current pane for day view")
+	}
+}
+
+func (p *DayViewMainPane) HasPartialInput() bool { return p.getCurrentInputPane().HasPartialInput() }
+func (p *DayViewMainPane) ProcessInput(key input.Key) bool {
+	return p.getCurrentInputPane().ProcessInput(key)
+}
 
 // NewDayViewMainPane constructs and returns a new DayViewMainPane.
 func NewDayViewMainPane(
 	dimensions func() (x, y, w, h int),
-	events ui.Pane,
-	tools ui.Pane,
+	events interface {
+		ui.Pane
+		input.InputProcessor
+	},
+	tools interface {
+		ui.Pane
+		input.InputProcessor
+	},
 	status ui.Pane,
 	timeline ui.Pane,
 	weather ui.Pane,
-	inputTree input.Tree,
+	currentPane func() ui.Pane,
 ) *DayViewMainPane {
 	return &DayViewMainPane{
-		dimensions: dimensions,
-		events:     events,
-		tools:      tools,
-		status:     status,
-		timeline:   timeline,
-		weather:    weather,
-		inputTree:  inputTree,
+		dimensions:  dimensions,
+		events:      events,
+		tools:       tools,
+		status:      status,
+		timeline:    timeline,
+		weather:     weather,
+		currentPane: currentPane,
 	}
 }

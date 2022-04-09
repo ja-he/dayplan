@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -15,6 +16,8 @@ type ToolsPane struct {
 	dimensions func() (x, y, w, h int)
 
 	stylesheet styling.Stylesheet
+
+	inputTree input.Tree
 
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
@@ -113,11 +116,15 @@ type ToolsPanePositionInfo struct {
 // in padding space).
 func (i *ToolsPanePositionInfo) Category() *model.Category { return i.category }
 
+func (p *ToolsPane) HasPartialInput() bool           { return p.inputTree.Active() }
+func (p *ToolsPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
+
 // NewToolsPane constructs and returns a new ToolsPane.
 func NewToolsPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
+	inputTree input.Tree,
 	currentCategory *model.Category,
 	categories *styling.CategoryStyling,
 	getCurrentPane func() ui.Pane,
@@ -129,6 +136,7 @@ func NewToolsPane(
 		renderer:        renderer,
 		dimensions:      dimensions,
 		stylesheet:      stylesheet,
+		inputTree:       inputTree,
 		currentCategory: currentCategory,
 		categories:      categories,
 		getCurrentPane:  getCurrentPane,

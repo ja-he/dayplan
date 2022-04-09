@@ -163,6 +163,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			tui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
 			weekdayDimensions(dayIndex),
 			stylesheet,
+			input.Tree{},
 			func() *model.Day {
 				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
 			},
@@ -198,6 +199,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				tui.NewConstrainedRenderer(renderer, monthdayDimensions(dayIndex)),
 				monthdayDimensions(dayIndex),
 				stylesheet,
+				input.Tree{},
 				func() *model.Day {
 					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
 				},
@@ -290,10 +292,42 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		func() int { return timelineWidth },
 	)
 
+	var toolsInputTree input.Tree
+	{
+		root := &input.Node{
+			Action: nil,
+			Children: map[input.Key]*input.Node{
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
+					// TODO(ja-he): next category here
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
+					// TODO(ja-he): prev category here
+				}},
+			},
+		}
+		toolsInputTree = input.Tree{Root: root, Current: root}
+	}
+	var dayViewEventsPaneInputTree input.Tree
+	{
+		root := &input.Node{
+			Action: nil,
+			Children: map[input.Key]*input.Node{
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
+					controller.data.GetCurrentDay().CurrentNext()
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
+					controller.data.GetCurrentDay().CurrentPrev()
+				}},
+			},
+		}
+		dayViewEventsPaneInputTree = input.Tree{Root: root, Current: root}
+	}
+
 	toolsPane := panes.NewToolsPane(
 		tui.NewConstrainedRenderer(renderer, toolsDimensions),
 		toolsDimensions,
 		stylesheet,
+		toolsInputTree,
 		&controller.data.CurrentCategory,
 		&controller.data.CategoryStyling,
 		getCurrentPane,
@@ -305,6 +339,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		tui.NewConstrainedRenderer(renderer, dayViewEventsPaneDimensions),
 		dayViewEventsPaneDimensions,
 		stylesheet,
+		dayViewEventsPaneInputTree,
 		controller.data.GetCurrentDay,
 		&controller.data.CategoryStyling,
 		&controller.data.ViewParams,
@@ -336,22 +371,6 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		default:
 			controller.data.Log.Add("ERROR", "cannot switch: other")
 		}
-	}
-
-	var dayViewInputTree input.Tree
-	{
-		root := &input.Node{
-			Action: nil,
-			Children: map[input.Key]*input.Node{
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
-					controller.data.GetCurrentDay().CurrentNext()
-				}},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
-					controller.data.GetCurrentDay().CurrentPrev()
-				}},
-			},
-		}
-		dayViewInputTree = input.Tree{Root: root, Current: root}
 	}
 
 	var rootPaneInputTree input.Tree
@@ -473,7 +492,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				&controller.data.Weather,
 				&controller.data.ViewParams,
 			),
-			dayViewInputTree,
+			getCurrentPane,
 		),
 		panes.NewWeekViewMainPane(
 			weekViewMainPaneDimensions,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
@@ -21,6 +22,8 @@ type EventsPane struct {
 
 	dimensions func() (x, y, w, h int)
 	stylesheet styling.Stylesheet
+
+	inputTree input.Tree
 
 	day func() *model.Day
 
@@ -292,11 +295,15 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	)
 }
 
+func (p *EventsPane) HasPartialInput() bool           { return p.inputTree.Active() }
+func (p *EventsPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
+
 // NewEventsPane constructs and returns a new EventsPane.
 func NewEventsPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
+	inputTree input.Tree,
 	day func() *model.Day,
 	categories *styling.CategoryStyling,
 	viewParams *ui.ViewParams,
@@ -316,6 +323,7 @@ func NewEventsPane(
 		renderer:        renderer,
 		dimensions:      dimensions,
 		stylesheet:      stylesheet,
+		inputTree:       inputTree,
 		day:             day,
 		categories:      categories,
 		viewParams:      viewParams,
