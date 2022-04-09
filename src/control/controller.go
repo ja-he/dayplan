@@ -84,6 +84,7 @@ func (s EditState) toString() string {
 }
 
 func NewController(date model.Date, envData EnvData, categoryStyling styling.CategoryStyling, stylesheet styling.Stylesheet) *Controller {
+	controller := Controller{}
 
 	data := NewControlData(categoryStyling)
 
@@ -472,7 +473,6 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		}
 	}
 
-	controller := Controller{}
 	controller.tmpStatusYOffsetGetter = func() int { _, y, _, _ := statusDimensions(); return y }
 	data.EnvData = envData
 	controller.screenEvents = renderer.GetEventPollable()
