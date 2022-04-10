@@ -13,7 +13,6 @@ import (
 	"github.com/ja-he/dayplan/src/tui"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/ui/panes"
-	"github.com/ja-he/dayplan/src/util"
 	"github.com/ja-he/dayplan/src/weather"
 
 	"github.com/gdamore/tcell/v2"
@@ -38,7 +37,7 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 }
 
 type EditedEvent struct {
-	ID                    model.EventID
+	Event                 *model.Event
 	prevEditStepTimestamp model.Timestamp
 }
 
@@ -171,11 +170,10 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			false,
 			true,
 			func() bool { return controller.data.CurrentDate.GetDayInWeek(dayIndex) == controller.data.CurrentDate },
-			func() model.EventID { return 0 /* TODO */ },
+			func() *model.Event { return nil /* TODO */ },
 			func() bool { return controller.data.mouseMode },
 			&controller.data.Log,
 			&controller.data.Log,
-			make(map[model.EventID]util.Rect),
 		)
 	}
 	monthdayDimensions := func(dayIndex int) func() (x, y, w, h int) {
@@ -206,11 +204,10 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				false,
 				false,
 				func() bool { return controller.data.CurrentDate.GetDayInMonth(dayIndex) == controller.data.CurrentDate },
-				func() model.EventID { return 0 /* TODO */ },
+				func() *model.Event { return nil /* TODO */ },
 				func() bool { return controller.data.mouseMode },
 				&controller.data.Log,
 				&controller.data.Log,
-				make(map[model.EventID]util.Rect),
 			),
 		)
 	}
@@ -334,13 +331,13 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			Children: map[input.Key]*input.Node{
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
 					controller.data.GetCurrentDay().CurrentNext()
-					ensureVisible(controller.data.GetCurrentDay().GetCurrent().Start)
-					ensureVisible(controller.data.GetCurrentDay().GetCurrent().End)
+					ensureVisible(controller.data.GetCurrentDay().Current.Start)
+					ensureVisible(controller.data.GetCurrentDay().Current.End)
 				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
 					controller.data.GetCurrentDay().CurrentPrev()
-					ensureVisible(controller.data.GetCurrentDay().GetCurrent().End)
-					ensureVisible(controller.data.GetCurrentDay().GetCurrent().Start)
+					ensureVisible(controller.data.GetCurrentDay().Current.End)
+					ensureVisible(controller.data.GetCurrentDay().Current.Start)
 				}},
 			},
 		}
@@ -371,11 +368,10 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		true,
 		true,
 		func() bool { return true },
-		func() model.EventID { return controller.data.GetCurrentDay().Current },
+		func() *model.Event { return controller.data.GetCurrentDay().Current },
 		func() bool { return controller.data.mouseMode },
 		&controller.data.Log,
 		&controller.data.Log,
-		make(map[model.EventID]util.Rect),
 	)
 
 	var rootPaneInputTree input.Tree
@@ -712,30 +708,30 @@ func (t *Controller) ScrollBottom() {
 
 func (t *Controller) abortEdit() {
 	t.editState = EditStateNone
-	t.EditedEvent = EditedEvent{0, model.Timestamp{Hour: 0, Minute: 0}}
+	t.EditedEvent = EditedEvent{nil, model.Timestamp{Hour: 0, Minute: 0}}
 	t.data.EventEditor.Active = false
 }
 
 func (t *Controller) endEdit() {
 	t.editState = EditStateNone
-	t.EditedEvent = EditedEvent{0, model.Timestamp{Hour: 0, Minute: 0}}
+	t.EditedEvent = EditedEvent{nil, model.Timestamp{Hour: 0, Minute: 0}}
 	if t.data.EventEditor.Active {
 		t.data.EventEditor.Active = false
 		tmp := t.data.EventEditor.TmpEventInfo
-		t.data.GetCurrentDay().GetEvent(tmp.ID).Name = tmp.Name
+		t.data.EventEditor.Original.Name = tmp.Name
 	}
 	t.data.GetCurrentDay().UpdateEventOrder()
 }
 
 func (t *Controller) startMouseMove(eventsInfo ui.EventsPanePositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateMoving)
-	t.EditedEvent.ID = eventsInfo.Event()
+	t.EditedEvent.Event = eventsInfo.Event()
 	t.EditedEvent.prevEditStepTimestamp = eventsInfo.Time()
 }
 
 func (t *Controller) startMouseResize(eventsInfo ui.EventsPanePositionInfo) {
 	t.editState = (EditStateMouseEditing | EditStateResizing)
-	t.EditedEvent.ID = eventsInfo.Event()
+	t.EditedEvent.Event = eventsInfo.Event()
 	t.EditedEvent.prevEditStepTimestamp = eventsInfo.Time()
 }
 
@@ -753,14 +749,17 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 	e.End = start.OffsetMinutes(+10)
 
 	// give to model, get ID
-	newEventID := t.data.GetCurrentDay().AddEvent(e)
+	err := t.data.GetCurrentDay().AddEvent(&e)
+	if err != nil {
+		t.data.Log.Add("ERROR", err.Error())
+	} else {
+		// save ID as edited event
+		t.EditedEvent.Event = &e
+		t.EditedEvent.prevEditStepTimestamp = e.Start
 
-	// save ID as edited event
-	t.EditedEvent.ID = newEventID
-	t.EditedEvent.prevEditStepTimestamp = e.Start
-
-	// set mode to resizing
-	t.editState = (EditStateMouseEditing | EditStateResizing)
+		// set mode to resizing
+		t.editState = (EditStateMouseEditing | EditStateResizing)
+	}
 }
 
 func (t *Controller) goToDay(newDate model.Date) {
@@ -852,9 +851,10 @@ func (t *Controller) updateCursorPos(x, y int) {
 	t.data.cursorPos.X, t.data.cursorPos.Y = x, y
 }
 
-func (t *Controller) startEdit(id model.EventID) {
+func (t *Controller) startEdit(event *model.Event) {
 	t.data.EventEditor.Active = true
-	t.data.EventEditor.TmpEventInfo = *t.data.GetCurrentDay().GetEvent(id)
+	t.data.EventEditor.TmpEventInfo = *event // TODO: does rename still work the same?
+	t.data.EventEditor.Original = event
 	t.data.EventEditor.CursorPos = len([]rune(t.data.EventEditor.TmpEventInfo.Name))
 	t.editState = EditStateEditing
 }
@@ -907,9 +907,9 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 			case tcell.Button3:
 				t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
 			case tcell.Button2:
-				id := eventsInfo.Event()
-				if id != 0 && eventsInfo.Time().IsAfter(t.data.GetCurrentDay().GetEvent(id).Start) {
-					t.data.GetCurrentDay().SplitEvent(id, eventsInfo.Time())
+				event := eventsInfo.Event()
+				if event != nil && eventsInfo.Time().IsAfter(event.Start) {
+					t.data.GetCurrentDay().SplitEvent(event, eventsInfo.Time())
 				}
 			case tcell.Button1:
 				// we've clicked while not editing
@@ -948,7 +948,7 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 func (t *Controller) resizeStep(nextCursortime model.Timestamp) {
 	prevCursortime := t.EditedEvent.prevEditStepTimestamp
 	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
-	event := t.data.GetCurrentDay().GetEvent(t.EditedEvent.ID)
+	event := t.EditedEvent.Event
 	event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
 	t.EditedEvent.prevEditStepTimestamp = nextCursortime
 }
@@ -957,13 +957,13 @@ func (t *Controller) moveStep(nextCursortime model.Timestamp) {
 	prevCursortime := t.EditedEvent.prevEditStepTimestamp
 	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
 	if t.movePropagate {
-		following := t.data.GetCurrentDay().GetEventsFrom(t.EditedEvent.ID)
+		following := t.data.GetCurrentDay().GetEventsFrom(t.EditedEvent.Event)
 		for _, ptr := range following {
 			ptr.Start = ptr.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
 			ptr.End = ptr.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
 		}
 	} else {
-		event := t.data.GetCurrentDay().GetEvent(t.EditedEvent.ID)
+		event := t.EditedEvent.Event
 		event.Start = event.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
 		event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
 	}

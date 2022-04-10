@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"math/rand"
 	"sort"
 	"strings"
 )
@@ -21,7 +20,6 @@ type Category struct {
 type EventID int
 
 type Event struct {
-	ID         EventID
 	Start, End Timestamp
 	Name       string
 	Cat        Category
@@ -60,6 +58,15 @@ func NewEvent(s string, knownCategories []Category) *Event {
 	return &e
 }
 
+func (e *Event) Clone() *Event {
+	return &Event{
+		Name:  e.Name,
+		Cat:   e.Cat,
+		Start: e.Start,
+		End:   e.End,
+	}
+}
+
 func (e *Event) toString() string {
 	start := e.Start.ToString()
 	end := e.End.ToString()
@@ -69,7 +76,7 @@ func (e *Event) toString() string {
 	return (start + "|" + end + "|" + cat + "|" + name)
 }
 
-type ByStartConsideringDuration []Event
+type ByStartConsideringDuration []*Event
 
 func (a ByStartConsideringDuration) Len() int      { return len(a) }
 func (a ByStartConsideringDuration) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -92,9 +99,8 @@ func (e *Event) Snap(minuteResolution int) {
 }
 
 type Day struct {
-	Events  []Event
-	Current EventID
-	idseq   func() EventID
+	Events  []*Event
+	Current *Event
 }
 
 func (day *Day) ToSlice() []string {
@@ -107,66 +113,51 @@ func (day *Day) ToSlice() []string {
 
 func NewDay() *Day {
 	day := Day{}
-	day.idseq = idseq()
 	return &day
 }
 
-func NewDayWithEvents(events []Event) *Day {
+func NewDayWithEvents(events []*Event) *Day {
 	day := NewDay()
 	for i := range events {
-		day.AddEvent(events[i])
+		day.AddEvent(events[i].Clone())
 	}
 	return day
 }
 
-func idseq() func() EventID {
-	next := 0
-	return func() EventID {
-		next++
-		return EventID(next)
-	}
-}
-
-func (day *Day) RemoveEvent(id EventID) {
-	if day.Current == id {
-		day.Current = 0
+func (day *Day) RemoveEvent(event *Event) {
+	if day.Current == event {
+		day.Current = nil
 	} // TODO
-	if id != 0 {
+	if event != nil {
 		index := -1
 		for i := range day.Events {
-			if day.Events[i].ID == id {
+			if day.Events[i] == event {
 				index = i
 				break
 			}
 		}
 		if index == -1 {
-			panic(fmt.Sprintf("element with id %d not found", id))
+			panic(fmt.Sprintf("event %s not found for removal", event.toString()))
 		}
 		day.Events = append(day.Events[:index], day.Events[index+1:]...)
 	}
 }
 
-func (day *Day) AddEvent(e Event) EventID {
+func (day *Day) AddEvent(e *Event) error {
 	if !(e.End.IsAfter(e.Start)) {
-		fmt.Println("refusing to add negative length event")
-		return 0
+		return fmt.Errorf("refusing to add negative length event %s", e.toString())
 	}
-	e.ID = day.idseq()
 	day.Events = append(day.Events, e)
 	day.UpdateEventOrder()
-	day.Current = e.ID
-	return e.ID
-}
-
-func (day *Day) GetCurrent() *Event {
-	return day.GetEvent(day.Current)
+	day.Current = e
+	return nil
 }
 
 func (day *Day) CurrentPrev() {
 	for i := range day.Events {
-		if day.Events[i].ID == day.Current {
+		if day.Events[i] == day.Current {
 			if i > 0 {
-				day.Current = day.Events[i-1].ID
+				day.Current = day.Events[i-1]
 			}
 			return
 		}
@@ -174,24 +165,24 @@ func (day *Day) CurrentPrev() {
 
 	// in case no event with ID found (e.g. because 0)
 	if len(day.Events) > 0 {
-		day.Current = day.Events[0].ID
+		day.Current = day.Events[0]
 	}
 	return
 }
 
 func (day *Day) CurrentNext() {
 	for i := range day.Events {
-		if day.Events[i].ID == day.Current {
+		if day.Events[i] == day.Current {
 			if len(day.Events) > i+1 {
-				day.Current = day.Events[i+1].ID
+				day.Current = day.Events[i+1]
 			}
 			return
 		}
 	}
 
-	// in case no event with ID found (e.g. because 0)
+	// in case no event found (e.g. because nil)
 	if len(day.Events) > 0 {
-		day.Current = day.Events[0].ID
+		day.Current = day.Events[0]
 	}
 	return
 }
@@ -200,37 +191,16 @@ func (day *Day) UpdateEventOrder() {
 	sort.Sort(ByStartConsideringDuration(day.Events))
 }
 
-func (day *Day) getEvent(id EventID, getFollowing bool) []*Event {
+func (day *Day) GetEventsFrom(event *Event) []*Event {
 	for i := range day.Events {
-		e := &day.Events[i]
-		if (*e).ID == id {
-			if getFollowing {
-				fromID := []*Event{}
-				for j := i; j < len(day.Events); j++ {
-					fromID = append(fromID, &day.Events[j])
-				}
-				return fromID
-			} else {
-				return []*Event{e}
-			}
+		if day.Events[i] == event {
+			return day.Events[i:]
 		}
 	}
-	panic(fmt.Sprintf("error getting event for id '%d' from model", id))
+	return make([]*Event, 0)
 }
 
-func (day *Day) GetEvent(id EventID) *Event {
-	e := day.getEvent(id, false)[0]
-	return e
-}
-
-func (day *Day) GetEventsFrom(id EventID) []*Event {
-	f := day.getEvent(id, true)
-	return f
-}
-
-func (day *Day) SplitEvent(id EventID, timestamp Timestamp) {
-	originalEvent := day.GetEvent(id)
-
+func (day *Day) SplitEvent(originalEvent *Event, timestamp Timestamp) {
 	secondEvent := Event{
 		Name:  originalEvent.Name,
 		Cat:   originalEvent.Cat,
@@ -245,29 +215,26 @@ func (day *Day) SplitEvent(id EventID, timestamp Timestamp) {
 		fmt.Println("warning: an event has become invalid through split")
 	}
 
-	day.AddEvent(secondEvent)
+	day.AddEvent(&secondEvent)
 }
 
 // TODO: obsolete?
-func (day *Day) OffsetEnd(id EventID, offset TimeOffset) {
-	e := day.GetEvent(id)
+func (day *Day) OffsetEnd(e *Event, offset TimeOffset) {
 	e.End = e.End.Offset(offset)
 	if e.Start.IsAfter(e.End) {
 		panic("start after end!")
 	}
 }
-func (day *Day) SetEnd(id EventID, end Timestamp) {
-	e := day.GetEvent(id)
+func (day *Day) SetEnd(e *Event, end Timestamp) {
 	if e.Start.IsAfter(end) {
 		panic("start after end!")
 	}
 	e.End = end
 }
-func (day *Day) SetTimes(id EventID, start, end Timestamp) {
+func (day *Day) SetTimes(e *Event, start, end Timestamp) {
 	if start.IsAfter(end) {
 		panic("start after end!")
 	}
-	e := day.GetEvent(id)
 	e.Start = start
 	e.End = end
 }
@@ -287,7 +254,7 @@ func (day *Day) SumUpByCategory() map[Category]int {
 	flattened := day.Clone()
 	flattened.Flatten()
 	for i := range flattened.Events {
-		event := &flattened.Events[i]
+		event := flattened.Events[i]
 		result[event.Cat] += event.Duration()
 	}
 
@@ -325,13 +292,11 @@ func (day *Day) Flatten() {
 	for current < len(day.Events) && next < len(day.Events) {
 		day.UpdateEventOrder()
 
-		if day.Events[next].IsContainedIn(&day.Events[current]) {
+		if day.Events[next].IsContainedIn(day.Events[current]) {
 			if day.Events[next].Cat.Priority > day.Events[current].Cat.Priority {
 				// clone the current event for the remainder after the next event
-				currentRemainder := day.Events[current]
+				currentRemainder := day.Events[current].Clone()
 				currentRemainder.Start = day.Events[next].End
-				// TODO: obviously a hack, but I want to get rid of EventIDs anyway
-				currentRemainder.ID = EventID(rand.Int())
 
 				// trim the current until the next event
 				day.Events[current].End = day.Events[next].Start
@@ -353,7 +318,7 @@ func (day *Day) Flatten() {
 				// if not of higher priority, simply remove
 				day.Events = append(day.Events[:next], day.Events[next+1:]...)
 			}
-		} else if day.Events[next].StartsDuring(&day.Events[current]) {
+		} else if day.Events[next].StartsDuring(day.Events[current]) {
 			if day.Events[next].Cat.Priority > day.Events[current].Cat.Priority {
 				// trim current
 				day.Events[current].End = day.Events[next].Start

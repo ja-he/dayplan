@@ -45,7 +45,7 @@ func (h *FileHandler) Read(knownCategories []model.Category) *model.Day {
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			s := scanner.Text()
-			day.AddEvent(*model.NewEvent(s, knownCategories))
+			day.AddEvent(model.NewEvent(s, knownCategories))
 		}
 		f.Close()
 	}

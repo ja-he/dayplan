@@ -11,6 +11,7 @@ import (
 
 type EventEditor struct {
 	Active       bool
+	Original     *model.Event
 	TmpEventInfo model.Event
 	CursorPos    int
 }

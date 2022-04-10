@@ -41,11 +41,11 @@ type EventsPane struct {
 	drawTimestamps  bool
 	drawNames       bool
 	isCurrentDay    func() bool
-	getCurrentEvent func() model.EventID
+	getCurrentEvent func() *model.Event
 	mouseMode       func() bool
 
 	// TODO: get rid of this
-	positions map[model.EventID]util.Rect
+	positions map[*model.Event]util.Rect
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -101,7 +101,7 @@ func (p *EventsPane) Draw() {
 		}
 
 		// based on event state, draw a box or maybe a smaller one, or ...
-		pos := p.positions[e.ID]
+		pos := p.positions[e]
 		var timestampWidth int
 		if p.drawTimestamps {
 			timestampWidth = 5
@@ -115,7 +115,7 @@ func (p *EventsPane) Draw() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
 		switch {
-		case !p.mouseMode() && p.getCurrentEvent() == e.ID:
+		case !p.mouseMode() && p.getCurrentEvent() == e:
 			currentEventStyle := styling.DefaultEmphasized()
 			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, currentEventStyle)
 			if p.drawNames {
@@ -125,7 +125,7 @@ func (p *EventsPane) Draw() {
 				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, currentEventStyle, e.Start.ToString())
 				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, currentEventStyle, e.End.ToString())
 			}
-		case p.mouseMode() && hovered != nil && hovered.Event() == e.ID && hovered.EventBoxPart() != ui.EventBoxNowhere:
+		case p.mouseMode() && hovered != nil && hovered.Event() == e && hovered.EventBoxPart() != ui.EventBoxNowhere:
 			selectionStyling := styling.DefaultEmphasized()
 			switch hovered.EventBoxPart() {
 			case ui.EventBoxBottomRight:
@@ -179,7 +179,7 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 		x < (dimX+dimW) {
 		currentDay := p.day()
 		for i := len(currentDay.Events) - 1; i >= 0; i-- {
-			eventPos := p.positions[currentDay.Events[i].ID]
+			eventPos := p.positions[currentDay.Events[i]]
 			if eventPos.Contains(x, y) {
 				var hover ui.EventBoxPart
 				switch {
@@ -191,7 +191,7 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 					hover = ui.EventBoxInterior
 				}
 				return &EventsPanePositionInfo{
-					eventID:      currentDay.Events[i].ID,
+					event:        currentDay.Events[i],
 					eventBoxPart: hover,
 					time:         p.viewParams.TimeAtY(y),
 				}
@@ -199,7 +199,7 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 		}
 	}
 	return &EventsPanePositionInfo{
-		eventID:      0,
+		event:        nil,
 		eventBoxPart: ui.EventBoxNowhere,
 		time:         p.viewParams.TimeAtY(y),
 	}
@@ -208,14 +208,14 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 // EventsPanePositionInfo provides information on a position in an EventsPane,
 // implementing the ui.EventsPanePositionInfo interface.
 type EventsPanePositionInfo struct {
-	eventID      model.EventID
+	event        *model.Event
 	eventBoxPart ui.EventBoxPart
 	time         model.Timestamp
 }
 
 // Event returns the ID of the event at the position, 0 if no event at
 // position.
-func (i *EventsPanePositionInfo) Event() model.EventID { return i.eventID }
+func (i *EventsPanePositionInfo) Event() *model.Event { return i.event }
 
 // EventBoxPart returns the part of the event box that corresponds to the
 // position (which can be EventBoxNowhere, if no event at position).
@@ -225,9 +225,9 @@ func (i *EventsPanePositionInfo) EventBoxPart() ui.EventBoxPart { return i.event
 // y-value of the position).
 func (i *EventsPanePositionInfo) Time() model.Timestamp { return i.time }
 
-func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, height int) map[model.EventID]util.Rect {
-	activeStack := make([]model.Event, 0)
-	positions := make(map[model.EventID]util.Rect)
+func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, height int) map[*model.Event]util.Rect {
+	activeStack := make([]*model.Event, 0)
+	positions := make(map[*model.Event]util.Rect)
 	for _, e := range day.Events {
 		// remove all stacked elements that have finished
 		for i := len(activeStack) - 1; i >= 0; i-- {
@@ -252,7 +252,7 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		w = int(float64(w) * math.Pow(widthFactor, float64(len(activeStack)-1)))
 		x += (width - w)
 
-		positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
+		positions[e] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
 	return positions
 }
@@ -313,11 +313,10 @@ func NewEventsPane(
 	drawTimestamps bool,
 	drawNames bool,
 	isCurrentDay func() bool,
-	getCurrentEvent func() model.EventID,
+	getCurrentEvent func() *model.Event,
 	mouseMode func() bool,
 	logReader potatolog.LogReader,
 	logWriter potatolog.LogWriter,
-	positions map[model.EventID]util.Rect,
 ) *EventsPane {
 	return &EventsPane{
 		renderer:         renderer,
@@ -336,7 +335,7 @@ func NewEventsPane(
 		mouseMode:        mouseMode,
 		logReader:        logReader,
 		logWriter:        logWriter,
-		positions:        positions,
+		positions:        make(map[*model.Event]util.Rect, 0),
 	}
 }
 
