@@ -399,12 +399,9 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'q'}: {Action: func() { controller.controllerEvents <- ControllerEventExit }},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'P'}: {Action: func() { controller.data.showDebug = !controller.data.showDebug }},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'd'}: {Action: func() {
-					posInfo := controller.rootPane.GetPositionInfo(controller.data.cursorPos.X, controller.data.cursorPos.Y)
-					if posInfo != nil {
-						eventsInfo := posInfo.GetExtraEventsInfo()
-						if eventsInfo != nil {
-							controller.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
-						}
+					event := controller.data.GetCurrentDay().Current
+					if event != nil {
+						controller.data.GetCurrentDay().RemoveEvent(event)
 					}
 				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {Action: controller.ScrollTop},
