@@ -125,9 +125,6 @@ func NewDayWithEvents(events []*Event) *Day {
 }
 
 func (day *Day) RemoveEvent(event *Event) {
-	if day.Current == event {
-		day.Current = nil
-	} // TODO
 	if event != nil {
 		index := -1
 		for i := range day.Events {
@@ -140,6 +137,15 @@ func (day *Day) RemoveEvent(event *Event) {
 			panic(fmt.Sprintf("event %s not found for removal", event.toString()))
 		}
 		day.Events = append(day.Events[:index], day.Events[index+1:]...)
+		if day.Current == event {
+			if index < len(day.Events) {
+				day.Current = day.Events[index]
+			} else if len(day.Events) > 0 {
+				day.Current = day.Events[len(day.Events)-1]
+			} else {
+				day.Current = nil
+			}
+		}
 	}
 }
 
