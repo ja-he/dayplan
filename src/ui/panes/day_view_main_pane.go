@@ -12,22 +12,19 @@ import (
 // It contains weather information, a timeline, a single event pane (for the
 // current day), a tools pane  and a status bar.
 type DayViewMainPane struct {
+	Parent ui.FocussablePane
+
 	dimensions func() (x, y, w, h int)
 
-	events interface {
-		ui.Pane
-		input.InputProcessor
-	}
-	tools interface {
-		ui.Pane
-		input.InputProcessor
-	}
+	events ui.FocussablePane
+	tools  ui.FocussablePane
 
 	status   ui.Pane
 	timeline ui.Pane
 	weather  ui.Pane
 
-	currentPane func() ui.Pane
+	inputTree    input.Tree
+	focussedPane ui.FocussablePane
 }
 
 // Draw draws this pane.
@@ -59,45 +56,65 @@ func (p *DayViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	panic(fmt.Sprint("none of the day view main pane's subpanes contains pos", x, y))
 }
 
-func (p *DayViewMainPane) getCurrentInputPane() input.InputProcessor {
-	switch p.currentPane() {
+func (p *DayViewMainPane) GetFocussed() ui.Pane {
+	return p.focussedPane
+}
+
+func (p *DayViewMainPane) FocusLeft() {
+	switch p.focussedPane {
 	case p.events:
-		return p.events
+		return
 	case p.tools:
-		return p.tools
+		p.focussedPane = p.events
 	default:
-		panic("no current pane for day view")
+		panic("unknown focussed pane in day view")
 	}
 }
 
-func (p *DayViewMainPane) HasPartialInput() bool { return p.getCurrentInputPane().HasPartialInput() }
-func (p *DayViewMainPane) ProcessInput(key input.Key) bool {
-	return p.getCurrentInputPane().ProcessInput(key)
+func (p *DayViewMainPane) FocusRight() {
+	switch p.focussedPane {
+	case p.events:
+		p.focussedPane = p.tools
+	case p.tools:
+		return
+	default:
+		panic("unknown focussed pane in day view")
+	}
 }
+
+func (p *DayViewMainPane) HasPartialInput() bool { return p.focussedPane.HasPartialInput() }
+func (p *DayViewMainPane) ProcessInput(key input.Key) bool {
+	if p.Focusses().ProcessInput(key) {
+		return true
+	} else {
+		return p.inputTree.Process(key)
+	}
+}
+
+func (p *DayViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *DayViewMainPane) Focusses() ui.FocussablePane { return p.focussedPane }
 
 // NewDayViewMainPane constructs and returns a new DayViewMainPane.
 func NewDayViewMainPane(
 	dimensions func() (x, y, w, h int),
-	events interface {
-		ui.Pane
-		input.InputProcessor
-	},
-	tools interface {
-		ui.Pane
-		input.InputProcessor
-	},
+	events *EventsPane,
+	tools *ToolsPane,
 	status ui.Pane,
 	timeline ui.Pane,
 	weather ui.Pane,
-	currentPane func() ui.Pane,
+	inputTree input.Tree,
 ) *DayViewMainPane {
-	return &DayViewMainPane{
-		dimensions:  dimensions,
-		events:      events,
-		tools:       tools,
-		status:      status,
-		timeline:    timeline,
-		weather:     weather,
-		currentPane: currentPane,
+	dayViewPane := &DayViewMainPane{
+		dimensions:   dimensions,
+		events:       events,
+		tools:        tools,
+		status:       status,
+		timeline:     timeline,
+		weather:      weather,
+		focussedPane: events,
+		inputTree:    inputTree,
 	}
+	events.Parent = dayViewPane
+	tools.Parent = dayViewPane
+	return dayViewPane
 }

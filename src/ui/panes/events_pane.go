@@ -18,6 +18,8 @@ import (
 // hide some details (e.g., for showing events as part of multiple EventPanes in
 // in the month view.
 type EventsPane struct {
+	Parent ui.FocussablePane
+
 	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
@@ -38,8 +40,7 @@ type EventsPane struct {
 	padRight        int
 	drawTimestamps  bool
 	drawNames       bool
-	isCurrent       func() bool
-	getCurrentPane  func() ui.Pane
+	isCurrentDay    func() bool
 	getCurrentEvent func() model.EventID
 	mouseMode       func() bool
 
@@ -68,11 +69,14 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	)
 }
 
+func (p *EventsPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *EventsPane) Focusses() ui.FocussablePane { return nil }
+
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
 	x, y, w, h := p.Dimensions()
 	style := p.stylesheet.Normal
-	if p == p.getCurrentPane() {
+	if p.HasFocus() {
 		style = p.stylesheet.NormalEmphasized
 	}
 	p.renderer.DrawBox(x, y, w, h, style)
@@ -92,7 +96,7 @@ func (p *EventsPane) Draw() {
 			p.logWriter.Add("ERROR", err.Error())
 			styling = p.stylesheet.CategoryFallback
 		}
-		if !p.isCurrent() {
+		if !p.isCurrentDay() {
 			styling = styling.DefaultDimmed()
 		}
 
@@ -260,7 +264,7 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 // This type exists primarily to allow us to represent the variable length
 // months in panes easily.
 type MaybeEventsPane struct {
-	eventsPane ui.Pane
+	eventsPane *EventsPane
 	condition  func() bool
 }
 
@@ -308,8 +312,7 @@ func NewEventsPane(
 	padRight int,
 	drawTimestamps bool,
 	drawNames bool,
-	isCurrent func() bool,
-	getCurrentPane func() ui.Pane,
+	isCurrentDay func() bool,
 	getCurrentEvent func() model.EventID,
 	mouseMode func() bool,
 	logReader potatolog.LogReader,
@@ -328,13 +331,18 @@ func NewEventsPane(
 		padRight:         padRight,
 		drawTimestamps:   drawTimestamps,
 		drawNames:        drawNames,
-		isCurrent:        isCurrent,
-		getCurrentPane:   getCurrentPane,
+		isCurrentDay:     isCurrentDay,
 		getCurrentEvent:  getCurrentEvent,
 		mouseMode:        mouseMode,
 		logReader:        logReader,
 		logWriter:        logWriter,
 		positions:        positions,
+	}
+}
+
+func (p *MaybeEventsPane) SetParent(parent ui.FocussablePane) {
+	if p.eventsPane != nil {
+		p.eventsPane.Parent = parent
 	}
 }
 

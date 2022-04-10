@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 )
@@ -115,6 +116,13 @@ type ConditionalOverlayPane interface {
 // when processing mouse clicks.
 type EphemeralPane interface {
 	ConditionalOverlayPane
+}
+
+type FocussablePane interface {
+	Pane
+	input.InputProcessor
+	HasFocus() bool
+	Focusses() FocussablePane
 }
 
 // EventBoxPart describes the part of an event box (the visual representation

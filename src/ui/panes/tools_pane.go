@@ -11,6 +11,8 @@ import (
 // ToolsPane shows tools for editing.
 // Currently it only offers a selection of categories to select from.
 type ToolsPane struct {
+	Parent ui.FocussablePane
+
 	renderer ui.ConstrainedRenderer
 
 	dimensions func() (x, y, w, h int)
@@ -21,8 +23,6 @@ type ToolsPane struct {
 
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
-
-	getCurrentPane func() ui.Pane
 
 	horizPadding, vertPadding, gap int
 
@@ -41,7 +41,7 @@ func (p *ToolsPane) Draw() {
 	x, y, w, h := p.dimensions()
 
 	style := p.stylesheet.Normal
-	if p == p.getCurrentPane() {
+	if p.HasFocus() {
 		style = p.stylesheet.NormalEmphasized
 	}
 	p.renderer.DrawBox(x, y, w, h, style)
@@ -119,6 +119,9 @@ func (i *ToolsPanePositionInfo) Category() *model.Category { return i.category }
 func (p *ToolsPane) HasPartialInput() bool           { return p.inputTree.Active() }
 func (p *ToolsPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
 
+func (p *ToolsPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *ToolsPane) Focusses() ui.FocussablePane { return nil }
+
 // NewToolsPane constructs and returns a new ToolsPane.
 func NewToolsPane(
 	renderer ui.ConstrainedRenderer,
@@ -127,7 +130,6 @@ func NewToolsPane(
 	inputTree input.Tree,
 	currentCategory *model.Category,
 	categories *styling.CategoryStyling,
-	getCurrentPane func() ui.Pane,
 	horizPadding int,
 	vertPadding int,
 	gap int,
@@ -139,7 +141,6 @@ func NewToolsPane(
 		inputTree:       inputTree,
 		currentCategory: currentCategory,
 		categories:      categories,
-		getCurrentPane:  getCurrentPane,
 		horizPadding:    horizPadding,
 		vertPadding:     vertPadding,
 		gap:             gap,

@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
 )
@@ -11,6 +12,8 @@ import (
 // essentially be invisible and do nothing (see MaybeEventsPane)) and a status
 // bar.
 type MonthViewMainPane struct {
+	Parent ui.FocussablePane
+
 	dimensions func() (x, y, w, h int)
 
 	status   ui.Pane
@@ -45,23 +48,34 @@ func (p *MonthViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
 }
 
+func (p *MonthViewMainPane) HasPartialInput() bool           { return false } // TODO
+func (p *MonthViewMainPane) ProcessInput(key input.Key) bool { return false } // TODO
+
+func (p *MonthViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *MonthViewMainPane) Focusses() ui.FocussablePane { return nil }
+
 // NewMonthViewMainPane constructs and returns a new MonthViewMainPane.
 func NewMonthViewMainPane(
 	dimensions func() (x, y, w, h int),
 	status ui.Pane,
 	timeline ui.Pane,
-	days []ui.Pane,
+	days []*MaybeEventsPane,
 	logReader potatolog.LogReader,
 	logWriter potatolog.LogWriter,
 	viewParams *ui.ViewParams,
 ) *MonthViewMainPane {
-	return &MonthViewMainPane{
+	monthViewPane := &MonthViewMainPane{
 		dimensions: dimensions,
 		status:     status,
 		timeline:   timeline,
-		days:       days,
+		days:       make([]ui.Pane, 0),
 		logReader:  logReader,
 		logWriter:  logWriter,
 		viewParams: viewParams,
 	}
+	for i := range days {
+		days[i].SetParent(monthViewPane)
+		monthViewPane.days = append(monthViewPane.days, days[i])
+	}
+	return monthViewPane
 }

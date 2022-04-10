@@ -89,15 +89,14 @@ type ControlData struct {
 
 	ViewParams ui.ViewParams
 
-	activeView ui.ActiveView
+	activeView func() ui.ActiveView
 
 	Log potatolog.Log
 
 	renderTimes          util.MetricsHandler
 	eventProcessingTimes util.MetricsHandler
 
-	currentPane ui.Pane
-	mouseMode   bool
+	mouseMode bool
 }
 
 type DaysData struct {
@@ -119,8 +118,6 @@ func NewControlData(cs styling.CategoryStyling) *ControlData {
 
 	t.ViewParams.NRowsPerHour = 6
 	t.ViewParams.ScrollOffset = 8 * t.ViewParams.NRowsPerHour
-
-	t.activeView = ui.ViewDay
 
 	return &t
 }

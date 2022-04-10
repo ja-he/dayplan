@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/ui"
 )
@@ -9,6 +10,8 @@ import (
 // It contains a timeline, seven vertically stacked event panes (one for each
 // week day) and a status bar.
 type WeekViewMainPane struct {
+	Parent ui.FocussablePane
+
 	dimensions func() (x, y, w, h int)
 
 	timeline ui.Pane
@@ -42,23 +45,34 @@ func (p *WeekViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
 }
 
+func (p *WeekViewMainPane) HasPartialInput() bool           { return false } // TODO
+func (p *WeekViewMainPane) ProcessInput(key input.Key) bool { return false } // TODO
+
+func (p *WeekViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *WeekViewMainPane) Focusses() ui.FocussablePane { return nil }
+
 // NewWeekViewMainPane constructs and returns a new WeekViewMainPane.
 func NewWeekViewMainPane(
 	dimensions func() (x, y, w, h int),
 	status ui.Pane,
 	timeline ui.Pane,
-	days []ui.Pane,
+	days []*EventsPane,
 	logReader potatolog.LogReader,
 	logWriter potatolog.LogWriter,
 	viewParams *ui.ViewParams,
 ) *WeekViewMainPane {
-	return &WeekViewMainPane{
+	weekViewPane := &WeekViewMainPane{
 		dimensions: dimensions,
 		status:     status,
 		timeline:   timeline,
-		days:       days,
+		days:       make([]ui.Pane, 0),
 		logReader:  logReader,
 		logWriter:  logWriter,
 		viewParams: viewParams,
 	}
+	for i := range days {
+		days[i].Parent = weekViewPane
+		weekViewPane.days = append(weekViewPane.days, days[i])
+	}
+	return weekViewPane
 }

@@ -13,12 +13,11 @@ type RootPane struct {
 
 	dimensions func() (x, y, w, h int)
 
-	dayViewMainPane interface {
-		ui.Pane
-		input.InputProcessor
-	}
-	weekViewMainPane  ui.Pane
-	monthViewMainPane ui.Pane
+	focussedViewPane ui.FocussablePane
+
+	dayViewMainPane   ui.FocussablePane
+	weekViewMainPane  ui.FocussablePane
+	monthViewMainPane ui.FocussablePane
 
 	summary ui.ConditionalOverlayPane
 	log     ui.ConditionalOverlayPane
@@ -29,8 +28,6 @@ type RootPane struct {
 	performanceMetricsOverlay ui.EphemeralPane
 
 	inputTree input.Tree
-
-	activeView func() ui.ActiveView
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -58,14 +55,9 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	active = make([]ui.Pane, 0)
 	inactive = make([]ui.ConditionalOverlayPane, 0)
 
-	switch p.activeView() {
-	case ui.ViewDay:
-		active = append(active, p.dayViewMainPane)
-	case ui.ViewWeek:
-		active = append(active, p.weekViewMainPane)
-	case ui.ViewMonth:
-		active = append(active, p.monthViewMainPane)
-	}
+	// append day, week, or month pane
+	active = append(active, p.focussedViewPane)
+
 	// TODO: this change breaks the cursor hiding, as that is done in the draw
 	//       call when !condition. it should be done differently anyways though,
 	//       imo.
@@ -114,7 +106,7 @@ func (p *RootPane) inputProcessors() []input.InputProcessor {
 	result := make([]input.InputProcessor, 0)
 
 	switch {
-	case p.activeView() == ui.ViewDay && !p.log.Condition() && !p.summary.Condition() && !p.help.Condition() && !p.editor.Condition():
+	case p.GetView() == ui.ViewDay && !p.log.Condition() && !p.summary.Condition() && !p.help.Condition() && !p.editor.Condition():
 		result = append(result, p.dayViewMainPane)
 	}
 
@@ -137,25 +129,64 @@ func (p *RootPane) ProcessInput(key input.Key) bool {
 	return p.inputTree.Process(key)
 }
 
+func (p *RootPane) ViewUp() {
+	switch p.focussedViewPane {
+	case p.dayViewMainPane:
+		p.focussedViewPane = p.weekViewMainPane
+	case p.weekViewMainPane:
+		p.focussedViewPane = p.monthViewMainPane
+	case p.monthViewMainPane:
+		return
+	default:
+		panic("unknown focussed pane")
+	}
+}
+
+func (p *RootPane) ViewDown() {
+	switch p.focussedViewPane {
+	case p.dayViewMainPane:
+		return
+	case p.weekViewMainPane:
+		p.focussedViewPane = p.dayViewMainPane
+	case p.monthViewMainPane:
+		p.focussedViewPane = p.weekViewMainPane
+	default:
+		panic("unknown focussed pane")
+	}
+}
+
+func (p *RootPane) GetView() ui.ActiveView {
+	switch p.focussedViewPane {
+	case p.dayViewMainPane:
+		return ui.ViewDay
+	case p.weekViewMainPane:
+		return ui.ViewWeek
+	case p.monthViewMainPane:
+		return ui.ViewMonth
+	default:
+		panic("unknown focussed pane")
+	}
+}
+
+func (p *RootPane) HasFocus() bool              { return true }
+func (p *RootPane) Focusses() ui.FocussablePane { return p.focussedViewPane }
+
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,
 	dimensions func() (x, y, w, h int),
-	dayViewMainPane interface {
-		ui.Pane
-		input.InputProcessor
-	},
-	weekViewMainPane ui.Pane,
-	monthViewMainPane ui.Pane,
+	dayViewMainPane *DayViewMainPane,
+	weekViewMainPane *WeekViewMainPane,
+	monthViewMainPane *MonthViewMainPane,
 	summary ui.ConditionalOverlayPane,
 	log ui.ConditionalOverlayPane,
 	help ui.ConditionalOverlayPane,
 	editor ui.ConditionalOverlayPane,
 	performanceMetricsOverlay ui.EphemeralPane,
 	inputTree input.Tree,
-	activeView func() ui.ActiveView,
+	focussedPane ui.FocussablePane,
 ) *RootPane {
-	return &RootPane{
+	rootPane := &RootPane{
 		renderer:                  renderer,
 		dimensions:                dimensions,
 		dayViewMainPane:           dayViewMainPane,
@@ -167,6 +198,10 @@ func NewRootPane(
 		editor:                    editor,
 		performanceMetricsOverlay: performanceMetricsOverlay,
 		inputTree:                 inputTree,
-		activeView:                activeView,
+		focussedViewPane:          focussedPane,
 	}
+	dayViewMainPane.Parent = rootPane
+	weekViewMainPane.Parent = rootPane
+	monthViewMainPane.Parent = rootPane
+	return rootPane
 }
