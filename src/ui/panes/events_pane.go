@@ -37,7 +37,7 @@ type EventsPane struct {
 	logReader potatolog.LogReader
 	logWriter potatolog.LogWriter
 
-	padRight        int
+	pad             int
 	drawTimestamps  bool
 	drawNames       bool
 	isCurrentDay    func() bool
@@ -88,7 +88,7 @@ func (p *EventsPane) Draw() {
 		// TODO: just draw this, man
 		return
 	}
-	p.positions = p.computeRects(day, x, y, w-p.padRight, h)
+	p.positions = p.computeRects(day, x+p.pad, y, w-(2*p.pad), h)
 	for _, e := range day.Events {
 		style, err := p.styleForCategory(e.Cat)
 		styling := style
@@ -309,7 +309,7 @@ func NewEventsPane(
 	styleForCategory func(model.Category) (styling.DrawStyling, error),
 	viewParams *ui.ViewParams,
 	cursor *ui.MouseCursorPos,
-	padRight int,
+	pad int,
 	drawTimestamps bool,
 	drawNames bool,
 	isCurrentDay func() bool,
@@ -327,7 +327,7 @@ func NewEventsPane(
 		styleForCategory: styleForCategory,
 		viewParams:       viewParams,
 		cursor:           cursor,
-		padRight:         padRight,
+		pad:              pad,
 		drawTimestamps:   drawTimestamps,
 		drawNames:        drawNames,
 		isCurrentDay:     isCurrentDay,
