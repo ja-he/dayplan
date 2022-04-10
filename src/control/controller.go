@@ -331,13 +331,17 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			Children: map[input.Key]*input.Node{
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
 					controller.data.GetCurrentDay().CurrentNext()
-					ensureVisible(controller.data.GetCurrentDay().Current.Start)
-					ensureVisible(controller.data.GetCurrentDay().Current.End)
+					if controller.data.GetCurrentDay().Current != nil {
+						ensureVisible(controller.data.GetCurrentDay().Current.Start)
+						ensureVisible(controller.data.GetCurrentDay().Current.End)
+					}
 				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
 					controller.data.GetCurrentDay().CurrentPrev()
-					ensureVisible(controller.data.GetCurrentDay().Current.End)
-					ensureVisible(controller.data.GetCurrentDay().Current.Start)
+					if controller.data.GetCurrentDay().Current != nil {
+						ensureVisible(controller.data.GetCurrentDay().Current.End)
+						ensureVisible(controller.data.GetCurrentDay().Current.Start)
+					}
 				}},
 			},
 		}
