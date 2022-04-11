@@ -389,6 +389,36 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		&controller.data.Log,
 	)
 
+	dayViewEventsPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: func() {
+		overlayRoot := &input.Node{
+			Action: nil,
+			Children: map[input.Key]*input.Node{
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
+					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(10)
+					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10)
+					controller.data.GetCurrentDay().SetTimes(
+						controller.data.GetCurrentDay().Current,
+						newStart, newEnd,
+					)
+					ensureVisible(newEnd)
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
+					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(-10)
+					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(-10)
+					controller.data.GetCurrentDay().SetTimes(
+						controller.data.GetCurrentDay().Current,
+						newStart, newEnd,
+					)
+					ensureVisible(newStart)
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'm'}: {Action: func() {
+					dayEventsPane.PopModalOverlay()
+				}},
+			},
+		}
+		dayEventsPane.ApplyModalOverlay(input.Tree{Root: overlayRoot, Current: overlayRoot})
+	}}
+
 	var rootPaneInputTree input.Tree
 	{
 		root := &input.Node{
