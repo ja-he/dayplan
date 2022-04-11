@@ -243,6 +243,7 @@ func (day *Day) SetTimes(e *Event, start, end Timestamp) {
 	}
 	e.Start = start
 	e.End = end
+	day.UpdateEventOrder()
 }
 
 func (day *Day) Clone() *Day {
