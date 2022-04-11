@@ -121,6 +121,11 @@ func (p *ToolsPane) ProcessInput(key input.Key) bool { return p.inputTree.Proces
 
 func (p *ToolsPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
 func (p *ToolsPane) Focusses() ui.FocussablePane { return nil }
+func (p *ToolsPane) ApplyModalOverlay(input.Tree) (index int) {
+	panic("todo: ToolsPane::ApplyModalOverlay")
+}
+func (p *ToolsPane) PopModalOverlay()           { panic("todo: ToolsPane::PopModalOverlay") }
+func (p *ToolsPane) PopModalOverlays(index int) { panic("todo: ToolsPane::PopModalOverlays") }
 
 // NewToolsPane constructs and returns a new ToolsPane.
 func NewToolsPane(

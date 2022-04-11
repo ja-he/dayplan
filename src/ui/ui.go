@@ -123,6 +123,9 @@ type FocussablePane interface {
 	input.InputProcessor
 	HasFocus() bool
 	Focusses() FocussablePane
+	ApplyModalOverlay(input.Tree) (index int)
+	PopModalOverlay()
+	PopModalOverlays(index int)
 }
 
 // EventBoxPart describes the part of an event box (the visual representation

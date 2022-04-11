@@ -298,6 +298,11 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 
 func (p *EventsPane) HasPartialInput() bool           { return p.inputTree.Active() }
 func (p *EventsPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
+func (p *EventsPane) ApplyModalOverlay(input.Tree) (index int) {
+	panic("todo: EventsPane::ApplyModalOverlay")
+}
+func (p *EventsPane) PopModalOverlay()           { panic("todo: EventsPane::PopModalOverlay") }
+func (p *EventsPane) PopModalOverlays(index int) { panic("todo: EventsPane::PopModalOverlays") }
 
 // NewEventsPane constructs and returns a new EventsPane.
 func NewEventsPane(

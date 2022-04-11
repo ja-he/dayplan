@@ -50,6 +50,13 @@ func (p *WeekViewMainPane) ProcessInput(key input.Key) bool { return false } // 
 
 func (p *WeekViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
 func (p *WeekViewMainPane) Focusses() ui.FocussablePane { return nil }
+func (p *WeekViewMainPane) ApplyModalOverlay(input.Tree) (index int) {
+	panic("todo: WeekViewMainPane::ApplyModalOverlay")
+}
+func (p *WeekViewMainPane) PopModalOverlay() { panic("todo: WeekViewMainPane::PopModalOverlay") }
+func (p *WeekViewMainPane) PopModalOverlays(index int) {
+	panic("todo: WeekViewMainPane::PopModalOverlays")
+}
 
 // NewWeekViewMainPane constructs and returns a new WeekViewMainPane.
 func NewWeekViewMainPane(

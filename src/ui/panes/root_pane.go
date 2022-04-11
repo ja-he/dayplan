@@ -171,6 +171,12 @@ func (p *RootPane) GetView() ui.ActiveView {
 func (p *RootPane) HasFocus() bool              { return true }
 func (p *RootPane) Focusses() ui.FocussablePane { return p.focussedViewPane }
 
+func (p *RootPane) ApplyModalOverlay(input.Tree) (index int) {
+	panic("todo: RootPane::ApplyModalOverlay")
+}
+func (p *RootPane) PopModalOverlay()           { panic("todo: RootPane::PopModalOverlay") }
+func (p *RootPane) PopModalOverlays(index int) { panic("todo: RootPane::PopModalOverlays") }
+
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,

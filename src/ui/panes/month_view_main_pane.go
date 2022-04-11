@@ -53,6 +53,13 @@ func (p *MonthViewMainPane) ProcessInput(key input.Key) bool { return false } //
 
 func (p *MonthViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
 func (p *MonthViewMainPane) Focusses() ui.FocussablePane { return nil }
+func (p *MonthViewMainPane) ApplyModalOverlay(input.Tree) (index int) {
+	panic("todo: MonthViewMainPane::ApplyModalOverlay")
+}
+func (p *MonthViewMainPane) PopModalOverlay() { panic("todo: MonthViewMainPane::PopModalOverlay") }
+func (p *MonthViewMainPane) PopModalOverlays(index int) {
+	panic("todo: MonthViewMainPane::PopModalOverlays")
+}
 
 // NewMonthViewMainPane constructs and returns a new MonthViewMainPane.
 func NewMonthViewMainPane(

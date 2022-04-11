@@ -93,6 +93,13 @@ func (p *DayViewMainPane) ProcessInput(key input.Key) bool {
 
 func (p *DayViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
 func (p *DayViewMainPane) Focusses() ui.FocussablePane { return p.focussedPane }
+func (p *DayViewMainPane) ApplyModalOverlay(input.Tree) (index int) {
+	panic("todo: DayViewMainPane::ApplyModalOverlay")
+}
+func (p *DayViewMainPane) PopModalOverlay() { panic("todo: DayViewMainPane::PopModalOverlay") }
+func (p *DayViewMainPane) PopModalOverlays(index int) {
+	panic("todo: DayViewMainPane::PopModalOverlays")
+}
 
 // NewDayViewMainPane constructs and returns a new DayViewMainPane.
 func NewDayViewMainPane(
