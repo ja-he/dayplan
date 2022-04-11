@@ -25,7 +25,8 @@ type EventsPane struct {
 	dimensions func() (x, y, w, h int)
 	stylesheet styling.Stylesheet
 
-	inputTree input.Tree
+	inputTree     input.Tree
+	modalOverlays []input.Tree
 
 	day func() *model.Day
 
@@ -296,12 +297,22 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	)
 }
 
-func (p *EventsPane) HasPartialInput() bool           { return p.inputTree.Active() }
-func (p *EventsPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
-func (p *EventsPane) ApplyModalOverlay(input.Tree) (index int) {
-	panic("todo: EventsPane::ApplyModalOverlay")
+func (p *EventsPane) HasPartialInput() bool { return p.inputTree.Active() }
+func (p *EventsPane) ProcessInput(key input.Key) bool {
+	if len(p.modalOverlays) > 0 {
+		return p.modalOverlays[len(p.modalOverlays)-1].Process(key)
+	} else {
+		return p.inputTree.Process(key)
+	}
 }
-func (p *EventsPane) PopModalOverlay()           { panic("todo: EventsPane::PopModalOverlay") }
+func (p *EventsPane) ApplyModalOverlay(tree input.Tree) (index int) {
+	p.modalOverlays = append(p.modalOverlays, tree)
+	index = len(p.modalOverlays) - 1
+	return index
+}
+func (p *EventsPane) PopModalOverlay() {
+	p.modalOverlays = p.modalOverlays[:len(p.modalOverlays)-1]
+}
 func (p *EventsPane) PopModalOverlays(index int) { panic("todo: EventsPane::PopModalOverlays") }
 
 // NewEventsPane constructs and returns a new EventsPane.
@@ -328,6 +339,7 @@ func NewEventsPane(
 		dimensions:       dimensions,
 		stylesheet:       stylesheet,
 		inputTree:        inputTree,
+		modalOverlays:    make([]input.Tree, 0),
 		day:              day,
 		styleForCategory: styleForCategory,
 		viewParams:       viewParams,
