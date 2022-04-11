@@ -102,30 +102,24 @@ func (p *RootPane) Draw() {
 	p.renderer.Show()
 }
 
-func (p *RootPane) inputProcessors() []input.InputProcessor {
-	result := make([]input.InputProcessor, 0)
-
-	switch {
-	case p.GetView() == ui.ViewDay && !p.log.Condition() && !p.summary.Condition() && !p.help.Condition() && !p.editor.Condition():
-		result = append(result, p.dayViewMainPane)
-	}
-
-	return result
-}
 func (p *RootPane) HasPartialInput() bool {
-	for _, processor := range p.inputProcessors() {
-		if processor.HasPartialInput() {
-			return true
-		}
+	if p.Focusses().HasPartialInput() {
+		return true
 	}
 	return p.inputTree.Active()
 }
 func (p *RootPane) ProcessInput(key input.Key) bool {
-	for _, processor := range p.inputProcessors() {
-		if processor.ProcessInput(key) {
-			return true
-		}
+	// if own input tree active, capture processing
+	if p.inputTree.Active() {
+		return p.inputTree.Process(key)
 	}
+
+	// if input applies to focussed processor, let it process
+	if p.Focusses().ProcessInput(key) {
+		return true
+	}
+
+	// otherwise, process yourself
 	return p.inputTree.Process(key)
 }
 

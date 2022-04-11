@@ -84,7 +84,9 @@ func (p *DayViewMainPane) FocusRight() {
 
 func (p *DayViewMainPane) HasPartialInput() bool { return p.focussedPane.HasPartialInput() }
 func (p *DayViewMainPane) ProcessInput(key input.Key) bool {
-	if p.Focusses().ProcessInput(key) {
+	if p.inputTree.Active() {
+		return p.inputTree.Process(key)
+	} else if p.Focusses().ProcessInput(key) {
 		return true
 	} else {
 		return p.inputTree.Process(key)
