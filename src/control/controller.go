@@ -455,7 +455,11 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 						controller.data.GetCurrentDay().RemoveEvent(event)
 					}
 				}},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {Action: controller.ScrollTop},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {
+					Children: map[input.Key]*input.Node{
+						{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {Action: controller.ScrollTop},
+					},
+				},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'G'}: {Action: controller.ScrollBottom},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'w'}: {Action: controller.writeModel},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'h'}: {Action: controller.goToPreviousDay},
