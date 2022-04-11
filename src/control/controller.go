@@ -418,6 +418,16 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		}
 		dayEventsPane.ApplyModalOverlay(input.Tree{Root: overlayRoot, Current: overlayRoot})
 	}}
+	dayViewEventsPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyRune, Ch: 'o'}] = &input.Node{Action: func() {
+		currentEnd := controller.data.GetCurrentDay().Current.End
+		newEvent := &model.Event{
+			Start: currentEnd,
+			End:   currentEnd.OffsetMinutes(60),
+			Name:  "",
+			Cat:   controller.data.CurrentCategory,
+		}
+		controller.data.GetCurrentDay().AddEvent(newEvent)
+	}}
 
 	var rootPaneInputTree input.Tree
 	{
