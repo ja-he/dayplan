@@ -391,6 +391,10 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 	)
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: func() {
+		if controller.data.GetCurrentDay().Current == nil {
+			return
+		}
+
 		overlayRoot := &input.Node{
 			Action: nil,
 			Children: map[input.Key]*input.Node{
