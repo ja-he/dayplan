@@ -25,8 +25,7 @@ type EventsPane struct {
 	dimensions func() (x, y, w, h int)
 	stylesheet styling.Stylesheet
 
-	inputTree     input.Tree
-	modalOverlays []input.Tree
+	inputProcessor input.ModalInputProcessor
 
 	day func() *model.Day
 
@@ -297,30 +296,24 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	)
 }
 
-func (p *EventsPane) HasPartialInput() bool { return p.inputTree.Active() }
-func (p *EventsPane) ProcessInput(key input.Key) bool {
-	if len(p.modalOverlays) > 0 {
-		return p.modalOverlays[len(p.modalOverlays)-1].Process(key)
-	} else {
-		return p.inputTree.Process(key)
-	}
-}
-func (p *EventsPane) ApplyModalOverlay(tree input.Tree) (index int) {
-	p.modalOverlays = append(p.modalOverlays, tree)
-	index = len(p.modalOverlays) - 1
-	return index
+func (p *EventsPane) CapturesInput() bool             { return p.inputProcessor.CapturesInput() }
+func (p *EventsPane) ProcessInput(key input.Key) bool { return p.inputProcessor.ProcessInput(key) }
+func (p *EventsPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
 func (p *EventsPane) PopModalOverlay() {
-	p.modalOverlays = p.modalOverlays[:len(p.modalOverlays)-1]
+	p.inputProcessor.PopModalOverlay()
 }
-func (p *EventsPane) PopModalOverlays(index int) { panic("todo: EventsPane::PopModalOverlays") }
+func (p *EventsPane) PopModalOverlays(index int) {
+	p.inputProcessor.PopModalOverlays(index)
+}
 
 // NewEventsPane constructs and returns a new EventsPane.
 func NewEventsPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
-	inputTree input.Tree,
+	inputProcessor input.ModalInputProcessor,
 	day func() *model.Day,
 	styleForCategory func(model.Category) (styling.DrawStyling, error),
 	viewParams *ui.ViewParams,
@@ -338,8 +331,7 @@ func NewEventsPane(
 		renderer:         renderer,
 		dimensions:       dimensions,
 		stylesheet:       stylesheet,
-		inputTree:        inputTree,
-		modalOverlays:    make([]input.Tree, 0),
+		inputProcessor:   inputProcessor,
 		day:              day,
 		styleForCategory: styleForCategory,
 		viewParams:       viewParams,

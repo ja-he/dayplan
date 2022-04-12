@@ -8,6 +8,7 @@ import (
 
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/input"
+	"github.com/ja-he/dayplan/src/input/processors"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/tui"
@@ -45,7 +46,7 @@ type Controller struct {
 	data     *ControlData
 	rootPane interface {
 		ui.Pane
-		input.InputProcessor
+		input.ModalInputProcessor
 	}
 	editState        EditState
 	EditedEvent      EditedEvent
@@ -170,7 +171,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			tui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
 			weekdayDimensions(dayIndex),
 			stylesheet,
-			input.Tree{},
+			processors.NewModalInputProcessor(&input.Tree{}),
 			func() *model.Day {
 				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
 			},
@@ -204,7 +205,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				tui.NewConstrainedRenderer(renderer, monthdayDimensions(dayIndex)),
 				monthdayDimensions(dayIndex),
 				stylesheet,
-				input.Tree{},
+				processors.NewModalInputProcessor(&input.Tree{}),
 				func() *model.Day {
 					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
 				},
@@ -363,7 +364,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		tui.NewConstrainedRenderer(renderer, toolsDimensions),
 		toolsDimensions,
 		stylesheet,
-		toolsInputTree,
+		processors.NewModalInputProcessor(&toolsInputTree),
 		&controller.data.CurrentCategory,
 		&categoryStyling,
 		1,
@@ -374,7 +375,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		tui.NewConstrainedRenderer(renderer, dayViewEventsPaneDimensions),
 		dayViewEventsPaneDimensions,
 		stylesheet,
-		dayViewEventsPaneInputTree,
+		processors.NewModalInputProcessor(&dayViewEventsPaneInputTree),
 		controller.data.GetCurrentDay,
 		categoryStyling.GetStyle,
 		&controller.data.ViewParams,
@@ -416,7 +417,11 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				}},
 			},
 		}
-		dayEventsPane.ApplyModalOverlay(input.Tree{Root: overlayRoot, Current: overlayRoot})
+		dayEventsPane.ApplyModalOverlay(
+			processors.NewModalInputProcessor(
+				&input.Tree{Root: overlayRoot, Current: overlayRoot},
+			),
+		)
 	}}
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyRune, Ch: 'o'}] = &input.Node{Action: func() {
 		currentEnd := controller.data.GetCurrentDay().Current.End
@@ -525,7 +530,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			&controller.data.Weather,
 			&controller.data.ViewParams,
 		),
-		dayViewInputTree,
+		processors.NewModalInputProcessor(&dayViewInputTree),
 	)
 	dayViewInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyCtrlW, Ch: rune(tcell.KeyCtrlW)}] = &input.Node{
 		Action: nil,
@@ -656,7 +661,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			&controller.data.renderTimes,
 			&controller.data.eventProcessingTimes,
 		),
-		rootPaneInputTree,
+		processors.NewModalInputProcessor(&rootPaneInputTree),
 		dayViewMainPane,
 	)
 	controller.data.activeView = rootPane.GetView

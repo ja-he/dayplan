@@ -23,8 +23,8 @@ type DayViewMainPane struct {
 	timeline ui.Pane
 	weather  ui.Pane
 
-	inputTree    input.Tree
-	focussedPane ui.FocussablePane
+	inputProcessor input.ModalInputProcessor
+	focussedPane   ui.FocussablePane
 }
 
 // Draw draws this pane.
@@ -75,32 +75,37 @@ func (p *DayViewMainPane) FocusRight() {
 	switch p.focussedPane {
 	case p.events:
 		p.focussedPane = p.tools
-	case p.tools:
+
 		return
 	default:
 		panic("unknown focussed pane in day view")
 	}
 }
 
-func (p *DayViewMainPane) HasPartialInput() bool { return p.focussedPane.HasPartialInput() }
+func (p *DayViewMainPane) CapturesInput() bool {
+	return p.focussedPane.CapturesInput() || p.inputProcessor.CapturesInput()
+}
 func (p *DayViewMainPane) ProcessInput(key input.Key) bool {
-	if p.inputTree.Active() {
-		return p.inputTree.Process(key)
-	} else if p.Focusses().ProcessInput(key) {
-		return true
+	if p.inputProcessor.CapturesInput() {
+		return p.inputProcessor.ProcessInput(key)
+	} else if p.Focusses().CapturesInput() {
+		return p.Focusses().ProcessInput(key)
 	} else {
-		return p.inputTree.Process(key)
+		return p.Focusses().ProcessInput(key) || p.inputProcessor.ProcessInput(key)
 	}
 }
 
 func (p *DayViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
 func (p *DayViewMainPane) Focusses() ui.FocussablePane { return p.focussedPane }
-func (p *DayViewMainPane) ApplyModalOverlay(input.Tree) (index int) {
-	panic("todo: DayViewMainPane::ApplyModalOverlay")
+
+func (p *DayViewMainPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *DayViewMainPane) PopModalOverlay() { panic("todo: DayViewMainPane::PopModalOverlay") }
+func (p *DayViewMainPane) PopModalOverlay() {
+	p.inputProcessor.PopModalOverlay()
+}
 func (p *DayViewMainPane) PopModalOverlays(index int) {
-	panic("todo: DayViewMainPane::PopModalOverlays")
+	p.inputProcessor.PopModalOverlays(index)
 }
 
 // NewDayViewMainPane constructs and returns a new DayViewMainPane.
@@ -111,17 +116,17 @@ func NewDayViewMainPane(
 	status ui.Pane,
 	timeline ui.Pane,
 	weather ui.Pane,
-	inputTree input.Tree,
+	inputProcessor input.ModalInputProcessor,
 ) *DayViewMainPane {
 	dayViewPane := &DayViewMainPane{
-		dimensions:   dimensions,
-		events:       events,
-		tools:        tools,
-		status:       status,
-		timeline:     timeline,
-		weather:      weather,
-		focussedPane: events,
-		inputTree:    inputTree,
+		dimensions:     dimensions,
+		events:         events,
+		tools:          tools,
+		status:         status,
+		timeline:       timeline,
+		weather:        weather,
+		focussedPane:   events,
+		inputProcessor: inputProcessor,
 	}
 	events.Parent = dayViewPane
 	tools.Parent = dayViewPane

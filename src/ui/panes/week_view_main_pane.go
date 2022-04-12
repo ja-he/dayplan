@@ -21,6 +21,8 @@ type WeekViewMainPane struct {
 	logReader  potatolog.LogReader
 	logWriter  potatolog.LogWriter
 	viewParams *ui.ViewParams
+
+	inputProcessor input.ModalInputProcessor
 }
 
 // Draw draws this pane.
@@ -45,17 +47,20 @@ func (p *WeekViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
 }
 
-func (p *WeekViewMainPane) HasPartialInput() bool           { return false } // TODO
+func (p *WeekViewMainPane) CapturesInput() bool             { return false } // TODO
 func (p *WeekViewMainPane) ProcessInput(key input.Key) bool { return false } // TODO
 
 func (p *WeekViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
 func (p *WeekViewMainPane) Focusses() ui.FocussablePane { return nil }
-func (p *WeekViewMainPane) ApplyModalOverlay(input.Tree) (index int) {
-	panic("todo: WeekViewMainPane::ApplyModalOverlay")
+
+func (p *WeekViewMainPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *WeekViewMainPane) PopModalOverlay() { panic("todo: WeekViewMainPane::PopModalOverlay") }
+func (p *WeekViewMainPane) PopModalOverlay() {
+	p.inputProcessor.PopModalOverlay()
+}
 func (p *WeekViewMainPane) PopModalOverlays(index int) {
-	panic("todo: WeekViewMainPane::PopModalOverlays")
+	p.inputProcessor.PopModalOverlays(index)
 }
 
 // NewWeekViewMainPane constructs and returns a new WeekViewMainPane.

@@ -19,7 +19,7 @@ type ToolsPane struct {
 
 	stylesheet styling.Stylesheet
 
-	inputTree input.Tree
+	inputProcessor input.ModalInputProcessor
 
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
@@ -116,23 +116,28 @@ type ToolsPanePositionInfo struct {
 // in padding space).
 func (i *ToolsPanePositionInfo) Category() *model.Category { return i.category }
 
-func (p *ToolsPane) HasPartialInput() bool           { return p.inputTree.Active() }
-func (p *ToolsPane) ProcessInput(key input.Key) bool { return p.inputTree.Process(key) }
+func (p *ToolsPane) CapturesInput() bool             { return p.inputProcessor.CapturesInput() }
+func (p *ToolsPane) ProcessInput(key input.Key) bool { return p.inputProcessor.ProcessInput(key) }
 
 func (p *ToolsPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
 func (p *ToolsPane) Focusses() ui.FocussablePane { return nil }
-func (p *ToolsPane) ApplyModalOverlay(input.Tree) (index int) {
-	panic("todo: ToolsPane::ApplyModalOverlay")
+
+func (p *ToolsPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *ToolsPane) PopModalOverlay()           { panic("todo: ToolsPane::PopModalOverlay") }
-func (p *ToolsPane) PopModalOverlays(index int) { panic("todo: ToolsPane::PopModalOverlays") }
+func (p *ToolsPane) PopModalOverlay() {
+	p.inputProcessor.PopModalOverlay()
+}
+func (p *ToolsPane) PopModalOverlays(index int) {
+	p.inputProcessor.PopModalOverlays(index)
+}
 
 // NewToolsPane constructs and returns a new ToolsPane.
 func NewToolsPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
-	inputTree input.Tree,
+	inputProcessor input.ModalInputProcessor,
 	currentCategory *model.Category,
 	categories *styling.CategoryStyling,
 	horizPadding int,
@@ -143,7 +148,7 @@ func NewToolsPane(
 		renderer:        renderer,
 		dimensions:      dimensions,
 		stylesheet:      stylesheet,
-		inputTree:       inputTree,
+		inputProcessor:  inputProcessor,
 		currentCategory: currentCategory,
 		categories:      categories,
 		horizPadding:    horizPadding,

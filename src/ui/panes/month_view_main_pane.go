@@ -24,6 +24,8 @@ type MonthViewMainPane struct {
 	logReader  potatolog.LogReader
 	logWriter  potatolog.LogWriter
 	viewParams *ui.ViewParams
+
+	inputProcessor input.ModalInputProcessor
 }
 
 // Draw draws this pane.
@@ -48,17 +50,20 @@ func (p *MonthViewMainPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
 }
 
-func (p *MonthViewMainPane) HasPartialInput() bool           { return false } // TODO
+func (p *MonthViewMainPane) CapturesInput() bool             { return false } // TODO
 func (p *MonthViewMainPane) ProcessInput(key input.Key) bool { return false } // TODO
 
 func (p *MonthViewMainPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
 func (p *MonthViewMainPane) Focusses() ui.FocussablePane { return nil }
-func (p *MonthViewMainPane) ApplyModalOverlay(input.Tree) (index int) {
-	panic("todo: MonthViewMainPane::ApplyModalOverlay")
+
+func (p *MonthViewMainPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *MonthViewMainPane) PopModalOverlay() { panic("todo: MonthViewMainPane::PopModalOverlay") }
+func (p *MonthViewMainPane) PopModalOverlay() {
+	p.inputProcessor.PopModalOverlay()
+}
 func (p *MonthViewMainPane) PopModalOverlays(index int) {
-	panic("todo: MonthViewMainPane::PopModalOverlays")
+	p.inputProcessor.PopModalOverlays(index)
 }
 
 // NewMonthViewMainPane constructs and returns a new MonthViewMainPane.

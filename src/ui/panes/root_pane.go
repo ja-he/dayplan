@@ -27,7 +27,7 @@ type RootPane struct {
 
 	performanceMetricsOverlay ui.EphemeralPane
 
-	inputTree input.Tree
+	inputProcessor input.ModalInputProcessor
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -102,25 +102,20 @@ func (p *RootPane) Draw() {
 	p.renderer.Show()
 }
 
-func (p *RootPane) HasPartialInput() bool {
-	if p.Focusses().HasPartialInput() {
+func (p *RootPane) CapturesInput() bool {
+	if p.Focusses().CapturesInput() {
 		return true
 	}
-	return p.inputTree.Active()
+	return p.inputProcessor.CapturesInput()
 }
 func (p *RootPane) ProcessInput(key input.Key) bool {
-	// if own input tree active, capture processing
-	if p.inputTree.Active() {
-		return p.inputTree.Process(key)
+	if p.inputProcessor.CapturesInput() {
+		return p.inputProcessor.ProcessInput(key)
+	} else if p.Focusses().CapturesInput() {
+		return p.Focusses().ProcessInput(key)
+	} else {
+		return p.Focusses().ProcessInput(key) || p.inputProcessor.ProcessInput(key)
 	}
-
-	// if input applies to focussed processor, let it process
-	if p.Focusses().ProcessInput(key) {
-		return true
-	}
-
-	// otherwise, process yourself
-	return p.inputTree.Process(key)
 }
 
 func (p *RootPane) ViewUp() {
@@ -165,11 +160,15 @@ func (p *RootPane) GetView() ui.ActiveView {
 func (p *RootPane) HasFocus() bool              { return true }
 func (p *RootPane) Focusses() ui.FocussablePane { return p.focussedViewPane }
 
-func (p *RootPane) ApplyModalOverlay(input.Tree) (index int) {
-	panic("todo: RootPane::ApplyModalOverlay")
+func (p *RootPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *RootPane) PopModalOverlay()           { panic("todo: RootPane::PopModalOverlay") }
-func (p *RootPane) PopModalOverlays(index int) { panic("todo: RootPane::PopModalOverlays") }
+func (p *RootPane) PopModalOverlay() {
+	p.inputProcessor.PopModalOverlay()
+}
+func (p *RootPane) PopModalOverlays(index int) {
+	p.inputProcessor.PopModalOverlays(index)
+}
 
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
@@ -183,7 +182,7 @@ func NewRootPane(
 	help ui.ConditionalOverlayPane,
 	editor ui.ConditionalOverlayPane,
 	performanceMetricsOverlay ui.EphemeralPane,
-	inputTree input.Tree,
+	inputProcessor input.ModalInputProcessor,
 	focussedPane ui.FocussablePane,
 ) *RootPane {
 	rootPane := &RootPane{
@@ -197,7 +196,7 @@ func NewRootPane(
 		help:                      help,
 		editor:                    editor,
 		performanceMetricsOverlay: performanceMetricsOverlay,
-		inputTree:                 inputTree,
+		inputProcessor:            inputProcessor,
 		focussedViewPane:          focussedPane,
 	}
 	dayViewMainPane.Parent = rootPane

@@ -7,7 +7,7 @@ type Tree struct {
 	Current *Node
 }
 
-func (t *Tree) Process(k Key) (applied bool) {
+func (t *Tree) ProcessInput(k Key) (applied bool) {
 	next := t.Current.Child(k)
 	switch {
 	case next == nil:
@@ -23,6 +23,6 @@ func (t *Tree) Process(k Key) (applied bool) {
 	}
 }
 
-func (t *Tree) Active() bool {
+func (t *Tree) CapturesInput() bool {
 	return t.Current != t.Root
 }
