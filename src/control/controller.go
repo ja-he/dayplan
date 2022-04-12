@@ -355,6 +355,18 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 						ensureVisible(controller.data.GetCurrentDay().Current.Start)
 					}
 				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'd'}: {Action: func() {
+					event := controller.data.GetCurrentDay().Current
+					if event != nil {
+						controller.data.GetCurrentDay().RemoveEvent(event)
+					}
+				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'i'}: {Action: func() {
+					event := controller.data.GetCurrentDay().Current
+					if event != nil {
+						controller.startEdit(event)
+					}
+				}},
 			},
 		}
 		dayViewEventsPaneInputTree = input.Tree{Root: root, Current: root}
@@ -458,12 +470,6 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'q'}: {Action: func() { controller.controllerEvents <- ControllerEventExit }},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'P'}: {Action: func() { controller.data.showDebug = !controller.data.showDebug }},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'd'}: {Action: func() {
-					event := controller.data.GetCurrentDay().Current
-					if event != nil {
-						controller.data.GetCurrentDay().RemoveEvent(event)
-					}
-				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {
 					Children: map[input.Key]*input.Node{
 						{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {Action: controller.ScrollTop},
