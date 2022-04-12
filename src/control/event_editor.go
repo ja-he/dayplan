@@ -1,8 +1,10 @@
 package control
 
 import (
-	"github.com/ja-he/dayplan/src/model"
 	"strconv"
+
+	"github.com/ja-he/dayplan/src/input"
+	"github.com/ja-he/dayplan/src/model"
 )
 
 // TODO: This could very well be its own package:
@@ -14,6 +16,8 @@ type EventEditor struct {
 	Original     *model.Event
 	TmpEventInfo model.Event
 	CursorPos    int
+
+	inputProcessor input.ModalInputProcessor
 }
 
 func (e *EventEditor) deleteRune() {
@@ -43,11 +47,25 @@ func (e *EventEditor) backspaceToBeginning() {
 	e.CursorPos = 0
 }
 
+func (e *EventEditor) deleteToEnd() {
+	nameBeforeCursor := []rune(e.TmpEventInfo.Name)[:e.CursorPos]
+	e.TmpEventInfo.Name = string(nameBeforeCursor)
+}
+
+func (e *EventEditor) clear() {
+	e.TmpEventInfo.Name = ""
+	e.CursorPos = 0
+}
+
 func (e *EventEditor) moveCursorToBeginning() {
 	e.CursorPos = 0
 }
 
 func (e *EventEditor) moveCursorToEnd() {
+	e.CursorPos = len([]rune(e.TmpEventInfo.Name)) - 1
+}
+
+func (e *EventEditor) moveCursorPastEnd() {
 	e.CursorPos = len([]rune(e.TmpEventInfo.Name))
 }
 
@@ -59,8 +77,68 @@ func (e *EventEditor) moveCursorLeft() {
 
 func (e *EventEditor) moveCursorRight() {
 	nameLen := len([]rune(e.TmpEventInfo.Name))
+	if e.CursorPos+1 < nameLen {
+		e.CursorPos++
+	}
+}
+
+func (e *EventEditor) moveCursorRightA() {
+	nameLen := len([]rune(e.TmpEventInfo.Name))
 	if e.CursorPos < nameLen {
 		e.CursorPos++
+	}
+}
+
+func (e *EventEditor) moveCursorNextWordBeginning() {
+	nameAfterCursor := []rune(e.TmpEventInfo.Name)[e.CursorPos:]
+	i := 0
+	for i < len(nameAfterCursor) && nameAfterCursor[i] != ' ' {
+		i++
+	}
+	for i < len(nameAfterCursor) && nameAfterCursor[i] == ' ' {
+		i++
+	}
+	newCursorPos := e.CursorPos + i
+	if newCursorPos < len([]rune(e.TmpEventInfo.Name)) {
+		e.CursorPos = newCursorPos
+	} else {
+		e.moveCursorToEnd()
+	}
+}
+
+func (e *EventEditor) moveCursorPrevWordBeginning() {
+	nameBeforeCursor := []rune(e.TmpEventInfo.Name)[:e.CursorPos]
+	if len(nameBeforeCursor) == 0 {
+		return
+	}
+	i := len(nameBeforeCursor) - 1
+	for i > 0 && nameBeforeCursor[i-1] == ' ' {
+		i--
+	}
+	for i > 0 && nameBeforeCursor[i-1] != ' ' {
+		i--
+	}
+	e.CursorPos = i
+}
+
+func (e *EventEditor) moveCursorNextWordEnd() {
+	nameAfterCursor := []rune(e.TmpEventInfo.Name)[e.CursorPos:]
+	if len(nameAfterCursor) == 0 {
+		return
+	}
+
+	i := 0
+	for i < len(nameAfterCursor)-1 && nameAfterCursor[i+1] == ' ' {
+		i++
+	}
+	for i < len(nameAfterCursor)-1 && nameAfterCursor[i+1] != ' ' {
+		i++
+	}
+	newCursorPos := e.CursorPos + i
+	if newCursorPos < len([]rune(e.TmpEventInfo.Name)) {
+		e.CursorPos = newCursorPos
+	} else {
+		e.moveCursorToEnd()
 	}
 }
 

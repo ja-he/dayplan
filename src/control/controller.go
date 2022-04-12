@@ -678,6 +678,68 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		},
 	}
 
+	editorInsertMode := processors.NewTextInputProcessor(
+		map[input.Key]input.Action{
+			{Key: tcell.KeyEsc, Ch: 0}:                                func() { controller.data.EventEditor.inputProcessor.PopModalOverlay() },
+			{Key: tcell.KeyESC, Ch: 0}:                                func() { controller.data.EventEditor.inputProcessor.PopModalOverlay() },
+			{Key: tcell.KeyEscape, Ch: 0}:                             func() { controller.data.EventEditor.inputProcessor.PopModalOverlay() },
+			{Key: tcell.KeyCtrlA, Ch: rune(tcell.KeyCtrlA)}:           controller.data.EventEditor.moveCursorToBeginning,
+			{Key: tcell.KeyDelete, Ch: 0}:                             controller.data.EventEditor.deleteRune,
+			{Key: tcell.KeyCtrlD, Ch: rune(tcell.KeyCtrlD)}:           controller.data.EventEditor.deleteRune,
+			{Key: tcell.KeyBackspace, Ch: rune(tcell.KeyBackspace)}:   controller.data.EventEditor.backspaceRune,
+			{Key: tcell.KeyBackspace2, Ch: rune(tcell.KeyBackspace2)}: controller.data.EventEditor.backspaceRune,
+			{Key: tcell.KeyCtrlE, Ch: rune(tcell.KeyCtrlE)}:           controller.data.EventEditor.moveCursorToEnd,
+			{Key: tcell.KeyCtrlA, Ch: rune(tcell.KeyCtrlA)}:           controller.data.EventEditor.moveCursorToBeginning,
+			{Key: tcell.KeyCtrlU, Ch: rune(tcell.KeyCtrlU)}:           controller.data.EventEditor.backspaceToBeginning,
+			{Key: tcell.KeyLeft, Ch: 0}:                               controller.data.EventEditor.moveCursorLeft,
+			{Key: tcell.KeyRight, Ch: 0}:                              controller.data.EventEditor.moveCursorRight,
+		},
+		controller.data.EventEditor.addRune,
+	)
+
+	editorNormalModeRoot := &input.Node{
+		Action: nil,
+		Children: map[input.Key]*input.Node{
+			{Key: tcell.KeyEsc, Ch: 0}:                      {Action: controller.abortEdit},
+			{Key: tcell.KeyEnter, Ch: rune(tcell.KeyEnter)}: {Action: controller.endEdit},
+			{Key: tcell.KeyRune, Ch: 'i'}:                   {Action: func() { controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode) }},
+			{Key: tcell.KeyRune, Ch: 'a'}: {Action: func() {
+				controller.data.EventEditor.moveCursorRightA()
+				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+			}},
+			{Key: tcell.KeyRune, Ch: 'A'}: {Action: func() {
+				controller.data.EventEditor.moveCursorPastEnd()
+				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+			}},
+			{Key: tcell.KeyRune, Ch: '0'}: {Action: controller.data.EventEditor.moveCursorToBeginning},
+			{Key: tcell.KeyRune, Ch: '$'}: {Action: controller.data.EventEditor.moveCursorToEnd},
+			{Key: tcell.KeyRune, Ch: 'h'}: {Action: controller.data.EventEditor.moveCursorLeft},
+			{Key: tcell.KeyRune, Ch: 'l'}: {Action: controller.data.EventEditor.moveCursorRight},
+			{Key: tcell.KeyRune, Ch: 'w'}: {Action: controller.data.EventEditor.moveCursorNextWordBeginning},
+			{Key: tcell.KeyRune, Ch: 'b'}: {Action: controller.data.EventEditor.moveCursorPrevWordBeginning},
+			{Key: tcell.KeyRune, Ch: 'e'}: {Action: controller.data.EventEditor.moveCursorNextWordEnd},
+			{Key: tcell.KeyRune, Ch: 'x'}: {Action: controller.data.EventEditor.deleteRune},
+			{Key: tcell.KeyRune, Ch: 'C'}: {Action: func() {
+				controller.data.EventEditor.deleteToEnd()
+				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+			}},
+			{Key: tcell.KeyRune, Ch: 'c'}: {
+				Children: map[input.Key]*input.Node{{Key: tcell.KeyRune, Ch: 'c'}: {Action: func() {
+					controller.data.EventEditor.clear()
+					controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+				}}},
+			},
+			{Key: tcell.KeyRune, Ch: 'd'}: {
+				Children: map[input.Key]*input.Node{{Key: tcell.KeyRune, Ch: 'd'}: {Action: func() {
+					controller.data.EventEditor.clear()
+				}}},
+			},
+		},
+	}
+	controller.data.EventEditor.inputProcessor = processors.NewModalInputProcessor(
+		&input.Tree{Root: editorNormalModeRoot, Current: editorNormalModeRoot},
+	)
+
 	coordinatesProvided := (envData.Latitude != "" && envData.Longitude != "")
 	owmApiKeyProvided := (envData.OwmApiKey != "")
 
@@ -914,9 +976,9 @@ func (t *Controller) updateCursorPos(x, y int) {
 
 func (t *Controller) startEdit(event *model.Event) {
 	t.data.EventEditor.Active = true
-	t.data.EventEditor.TmpEventInfo = *event // TODO: does rename still work the same?
+	t.data.EventEditor.TmpEventInfo = *event
 	t.data.EventEditor.Original = event
-	t.data.EventEditor.CursorPos = len([]rune(t.data.EventEditor.TmpEventInfo.Name))
+	t.data.EventEditor.CursorPos = 0
 	t.editState = EditStateEditing
 }
 
@@ -1053,39 +1115,11 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 func (t *Controller) handleEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
-		editor := &t.data.EventEditor
-
-		switch e.Key() {
-		case tcell.KeyEsc:
-			t.abortEdit()
-
-		case tcell.KeyEnter:
-			t.endEdit()
-
-		case tcell.KeyDelete, tcell.KeyCtrlD:
-			editor.deleteRune()
-
-		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			editor.backspaceRune()
-
-		case tcell.KeyCtrlE:
-			editor.moveCursorToEnd()
-
-		case tcell.KeyCtrlA:
-			editor.moveCursorToBeginning()
-
-		case tcell.KeyCtrlU:
-			editor.backspaceToBeginning()
-
-		case tcell.KeyLeft:
-			editor.moveCursorLeft()
-
-		case tcell.KeyRight:
-			editor.moveCursorRight()
-
-		default:
-			editor.addRune(e.Rune())
-		}
+		t.data.EventEditor.inputProcessor.ProcessInput(input.Key{
+			Mod: 0,
+			Key: e.Key(),
+			Ch:  e.Rune(),
+		})
 	}
 }
 
