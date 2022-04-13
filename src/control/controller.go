@@ -440,13 +440,17 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		)
 	}}
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyRune, Ch: 'o'}] = &input.Node{Action: func() {
-		currentEnd := controller.data.GetCurrentDay().Current.End
+		current := controller.data.GetCurrentDay().Current
 		newEvent := &model.Event{
-			Start: currentEnd,
-			End:   currentEnd.OffsetMinutes(60),
-			Name:  "",
-			Cat:   controller.data.CurrentCategory,
+			Name: "",
+			Cat:  controller.data.CurrentCategory,
 		}
+		if current == nil {
+			newEvent.Start = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.NRowsPerHour)
+		} else {
+			newEvent.Start = current.End
+		}
+		newEvent.End = newEvent.Start.OffsetMinutes(60)
 		controller.data.GetCurrentDay().AddEvent(newEvent)
 	}}
 
