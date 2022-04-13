@@ -17,8 +17,13 @@ type EventEditor struct {
 	TmpEventInfo model.Event
 	CursorPos    int
 
+	mode input.TextEditMode
+
 	inputProcessor input.ModalInputProcessor
 }
+
+func (e *EventEditor) GetMode() input.TextEditMode  { return e.mode }
+func (e *EventEditor) SetMode(m input.TextEditMode) { e.mode = m }
 
 func (e *EventEditor) deleteRune() {
 	tmpStr := []rune(e.TmpEventInfo.Name)

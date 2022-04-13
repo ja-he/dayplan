@@ -699,6 +699,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			stylesheet,
 			func() bool { return controller.data.EventEditor.Active },
 			func() string { return controller.data.EventEditor.TmpEventInfo.Name },
+			controller.data.EventEditor.GetMode,
 			func() int { return controller.data.EventEditor.CursorPos },
 		),
 
@@ -726,11 +727,22 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		},
 	}
 
+	controller.data.EventEditor.SetMode(input.TextEditModeNormal)
+
 	editorInsertMode := processors.NewTextInputProcessor(
 		map[input.Key]input.Action{
-			{Key: tcell.KeyEsc, Ch: 0}:                                func() { controller.data.EventEditor.inputProcessor.PopModalOverlay() },
-			{Key: tcell.KeyESC, Ch: 0}:                                func() { controller.data.EventEditor.inputProcessor.PopModalOverlay() },
-			{Key: tcell.KeyEscape, Ch: 0}:                             func() { controller.data.EventEditor.inputProcessor.PopModalOverlay() },
+			{Key: tcell.KeyEsc, Ch: 0}: func() {
+				controller.data.EventEditor.inputProcessor.PopModalOverlay()
+				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
+			},
+			{Key: tcell.KeyESC, Ch: 0}: func() {
+				controller.data.EventEditor.inputProcessor.PopModalOverlay()
+				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
+			},
+			{Key: tcell.KeyEscape, Ch: 0}: func() {
+				controller.data.EventEditor.inputProcessor.PopModalOverlay()
+				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
+			},
 			{Key: tcell.KeyCtrlA, Ch: rune(tcell.KeyCtrlA)}:           controller.data.EventEditor.moveCursorToBeginning,
 			{Key: tcell.KeyDelete, Ch: 0}:                             controller.data.EventEditor.deleteRune,
 			{Key: tcell.KeyCtrlD, Ch: rune(tcell.KeyCtrlD)}:           controller.data.EventEditor.deleteRune,
@@ -750,7 +762,10 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		Children: map[input.Key]*input.Node{
 			{Key: tcell.KeyEsc, Ch: 0}:                      {Action: controller.abortEdit},
 			{Key: tcell.KeyEnter, Ch: rune(tcell.KeyEnter)}: {Action: controller.endEdit},
-			{Key: tcell.KeyRune, Ch: 'i'}:                   {Action: func() { controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode) }},
+			{Key: tcell.KeyRune, Ch: 'i'}: {Action: func() {
+				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
+			}},
 			{Key: tcell.KeyRune, Ch: 'a'}: {Action: func() {
 				controller.data.EventEditor.moveCursorRightA()
 				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
