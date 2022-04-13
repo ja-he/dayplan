@@ -411,8 +411,8 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			Action: nil,
 			Children: map[input.Key]*input.Node{
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'j'}: {Action: func() {
-					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(10)
-					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10)
+					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
+					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
 					controller.data.GetCurrentDay().SetTimes(
 						controller.data.GetCurrentDay().Current,
 						newStart, newEnd,
@@ -420,8 +420,8 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 					ensureVisible(newEnd)
 				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'k'}: {Action: func() {
-					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(-10)
-					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(-10)
+					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(-10).Snap(controller.data.ViewParams.NRowsPerHour)
+					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(-10).Snap(controller.data.ViewParams.NRowsPerHour)
 					controller.data.GetCurrentDay().SetTimes(
 						controller.data.GetCurrentDay().Current,
 						newStart, newEnd,
