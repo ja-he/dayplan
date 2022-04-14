@@ -17,15 +17,15 @@ type EventEditor struct {
 	TmpEventInfo model.Event
 	CursorPos    int
 
-	mode input.TextEditMode
+	Mode input.TextEditMode
 
-	inputProcessor input.ModalInputProcessor
+	InputProcessor input.ModalInputProcessor
 }
 
-func (e *EventEditor) GetMode() input.TextEditMode  { return e.mode }
-func (e *EventEditor) SetMode(m input.TextEditMode) { e.mode = m }
+func (e *EventEditor) GetMode() input.TextEditMode  { return e.Mode }
+func (e *EventEditor) SetMode(m input.TextEditMode) { e.Mode = m }
 
-func (e *EventEditor) deleteRune() {
+func (e *EventEditor) DeleteRune() {
 	tmpStr := []rune(e.TmpEventInfo.Name)
 	if e.CursorPos < len(tmpStr) {
 		preCursor := tmpStr[:e.CursorPos]
@@ -35,7 +35,7 @@ func (e *EventEditor) deleteRune() {
 	}
 }
 
-func (e *EventEditor) backspaceRune() {
+func (e *EventEditor) BackspaceRune() {
 	if e.CursorPos > 0 {
 		tmpStr := []rune(e.TmpEventInfo.Name)
 		preCursor := tmpStr[:e.CursorPos-1]
@@ -46,55 +46,55 @@ func (e *EventEditor) backspaceRune() {
 	}
 }
 
-func (e *EventEditor) backspaceToBeginning() {
+func (e *EventEditor) BackspaceToBeginning() {
 	nameAfterCursor := []rune(e.TmpEventInfo.Name)[e.CursorPos:]
 	e.TmpEventInfo.Name = string(nameAfterCursor)
 	e.CursorPos = 0
 }
 
-func (e *EventEditor) deleteToEnd() {
+func (e *EventEditor) DeleteToEnd() {
 	nameBeforeCursor := []rune(e.TmpEventInfo.Name)[:e.CursorPos]
 	e.TmpEventInfo.Name = string(nameBeforeCursor)
 }
 
-func (e *EventEditor) clear() {
+func (e *EventEditor) Clear() {
 	e.TmpEventInfo.Name = ""
 	e.CursorPos = 0
 }
 
-func (e *EventEditor) moveCursorToBeginning() {
+func (e *EventEditor) MoveCursorToBeginning() {
 	e.CursorPos = 0
 }
 
-func (e *EventEditor) moveCursorToEnd() {
+func (e *EventEditor) MoveCursorToEnd() {
 	e.CursorPos = len([]rune(e.TmpEventInfo.Name)) - 1
 }
 
-func (e *EventEditor) moveCursorPastEnd() {
+func (e *EventEditor) MoveCursorPastEnd() {
 	e.CursorPos = len([]rune(e.TmpEventInfo.Name))
 }
 
-func (e *EventEditor) moveCursorLeft() {
+func (e *EventEditor) MoveCursorLeft() {
 	if e.CursorPos > 0 {
 		e.CursorPos--
 	}
 }
 
-func (e *EventEditor) moveCursorRight() {
+func (e *EventEditor) MoveCursorRight() {
 	nameLen := len([]rune(e.TmpEventInfo.Name))
 	if e.CursorPos+1 < nameLen {
 		e.CursorPos++
 	}
 }
 
-func (e *EventEditor) moveCursorRightA() {
+func (e *EventEditor) MoveCursorRightA() {
 	nameLen := len([]rune(e.TmpEventInfo.Name))
 	if e.CursorPos < nameLen {
 		e.CursorPos++
 	}
 }
 
-func (e *EventEditor) moveCursorNextWordBeginning() {
+func (e *EventEditor) MoveCursorNextWordBeginning() {
 	nameAfterCursor := []rune(e.TmpEventInfo.Name)[e.CursorPos:]
 	i := 0
 	for i < len(nameAfterCursor) && nameAfterCursor[i] != ' ' {
@@ -107,11 +107,11 @@ func (e *EventEditor) moveCursorNextWordBeginning() {
 	if newCursorPos < len([]rune(e.TmpEventInfo.Name)) {
 		e.CursorPos = newCursorPos
 	} else {
-		e.moveCursorToEnd()
+		e.MoveCursorToEnd()
 	}
 }
 
-func (e *EventEditor) moveCursorPrevWordBeginning() {
+func (e *EventEditor) MoveCursorPrevWordBeginning() {
 	nameBeforeCursor := []rune(e.TmpEventInfo.Name)[:e.CursorPos]
 	if len(nameBeforeCursor) == 0 {
 		return
@@ -126,7 +126,7 @@ func (e *EventEditor) moveCursorPrevWordBeginning() {
 	e.CursorPos = i
 }
 
-func (e *EventEditor) moveCursorNextWordEnd() {
+func (e *EventEditor) MoveCursorNextWordEnd() {
 	nameAfterCursor := []rune(e.TmpEventInfo.Name)[e.CursorPos:]
 	if len(nameAfterCursor) == 0 {
 		return
@@ -143,11 +143,11 @@ func (e *EventEditor) moveCursorNextWordEnd() {
 	if newCursorPos < len([]rune(e.TmpEventInfo.Name)) {
 		e.CursorPos = newCursorPos
 	} else {
-		e.moveCursorToEnd()
+		e.MoveCursorToEnd()
 	}
 }
 
-func (e *EventEditor) addRune(newRune rune) {
+func (e *EventEditor) AddRune(newRune rune) {
 	if strconv.IsPrint(newRune) {
 		tmpName := []rune(e.TmpEventInfo.Name)
 		cursorPos := e.CursorPos

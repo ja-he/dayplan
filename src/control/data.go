@@ -70,7 +70,7 @@ type DayWithInfo struct {
 }
 
 type ControlData struct {
-	cursorPos ui.MouseCursorPos
+	CursorPos ui.MouseCursorPos
 
 	Categories      []model.Category
 	CurrentCategory model.Category
@@ -82,21 +82,21 @@ type ControlData struct {
 	Weather     weather.Handler
 
 	EventEditor EventEditor
-	showLog     bool
-	showHelp    bool
-	showSummary bool
-	showDebug   bool
+	ShowLog     bool
+	ShowHelp    bool
+	ShowSummary bool
+	ShowDebug   bool
 
 	ViewParams ui.ViewParams
 
-	activeView func() ui.ActiveView
+	ActiveView func() ui.ActiveView
 
 	Log potatolog.Log
 
-	renderTimes          util.MetricsHandler
-	eventProcessingTimes util.MetricsHandler
+	RenderTimes          util.MetricsHandler
+	EventProcessingTimes util.MetricsHandler
 
-	mouseMode bool
+	MouseMode bool
 }
 
 type DaysData struct {

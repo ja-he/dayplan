@@ -1,4 +1,4 @@
-package control
+package cli
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/input/processors"
@@ -43,7 +44,7 @@ type EditedEvent struct {
 }
 
 type Controller struct {
-	data     *ControlData
+	data     *control.ControlData
 	rootPane interface {
 		ui.Pane
 		input.ModalInputProcessor
@@ -98,10 +99,10 @@ func (s EditState) toString() string {
 	return "TODO"
 }
 
-func NewController(date model.Date, envData EnvData, categoryStyling styling.CategoryStyling, stylesheet styling.Stylesheet) *Controller {
+func NewController(date model.Date, envData control.EnvData, categoryStyling styling.CategoryStyling, stylesheet styling.Stylesheet) *Controller {
 	controller := Controller{}
 
-	controller.data = NewControlData(categoryStyling)
+	controller.data = control.NewControlData(categoryStyling)
 
 	toolsWidth := 20
 	statusHeight := 2
@@ -177,13 +178,13 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			},
 			categoryStyling.GetStyle,
 			&controller.data.ViewParams,
-			&controller.data.cursorPos,
+			&controller.data.CursorPos,
 			0,
 			false,
 			true,
 			func() bool { return controller.data.CurrentDate.GetDayInWeek(dayIndex) == controller.data.CurrentDate },
 			func() *model.Event { return nil /* TODO */ },
-			func() bool { return controller.data.mouseMode },
+			func() bool { return controller.data.MouseMode },
 			&controller.data.Log,
 			&controller.data.Log,
 		)
@@ -211,13 +212,13 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				},
 				categoryStyling.GetStyle,
 				&controller.data.ViewParams,
-				&controller.data.cursorPos,
+				&controller.data.CursorPos,
 				0,
 				false,
 				false,
 				func() bool { return controller.data.CurrentDate.GetDayInMonth(dayIndex) == controller.data.CurrentDate },
 				func() *model.Event { return nil /* TODO */ },
-				func() bool { return controller.data.mouseMode },
+				func() bool { return controller.data.MouseMode },
 				&controller.data.Log,
 				&controller.data.Log,
 			),
@@ -241,7 +242,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		&controller.data.CurrentDate,
 		func() int {
 			_, _, w, _ := statusDimensions()
-			switch controller.data.activeView() {
+			switch controller.data.ActiveView() {
 			case ui.ViewDay:
 				return w - timelineWidth
 			case ui.ViewWeek:
@@ -253,7 +254,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			}
 		},
 		func() int {
-			switch controller.data.activeView() {
+			switch controller.data.ActiveView() {
 			case ui.ViewDay:
 				return 1
 			case ui.ViewWeek:
@@ -265,7 +266,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			}
 		},
 		func() int {
-			switch controller.data.activeView() {
+			switch controller.data.ActiveView() {
 			case ui.ViewDay:
 				return 1
 			case ui.ViewWeek:
@@ -391,13 +392,13 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		controller.data.GetCurrentDay,
 		categoryStyling.GetStyle,
 		&controller.data.ViewParams,
-		&controller.data.cursorPos,
+		&controller.data.CursorPos,
 		2,
 		true,
 		true,
 		func() bool { return true },
 		func() *model.Event { return controller.data.GetCurrentDay().Current },
-		func() bool { return controller.data.mouseMode },
+		func() bool { return controller.data.MouseMode },
 		&controller.data.Log,
 		&controller.data.Log,
 	)
@@ -505,7 +506,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 					}()
 				}},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'q'}: {Action: func() { controller.controllerEvents <- ControllerEventExit }},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'P'}: {Action: func() { controller.data.showDebug = !controller.data.showDebug }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'P'}: {Action: func() { controller.data.ShowDebug = !controller.data.ShowDebug }},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {
 					Children: map[input.Key]*input.Node{
 						{Mod: 0, Key: tcell.KeyRune, Ch: 'g'}: {Action: controller.ScrollTop},
@@ -515,9 +516,9 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'w'}: {Action: controller.writeModel},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'h'}: {Action: controller.goToPreviousDay},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'l'}: {Action: controller.goToNextDay},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'S'}: {Action: func() { controller.data.showSummary = !controller.data.showSummary }},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'E'}: {Action: func() { controller.data.showLog = !controller.data.showLog }},
-				{Mod: 0, Key: tcell.KeyRune, Ch: '?'}: {Action: func() { controller.data.showHelp = !controller.data.showHelp }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'S'}: {Action: func() { controller.data.ShowSummary = !controller.data.ShowSummary }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'E'}: {Action: func() { controller.data.ShowLog = !controller.data.ShowLog }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: '?'}: {Action: func() { controller.data.ShowHelp = !controller.data.ShowHelp }},
 				{Mod: 0, Key: tcell.KeyRune, Ch: 'c'}: {Action: func() {
 					controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
 				}},
@@ -634,10 +635,10 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			tui.NewConstrainedRenderer(renderer, screenDimensions),
 			screenDimensions,
 			stylesheet,
-			func() bool { return controller.data.showSummary },
+			func() bool { return controller.data.ShowSummary },
 			func() string {
 				dateString := ""
-				switch controller.data.activeView() {
+				switch controller.data.ActiveView() {
 				case ui.ViewDay:
 					dateString = controller.data.CurrentDate.ToString()
 				case ui.ViewWeek:
@@ -649,7 +650,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 				return fmt.Sprintf("SUMMARY (%s)", dateString)
 			},
 			func() []*model.Day {
-				switch controller.data.activeView() {
+				switch controller.data.ActiveView() {
 				case ui.ViewDay:
 					result := make([]*model.Day, 1)
 					result[0] = controller.data.Days.GetDay(controller.data.CurrentDate)
@@ -680,7 +681,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			tui.NewConstrainedRenderer(renderer, screenDimensions),
 			screenDimensions,
 			stylesheet,
-			func() bool { return controller.data.showLog },
+			func() bool { return controller.data.ShowLog },
 			func() string { return "LOG" },
 			&controller.data.Log,
 		),
@@ -688,7 +689,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			tui.NewConstrainedRenderer(renderer, helpDimensions),
 			helpDimensions,
 			stylesheet,
-			func() bool { return controller.data.showHelp },
+			func() bool { return controller.data.ShowHelp },
 		),
 		panes.NewEditorPane(
 			tui.NewConstrainedRenderer(renderer, editorDimensions),
@@ -704,24 +705,24 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 		panes.NewPerfPane(
 			tui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) { return 2, 2, 50, 2 }),
 			func() (x, y, w, h int) { return 2, 2, 50, 2 },
-			func() bool { return controller.data.showDebug },
-			&controller.data.renderTimes,
-			&controller.data.eventProcessingTimes,
+			func() bool { return controller.data.ShowDebug },
+			&controller.data.RenderTimes,
+			&controller.data.EventProcessingTimes,
 		),
 		processors.NewModalInputProcessor(&rootPaneInputTree),
 		dayViewMainPane,
 	)
-	controller.data.activeView = rootPane.GetView
+	controller.data.ActiveView = rootPane.GetView
 	rootPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyESC, Ch: 0}] = &input.Node{
 		Action: func() {
 			rootPane.ViewUp()
-			controller.loadDaysForView(controller.data.activeView())
+			controller.loadDaysForView(controller.data.ActiveView())
 		},
 	}
 	rootPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyRune, Ch: 'i'}] = &input.Node{
 		Action: func() {
 			rootPane.ViewDown()
-			controller.loadDaysForView(controller.data.activeView())
+			controller.loadDaysForView(controller.data.ActiveView())
 		},
 	}
 
@@ -730,29 +731,29 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 	editorInsertMode := processors.NewTextInputProcessor(
 		map[input.Key]input.Action{
 			{Key: tcell.KeyEsc, Ch: 0}: func() {
-				controller.data.EventEditor.inputProcessor.PopModalOverlay()
+				controller.data.EventEditor.InputProcessor.PopModalOverlay()
 				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
 			},
 			{Key: tcell.KeyESC, Ch: 0}: func() {
-				controller.data.EventEditor.inputProcessor.PopModalOverlay()
+				controller.data.EventEditor.InputProcessor.PopModalOverlay()
 				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
 			},
 			{Key: tcell.KeyEscape, Ch: 0}: func() {
-				controller.data.EventEditor.inputProcessor.PopModalOverlay()
+				controller.data.EventEditor.InputProcessor.PopModalOverlay()
 				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
 			},
-			{Key: tcell.KeyCtrlA, Ch: rune(tcell.KeyCtrlA)}:           controller.data.EventEditor.moveCursorToBeginning,
-			{Key: tcell.KeyDelete, Ch: 0}:                             controller.data.EventEditor.deleteRune,
-			{Key: tcell.KeyCtrlD, Ch: rune(tcell.KeyCtrlD)}:           controller.data.EventEditor.deleteRune,
-			{Key: tcell.KeyBackspace, Ch: rune(tcell.KeyBackspace)}:   controller.data.EventEditor.backspaceRune,
-			{Key: tcell.KeyBackspace2, Ch: rune(tcell.KeyBackspace2)}: controller.data.EventEditor.backspaceRune,
-			{Key: tcell.KeyCtrlE, Ch: rune(tcell.KeyCtrlE)}:           controller.data.EventEditor.moveCursorToEnd,
-			{Key: tcell.KeyCtrlA, Ch: rune(tcell.KeyCtrlA)}:           controller.data.EventEditor.moveCursorToBeginning,
-			{Key: tcell.KeyCtrlU, Ch: rune(tcell.KeyCtrlU)}:           controller.data.EventEditor.backspaceToBeginning,
-			{Key: tcell.KeyLeft, Ch: 0}:                               controller.data.EventEditor.moveCursorLeft,
-			{Key: tcell.KeyRight, Ch: 0}:                              controller.data.EventEditor.moveCursorRight,
+			{Key: tcell.KeyCtrlA, Ch: rune(tcell.KeyCtrlA)}:           controller.data.EventEditor.MoveCursorToBeginning,
+			{Key: tcell.KeyDelete, Ch: 0}:                             controller.data.EventEditor.DeleteRune,
+			{Key: tcell.KeyCtrlD, Ch: rune(tcell.KeyCtrlD)}:           controller.data.EventEditor.DeleteRune,
+			{Key: tcell.KeyBackspace, Ch: rune(tcell.KeyBackspace)}:   controller.data.EventEditor.BackspaceRune,
+			{Key: tcell.KeyBackspace2, Ch: rune(tcell.KeyBackspace2)}: controller.data.EventEditor.BackspaceRune,
+			{Key: tcell.KeyCtrlE, Ch: rune(tcell.KeyCtrlE)}:           controller.data.EventEditor.MoveCursorToEnd,
+			{Key: tcell.KeyCtrlA, Ch: rune(tcell.KeyCtrlA)}:           controller.data.EventEditor.MoveCursorToBeginning,
+			{Key: tcell.KeyCtrlU, Ch: rune(tcell.KeyCtrlU)}:           controller.data.EventEditor.BackspaceToBeginning,
+			{Key: tcell.KeyLeft, Ch: 0}:                               controller.data.EventEditor.MoveCursorLeft,
+			{Key: tcell.KeyRight, Ch: 0}:                              controller.data.EventEditor.MoveCursorRight,
 		},
-		controller.data.EventEditor.addRune,
+		controller.data.EventEditor.AddRune,
 	)
 
 	editorNormalModeRoot := &input.Node{
@@ -761,43 +762,43 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 			{Key: tcell.KeyEsc, Ch: 0}:                      {Action: controller.abortEdit},
 			{Key: tcell.KeyEnter, Ch: rune(tcell.KeyEnter)}: {Action: controller.endEdit},
 			{Key: tcell.KeyRune, Ch: 'i'}: {Action: func() {
-				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
 				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
 			}},
 			{Key: tcell.KeyRune, Ch: 'a'}: {Action: func() {
-				controller.data.EventEditor.moveCursorRightA()
-				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.MoveCursorRightA()
+				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
 			}},
 			{Key: tcell.KeyRune, Ch: 'A'}: {Action: func() {
-				controller.data.EventEditor.moveCursorPastEnd()
-				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.MoveCursorPastEnd()
+				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
 			}},
-			{Key: tcell.KeyRune, Ch: '0'}: {Action: controller.data.EventEditor.moveCursorToBeginning},
-			{Key: tcell.KeyRune, Ch: '$'}: {Action: controller.data.EventEditor.moveCursorToEnd},
-			{Key: tcell.KeyRune, Ch: 'h'}: {Action: controller.data.EventEditor.moveCursorLeft},
-			{Key: tcell.KeyRune, Ch: 'l'}: {Action: controller.data.EventEditor.moveCursorRight},
-			{Key: tcell.KeyRune, Ch: 'w'}: {Action: controller.data.EventEditor.moveCursorNextWordBeginning},
-			{Key: tcell.KeyRune, Ch: 'b'}: {Action: controller.data.EventEditor.moveCursorPrevWordBeginning},
-			{Key: tcell.KeyRune, Ch: 'e'}: {Action: controller.data.EventEditor.moveCursorNextWordEnd},
-			{Key: tcell.KeyRune, Ch: 'x'}: {Action: controller.data.EventEditor.deleteRune},
+			{Key: tcell.KeyRune, Ch: '0'}: {Action: controller.data.EventEditor.MoveCursorToBeginning},
+			{Key: tcell.KeyRune, Ch: '$'}: {Action: controller.data.EventEditor.MoveCursorToEnd},
+			{Key: tcell.KeyRune, Ch: 'h'}: {Action: controller.data.EventEditor.MoveCursorLeft},
+			{Key: tcell.KeyRune, Ch: 'l'}: {Action: controller.data.EventEditor.MoveCursorRight},
+			{Key: tcell.KeyRune, Ch: 'w'}: {Action: controller.data.EventEditor.MoveCursorNextWordBeginning},
+			{Key: tcell.KeyRune, Ch: 'b'}: {Action: controller.data.EventEditor.MoveCursorPrevWordBeginning},
+			{Key: tcell.KeyRune, Ch: 'e'}: {Action: controller.data.EventEditor.MoveCursorNextWordEnd},
+			{Key: tcell.KeyRune, Ch: 'x'}: {Action: controller.data.EventEditor.DeleteRune},
 			{Key: tcell.KeyRune, Ch: 'C'}: {Action: func() {
-				controller.data.EventEditor.deleteToEnd()
-				controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.DeleteToEnd()
+				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
 			}},
 			{Key: tcell.KeyRune, Ch: 'c'}: {
 				Children: map[input.Key]*input.Node{{Key: tcell.KeyRune, Ch: 'c'}: {Action: func() {
-					controller.data.EventEditor.clear()
-					controller.data.EventEditor.inputProcessor.ApplyModalOverlay(editorInsertMode)
+					controller.data.EventEditor.Clear()
+					controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
 				}}},
 			},
 			{Key: tcell.KeyRune, Ch: 'd'}: {
 				Children: map[input.Key]*input.Node{{Key: tcell.KeyRune, Ch: 'd'}: {Action: func() {
-					controller.data.EventEditor.clear()
+					controller.data.EventEditor.Clear()
 				}}},
 			},
 		},
 	}
-	controller.data.EventEditor.inputProcessor = processors.NewModalInputProcessor(
+	controller.data.EventEditor.InputProcessor = processors.NewModalInputProcessor(
 		&input.Tree{Root: editorNormalModeRoot, Current: editorNormalModeRoot},
 	)
 
@@ -850,7 +851,7 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 	controller.rootPane = rootPane
 	controller.data.CurrentCategory.Name = "default"
 
-	controller.loadDaysForView(controller.data.activeView())
+	controller.loadDaysForView(controller.data.ActiveView())
 
 	controller.timestampGuesser = func(cursorX, cursorY int) model.Timestamp {
 		_, yOffset, _, _ := dayViewEventsPaneDimensions()
@@ -950,7 +951,7 @@ func (t *Controller) goToDay(newDate model.Date) {
 	t.data.Log.Add("DEBUG", "going to "+newDate.ToString())
 
 	t.data.CurrentDate = newDate
-	t.loadDaysForView(t.data.activeView())
+	t.loadDaysForView(t.data.ActiveView())
 }
 
 func (t *Controller) goToPreviousDay() {
@@ -1032,7 +1033,7 @@ func (t *Controller) writeModel() {
 }
 
 func (t *Controller) updateCursorPos(x, y int) {
-	t.data.cursorPos.X, t.data.cursorPos.Y = x, y
+	t.data.CursorPos.X, t.data.CursorPos.Y = x, y
 }
 
 func (t *Controller) startEdit(event *model.Event) {
@@ -1046,14 +1047,14 @@ func (t *Controller) startEdit(event *model.Event) {
 func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
-		t.data.mouseMode = false
+		t.data.MouseMode = false
 		key := input.Key{Mod: 0, Key: e.Key(), Ch: e.Rune()}
 		inputApplied := t.rootPane.ProcessInput(key)
 		if !inputApplied {
 			t.data.Log.Add("ERROR", fmt.Sprintf("could not apply key input %s", key.ToString()))
 		}
 	case *tcell.EventMouse:
-		t.data.mouseMode = true
+		t.data.MouseMode = true
 
 		// get new position
 		x, y := e.Position()
@@ -1176,7 +1177,7 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 func (t *Controller) handleEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
-		t.data.EventEditor.inputProcessor.ProcessInput(input.Key{
+		t.data.EventEditor.InputProcessor.ProcessInput(input.Key{
 			Mod: 0,
 			Key: e.Key(),
 			Ch:  e.Rune(),
@@ -1258,7 +1259,7 @@ func (t *Controller) Run() {
 					t.rootPane.Draw()
 
 					end := time.Now()
-					t.data.renderTimes.Add(uint64(end.Sub(start).Microseconds()))
+					t.data.RenderTimes.Add(uint64(end.Sub(start).Microseconds()))
 				case ControllerEventExit:
 					return
 				}
@@ -1301,7 +1302,7 @@ func (t *Controller) Run() {
 			}
 
 			end := time.Now()
-			t.data.eventProcessingTimes.Add(uint64(end.Sub(start).Microseconds()))
+			t.data.EventProcessingTimes.Add(uint64(end.Sub(start).Microseconds()))
 
 			t.controllerEvents <- ControllerEventRender
 		}
