@@ -96,8 +96,18 @@ type ControlData struct {
 	RenderTimes          util.MetricsHandler
 	EventProcessingTimes util.MetricsHandler
 
-	MouseMode bool
+	MouseMode     bool
+	EventEditMode EventEditMode
 }
+
+type EventEditMode = int
+
+const (
+	_ EventEditMode = iota
+	EventEditModeNormal
+	EventEditModeMove
+	EventEditModeResize
+)
 
 type DaysData struct {
 	daysMutex sync.RWMutex
