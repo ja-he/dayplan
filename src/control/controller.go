@@ -428,9 +428,8 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 					)
 					ensureVisible(newStart)
 				}},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'm'}: {Action: func() {
-					dayEventsPane.PopModalOverlay()
-				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'm'}: {Action: func() { dayEventsPane.PopModalOverlay() }},
+				{Mod: 0, Key: tcell.KeyESC, Ch: 0}:    {Action: func() { dayEventsPane.PopModalOverlay() }},
 			},
 		}
 		dayEventsPane.ApplyModalOverlay(
@@ -462,9 +461,8 @@ func NewController(date model.Date, envData EnvData, categoryStyling styling.Cat
 						controller.data.GetCurrentDay().Current.Start, newEnd,
 					)
 				}},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'r'}: {Action: func() {
-					dayEventsPane.PopModalOverlay()
-				}},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'r'}: {Action: func() { dayEventsPane.PopModalOverlay() }},
+				{Mod: 0, Key: tcell.KeyESC, Ch: 0}:    {Action: func() { dayEventsPane.PopModalOverlay() }},
 			},
 		}
 		dayEventsPane.ApplyModalOverlay(
