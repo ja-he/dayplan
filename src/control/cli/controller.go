@@ -295,6 +295,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			}
 		},
 		func() int { return timelineWidth },
+		func() control.EventEditMode { return controller.data.EventEditMode },
 	)
 
 	var toolsInputTree input.Tree
@@ -429,8 +430,8 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 					)
 					ensureVisible(newStart)
 				}},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'm'}: {Action: func() { dayEventsPane.PopModalOverlay() }},
-				{Mod: 0, Key: tcell.KeyESC, Ch: 0}:    {Action: func() { dayEventsPane.PopModalOverlay() }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'm'}: {Action: func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }},
+				{Mod: 0, Key: tcell.KeyESC, Ch: 0}:    {Action: func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }},
 			},
 		}
 		dayEventsPane.ApplyModalOverlay(
@@ -438,6 +439,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				&input.Tree{Root: overlayRoot, Current: overlayRoot},
 			),
 		)
+		controller.data.EventEditMode = control.EventEditModeMove
 	}}
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyRune, Ch: 'r'}] = &input.Node{Action: func() {
 		if controller.data.GetCurrentDay().Current == nil {
@@ -462,8 +464,8 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 						controller.data.GetCurrentDay().Current.Start, newEnd,
 					)
 				}},
-				{Mod: 0, Key: tcell.KeyRune, Ch: 'r'}: {Action: func() { dayEventsPane.PopModalOverlay() }},
-				{Mod: 0, Key: tcell.KeyESC, Ch: 0}:    {Action: func() { dayEventsPane.PopModalOverlay() }},
+				{Mod: 0, Key: tcell.KeyRune, Ch: 'r'}: {Action: func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }},
+				{Mod: 0, Key: tcell.KeyESC, Ch: 0}:    {Action: func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }},
 			},
 		}
 		dayEventsPane.ApplyModalOverlay(
@@ -471,6 +473,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				&input.Tree{Root: overlayRoot, Current: overlayRoot},
 			),
 		)
+		controller.data.EventEditMode = control.EventEditModeResize
 	}}
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Mod: 0, Key: tcell.KeyRune, Ch: 'o'}] = &input.Node{Action: func() {
 		current := controller.data.GetCurrentDay().Current
@@ -727,6 +730,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	}
 
 	controller.data.EventEditor.SetMode(input.TextEditModeNormal)
+	controller.data.EventEditMode = control.EventEditModeNormal
 
 	editorInsertMode := processors.NewTextInputProcessor(
 		map[input.Key]input.Action{
