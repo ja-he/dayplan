@@ -475,27 +475,17 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		map[string]input.Action{
 			"<c-u>": func() { controller.ScrollUp(10) },
 			"<c-d>": func() { controller.ScrollDown(10) },
-			"u": func() {
-				go func() {
-					err := controller.data.Weather.Update()
-					if err != nil {
-						controller.data.Log.Add("ERROR", err.Error())
-					} else {
-						controller.data.Log.Add("DEBUG", "successfully retrieved weather data")
-					}
-					controller.controllerEvents <- ControllerEventRender
-				}()
-			},
-			"q":  func() { controller.controllerEvents <- ControllerEventExit },
-			"P":  func() { controller.data.ShowDebug = !controller.data.ShowDebug },
-			"gg": controller.ScrollTop,
-			"G":  controller.ScrollBottom,
-			"w":  controller.writeModel,
-			"h":  controller.goToPreviousDay,
-			"l":  controller.goToNextDay,
-			"S":  func() { controller.data.ShowSummary = !controller.data.ShowSummary },
-			"E":  func() { controller.data.ShowLog = !controller.data.ShowLog },
-			"?":  func() { controller.data.ShowHelp = !controller.data.ShowHelp },
+			"u":     controller.updateWeather,
+			"q":     func() { controller.controllerEvents <- ControllerEventExit },
+			"P":     func() { controller.data.ShowDebug = !controller.data.ShowDebug },
+			"gg":    controller.ScrollTop,
+			"G":     controller.ScrollBottom,
+			"w":     controller.writeModel,
+			"h":     controller.goToPreviousDay,
+			"l":     controller.goToNextDay,
+			"S":     func() { controller.data.ShowSummary = !controller.data.ShowSummary },
+			"E":     func() { controller.data.ShowLog = !controller.data.ShowLog },
+			"?":     func() { controller.data.ShowHelp = !controller.data.ShowHelp },
 			"c": func() {
 				controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
 			},
@@ -1150,6 +1140,18 @@ func (t *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 
 		t.updateCursorPos(x, y)
 	}
+}
+
+func (c *Controller) updateWeather() {
+	go func() {
+		err := c.data.Weather.Update()
+		if err != nil {
+			c.data.Log.Add("ERROR", err.Error())
+		} else {
+			c.data.Log.Add("DEBUG", "successfully retrieved weather data")
+		}
+		c.controllerEvents <- ControllerEventRender
+	}()
 }
 
 type ControllerEvent int
