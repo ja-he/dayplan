@@ -15,3 +15,15 @@ func (n *Node) Child(k Key) (child *Node) {
 		return nil
 	}
 }
+
+func NewNode() *Node {
+	return &Node{
+		Children: make(map[Key]*Node),
+	}
+}
+
+func NewLeaf(action Action) *Node {
+	return &Node{
+		Action: action,
+	}
+}

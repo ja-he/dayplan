@@ -1,5 +1,7 @@
 package input
 
+import "fmt"
+
 type Action = func()
 
 type Tree struct {
@@ -25,4 +27,44 @@ func (t *Tree) ProcessInput(k Key) (applied bool) {
 
 func (t *Tree) CapturesInput() bool {
 	return t.Current != t.Root
+}
+
+func ConstructInputTree(
+	spec map[string]Action,
+) *Tree {
+	root := NewNode()
+
+	for mapping, action := range spec {
+		sequence, err := ConfigKeyspecToKeys(mapping)
+		if err != nil {
+			panic(fmt.Sprintf("error converting config keyspec: '%s'", err.Error()))
+		}
+
+		sequenceCurrent := root
+		for i, key := range sequence {
+			sequenceNext, ok := sequenceCurrent.Children[key]
+			if !ok {
+				if i == len(sequence)-1 {
+					sequenceNext = NewLeaf(action)
+				} else {
+					sequenceNext = NewNode()
+				}
+				sequenceCurrent.Children[key] = sequenceNext
+			}
+			sequenceCurrent = sequenceNext
+		}
+	}
+
+	return &Tree{
+		Root:    root,
+		Current: root,
+	}
+}
+
+func EmptyTree() *Tree {
+	root := NewNode()
+	return &Tree{
+		Root:    root,
+		Current: root,
+	}
 }
