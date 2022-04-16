@@ -99,6 +99,8 @@ type ControlData struct {
 	MouseMode     bool
 	EventEditMode EventEditMode
 
+	MovePropagate bool
+
 	EditState   EditState
 	EditedEvent EditedEvent
 }

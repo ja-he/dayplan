@@ -42,7 +42,6 @@ type Controller struct {
 	data     *control.ControlData
 	rootPane ui.FocussablePane
 
-	movePropagate    bool
 	fhMutex          sync.RWMutex
 	FileHandlers     map[model.Date]*filehandling.FileHandler
 	controllerEvents chan ControllerEvent
@@ -1012,7 +1011,7 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 				case ui.EventBoxBottomRight:
 					t.startMouseResize(eventsInfo)
 				case ui.EventBoxInterior:
-					t.movePropagate = (e.Modifiers() == tcell.ModCtrl)
+					t.data.MovePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove(eventsInfo)
 				case ui.EventBoxTopEdge:
 					t.startEdit(eventsInfo.Event())
@@ -1047,7 +1046,7 @@ func (t *Controller) resizeStep(nextCursortime model.Timestamp) {
 func (t *Controller) moveStep(nextCursortime model.Timestamp) {
 	prevCursortime := t.data.EditedEvent.PrevEditStepTimestamp
 	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
-	if t.movePropagate {
+	if t.data.MovePropagate {
 		following := t.data.GetCurrentDay().GetEventsFrom(t.data.EditedEvent.Event)
 		for _, ptr := range following {
 			ptr.Start = ptr.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
