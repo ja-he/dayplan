@@ -18,7 +18,7 @@ import (
 // hide some details (e.g., for showing events as part of multiple EventPanes in
 // in the month view.
 type EventsPane struct {
-	Parent ui.FocussablePane
+	Parent ui.FocusQueriable
 
 	renderer ui.ConstrainedRenderer
 
@@ -69,8 +69,13 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	)
 }
 
-func (p *EventsPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *EventsPane) HasFocus() bool {
+	return p.Parent != nil && p.Parent.HasFocus() && p.Parent.Focusses() == p
+}
 func (p *EventsPane) Focusses() ui.FocussablePane { return nil }
+func (p *EventsPane) SetParent(parent ui.FocusQueriable) {
+	p.Parent = parent
+}
 
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
@@ -348,7 +353,7 @@ func NewEventsPane(
 	}
 }
 
-func (p *MaybeEventsPane) SetParent(parent ui.FocussablePane) {
+func (p *MaybeEventsPane) SetParent(parent ui.FocusQueriable) {
 	if p.eventsPane != nil {
 		p.eventsPane.Parent = parent
 	}

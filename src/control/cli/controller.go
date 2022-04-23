@@ -76,6 +76,33 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	editorWidth := 80
 	editorHeight := 20
 
+	eventsPaneBaseInputMap := map[string]input.Action{
+		"<c-u>": func() { controller.ScrollUp(10) },
+		"<c-d>": func() { controller.ScrollDown(10) },
+		"gg":    controller.ScrollTop,
+		"G":     controller.ScrollBottom,
+		"w":     controller.writeModel,
+		"h":     controller.goToPreviousDay,
+		"l":     controller.goToNextDay,
+		"c": func() {
+			controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
+		},
+		"+": func() {
+			if controller.data.ViewParams.NRowsPerHour*2 <= 12 {
+				controller.data.ViewParams.NRowsPerHour *= 2
+				controller.data.ViewParams.ScrollOffset *= 2
+			}
+		},
+		"-": func() {
+			if (controller.data.ViewParams.NRowsPerHour % 2) == 0 {
+				controller.data.ViewParams.NRowsPerHour /= 2
+				controller.data.ViewParams.ScrollOffset /= 2
+			} else {
+				controller.data.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
+			}
+		},
+	}
+
 	renderer := tui.NewTUIScreenHandler()
 	screenSize := renderer.GetScreenDimensions
 	screenDimensions := func() (x, y, w, h int) {
@@ -135,7 +162,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			tui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
 			weekdayDimensions(dayIndex),
 			stylesheet,
-			processors.NewModalInputProcessor(input.EmptyTree()),
+			processors.NewModalInputProcessor(input.ConstructInputTree(eventsPaneBaseInputMap)),
 			func() *model.Day {
 				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
 			},
@@ -169,7 +196,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				tui.NewConstrainedRenderer(renderer, monthdayDimensions(dayIndex)),
 				monthdayDimensions(dayIndex),
 				stylesheet,
-				processors.NewModalInputProcessor(input.EmptyTree()),
+				processors.NewModalInputProcessor(input.ConstructInputTree(eventsPaneBaseInputMap)),
 				func() *model.Day {
 					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
 				},
@@ -188,12 +215,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		)
 	}
 
-	weekViewEventsPanes := make([]*panes.EventsPane, 7)
+	weekViewEventsPanes := make([]ui.Pane, 7)
 	for i := range weekViewEventsPanes {
 		weekViewEventsPanes[i] = weekdayPane(i)
 	}
 
-	monthViewEventsPanes := make([]*panes.MaybeEventsPane, 31)
+	monthViewEventsPanes := make([]ui.Pane, 31)
 	for i := range monthViewEventsPanes {
 		monthViewEventsPanes[i] = monthdayPane(i)
 	}
@@ -297,36 +324,42 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			controller.data.ViewParams.ScrollOffset += ((controller.data.ViewParams.YForTime(time)) - maxY)
 		}
 	}
-	dayViewEventsPaneInputTree := input.ConstructInputTree(
-		map[string]input.Action{
-			"j": func() {
-				controller.data.GetCurrentDay().CurrentNext()
-				if controller.data.GetCurrentDay().Current != nil {
-					ensureVisible(controller.data.GetCurrentDay().Current.Start)
-					ensureVisible(controller.data.GetCurrentDay().Current.End)
-				}
-			},
-			"k": func() {
-				controller.data.GetCurrentDay().CurrentPrev()
-				if controller.data.GetCurrentDay().Current != nil {
-					ensureVisible(controller.data.GetCurrentDay().Current.End)
-					ensureVisible(controller.data.GetCurrentDay().Current.Start)
-				}
-			},
-			"d": func() {
-				event := controller.data.GetCurrentDay().Current
-				if event != nil {
-					controller.data.GetCurrentDay().RemoveEvent(event)
-				}
-			},
-			"i": func() {
-				event := controller.data.GetCurrentDay().Current
-				if event != nil {
-					controller.startEdit(event)
-				}
-			},
+	eventsPaneDayInputExtension := map[string]input.Action{
+		"j": func() {
+			controller.data.GetCurrentDay().CurrentNext()
+			if controller.data.GetCurrentDay().Current != nil {
+				ensureVisible(controller.data.GetCurrentDay().Current.Start)
+				ensureVisible(controller.data.GetCurrentDay().Current.End)
+			}
 		},
-	)
+		"k": func() {
+			controller.data.GetCurrentDay().CurrentPrev()
+			if controller.data.GetCurrentDay().Current != nil {
+				ensureVisible(controller.data.GetCurrentDay().Current.End)
+				ensureVisible(controller.data.GetCurrentDay().Current.Start)
+			}
+		},
+		"d": func() {
+			event := controller.data.GetCurrentDay().Current
+			if event != nil {
+				controller.data.GetCurrentDay().RemoveEvent(event)
+			}
+		},
+		"i": func() {
+			event := controller.data.GetCurrentDay().Current
+			if event != nil {
+				controller.startEdit(event)
+			}
+		},
+	}
+	eventsPaneDayInputMap := make(map[string]input.Action)
+	for input, action := range eventsPaneBaseInputMap {
+		eventsPaneDayInputMap[input] = action
+	}
+	for input, action := range eventsPaneDayInputExtension {
+		eventsPaneDayInputMap[input] = action
+	}
+	dayViewEventsPaneInputTree := input.ConstructInputTree(eventsPaneDayInputMap)
 
 	toolsPane := panes.NewToolsPane(
 		tui.NewConstrainedRenderer(renderer, toolsDimensions),
@@ -436,68 +469,50 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 
 	rootPaneInputTree := input.ConstructInputTree(
 		map[string]input.Action{
-			"<c-u>": func() { controller.ScrollUp(10) },
-			"<c-d>": func() { controller.ScrollDown(10) },
-			"u":     controller.updateWeather,
-			"q":     func() { controller.controllerEvents <- ControllerEventExit },
-			"P":     func() { controller.data.ShowDebug = !controller.data.ShowDebug },
-			"gg":    controller.ScrollTop,
-			"G":     controller.ScrollBottom,
-			"w":     controller.writeModel,
-			"h":     controller.goToPreviousDay,
-			"l":     controller.goToNextDay,
-			"S":     func() { controller.data.ShowSummary = !controller.data.ShowSummary },
-			"E":     func() { controller.data.ShowLog = !controller.data.ShowLog },
-			"?":     func() { controller.data.ShowHelp = !controller.data.ShowHelp },
-			"c": func() {
-				controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
-			},
-			"+": func() {
-				if controller.data.ViewParams.NRowsPerHour*2 <= 12 {
-					controller.data.ViewParams.NRowsPerHour *= 2
-					controller.data.ViewParams.ScrollOffset *= 2
-				}
-			},
-			"-": func() {
-				if (controller.data.ViewParams.NRowsPerHour % 2) == 0 {
-					controller.data.ViewParams.NRowsPerHour /= 2
-					controller.data.ViewParams.ScrollOffset /= 2
-				} else {
-					controller.data.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
-				}
-			},
+			"u": controller.updateWeather,
+			"q": func() { controller.controllerEvents <- ControllerEventExit },
+			"P": func() { controller.data.ShowDebug = !controller.data.ShowDebug },
+			"S": func() { controller.data.ShowSummary = !controller.data.ShowSummary },
+			"E": func() { controller.data.ShowLog = !controller.data.ShowLog },
+			"?": func() { controller.data.ShowHelp = !controller.data.ShowHelp },
 		},
 	)
 
 	dayViewInputTree := input.EmptyTree()
 
-	dayViewMainPane := panes.NewDayViewMainPane(
+	dayViewMainPane := panes.NewWrapperPane(
 		dayViewMainPaneDimensions,
-		dayEventsPane,
-		toolsPane,
-		statusPane,
-		panes.NewTimelinePane(
-			tui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),
-			dayViewTimelineDimensions,
-			stylesheet,
-			controller.data.GetCurrentSuntimes,
-			func() *model.Timestamp {
-				if controller.data.CurrentDate.Is(time.Now()) {
-					return model.NewTimestampFromGotime(time.Now())
-				} else {
-					return nil
-				}
-			},
-			&controller.data.ViewParams,
-		),
-		panes.NewWeatherPane(
-			tui.NewConstrainedRenderer(renderer, weatherDimensions),
-			weatherDimensions,
-			stylesheet,
-			&controller.data.CurrentDate,
-			&controller.data.Weather,
-			&controller.data.ViewParams,
-		),
+		[]ui.Pane{
+			dayEventsPane,
+			toolsPane,
+			statusPane,
+			panes.NewTimelinePane(
+				tui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),
+				dayViewTimelineDimensions,
+				stylesheet,
+				controller.data.GetCurrentSuntimes,
+				func() *model.Timestamp {
+					if controller.data.CurrentDate.Is(time.Now()) {
+						return model.NewTimestampFromGotime(time.Now())
+					} else {
+						return nil
+					}
+				},
+				&controller.data.ViewParams,
+			),
+			panes.NewWeatherPane(
+				tui.NewConstrainedRenderer(renderer, weatherDimensions),
+				weatherDimensions,
+				stylesheet,
+				&controller.data.CurrentDate,
+				&controller.data.Weather,
+				&controller.data.ViewParams,
+			),
+		},
+		[]ui.FocussablePane{
+			dayEventsPane,
+			toolsPane,
+		},
 		processors.NewModalInputProcessor(dayViewInputTree),
 	)
 	dayViewInputTree.Root.Children[input.Key{Key: tcell.KeyCtrlW}] = &input.Node{
@@ -505,11 +520,11 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		Children: map[input.Key]*input.Node{
 			{Key: tcell.KeyRune, Ch: 'h'}: {Action: func() {
 				controller.data.Log.Add("DEBUG", "<c-w> -> h")
-				dayViewMainPane.FocusLeft()
+				dayViewMainPane.FocusPrev()
 			}},
 			{Key: tcell.KeyRune, Ch: 'l'}: {Action: func() {
 				controller.data.Log.Add("DEBUG", "<c-w> -> l")
-				dayViewMainPane.FocusRight()
+				dayViewMainPane.FocusNext()
 			}},
 		},
 	}
@@ -519,37 +534,43 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		screenDimensions,
 
 		dayViewMainPane,
-		panes.NewWeekViewMainPane(
+		panes.NewWrapperPane(
 			weekViewMainPaneDimensions,
-			statusPane,
-			panes.NewTimelinePane(
-				tui.NewConstrainedRenderer(renderer, weekViewTimelineDimensions),
-				weekViewTimelineDimensions,
-				stylesheet,
-				func() *model.SunTimes { return nil },
-				func() *model.Timestamp { return nil },
-				&controller.data.ViewParams,
+			append(
+				[]ui.Pane{
+					statusPane,
+					panes.NewTimelinePane(
+						tui.NewConstrainedRenderer(renderer, weekViewTimelineDimensions),
+						weekViewTimelineDimensions,
+						stylesheet,
+						func() *model.SunTimes { return nil },
+						func() *model.Timestamp { return nil },
+						&controller.data.ViewParams,
+					),
+				},
+				weekViewEventsPanes...,
 			),
-			weekViewEventsPanes,
-			&controller.data.Log,
-			&controller.data.Log,
-			&controller.data.ViewParams,
+			[]ui.FocussablePane{},
+			nil, // TODO
 		),
-		panes.NewMonthViewMainPane(
+		panes.NewWrapperPane(
 			monthViewMainPaneDimensions,
-			statusPane,
-			panes.NewTimelinePane(
-				tui.NewConstrainedRenderer(renderer, monthViewTimelineDimensions),
-				monthViewTimelineDimensions,
-				stylesheet,
-				func() *model.SunTimes { return nil },
-				func() *model.Timestamp { return nil },
-				&controller.data.ViewParams,
+			append(
+				[]ui.Pane{
+					statusPane,
+					panes.NewTimelinePane(
+						tui.NewConstrainedRenderer(renderer, monthViewTimelineDimensions),
+						monthViewTimelineDimensions,
+						stylesheet,
+						func() *model.SunTimes { return nil },
+						func() *model.Timestamp { return nil },
+						&controller.data.ViewParams,
+					),
+				},
+				monthViewEventsPanes...,
 			),
-			monthViewEventsPanes,
-			&controller.data.Log,
-			&controller.data.Log,
-			&controller.data.ViewParams,
+			[]ui.FocussablePane{},
+			nil, // TODO
 		),
 
 		panes.NewSummaryPane(
@@ -798,13 +819,13 @@ func (t *Controller) ScrollBottom() {
 
 func (t *Controller) abortEdit() {
 	t.data.EditState = control.EditStateNone
-	t.data.EditedEvent = control.EditedEvent{nil, model.Timestamp{Hour: 0, Minute: 0}}
+	t.data.EditedEvent = control.EditedEvent{Event: nil, PrevEditStepTimestamp: model.Timestamp{Hour: 0, Minute: 0}}
 	t.data.EventEditor.Active = false
 }
 
 func (t *Controller) endEdit() {
 	t.data.EditState = control.EditStateNone
-	t.data.EditedEvent = control.EditedEvent{nil, model.Timestamp{Hour: 0, Minute: 0}}
+	t.data.EditedEvent = control.EditedEvent{Event: nil, PrevEditStepTimestamp: model.Timestamp{Hour: 0, Minute: 0}}
 	if t.data.EventEditor.Active {
 		t.data.EventEditor.Active = false
 		tmp := t.data.EventEditor.TmpEventInfo

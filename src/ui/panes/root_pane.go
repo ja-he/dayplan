@@ -159,6 +159,7 @@ func (p *RootPane) GetView() ui.ActiveView {
 
 func (p *RootPane) HasFocus() bool              { return true }
 func (p *RootPane) Focusses() ui.FocussablePane { return p.focussedViewPane }
+func (p *RootPane) SetParent(ui.FocusQueriable) { panic("root set parent") }
 
 func (p *RootPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
@@ -174,9 +175,9 @@ func (p *RootPane) PopModalOverlays(index int) {
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,
 	dimensions func() (x, y, w, h int),
-	dayViewMainPane *DayViewMainPane,
-	weekViewMainPane *WeekViewMainPane,
-	monthViewMainPane *MonthViewMainPane,
+	dayViewMainPane *WrapperPane,
+	weekViewMainPane *WrapperPane,
+	monthViewMainPane *WrapperPane,
 	summary ui.ConditionalOverlayPane,
 	log ui.ConditionalOverlayPane,
 	help ui.ConditionalOverlayPane,

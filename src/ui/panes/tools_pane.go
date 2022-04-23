@@ -11,7 +11,7 @@ import (
 // ToolsPane shows tools for editing.
 // Currently it only offers a selection of categories to select from.
 type ToolsPane struct {
-	Parent ui.FocussablePane
+	Parent ui.FocusQueriable
 
 	renderer ui.ConstrainedRenderer
 
@@ -119,8 +119,9 @@ func (i *ToolsPanePositionInfo) Category() *model.Category { return i.category }
 func (p *ToolsPane) CapturesInput() bool             { return p.inputProcessor.CapturesInput() }
 func (p *ToolsPane) ProcessInput(key input.Key) bool { return p.inputProcessor.ProcessInput(key) }
 
-func (p *ToolsPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
-func (p *ToolsPane) Focusses() ui.FocussablePane { return nil }
+func (p *ToolsPane) HasFocus() bool                     { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *ToolsPane) Focusses() ui.FocussablePane        { return nil }
+func (p *ToolsPane) SetParent(parent ui.FocusQueriable) { p.Parent = parent }
 
 func (p *ToolsPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)

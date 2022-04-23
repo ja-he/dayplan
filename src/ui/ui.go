@@ -118,11 +118,16 @@ type EphemeralPane interface {
 	ConditionalOverlayPane
 }
 
+type FocusQueriable interface {
+	HasFocus() bool
+	Focusses() FocussablePane
+}
+
 type FocussablePane interface {
 	Pane
 	input.ModalInputProcessor
-	HasFocus() bool
-	Focusses() FocussablePane
+	FocusQueriable
+	SetParent(FocusQueriable)
 }
 
 // EventBoxPart describes the part of an event box (the visual representation
