@@ -76,17 +76,11 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	editorWidth := 80
 	editorHeight := 20
 
-	eventsPaneBaseInputMap := map[string]input.Action{
+	scrollableZoomableInputMap := map[string]input.Action{
 		"<c-u>": func() { controller.ScrollUp(10) },
 		"<c-d>": func() { controller.ScrollDown(10) },
 		"gg":    controller.ScrollTop,
 		"G":     controller.ScrollBottom,
-		"w":     controller.writeModel,
-		"h":     controller.goToPreviousDay,
-		"l":     controller.goToNextDay,
-		"c": func() {
-			controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
-		},
 		"+": func() {
 			if controller.data.ViewParams.NRowsPerHour*2 <= 12 {
 				controller.data.ViewParams.NRowsPerHour *= 2
@@ -100,6 +94,15 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			} else {
 				controller.data.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
 			}
+		},
+	}
+
+	eventsViewBaseInputMap := map[string]input.Action{
+		"w": controller.writeModel,
+		"h": controller.goToPreviousDay,
+		"l": controller.goToNextDay,
+		"c": func() {
+			controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
 		},
 	}
 
@@ -126,23 +129,27 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		return 0, screeenHeight - statusHeight, screenWidth, statusHeight
 	}
 	dayViewMainPaneDimensions := screenDimensions
+	dayViewScrollablePaneDimensions := func() (x, y, w, h int) {
+		parentX, parentY, parentW, parentH := dayViewMainPaneDimensions()
+		return parentX, parentY, parentW - toolsWidth, parentH - statusHeight
+	}
 	weekViewMainPaneDimensions := screenDimensions
 	monthViewMainPaneDimensions := screenDimensions
 	weatherDimensions := func() (x, y, w, h int) {
-		mainPaneXOffset, mainPaneYOffset, _, mainPaneHeight := dayViewMainPaneDimensions()
-		return mainPaneXOffset, mainPaneYOffset, weatherWidth, mainPaneHeight - statusHeight
+		parentX, parentY, _, parentH := dayViewScrollablePaneDimensions()
+		return parentX, parentY, weatherWidth, parentH
 	}
 	dayViewEventsPaneDimensions := func() (x, y, w, h int) {
-		ox, oy, ow, oh := dayViewMainPaneDimensions()
+		ox, oy, ow, oh := dayViewScrollablePaneDimensions()
 		x = ox + weatherWidth + timelineWidth
 		y = oy
-		w = ow - x - toolsWidth
-		h = oh - statusHeight
+		w = ow - x
+		h = oh
 		return x, y, w, h
 	}
 	dayViewTimelineDimensions := func() (x, y, w, h int) {
-		_, _, _, mainPaneHeight := dayViewMainPaneDimensions()
-		return 0 + weatherWidth, 0, timelineWidth, mainPaneHeight - statusHeight
+		_, _, _, parentH := dayViewScrollablePaneDimensions()
+		return 0 + weatherWidth, 0, timelineWidth, parentH
 	}
 	weekViewTimelineDimensions := func() (x, y, w, h int) {
 		_, screenHeight := screenSize()
@@ -162,7 +169,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			tui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
 			weekdayDimensions(dayIndex),
 			stylesheet,
-			processors.NewModalInputProcessor(input.ConstructInputTree(eventsPaneBaseInputMap)),
+			processors.NewModalInputProcessor(input.ConstructInputTree(eventsViewBaseInputMap)),
 			func() *model.Day {
 				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
 			},
@@ -196,7 +203,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				tui.NewConstrainedRenderer(renderer, monthdayDimensions(dayIndex)),
 				monthdayDimensions(dayIndex),
 				stylesheet,
-				processors.NewModalInputProcessor(input.ConstructInputTree(eventsPaneBaseInputMap)),
+				processors.NewModalInputProcessor(input.ConstructInputTree(eventsViewBaseInputMap)),
 				func() *model.Day {
 					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
 				},
@@ -324,6 +331,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			controller.data.ViewParams.ScrollOffset += ((controller.data.ViewParams.YForTime(time)) - maxY)
 		}
 	}
+	// TODO: directly?
 	eventsPaneDayInputExtension := map[string]input.Action{
 		"j": func() {
 			controller.data.GetCurrentDay().CurrentNext()
@@ -353,7 +361,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 	}
 	eventsPaneDayInputMap := make(map[string]input.Action)
-	for input, action := range eventsPaneBaseInputMap {
+	for input, action := range eventsViewBaseInputMap {
 		eventsPaneDayInputMap[input] = action
 	}
 	for input, action := range eventsPaneDayInputExtension {
@@ -480,12 +488,9 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 
 	dayViewInputTree := input.EmptyTree()
 
-	dayViewMainPane := panes.NewWrapperPane(
-		dayViewMainPaneDimensions,
+	dayViewScrollablePane := panes.NewWrapperPane(
 		[]ui.Pane{
 			dayEventsPane,
-			toolsPane,
-			statusPane,
 			panes.NewTimelinePane(
 				tui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),
 				dayViewTimelineDimensions,
@@ -511,19 +516,82 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 		[]ui.FocussablePane{
 			dayEventsPane,
+		},
+		processors.NewModalInputProcessor(input.ConstructInputTree(scrollableZoomableInputMap)),
+	)
+	multidayViewEventsWrapperInputMap := scrollableZoomableInputMap
+	multidayViewEventsWrapperInputMap["w"] = controller.writeModel
+	multidayViewEventsWrapperInputMap["h"] = controller.goToPreviousDay
+	multidayViewEventsWrapperInputMap["l"] = controller.goToNextDay
+	multidayViewEventsWrapperInputMap["c"] = func() {
+		controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
+	}
+	weekViewEventsWrapper := panes.NewWrapperPane(
+		weekViewEventsPanes,
+		[]ui.FocussablePane{},
+		processors.NewModalInputProcessor(input.ConstructInputTree(multidayViewEventsWrapperInputMap)),
+	)
+	monthViewEventsWrapper := panes.NewWrapperPane(
+		monthViewEventsPanes,
+		[]ui.FocussablePane{},
+		processors.NewModalInputProcessor(input.ConstructInputTree(multidayViewEventsWrapperInputMap)),
+	)
+
+	dayViewMainPane := panes.NewWrapperPane(
+		[]ui.Pane{
+			dayViewScrollablePane,
+			toolsPane,
+			statusPane,
+		},
+		[]ui.FocussablePane{
+			dayViewScrollablePane,
 			toolsPane,
 		},
 		processors.NewModalInputProcessor(dayViewInputTree),
+	)
+	weekViewMainPane := panes.NewWrapperPane(
+		[]ui.Pane{
+			statusPane,
+			panes.NewTimelinePane(
+				tui.NewConstrainedRenderer(renderer, weekViewTimelineDimensions),
+				weekViewTimelineDimensions,
+				stylesheet,
+				func() *model.SunTimes { return nil },
+				func() *model.Timestamp { return nil },
+				&controller.data.ViewParams,
+			),
+			weekViewEventsWrapper,
+		},
+		[]ui.FocussablePane{
+			weekViewEventsWrapper,
+		},
+		processors.NewModalInputProcessor(input.ConstructInputTree(map[string]action.Action{})),
+	)
+	monthViewMainPane := panes.NewWrapperPane(
+		[]ui.Pane{
+			statusPane,
+			panes.NewTimelinePane(
+				tui.NewConstrainedRenderer(renderer, monthViewTimelineDimensions),
+				monthViewTimelineDimensions,
+				stylesheet,
+				func() *model.SunTimes { return nil },
+				func() *model.Timestamp { return nil },
+				&controller.data.ViewParams,
+			),
+			monthViewEventsWrapper,
+		},
+		[]ui.FocussablePane{
+			monthViewEventsWrapper,
+		},
+		processors.NewModalInputProcessor(input.ConstructInputTree(scrollableZoomableInputMap)),
 	)
 	dayViewInputTree.Root.Children[input.Key{Key: tcell.KeyCtrlW}] = &input.Node{
 		Action: nil,
 		Children: map[input.Key]*input.Node{
 			{Key: tcell.KeyRune, Ch: 'h'}: {Action: func() {
-				controller.data.Log.Add("DEBUG", "<c-w> -> h")
 				dayViewMainPane.FocusPrev()
 			}},
 			{Key: tcell.KeyRune, Ch: 'l'}: {Action: func() {
-				controller.data.Log.Add("DEBUG", "<c-w> -> l")
 				dayViewMainPane.FocusNext()
 			}},
 		},
@@ -534,44 +602,8 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		screenDimensions,
 
 		dayViewMainPane,
-		panes.NewWrapperPane(
-			weekViewMainPaneDimensions,
-			append(
-				[]ui.Pane{
-					statusPane,
-					panes.NewTimelinePane(
-						tui.NewConstrainedRenderer(renderer, weekViewTimelineDimensions),
-						weekViewTimelineDimensions,
-						stylesheet,
-						func() *model.SunTimes { return nil },
-						func() *model.Timestamp { return nil },
-						&controller.data.ViewParams,
-					),
-				},
-				weekViewEventsPanes...,
-			),
-			[]ui.FocussablePane{},
-			nil, // TODO
-		),
-		panes.NewWrapperPane(
-			monthViewMainPaneDimensions,
-			append(
-				[]ui.Pane{
-					statusPane,
-					panes.NewTimelinePane(
-						tui.NewConstrainedRenderer(renderer, monthViewTimelineDimensions),
-						monthViewTimelineDimensions,
-						stylesheet,
-						func() *model.SunTimes { return nil },
-						func() *model.Timestamp { return nil },
-						&controller.data.ViewParams,
-					),
-				},
-				monthViewEventsPanes...,
-			),
-			[]ui.FocussablePane{},
-			nil, // TODO
-		),
+		weekViewMainPane,
+		monthViewMainPane,
 
 		panes.NewSummaryPane(
 			tui.NewConstrainedRenderer(renderer, screenDimensions),

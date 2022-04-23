@@ -2,6 +2,7 @@ package panes
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/ui"
@@ -12,8 +13,6 @@ import (
 // own.
 type WrapperPane struct {
 	Parent ui.FocusQueriable
-
-	dimensions func() (x, y, w, h int)
 
 	drawables   []ui.Pane
 	focussables []ui.FocussablePane
@@ -33,7 +32,24 @@ func (p *WrapperPane) Draw() {
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
 func (p *WrapperPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	minX, minY := math.MaxInt, math.MaxInt
+	maxX, maxY := 0, 0
+	for _, drawable := range p.drawables {
+		dx, dy, dw, dh := drawable.Dimensions()
+		if dx < minX {
+			minX = dx
+		}
+		if dy < minY {
+			minY = dy
+		}
+		if dx+dw > maxX {
+			maxX = dx + dw
+		}
+		if dy+dh > maxY {
+			maxY = dy + dh
+		}
+	}
+	return minX, minY, maxX - minX, maxY - minY
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
@@ -103,13 +119,11 @@ func (p *WrapperPane) PopModalOverlays(index int) {
 
 // NewWrapperPane constructs and returns a new WrapperPane.
 func NewWrapperPane(
-	dimensions func() (x, y, w, h int),
 	drawables []ui.Pane,
 	focussables []ui.FocussablePane,
 	inputProcessor input.ModalInputProcessor,
 ) *WrapperPane {
 	p := &WrapperPane{
-		dimensions:     dimensions,
 		focussables:    focussables,
 		drawables:      drawables,
 		inputProcessor: inputProcessor,
