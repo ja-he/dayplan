@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ja-he/dayplan/src/control"
+	"github.com/ja-he/dayplan/src/control/action"
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/input/processors"
@@ -76,7 +77,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	editorWidth := 80
 	editorHeight := 20
 
-	scrollableZoomableInputMap := map[string]input.Action{
+	scrollableZoomableInputMap := map[string]action.Action{
 		"<c-u>": func() { controller.ScrollUp(10) },
 		"<c-d>": func() { controller.ScrollDown(10) },
 		"gg":    controller.ScrollTop,
@@ -97,7 +98,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 	}
 
-	eventsViewBaseInputMap := map[string]input.Action{
+	eventsViewBaseInputMap := map[string]action.Action{
 		"w": controller.writeModel,
 		"h": controller.goToPreviousDay,
 		"l": controller.goToNextDay,
@@ -296,7 +297,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	)
 
 	toolsInputTree := input.ConstructInputTree(
-		map[string]input.Action{
+		map[string]action.Action{
 			"j": func() {
 				for i, cat := range controller.data.Categories {
 					if cat == controller.data.CurrentCategory {
@@ -332,7 +333,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		}
 	}
 	// TODO: directly?
-	eventsPaneDayInputExtension := map[string]input.Action{
+	eventsPaneDayInputExtension := map[string]action.Action{
 		"j": func() {
 			controller.data.GetCurrentDay().CurrentNext()
 			if controller.data.GetCurrentDay().Current != nil {
@@ -360,7 +361,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			}
 		},
 	}
-	eventsPaneDayInputMap := make(map[string]input.Action)
+	eventsPaneDayInputMap := make(map[string]action.Action)
 	for input, action := range eventsViewBaseInputMap {
 		eventsPaneDayInputMap[input] = action
 	}
@@ -405,7 +406,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		}
 
 		eventMoveOverlay := input.ConstructInputTree(
-			map[string]input.Action{
+			map[string]action.Action{
 				"j": func() {
 					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
 					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
@@ -437,7 +438,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		}
 
 		eventResizeOverlay := input.ConstructInputTree(
-			map[string]input.Action{
+			map[string]action.Action{
 				"j": func() {
 					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
 					controller.data.GetCurrentDay().SetTimes(
@@ -476,7 +477,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	}}
 
 	rootPaneInputTree := input.ConstructInputTree(
-		map[string]input.Action{
+		map[string]action.Action{
 			"u": controller.updateWeather,
 			"q": func() { controller.controllerEvents <- ControllerEventExit },
 			"P": func() { controller.data.ShowDebug = !controller.data.ShowDebug },
@@ -704,7 +705,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	controller.data.EventEditMode = control.EventEditModeNormal
 
 	editorInsertMode := processors.NewTextInputProcessor(
-		map[input.Key]input.Action{
+		map[input.Key]action.Action{
 			{Key: tcell.KeyESC}: func() {
 				controller.data.EventEditor.InputProcessor.PopModalOverlay()
 				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
@@ -724,7 +725,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	)
 
 	editorNormalModeTree := input.ConstructInputTree(
-		map[string]input.Action{
+		map[string]action.Action{
 			"<esc>": controller.abortEdit,
 			"<cr>":  controller.endEdit,
 			"i": func() {

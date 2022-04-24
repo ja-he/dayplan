@@ -1,8 +1,10 @@
 package input
 
-import "fmt"
+import (
+	"fmt"
 
-type Action = func()
+	"github.com/ja-he/dayplan/src/control/action"
+)
 
 type Tree struct {
 	Root    *Node
@@ -30,7 +32,7 @@ func (t *Tree) CapturesInput() bool {
 }
 
 func ConstructInputTree(
-	spec map[string]Action,
+	spec map[string]action.Action,
 ) *Tree {
 	root := NewNode()
 

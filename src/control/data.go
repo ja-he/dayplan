@@ -3,6 +3,7 @@ package control
 import (
 	"sync"
 
+	"github.com/ja-he/dayplan/src/control/editor"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
@@ -81,7 +82,7 @@ type ControlData struct {
 	CurrentDate model.Date
 	Weather     weather.Handler
 
-	EventEditor EventEditor
+	EventEditor editor.EventEditor
 	ShowLog     bool
 	ShowHelp    bool
 	ShowSummary bool

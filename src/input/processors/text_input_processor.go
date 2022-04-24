@@ -2,11 +2,12 @@ package processors
 
 import (
 	"github.com/gdamore/tcell/v2"
+	"github.com/ja-he/dayplan/src/control/action"
 	"github.com/ja-he/dayplan/src/input"
 )
 
 type TextInputProcessor struct {
-	mappings map[input.Key]input.Action
+	mappings map[input.Key]action.Action
 
 	runeCallback func(r rune)
 }
@@ -33,7 +34,7 @@ func (p *TextInputProcessor) CapturesInput() bool {
 }
 
 func NewTextInputProcessor(
-	normalModeMappings map[input.Key]input.Action,
+	normalModeMappings map[input.Key]action.Action,
 	runeCallback func(r rune),
 ) *TextInputProcessor {
 	return &TextInputProcessor{

@@ -1,8 +1,12 @@
 package input
 
+import (
+	"github.com/ja-he/dayplan/src/control/action"
+)
+
 type Node struct {
 	Children map[Key]*Node
-	Action   Action
+	Action   action.Action
 }
 
 // Child returns the child node for the given Key.
@@ -22,7 +26,7 @@ func NewNode() *Node {
 	}
 }
 
-func NewLeaf(action Action) *Node {
+func NewLeaf(action action.Action) *Node {
 	return &Node{
 		Action: action,
 	}
