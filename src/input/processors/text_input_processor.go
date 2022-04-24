@@ -18,7 +18,7 @@ func (p *TextInputProcessor) ProcessInput(key input.Key) bool {
 	} else {
 		action, mappingExists := p.mappings[key]
 		if mappingExists {
-			action()
+			action.Do()
 		}
 	}
 

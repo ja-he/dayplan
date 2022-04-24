@@ -18,7 +18,7 @@ func (t *Tree) ProcessInput(k Key) (applied bool) {
 		t.Current = t.Root
 		return false
 	case next.Action != nil:
-		next.Action()
+		next.Action.Do()
 		t.Current = t.Root
 		return true
 	default:

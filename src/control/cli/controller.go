@@ -78,33 +78,33 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	editorHeight := 20
 
 	scrollableZoomableInputMap := map[string]action.Action{
-		"<c-u>": func() { controller.ScrollUp(10) },
-		"<c-d>": func() { controller.ScrollDown(10) },
-		"gg":    controller.ScrollTop,
-		"G":     controller.ScrollBottom,
-		"+": func() {
+		"<c-u>": action.NewSimple(func() { controller.ScrollUp(10) }),
+		"<c-d>": action.NewSimple(func() { controller.ScrollDown(10) }),
+		"gg":    action.NewSimple(controller.ScrollTop),
+		"G":     action.NewSimple(controller.ScrollBottom),
+		"+": action.NewSimple(func() {
 			if controller.data.ViewParams.NRowsPerHour*2 <= 12 {
 				controller.data.ViewParams.NRowsPerHour *= 2
 				controller.data.ViewParams.ScrollOffset *= 2
 			}
-		},
-		"-": func() {
+		}),
+		"-": action.NewSimple(func() {
 			if (controller.data.ViewParams.NRowsPerHour % 2) == 0 {
 				controller.data.ViewParams.NRowsPerHour /= 2
 				controller.data.ViewParams.ScrollOffset /= 2
 			} else {
 				controller.data.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
 			}
-		},
+		}),
 	}
 
 	eventsViewBaseInputMap := map[string]action.Action{
-		"w": controller.writeModel,
-		"h": controller.goToPreviousDay,
-		"l": controller.goToNextDay,
-		"c": func() {
+		"w": action.NewSimple(controller.writeModel),
+		"h": action.NewSimple(controller.goToPreviousDay),
+		"l": action.NewSimple(controller.goToNextDay),
+		"c": action.NewSimple(func() {
 			controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
-		},
+		}),
 	}
 
 	renderer := tui.NewTUIScreenHandler()
@@ -298,7 +298,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 
 	toolsInputTree := input.ConstructInputTree(
 		map[string]action.Action{
-			"j": func() {
+			"j": action.NewSimple(func() {
 				for i, cat := range controller.data.Categories {
 					if cat == controller.data.CurrentCategory {
 						if i+1 < len(controller.data.Categories) {
@@ -307,8 +307,8 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 						}
 					}
 				}
-			},
-			"k": func() {
+			}),
+			"k": action.NewSimple(func() {
 				for i, cat := range controller.data.Categories {
 					if cat == controller.data.CurrentCategory {
 						if i-1 >= 0 {
@@ -317,7 +317,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 						}
 					}
 				}
-			},
+			}),
 		},
 	)
 
@@ -334,32 +334,32 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	}
 	// TODO: directly?
 	eventsPaneDayInputExtension := map[string]action.Action{
-		"j": func() {
+		"j": action.NewSimple(func() {
 			controller.data.GetCurrentDay().CurrentNext()
 			if controller.data.GetCurrentDay().Current != nil {
 				ensureVisible(controller.data.GetCurrentDay().Current.Start)
 				ensureVisible(controller.data.GetCurrentDay().Current.End)
 			}
-		},
-		"k": func() {
+		}),
+		"k": action.NewSimple(func() {
 			controller.data.GetCurrentDay().CurrentPrev()
 			if controller.data.GetCurrentDay().Current != nil {
 				ensureVisible(controller.data.GetCurrentDay().Current.End)
 				ensureVisible(controller.data.GetCurrentDay().Current.Start)
 			}
-		},
-		"d": func() {
+		}),
+		"d": action.NewSimple(func() {
 			event := controller.data.GetCurrentDay().Current
 			if event != nil {
 				controller.data.GetCurrentDay().RemoveEvent(event)
 			}
-		},
-		"i": func() {
+		}),
+		"i": action.NewSimple(func() {
 			event := controller.data.GetCurrentDay().Current
 			if event != nil {
 				controller.startEdit(event)
 			}
-		},
+		}),
 	}
 	eventsPaneDayInputMap := make(map[string]action.Action)
 	for input, action := range eventsViewBaseInputMap {
@@ -400,14 +400,14 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		&controller.data.Log,
 	)
 
-	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: func() {
+	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() {
 		if controller.data.GetCurrentDay().Current == nil {
 			return
 		}
 
 		eventMoveOverlay := input.ConstructInputTree(
 			map[string]action.Action{
-				"j": func() {
+				"j": action.NewSimple(func() {
 					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
 					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
 					controller.data.GetCurrentDay().SetTimes(
@@ -415,8 +415,8 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 						newStart, newEnd,
 					)
 					ensureVisible(newEnd)
-				},
-				"k": func() {
+				}),
+				"k": action.NewSimple(func() {
 					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(-10).Snap(controller.data.ViewParams.NRowsPerHour)
 					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(-10).Snap(controller.data.ViewParams.NRowsPerHour)
 					controller.data.GetCurrentDay().SetTimes(
@@ -424,44 +424,44 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 						newStart, newEnd,
 					)
 					ensureVisible(newStart)
-				},
-				"m":     func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal },
-				"<esc>": func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal },
+				}),
+				"m":     action.NewSimple(func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
+				"<esc>": action.NewSimple(func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
 			},
 		)
 		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(eventMoveOverlay))
 		controller.data.EventEditMode = control.EventEditModeMove
-	}}
-	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'r'}] = &input.Node{Action: func() {
+	})}
+	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'r'}] = &input.Node{Action: action.NewSimple(func() {
 		if controller.data.GetCurrentDay().Current == nil {
 			return
 		}
 
 		eventResizeOverlay := input.ConstructInputTree(
 			map[string]action.Action{
-				"j": func() {
+				"j": action.NewSimple(func() {
 					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
 					controller.data.GetCurrentDay().SetTimes(
 						controller.data.GetCurrentDay().Current,
 						controller.data.GetCurrentDay().Current.Start, newEnd,
 					)
 					ensureVisible(newEnd)
-				},
-				"k": func() {
+				}),
+				"k": action.NewSimple(func() {
 					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(-10).Snap(controller.data.ViewParams.NRowsPerHour)
 					controller.data.GetCurrentDay().SetTimes(
 						controller.data.GetCurrentDay().Current,
 						controller.data.GetCurrentDay().Current.Start, newEnd,
 					)
-				},
-				"r":     func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal },
-				"<esc>": func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal },
+				}),
+				"r":     action.NewSimple(func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
+				"<esc>": action.NewSimple(func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
 			},
 		)
 		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(eventResizeOverlay))
 		controller.data.EventEditMode = control.EventEditModeResize
-	}}
-	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'o'}] = &input.Node{Action: func() {
+	})}
+	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'o'}] = &input.Node{Action: action.NewSimple(func() {
 		current := controller.data.GetCurrentDay().Current
 		newEvent := &model.Event{
 			Name: "",
@@ -474,16 +474,16 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		}
 		newEvent.End = newEvent.Start.OffsetMinutes(60)
 		controller.data.GetCurrentDay().AddEvent(newEvent)
-	}}
+	})}
 
 	rootPaneInputTree := input.ConstructInputTree(
 		map[string]action.Action{
-			"u": controller.updateWeather,
-			"q": func() { controller.controllerEvents <- ControllerEventExit },
-			"P": func() { controller.data.ShowDebug = !controller.data.ShowDebug },
-			"S": func() { controller.data.ShowSummary = !controller.data.ShowSummary },
-			"E": func() { controller.data.ShowLog = !controller.data.ShowLog },
-			"?": func() { controller.data.ShowHelp = !controller.data.ShowHelp },
+			"u": action.NewSimple(controller.updateWeather),
+			"q": action.NewSimple(func() { controller.controllerEvents <- ControllerEventExit }),
+			"P": action.NewSimple(func() { controller.data.ShowDebug = !controller.data.ShowDebug }),
+			"S": action.NewSimple(func() { controller.data.ShowSummary = !controller.data.ShowSummary }),
+			"E": action.NewSimple(func() { controller.data.ShowLog = !controller.data.ShowLog }),
+			"?": action.NewSimple(func() { controller.data.ShowHelp = !controller.data.ShowHelp }),
 		},
 	)
 
@@ -521,12 +521,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		processors.NewModalInputProcessor(input.ConstructInputTree(scrollableZoomableInputMap)),
 	)
 	multidayViewEventsWrapperInputMap := scrollableZoomableInputMap
-	multidayViewEventsWrapperInputMap["w"] = controller.writeModel
-	multidayViewEventsWrapperInputMap["h"] = controller.goToPreviousDay
-	multidayViewEventsWrapperInputMap["l"] = controller.goToNextDay
-	multidayViewEventsWrapperInputMap["c"] = func() {
+	multidayViewEventsWrapperInputMap["w"] = action.NewSimple(controller.writeModel)
+	multidayViewEventsWrapperInputMap["h"] = action.NewSimple(controller.goToPreviousDay)
+	multidayViewEventsWrapperInputMap["l"] = action.NewSimple(controller.goToNextDay)
+	multidayViewEventsWrapperInputMap["c"] = action.NewSimple(func() {
 		controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
-	}
+	})
 	weekViewEventsWrapper := panes.NewWrapperPane(
 		weekViewEventsPanes,
 		[]ui.FocussablePane{},
@@ -589,12 +589,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	dayViewInputTree.Root.Children[input.Key{Key: tcell.KeyCtrlW}] = &input.Node{
 		Action: nil,
 		Children: map[input.Key]*input.Node{
-			{Key: tcell.KeyRune, Ch: 'h'}: {Action: func() {
+			{Key: tcell.KeyRune, Ch: 'h'}: {Action: action.NewSimple(func() {
 				dayViewMainPane.FocusPrev()
-			}},
-			{Key: tcell.KeyRune, Ch: 'l'}: {Action: func() {
+			})},
+			{Key: tcell.KeyRune, Ch: 'l'}: {Action: action.NewSimple(func() {
 				dayViewMainPane.FocusNext()
-			}},
+			})},
 		},
 	}
 
@@ -689,16 +689,16 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	)
 	controller.data.ActiveView = rootPane.GetView
 	rootPaneInputTree.Root.Children[input.Key{Key: tcell.KeyESC}] = &input.Node{
-		Action: func() {
+		Action: action.NewSimple(func() {
 			rootPane.ViewUp()
 			controller.loadDaysForView(controller.data.ActiveView())
-		},
+		}),
 	}
 	rootPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'i'}] = &input.Node{
-		Action: func() {
+		Action: action.NewSimple(func() {
 			rootPane.ViewDown()
 			controller.loadDaysForView(controller.data.ActiveView())
-		},
+		}),
 	}
 
 	controller.data.EventEditor.SetMode(input.TextEditModeNormal)
@@ -706,57 +706,57 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 
 	editorInsertMode := processors.NewTextInputProcessor(
 		map[input.Key]action.Action{
-			{Key: tcell.KeyESC}: func() {
+			{Key: tcell.KeyESC}: action.NewSimple(func() {
 				controller.data.EventEditor.InputProcessor.PopModalOverlay()
 				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
-			},
-			{Key: tcell.KeyCtrlA}:      controller.data.EventEditor.MoveCursorToBeginning,
-			{Key: tcell.KeyDelete}:     controller.data.EventEditor.DeleteRune,
-			{Key: tcell.KeyCtrlD}:      controller.data.EventEditor.DeleteRune,
-			{Key: tcell.KeyBackspace}:  controller.data.EventEditor.BackspaceRune,
-			{Key: tcell.KeyBackspace2}: controller.data.EventEditor.BackspaceRune,
-			{Key: tcell.KeyCtrlE}:      controller.data.EventEditor.MoveCursorToEnd,
-			{Key: tcell.KeyCtrlA}:      controller.data.EventEditor.MoveCursorToBeginning,
-			{Key: tcell.KeyCtrlU}:      controller.data.EventEditor.BackspaceToBeginning,
-			{Key: tcell.KeyLeft}:       controller.data.EventEditor.MoveCursorLeft,
-			{Key: tcell.KeyRight}:      controller.data.EventEditor.MoveCursorRight,
+			}),
+			{Key: tcell.KeyCtrlA}:      action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
+			{Key: tcell.KeyDelete}:     action.NewSimple(controller.data.EventEditor.DeleteRune),
+			{Key: tcell.KeyCtrlD}:      action.NewSimple(controller.data.EventEditor.DeleteRune),
+			{Key: tcell.KeyBackspace}:  action.NewSimple(controller.data.EventEditor.BackspaceRune),
+			{Key: tcell.KeyBackspace2}: action.NewSimple(controller.data.EventEditor.BackspaceRune),
+			{Key: tcell.KeyCtrlE}:      action.NewSimple(controller.data.EventEditor.MoveCursorToEnd),
+			{Key: tcell.KeyCtrlA}:      action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
+			{Key: tcell.KeyCtrlU}:      action.NewSimple(controller.data.EventEditor.BackspaceToBeginning),
+			{Key: tcell.KeyLeft}:       action.NewSimple(controller.data.EventEditor.MoveCursorLeft),
+			{Key: tcell.KeyRight}:      action.NewSimple(controller.data.EventEditor.MoveCursorRight),
 		},
 		controller.data.EventEditor.AddRune,
 	)
 
 	editorNormalModeTree := input.ConstructInputTree(
 		map[string]action.Action{
-			"<esc>": controller.abortEdit,
-			"<cr>":  controller.endEdit,
-			"i": func() {
+			"<esc>": action.NewSimple(controller.abortEdit),
+			"<cr>":  action.NewSimple(controller.endEdit),
+			"i": action.NewSimple(func() {
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
 				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
-			},
-			"a": func() {
+			}),
+			"a": action.NewSimple(func() {
 				controller.data.EventEditor.MoveCursorRightA()
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-			},
-			"A": func() {
+			}),
+			"A": action.NewSimple(func() {
 				controller.data.EventEditor.MoveCursorPastEnd()
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-			},
-			"0": controller.data.EventEditor.MoveCursorToBeginning,
-			"$": controller.data.EventEditor.MoveCursorToEnd,
-			"h": controller.data.EventEditor.MoveCursorLeft,
-			"l": controller.data.EventEditor.MoveCursorRight,
-			"w": controller.data.EventEditor.MoveCursorNextWordBeginning,
-			"b": controller.data.EventEditor.MoveCursorPrevWordBeginning,
-			"e": controller.data.EventEditor.MoveCursorNextWordEnd,
-			"x": controller.data.EventEditor.DeleteRune,
-			"C": func() {
+			}),
+			"0": action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
+			"$": action.NewSimple(controller.data.EventEditor.MoveCursorToEnd),
+			"h": action.NewSimple(controller.data.EventEditor.MoveCursorLeft),
+			"l": action.NewSimple(controller.data.EventEditor.MoveCursorRight),
+			"w": action.NewSimple(controller.data.EventEditor.MoveCursorNextWordBeginning),
+			"b": action.NewSimple(controller.data.EventEditor.MoveCursorPrevWordBeginning),
+			"e": action.NewSimple(controller.data.EventEditor.MoveCursorNextWordEnd),
+			"x": action.NewSimple(controller.data.EventEditor.DeleteRune),
+			"C": action.NewSimple(func() {
 				controller.data.EventEditor.DeleteToEnd()
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-			},
-			"cc": func() {
+			}),
+			"cc": action.NewSimple(func() {
 				controller.data.EventEditor.Clear()
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-			},
-			"dd": func() { controller.data.EventEditor.Clear() },
+			}),
+			"dd": action.NewSimple(func() { controller.data.EventEditor.Clear() }),
 		},
 	)
 	controller.data.EventEditor.InputProcessor = processors.NewModalInputProcessor(editorNormalModeTree)

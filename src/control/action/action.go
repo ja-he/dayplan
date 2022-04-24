@@ -1,3 +1,8 @@
 package action
 
-type Action = func()
+type Action interface {
+	Do()
+
+	Undo()
+	Undoable() bool
+}
