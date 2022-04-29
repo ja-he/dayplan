@@ -378,6 +378,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				newEvent.End = newEvent.Start.OffsetMinutes(60)
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
+			ensureVisible(newEvent.End)
 		}),
 		"O": action.NewSimple(func() {
 			current := controller.data.GetCurrentDay().Current
@@ -397,6 +398,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				newEvent.Start = newEvent.End.OffsetMinutes(-60)
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
+			ensureVisible(newEvent.Start)
 		}),
 		"sn": action.NewSimple(func() {
 			current := controller.data.GetCurrentDay().Current
