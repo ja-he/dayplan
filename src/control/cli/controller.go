@@ -360,6 +360,20 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				controller.startEdit(event)
 			}
 		}),
+		"o": action.NewSimple(func() {
+			current := controller.data.GetCurrentDay().Current
+			newEvent := &model.Event{
+				Name: "",
+				Cat:  controller.data.CurrentCategory,
+			}
+			if current == nil {
+				newEvent.Start = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.NRowsPerHour)
+			} else {
+				newEvent.Start = current.End
+			}
+			newEvent.End = newEvent.Start.OffsetMinutes(60)
+			controller.data.GetCurrentDay().AddEvent(newEvent)
+		}),
 	}
 	eventsPaneDayInputMap := make(map[string]action.Action)
 	for input, action := range eventsViewBaseInputMap {
@@ -460,20 +474,6 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		)
 		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(eventResizeOverlay))
 		controller.data.EventEditMode = control.EventEditModeResize
-	})}
-	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'o'}] = &input.Node{Action: action.NewSimple(func() {
-		current := controller.data.GetCurrentDay().Current
-		newEvent := &model.Event{
-			Name: "",
-			Cat:  controller.data.CurrentCategory,
-		}
-		if current == nil {
-			newEvent.Start = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.NRowsPerHour)
-		} else {
-			newEvent.Start = current.End
-		}
-		newEvent.End = newEvent.Start.OffsetMinutes(60)
-		controller.data.GetCurrentDay().AddEvent(newEvent)
 	})}
 
 	rootPaneInputTree := input.ConstructInputTree(
