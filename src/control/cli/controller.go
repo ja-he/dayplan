@@ -735,10 +735,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			"a": action.NewSimple(func() {
 				controller.data.EventEditor.MoveCursorRightA()
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
 			}),
 			"A": action.NewSimple(func() {
 				controller.data.EventEditor.MoveCursorPastEnd()
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
 			}),
 			"0": action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
 			"$": action.NewSimple(controller.data.EventEditor.MoveCursorToEnd),
@@ -751,10 +753,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			"C": action.NewSimple(func() {
 				controller.data.EventEditor.DeleteToEnd()
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
 			}),
 			"cc": action.NewSimple(func() {
 				controller.data.EventEditor.Clear()
 				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
+				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
 			}),
 			"dd": action.NewSimple(func() { controller.data.EventEditor.Clear() }),
 		},
