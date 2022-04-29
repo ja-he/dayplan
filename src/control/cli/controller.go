@@ -398,6 +398,22 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
 		}),
+		"sn": action.NewSimple(func() {
+			current := controller.data.GetCurrentDay().Current
+			if current == nil {
+				return
+			}
+			now := model.NewTimestampFromGotime(time.Now())
+			controller.data.GetCurrentDay().SplitEvent(current, *now)
+		}),
+		"sc": action.NewSimple(func() {
+			current := controller.data.GetCurrentDay().Current
+			if current == nil {
+				return
+			}
+			center := current.Start.OffsetMinutes(current.Start.DurationInMinutesUntil(current.End) / 2)
+			controller.data.GetCurrentDay().SplitEvent(current, center)
+		}),
 	}
 	eventsPaneDayInputMap := make(map[string]action.Action)
 	for input, action := range eventsViewBaseInputMap {
