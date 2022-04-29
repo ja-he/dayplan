@@ -225,22 +225,21 @@ func (day *Day) GetEventsFrom(event *Event) []*Event {
 	return make([]*Event, 0)
 }
 
-func (day *Day) SplitEvent(originalEvent *Event, timestamp Timestamp) {
+func (day *Day) SplitEvent(originalEvent *Event, timestamp Timestamp) error {
+	if !(timestamp.IsAfter(originalEvent.Start) && originalEvent.End.IsAfter(timestamp)) {
+		return fmt.Errorf("timestamp %s outside event %s", timestamp.ToString(), originalEvent.toString())
+	}
+
 	secondEvent := Event{
 		Name:  originalEvent.Name,
 		Cat:   originalEvent.Cat,
 		Start: timestamp,
 		End:   originalEvent.End,
 	}
-
 	originalEvent.End = timestamp
 
-	if !originalEvent.End.IsAfter(originalEvent.Start) ||
-		!secondEvent.End.IsAfter(secondEvent.Start) {
-		fmt.Println("warning: an event has become invalid through split")
-	}
-
 	day.AddEvent(&secondEvent)
+	return nil
 }
 
 // TODO: obsolete?
