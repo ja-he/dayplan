@@ -159,6 +159,25 @@ func (day *Day) AddEvent(e *Event) error {
 	return nil
 }
 
+func (day *Day) GetPrevEventBefore(t Timestamp) *Event {
+	for i := range day.Events {
+		e := day.Events[len(day.Events)-1-i]
+		if t.IsAfter(e.End) {
+			return e
+		}
+	}
+	return nil
+}
+
+func (day *Day) GetNextEventAfter(t Timestamp) *Event {
+	for _, e := range day.Events {
+		if e.Start.IsAfter(t) {
+			return e
+		}
+	}
+	return nil
+}
+
 func (day *Day) CurrentPrev() {
 	for i := range day.Events {
 		if day.Events[i] == day.Current {

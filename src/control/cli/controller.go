@@ -371,7 +371,31 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			} else {
 				newEvent.Start = current.End
 			}
-			newEvent.End = newEvent.Start.OffsetMinutes(60)
+			eventAfter := controller.data.GetCurrentDay().GetNextEventAfter(newEvent.Start)
+			if eventAfter != nil && newEvent.Start.DurationInMinutesUntil(eventAfter.Start) < 60 {
+				newEvent.End = eventAfter.Start
+			} else {
+				newEvent.End = newEvent.Start.OffsetMinutes(60)
+			}
+			controller.data.GetCurrentDay().AddEvent(newEvent)
+		}),
+		"O": action.NewSimple(func() {
+			current := controller.data.GetCurrentDay().Current
+			newEvent := &model.Event{
+				Name: "",
+				Cat:  controller.data.CurrentCategory,
+			}
+			if current == nil {
+				newEvent.End = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.NRowsPerHour)
+			} else {
+				newEvent.End = current.Start
+			}
+			eventBefore := controller.data.GetCurrentDay().GetPrevEventBefore(newEvent.End)
+			if eventBefore != nil && eventBefore.End.DurationInMinutesUntil(newEvent.End) < 60 {
+				newEvent.Start = eventBefore.End
+			} else {
+				newEvent.Start = newEvent.End.OffsetMinutes(-60)
+			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
 		}),
 	}
