@@ -255,13 +255,14 @@ func (day *Day) SetEnd(e *Event, end Timestamp) {
 	}
 	e.End = end
 }
-func (day *Day) SetTimes(e *Event, start, end Timestamp) {
+func (day *Day) SetTimes(e *Event, start, end Timestamp) error {
 	if start.IsAfter(end) {
-		panic("start after end!")
+		return fmt.Errorf("start after end!")
 	}
 	e.Start = start
 	e.End = end
 	day.UpdateEventOrder()
+	return nil
 }
 
 func (day *Day) Clone() *Day {

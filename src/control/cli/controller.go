@@ -463,6 +463,14 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 
 		eventMoveOverlay := input.ConstructInputTree(
 			map[string]action.Action{
+				"n": action.NewSimple(func() {
+					current := controller.data.GetCurrentDay().Current
+					newStart := *model.NewTimestampFromGotime(time.Now())
+					newEnd := current.End.OffsetMinutes(current.Start.DurationInMinutesUntil(newStart))
+					controller.data.GetCurrentDay().SetTimes(current, newStart, newEnd)
+					ensureVisible(newStart)
+					ensureVisible(newEnd)
+				}),
 				"j": action.NewSimple(func() {
 					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
 					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
@@ -495,6 +503,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 
 		eventResizeOverlay := input.ConstructInputTree(
 			map[string]action.Action{
+				"n": action.NewSimple(func() {
+					current := controller.data.GetCurrentDay().Current
+					newEnd := *model.NewTimestampFromGotime(time.Now())
+					controller.data.GetCurrentDay().SetTimes(current, current.Start, newEnd)
+					ensureVisible(newEnd)
+				}),
 				"j": action.NewSimple(func() {
 					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
 					controller.data.GetCurrentDay().SetTimes(
