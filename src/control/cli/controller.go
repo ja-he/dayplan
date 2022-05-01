@@ -400,6 +400,21 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			controller.data.GetCurrentDay().AddEvent(newEvent)
 			ensureVisible(newEvent.Start)
 		}),
+		"<c-o>": action.NewSimple(func() {
+			newEvent := &model.Event{
+				Name: "",
+				Cat:  controller.data.CurrentCategory,
+			}
+			newEvent.Start = *model.NewTimestampFromGotime(time.Now())
+			eventAfter := controller.data.GetCurrentDay().GetNextEventAfter(newEvent.Start)
+			if eventAfter != nil && newEvent.Start.DurationInMinutesUntil(eventAfter.Start) < 60 {
+				newEvent.End = eventAfter.Start
+			} else {
+				newEvent.End = newEvent.Start.OffsetMinutes(60)
+			}
+			controller.data.GetCurrentDay().AddEvent(newEvent)
+			ensureVisible(newEvent.Start)
+		}),
 		"sn": action.NewSimple(func() {
 			current := controller.data.GetCurrentDay().Current
 			if current == nil {
