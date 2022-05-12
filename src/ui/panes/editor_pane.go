@@ -16,6 +16,9 @@ type EditorPane struct {
 
 	getMode func() input.TextEditMode
 
+	inputProcessor input.ModalInputProcessor
+	parent         ui.FocusQueriable
+
 	name      func() string
 	cursorPos func() int
 }
@@ -36,6 +39,23 @@ func (p *EditorPane) Dimensions() (x, y, w, h int) {
 
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *EditorPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
+
+func (p *EditorPane) CapturesInput() bool {
+	return p.inputProcessor != nil && p.inputProcessor.CapturesInput()
+}
+func (p *EditorPane) ProcessInput(key input.Key) bool {
+	return p.inputProcessor != nil && p.inputProcessor.ProcessInput(key)
+}
+
+func (p *EditorPane) HasFocus() bool                     { return p.parent.HasFocus() && p.parent.Focusses() == p }
+func (p *EditorPane) Focusses() ui.FocussablePane        { return nil }
+func (p *EditorPane) SetParent(parent ui.FocusQueriable) { p.parent = parent }
+
+func (p *EditorPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
+}
+func (p *EditorPane) PopModalOverlay()           { p.inputProcessor.PopModalOverlay() }
+func (p *EditorPane) PopModalOverlays(index int) { p.inputProcessor.PopModalOverlays(index) }
 
 // Draw draws the editor popup.
 func (p *EditorPane) Draw() {
@@ -74,6 +94,7 @@ func NewEditorPane(
 	name func() string,
 	getMode func() input.TextEditMode,
 	cursorPos func() int,
+	inputProcessor input.ModalInputProcessor,
 ) *EditorPane {
 	return &EditorPane{
 		renderer:         renderer,
@@ -84,5 +105,6 @@ func NewEditorPane(
 		name:             name,
 		getMode:          getMode,
 		cursorPos:        cursorPos,
+		inputProcessor:   inputProcessor,
 	}
 }

@@ -18,8 +18,6 @@ type EventEditor struct {
 	CursorPos    int
 
 	Mode input.TextEditMode
-
-	InputProcessor input.ModalInputProcessor
 }
 
 func (e *EventEditor) GetMode() input.TextEditMode  { return e.Mode }
@@ -160,4 +158,11 @@ func (e *EventEditor) AddRune(newRune rune) {
 		e.TmpEventInfo.Name = string(tmpName)
 		e.CursorPos++
 	}
+}
+
+func (e *EventEditor) Activate(event *model.Event) {
+	e.Active = true
+	e.TmpEventInfo = *event
+	e.Original = event
+	e.CursorPos = 0
 }

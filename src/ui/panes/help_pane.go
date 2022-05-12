@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 )
@@ -11,6 +12,9 @@ type HelpPane struct {
 	dimensions func() (x, y, w, h int)
 	stylesheet styling.Stylesheet
 	condition  func() bool
+
+	inputProcessor input.ModalInputProcessor
+	parent         ui.FocusQueriable
 }
 
 // EnsureHidden informs the pane that it is not being shown so that it can take
@@ -30,6 +34,23 @@ func (p *HelpPane) Dimensions() (x, y, w, h int) {
 
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *HelpPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
+
+func (p *HelpPane) CapturesInput() bool {
+	return p.inputProcessor != nil && p.inputProcessor.CapturesInput()
+}
+func (p *HelpPane) ProcessInput(key input.Key) bool {
+	return p.inputProcessor != nil && p.inputProcessor.ProcessInput(key)
+}
+
+func (p *HelpPane) HasFocus() bool                     { return p.parent.HasFocus() && p.parent.Focusses() == p }
+func (p *HelpPane) Focusses() ui.FocussablePane        { return nil }
+func (p *HelpPane) SetParent(parent ui.FocusQueriable) { p.parent = parent }
+
+func (p *HelpPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
+}
+func (p *HelpPane) PopModalOverlay()           { p.inputProcessor.PopModalOverlay() }
+func (p *HelpPane) PopModalOverlays(index int) { p.inputProcessor.PopModalOverlays(index) }
 
 // Draw draws the help popup.
 func (p *HelpPane) Draw() {

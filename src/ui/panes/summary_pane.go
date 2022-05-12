@@ -3,6 +3,7 @@ package panes
 import (
 	"sort"
 
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -20,6 +21,9 @@ type SummaryPane struct {
 	condition   func() bool
 	titleString func() string
 	days        func() []*model.Day
+
+	Parent         ui.FocusQueriable
+	inputProcessor input.ModalInputProcessor
 
 	categories *styling.CategoryStyling
 }
@@ -101,6 +105,30 @@ func (p *SummaryPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
 }
 
+func (p *SummaryPane) CapturesInput() bool {
+	return p.inputProcessor != nil && p.inputProcessor.CapturesInput()
+}
+func (p *SummaryPane) ProcessInput(key input.Key) bool {
+	return p.inputProcessor != nil && p.inputProcessor.ProcessInput(key)
+}
+
+func (p *SummaryPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *SummaryPane) Focusses() ui.FocussablePane { return nil }
+
+func (p *SummaryPane) SetParent(parent ui.FocusQueriable) {
+	p.Parent = parent
+}
+
+func (p *SummaryPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
+}
+func (p *SummaryPane) PopModalOverlay() {
+	p.inputProcessor.PopModalOverlay()
+}
+func (p *SummaryPane) PopModalOverlays(index int) {
+	p.inputProcessor.PopModalOverlays(index)
+}
+
 // NewSummaryPane constructs and returns a new SummaryPane.
 func NewSummaryPane(
 	renderer ui.ConstrainedRenderer,
@@ -110,14 +138,16 @@ func NewSummaryPane(
 	titleString func() string,
 	days func() []*model.Day,
 	categories *styling.CategoryStyling,
+	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
 	return &SummaryPane{
-		renderer:    renderer,
-		dimensions:  dimensions,
-		stylesheet:  stylesheet,
-		condition:   condition,
-		titleString: titleString,
-		days:        days,
-		categories:  categories,
+		renderer:       renderer,
+		dimensions:     dimensions,
+		stylesheet:     stylesheet,
+		condition:      condition,
+		titleString:    titleString,
+		days:           days,
+		categories:     categories,
+		inputProcessor: inputProcessor,
 	}
 }

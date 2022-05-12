@@ -3,6 +3,7 @@ package panes
 import (
 	"strings"
 
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -15,6 +16,9 @@ type LogPane struct {
 	stylesheet styling.Stylesheet
 
 	logReader potatolog.LogReader
+
+	Parent         ui.FocusQueriable
+	inputProcessor input.ModalInputProcessor
 
 	condition   func() bool
 	titleString func() string
@@ -71,6 +75,30 @@ func (p *LogPane) Draw() {
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *LogPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
+}
+
+func (p *LogPane) CapturesInput() bool {
+	return p.inputProcessor != nil && p.inputProcessor.CapturesInput()
+}
+func (p *LogPane) ProcessInput(key input.Key) bool {
+	return p.inputProcessor != nil && p.inputProcessor.ProcessInput(key)
+}
+
+func (p *LogPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
+func (p *LogPane) Focusses() ui.FocussablePane { return nil }
+
+func (p *LogPane) SetParent(parent ui.FocusQueriable) {
+	p.Parent = parent
+}
+
+func (p *LogPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+	return p.inputProcessor.ApplyModalOverlay(overlay)
+}
+func (p *LogPane) PopModalOverlay() {
+	p.inputProcessor.PopModalOverlay()
+}
+func (p *LogPane) PopModalOverlays(index int) {
+	p.inputProcessor.PopModalOverlays(index)
 }
 
 // NewLogPane constructs and returns a new LogPane.

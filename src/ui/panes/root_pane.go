@@ -157,8 +157,21 @@ func (p *RootPane) GetView() ui.ActiveView {
 	}
 }
 
-func (p *RootPane) HasFocus() bool              { return true }
-func (p *RootPane) Focusses() ui.FocussablePane { return p.focussedViewPane }
+func (p *RootPane) HasFocus() bool { return true }
+func (p *RootPane) Focusses() ui.FocussablePane {
+	switch {
+	case p.summary.Condition():
+		return p.summary
+	case p.log.Condition():
+		return p.log
+	case p.help.Condition():
+		return p.help
+	case p.editor.Condition():
+		return p.editor
+	default:
+		return p.focussedViewPane
+	}
+}
 func (p *RootPane) SetParent(ui.FocusQueriable) { panic("root set parent") }
 
 func (p *RootPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
@@ -203,5 +216,11 @@ func NewRootPane(
 	dayViewMainPane.Parent = rootPane
 	weekViewMainPane.Parent = rootPane
 	monthViewMainPane.Parent = rootPane
+
+	summary.SetParent(rootPane)
+	help.SetParent(rootPane)
+	editor.SetParent(rootPane)
+	log.SetParent(rootPane)
+
 	return rootPane
 }

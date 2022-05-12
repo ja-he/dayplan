@@ -102,8 +102,7 @@ type Pane interface {
 // It's probably best that the parent conditionally draws, but internal
 // verification of the condition before executing draw calls is also an option.
 type ConditionalOverlayPane interface {
-	// Implements the Pane interface.
-	Pane
+	FocussablePane
 	// The condition which determines, whether this pane should be visible.
 	Condition() bool
 	// Inform the pane that it is not being shown so that it can take potential
@@ -115,7 +114,13 @@ type ConditionalOverlayPane interface {
 // but otherwise treated as though nonexistent. It should for example be ignored
 // when processing mouse clicks.
 type EphemeralPane interface {
-	ConditionalOverlayPane
+	// Implements the Pane interface.
+	Pane
+	// The condition which determines, whether this pane should be visible.
+	Condition() bool
+	// Inform the pane that it is not being shown so that it can take potential
+	// actions to ensure that, e.g., hide the terminal cursor, if necessary.
+	EnsureHidden()
 }
 
 type FocusQueriable interface {

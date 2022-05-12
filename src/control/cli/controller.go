@@ -357,7 +357,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		"i": action.NewSimple(func() {
 			event := controller.data.GetCurrentDay().Current
 			if event != nil {
-				controller.startEdit(event)
+				controller.data.EventEditor.Activate(event)
 			}
 		}),
 		"o": action.NewSimple(func() {
@@ -669,6 +669,103 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 	}
 
+	summaryPaneInputTree := input.ConstructInputTree(map[string]action.Action{
+		"h": action.NewSimple(func() {
+			switch controller.data.ActiveView() {
+			case ui.ViewDay:
+				controller.goToPreviousDay()
+			case ui.ViewWeek:
+				controller.goToDay(controller.data.CurrentDate.GetDayInWeek(0).Backward(7))
+			case ui.ViewMonth:
+				controller.goToDay(controller.data.CurrentDate.GetDayInMonth(0).Prev().GetDayInMonth(0))
+			default:
+				panic("unknown view")
+			}
+		}),
+		"l": action.NewSimple(func() {
+			switch controller.data.ActiveView() {
+			case ui.ViewDay:
+				controller.goToNextDay()
+			case ui.ViewWeek:
+				controller.goToDay(controller.data.CurrentDate.GetDayInWeek(6).Forward(7))
+			case ui.ViewMonth:
+				controller.goToDay(controller.data.CurrentDate.GetLastOfMonth().Next().GetLastOfMonth())
+			default:
+				panic("unknown view")
+			}
+		}),
+	})
+
+	var editorStartInsertMode func()
+	var editorLeaveInsertMode func()
+	editorInsertMode := processors.NewTextInputProcessor( // TODO rename
+		map[input.Key]action.Action{
+			{Key: tcell.KeyESC}:        action.NewSimple(func() { editorLeaveInsertMode() }),
+			{Key: tcell.KeyCtrlA}:      action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
+			{Key: tcell.KeyDelete}:     action.NewSimple(controller.data.EventEditor.DeleteRune),
+			{Key: tcell.KeyCtrlD}:      action.NewSimple(controller.data.EventEditor.DeleteRune),
+			{Key: tcell.KeyBackspace}:  action.NewSimple(controller.data.EventEditor.BackspaceRune),
+			{Key: tcell.KeyBackspace2}: action.NewSimple(controller.data.EventEditor.BackspaceRune),
+			{Key: tcell.KeyCtrlE}:      action.NewSimple(controller.data.EventEditor.MoveCursorToEnd),
+			{Key: tcell.KeyCtrlA}:      action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
+			{Key: tcell.KeyCtrlU}:      action.NewSimple(controller.data.EventEditor.BackspaceToBeginning),
+			{Key: tcell.KeyLeft}:       action.NewSimple(controller.data.EventEditor.MoveCursorLeft),
+			{Key: tcell.KeyRight}:      action.NewSimple(controller.data.EventEditor.MoveCursorRight),
+		},
+		controller.data.EventEditor.AddRune,
+	)
+	editorNormalModeTree := input.ConstructInputTree(
+		map[string]action.Action{
+			"<esc>": action.NewSimple(controller.abortEdit),
+			"<cr>":  action.NewSimple(controller.endEdit),
+			"i":     action.NewSimple(func() { editorStartInsertMode() }),
+			"a": action.NewSimple(func() {
+				controller.data.EventEditor.MoveCursorRightA()
+				editorStartInsertMode()
+			}),
+			"A": action.NewSimple(func() {
+				controller.data.EventEditor.MoveCursorPastEnd()
+				editorStartInsertMode()
+			}),
+			"0": action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
+			"$": action.NewSimple(controller.data.EventEditor.MoveCursorToEnd),
+			"h": action.NewSimple(controller.data.EventEditor.MoveCursorLeft),
+			"l": action.NewSimple(controller.data.EventEditor.MoveCursorRight),
+			"w": action.NewSimple(controller.data.EventEditor.MoveCursorNextWordBeginning),
+			"b": action.NewSimple(controller.data.EventEditor.MoveCursorPrevWordBeginning),
+			"e": action.NewSimple(controller.data.EventEditor.MoveCursorNextWordEnd),
+			"x": action.NewSimple(controller.data.EventEditor.DeleteRune),
+			"C": action.NewSimple(func() {
+				controller.data.EventEditor.DeleteToEnd()
+				editorStartInsertMode()
+			}),
+			"cc": action.NewSimple(func() {
+				controller.data.EventEditor.Clear()
+				editorStartInsertMode()
+			}),
+			"dd": action.NewSimple(func() { controller.data.EventEditor.Clear() }),
+		},
+	)
+	editorPane := panes.NewEditorPane(
+		tui.NewConstrainedRenderer(renderer, editorDimensions),
+		renderer,
+		editorDimensions,
+		stylesheet,
+		func() bool { return controller.data.EventEditor.Active },
+		func() string { return controller.data.EventEditor.TmpEventInfo.Name },
+		controller.data.EventEditor.GetMode,
+		func() int { return controller.data.EventEditor.CursorPos },
+		processors.NewModalInputProcessor(editorNormalModeTree),
+	)
+	editorStartInsertMode = func() {
+		editorPane.ApplyModalOverlay(editorInsertMode)
+		controller.data.EventEditor.SetMode(input.TextEditModeInsert)
+	}
+	editorLeaveInsertMode = func() {
+		editorPane.PopModalOverlay()
+		controller.data.EventEditor.SetMode(input.TextEditModeNormal)
+	}
+
 	rootPane := panes.NewRootPane(
 		renderer,
 		screenDimensions,
@@ -722,6 +819,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				}
 			},
 			&categoryStyling,
+			processors.NewModalInputProcessor(summaryPaneInputTree),
 		),
 		panes.NewLogPane(
 			tui.NewConstrainedRenderer(renderer, screenDimensions),
@@ -737,16 +835,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			stylesheet,
 			func() bool { return controller.data.ShowHelp },
 		),
-		panes.NewEditorPane(
-			tui.NewConstrainedRenderer(renderer, editorDimensions),
-			renderer,
-			editorDimensions,
-			stylesheet,
-			func() bool { return controller.data.EventEditor.Active },
-			func() string { return controller.data.EventEditor.TmpEventInfo.Name },
-			controller.data.EventEditor.GetMode,
-			func() int { return controller.data.EventEditor.CursorPos },
-		),
+		editorPane,
 
 		panes.NewPerfPane(
 			tui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) { return 2, 2, 50, 2 }),
@@ -774,67 +863,6 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 
 	controller.data.EventEditor.SetMode(input.TextEditModeNormal)
 	controller.data.EventEditMode = control.EventEditModeNormal
-
-	editorInsertMode := processors.NewTextInputProcessor(
-		map[input.Key]action.Action{
-			{Key: tcell.KeyESC}: action.NewSimple(func() {
-				controller.data.EventEditor.InputProcessor.PopModalOverlay()
-				controller.data.EventEditor.SetMode(input.TextEditModeNormal)
-			}),
-			{Key: tcell.KeyCtrlA}:      action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
-			{Key: tcell.KeyDelete}:     action.NewSimple(controller.data.EventEditor.DeleteRune),
-			{Key: tcell.KeyCtrlD}:      action.NewSimple(controller.data.EventEditor.DeleteRune),
-			{Key: tcell.KeyBackspace}:  action.NewSimple(controller.data.EventEditor.BackspaceRune),
-			{Key: tcell.KeyBackspace2}: action.NewSimple(controller.data.EventEditor.BackspaceRune),
-			{Key: tcell.KeyCtrlE}:      action.NewSimple(controller.data.EventEditor.MoveCursorToEnd),
-			{Key: tcell.KeyCtrlA}:      action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
-			{Key: tcell.KeyCtrlU}:      action.NewSimple(controller.data.EventEditor.BackspaceToBeginning),
-			{Key: tcell.KeyLeft}:       action.NewSimple(controller.data.EventEditor.MoveCursorLeft),
-			{Key: tcell.KeyRight}:      action.NewSimple(controller.data.EventEditor.MoveCursorRight),
-		},
-		controller.data.EventEditor.AddRune,
-	)
-
-	editorNormalModeTree := input.ConstructInputTree(
-		map[string]action.Action{
-			"<esc>": action.NewSimple(controller.abortEdit),
-			"<cr>":  action.NewSimple(controller.endEdit),
-			"i": action.NewSimple(func() {
-				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
-			}),
-			"a": action.NewSimple(func() {
-				controller.data.EventEditor.MoveCursorRightA()
-				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
-			}),
-			"A": action.NewSimple(func() {
-				controller.data.EventEditor.MoveCursorPastEnd()
-				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
-			}),
-			"0": action.NewSimple(controller.data.EventEditor.MoveCursorToBeginning),
-			"$": action.NewSimple(controller.data.EventEditor.MoveCursorToEnd),
-			"h": action.NewSimple(controller.data.EventEditor.MoveCursorLeft),
-			"l": action.NewSimple(controller.data.EventEditor.MoveCursorRight),
-			"w": action.NewSimple(controller.data.EventEditor.MoveCursorNextWordBeginning),
-			"b": action.NewSimple(controller.data.EventEditor.MoveCursorPrevWordBeginning),
-			"e": action.NewSimple(controller.data.EventEditor.MoveCursorNextWordEnd),
-			"x": action.NewSimple(controller.data.EventEditor.DeleteRune),
-			"C": action.NewSimple(func() {
-				controller.data.EventEditor.DeleteToEnd()
-				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
-			}),
-			"cc": action.NewSimple(func() {
-				controller.data.EventEditor.Clear()
-				controller.data.EventEditor.InputProcessor.ApplyModalOverlay(editorInsertMode)
-				controller.data.EventEditor.SetMode(input.TextEditModeInsert)
-			}),
-			"dd": action.NewSimple(func() { controller.data.EventEditor.Clear() }),
-		},
-	)
-	controller.data.EventEditor.InputProcessor = processors.NewModalInputProcessor(editorNormalModeTree)
 
 	coordinatesProvided := (envData.Latitude != "" && envData.Longitude != "")
 	owmApiKeyProvided := (envData.OwmApiKey != "")
@@ -1070,14 +1098,6 @@ func (t *Controller) updateCursorPos(x, y int) {
 	t.data.CursorPos.X, t.data.CursorPos.Y = x, y
 }
 
-func (t *Controller) startEdit(event *model.Event) {
-	t.data.EventEditor.Active = true
-	t.data.EventEditor.TmpEventInfo = *event
-	t.data.EventEditor.Original = event
-	t.data.EventEditor.CursorPos = 0
-	t.data.EditState = control.EditStateEditing
-}
-
 func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
@@ -1143,7 +1163,7 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 					t.data.MovePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove(eventsInfo)
 				case ui.EventBoxTopEdge:
-					t.startEdit(eventsInfo.Event())
+					t.data.EventEditor.Activate(eventsInfo.Event())
 				}
 			case tcell.WheelUp:
 				t.ScrollUp(1)
@@ -1205,13 +1225,6 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 		}
 
 		t.updateCursorPos(x, y)
-	}
-}
-
-func (t *Controller) handleEditEvent(ev tcell.Event) {
-	switch e := ev.(type) {
-	case *tcell.EventKey:
-		t.data.EventEditor.InputProcessor.ProcessInput(input.KeyFromTcellEvent(e))
 	}
 }
 
@@ -1335,7 +1348,7 @@ func (t *Controller) Run() {
 			case (control.EditStateMouseEditing | control.EditStateMoving):
 				t.handleMouseMoveEditEvent(ev)
 			case (control.EditStateEditing):
-				t.handleEditEvent(ev)
+				panic("TODO: deprecate")
 			}
 
 			switch ev.(type) {
