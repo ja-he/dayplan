@@ -548,7 +548,6 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	var helpContentRegister func()
 	rootPaneInputTree := input.ConstructInputTree(
 		map[string]action.Action{
-			"u": action.NewSimple(func() string { return "update weather" }, controller.updateWeather),
 			"q": action.NewSimple(func() string { return "exit program (unsaved progress is lost)" }, func() { controller.controllerEvents <- ControllerEventExit }),
 			"P": action.NewSimple(func() string { return "show debug perf pane" }, func() { controller.data.ShowDebug = !controller.data.ShowDebug }),
 			"S": action.NewSimple(func() string { return "toggle summary" }, func() { controller.data.ShowSummary = !controller.data.ShowSummary }),
@@ -560,7 +559,14 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 	)
 
-	dayViewInputTree := input.EmptyTree()
+	var dayViewFocusNext, dayViewFocusPrev func()
+	dayViewInputTree := input.ConstructInputTree(
+		map[string]action.Action{
+			"W":      action.NewSimple(func() string { return "update weather" }, controller.updateWeather),
+			"<c-w>h": action.NewSimple(func() string { return "switch to previous pane" }, func() { dayViewFocusPrev() }),
+			"<c-w>l": action.NewSimple(func() string { return "switch to next pane" }, func() { dayViewFocusNext() }),
+		},
+	)
 
 	dayViewScrollablePane := panes.NewWrapperPane(
 		[]ui.Pane{
@@ -655,17 +661,8 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 		processors.NewModalInputProcessor(input.ConstructInputTree(scrollableZoomableInputMap)),
 	)
-	dayViewInputTree.Root.Children[input.Key{Key: tcell.KeyCtrlW}] = &input.Node{
-		Action: nil,
-		Children: map[input.Key]*input.Node{
-			{Key: tcell.KeyRune, Ch: 'h'}: {Action: action.NewSimple(func() string { return "switch to previous pane" }, func() {
-				dayViewMainPane.FocusPrev()
-			})},
-			{Key: tcell.KeyRune, Ch: 'l'}: {Action: action.NewSimple(func() string { return "switch to next pane" }, func() {
-				dayViewMainPane.FocusNext()
-			})},
-		},
-	}
+	dayViewFocusNext = dayViewMainPane.FocusNext
+	dayViewFocusPrev = dayViewMainPane.FocusPrev
 
 	summaryPaneInputTree := input.ConstructInputTree(map[string]action.Action{
 		"h": action.NewSimple(func() string { return "switch to previous day/week/month" }, func() {
