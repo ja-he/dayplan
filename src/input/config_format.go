@@ -107,3 +107,54 @@ func KeyIdentifierToKey(identifier string) (Key, error) {
 
 	return key, nil
 }
+
+func ToConfigIdentifierString(k Key) string {
+	mapping := map[Key]string{
+		{Key: tcell.KeyRune, Ch: ' '}: "space",
+		{Key: tcell.KeyEnter}:         "cr",
+		{Key: tcell.KeyESC}:           "esc",
+		{Key: tcell.KeyDelete}:        "del",
+		{Key: tcell.KeyBackspace2}:    "bs",
+		{Key: tcell.KeyLeft}:          "left",
+		{Key: tcell.KeyRight}:         "right",
+
+		{Key: tcell.KeyCtrlSpace}: "c-space",
+		{Key: tcell.KeyBackspace}: "c-bs",
+
+		{Key: tcell.KeyCtrlA}: "c-a",
+		{Key: tcell.KeyCtrlB}: "c-b",
+		{Key: tcell.KeyCtrlC}: "c-c",
+		{Key: tcell.KeyCtrlD}: "c-d",
+		{Key: tcell.KeyCtrlE}: "c-e",
+		{Key: tcell.KeyCtrlF}: "c-f",
+		{Key: tcell.KeyCtrlG}: "c-g",
+		{Key: tcell.KeyCtrlH}: "c-h",
+		{Key: tcell.KeyCtrlI}: "c-i",
+		{Key: tcell.KeyCtrlJ}: "c-j",
+		{Key: tcell.KeyCtrlK}: "c-k",
+		{Key: tcell.KeyCtrlL}: "c-l",
+		{Key: tcell.KeyCtrlM}: "c-m",
+		{Key: tcell.KeyCtrlN}: "c-n",
+		{Key: tcell.KeyCtrlO}: "c-o",
+		{Key: tcell.KeyCtrlP}: "c-p",
+		{Key: tcell.KeyCtrlQ}: "c-q",
+		{Key: tcell.KeyCtrlR}: "c-r",
+		{Key: tcell.KeyCtrlS}: "c-s",
+		{Key: tcell.KeyCtrlT}: "c-t",
+		{Key: tcell.KeyCtrlU}: "c-u",
+		{Key: tcell.KeyCtrlV}: "c-v",
+		{Key: tcell.KeyCtrlW}: "c-w",
+		{Key: tcell.KeyCtrlX}: "c-x",
+		{Key: tcell.KeyCtrlY}: "c-y",
+		{Key: tcell.KeyCtrlZ}: "c-z",
+	}
+
+	identifier, ok := mapping[k]
+	if ok {
+		return "<" + identifier + ">"
+	} else if k.Key == tcell.KeyRune {
+		return string(k.Ch)
+	} else {
+		panic(fmt.Sprintf("undescribable key %s", k.ToDebugString()))
+	}
+}

@@ -14,7 +14,7 @@ func (n *Node) GetHelp() Help {
 	} else {
 		for k, c := range n.Children {
 			for partialCombo, action := range c.GetHelp() {
-				result[k.ToString()+partialCombo] = action
+				result[ToConfigIdentifierString(k)+partialCombo] = action
 			}
 		}
 	}

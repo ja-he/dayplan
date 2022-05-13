@@ -1109,7 +1109,7 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 		key := input.KeyFromTcellEvent(e)
 		inputApplied := t.rootPane.ProcessInput(key)
 		if !inputApplied {
-			t.data.Log.Add("ERROR", fmt.Sprintf("could not apply key input %s", key.ToString()))
+			t.data.Log.Add("ERROR", fmt.Sprintf("could not apply key input %s", key.ToDebugString()))
 		}
 	case *tcell.EventMouse:
 		t.data.MouseMode = true

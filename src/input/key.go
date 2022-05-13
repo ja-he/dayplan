@@ -12,10 +12,11 @@ type Key struct {
 	Ch  rune
 }
 
-func (k *Key) ToString() string {
+func (k *Key) ToDebugString() string {
 	return fmt.Sprintf(
-		"(%s,'%s'(%d))",
+		"(%s (%d),'%s'(%d))",
 		tcell.KeyNames[k.Key],
+		int(k.Key),
 		string(k.Ch),
 		int(k.Ch),
 	)
