@@ -72,8 +72,6 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	statusHeight := 2
 	weatherWidth := 20
 	timelineWidth := 10
-	helpWidth := 80
-	helpHeight := 30
 	editorWidth := 80
 	editorHeight := 20
 
@@ -119,7 +117,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			return (screenWidth / 2) - (floatWidth / 2), (screenHeight / 2) - (floatHeight / 2), floatWidth, floatHeight
 		}
 	}
-	helpDimensions := centeredFloat(helpWidth, helpHeight)
+	helpDimensions := screenDimensions
 	editorDimensions := centeredFloat(editorWidth, editorHeight)
 	toolsDimensions := func() (x, y, w, h int) {
 		screenWidth, screeenHeight := screenSize()
