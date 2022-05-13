@@ -547,6 +547,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		controller.data.EventEditMode = control.EventEditModeResize
 	})}
 
+	var helpContentRegister func()
 	rootPaneInputTree := input.ConstructInputTree(
 		map[string]action.Action{
 			"u": action.NewSimple(func() string { return "update weather" }, controller.updateWeather),
@@ -554,7 +555,10 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			"P": action.NewSimple(func() string { return "show debug perf pane" }, func() { controller.data.ShowDebug = !controller.data.ShowDebug }),
 			"S": action.NewSimple(func() string { return "toggle summary" }, func() { controller.data.ShowSummary = !controller.data.ShowSummary }),
 			"E": action.NewSimple(func() string { return "toggle log" }, func() { controller.data.ShowLog = !controller.data.ShowLog }),
-			"?": action.NewSimple(func() string { return "toggle help" }, func() { controller.data.ShowHelp = !controller.data.ShowHelp }),
+			"?": action.NewSimple(func() string { return "toggle help" }, func() {
+				helpContentRegister()
+				controller.data.ShowHelp = !controller.data.ShowHelp // TODO(ja-he): open help only; close mapping with help pane
+			}),
 		},
 	)
 
@@ -741,6 +745,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			}),
 		},
 	)
+	helpPane := panes.NewHelpPane(
+		tui.NewConstrainedRenderer(renderer, helpDimensions),
+		helpDimensions,
+		stylesheet,
+		func() bool { return controller.data.ShowHelp },
+	)
 	editorPane := panes.NewEditorPane(
 		tui.NewConstrainedRenderer(renderer, editorDimensions),
 		renderer,
@@ -824,12 +834,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			func() string { return "LOG" },
 			&controller.data.Log,
 		),
-		panes.NewHelpPane(
-			tui.NewConstrainedRenderer(renderer, helpDimensions),
-			helpDimensions,
-			stylesheet,
-			func() bool { return controller.data.ShowHelp },
-		),
+		helpPane,
 		editorPane,
 
 		panes.NewPerfPane(
@@ -854,6 +859,10 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			rootPane.ViewDown()
 			controller.loadDaysForView(controller.data.ActiveView())
 		}),
+	}
+
+	helpContentRegister = func() {
+		helpPane.Content = rootPane.GetHelp()
 	}
 
 	controller.data.EventEditor.SetMode(input.TextEditModeNormal)

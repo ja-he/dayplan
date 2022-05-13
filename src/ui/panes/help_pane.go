@@ -15,6 +15,8 @@ type HelpPane struct {
 
 	inputProcessor input.ModalInputProcessor
 	parent         ui.FocusQueriable
+
+	Content input.Help
 }
 
 // EnsureHidden informs the pane that it is not being shown so that it can take
