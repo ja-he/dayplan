@@ -129,6 +129,8 @@ func (p *SummaryPane) PopModalOverlays(index int) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 
+func (p *SummaryPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
+
 // NewSummaryPane constructs and returns a new SummaryPane.
 func NewSummaryPane(
 	renderer ui.ConstrainedRenderer,

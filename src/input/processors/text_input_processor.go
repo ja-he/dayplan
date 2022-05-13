@@ -2,6 +2,7 @@ package processors
 
 import (
 	"github.com/gdamore/tcell/v2"
+
 	"github.com/ja-he/dayplan/src/control/action"
 	"github.com/ja-he/dayplan/src/input"
 )
@@ -32,6 +33,8 @@ func (p *TextInputProcessor) CapturesInput() bool {
 	// I think we will always want a text processor to take this precedence.
 	return true
 }
+
+func (p *TextInputProcessor) GetHelp() input.Help { return nil }
 
 func NewTextInputProcessor(
 	normalModeMappings map[input.Key]action.Action,

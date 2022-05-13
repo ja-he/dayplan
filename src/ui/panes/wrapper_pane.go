@@ -117,6 +117,19 @@ func (p *WrapperPane) PopModalOverlays(index int) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 
+func (p *WrapperPane) GetHelp() input.Help {
+	result := input.Help{}
+
+	for k, v := range p.inputProcessor.GetHelp() {
+		result[k] = v
+	}
+	for k, v := range p.Focusses().GetHelp() {
+		result[k] = v
+	}
+
+	return result
+}
+
 // NewWrapperPane constructs and returns a new WrapperPane.
 func NewWrapperPane(
 	drawables []ui.Pane,

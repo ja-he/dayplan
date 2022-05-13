@@ -184,6 +184,19 @@ func (p *RootPane) PopModalOverlays(index int) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 
+func (p *RootPane) GetHelp() input.Help {
+	result := input.Help{}
+
+	for k, v := range p.inputProcessor.GetHelp() {
+		result[k] = v
+	}
+	for k, v := range p.Focusses().GetHelp() {
+		result[k] = v
+	}
+
+	return result
+}
+
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,

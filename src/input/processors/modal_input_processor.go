@@ -47,3 +47,7 @@ func (p *ModalInputProcessor) getApplicableProcessor() input.SimpleInputProcesso
 		return p.base
 	}
 }
+
+func (p *ModalInputProcessor) GetHelp() input.Help {
+	return p.getApplicableProcessor().GetHelp()
+}

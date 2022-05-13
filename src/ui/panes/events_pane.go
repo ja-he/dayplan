@@ -313,6 +313,8 @@ func (p *EventsPane) PopModalOverlays(index int) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 
+func (p *EventsPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
+
 // NewEventsPane constructs and returns a new EventsPane.
 func NewEventsPane(
 	renderer ui.ConstrainedRenderer,

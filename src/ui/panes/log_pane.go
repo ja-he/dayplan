@@ -101,6 +101,8 @@ func (p *LogPane) PopModalOverlays(index int) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 
+func (p *LogPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
+
 // NewLogPane constructs and returns a new LogPane.
 func NewLogPane(
 	renderer ui.ConstrainedRenderer,

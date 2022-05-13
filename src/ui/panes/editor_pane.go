@@ -57,6 +57,8 @@ func (p *EditorPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (inde
 func (p *EditorPane) PopModalOverlay()           { p.inputProcessor.PopModalOverlay() }
 func (p *EditorPane) PopModalOverlays(index int) { p.inputProcessor.PopModalOverlays(index) }
 
+func (p *EditorPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
+
 // Draw draws the editor popup.
 func (p *EditorPane) Draw() {
 	if p.condition() {

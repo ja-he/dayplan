@@ -52,6 +52,8 @@ func (p *HelpPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index 
 func (p *HelpPane) PopModalOverlay()           { p.inputProcessor.PopModalOverlay() }
 func (p *HelpPane) PopModalOverlays(index int) { p.inputProcessor.PopModalOverlays(index) }
 
+func (p *HelpPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
+
 // Draw draws the help popup.
 func (p *HelpPane) Draw() {
 	if p.condition() {

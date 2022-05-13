@@ -133,6 +133,8 @@ func (p *ToolsPane) PopModalOverlays(index int) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 
+func (p *ToolsPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
+
 // NewToolsPane constructs and returns a new ToolsPane.
 func NewToolsPane(
 	renderer ui.ConstrainedRenderer,
