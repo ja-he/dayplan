@@ -39,12 +39,8 @@ func (p *HelpPane) Dimensions() (x, y, w, h int) {
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *HelpPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 
-func (p *HelpPane) CapturesInput() bool {
-	return p.inputProcessor != nil && p.inputProcessor.CapturesInput()
-}
-func (p *HelpPane) ProcessInput(key input.Key) bool {
-	return p.inputProcessor != nil && p.inputProcessor.ProcessInput(key)
-}
+func (p *HelpPane) CapturesInput() bool             { return p.inputProcessor.CapturesInput() }
+func (p *HelpPane) ProcessInput(key input.Key) bool { return p.inputProcessor.ProcessInput(key) }
 
 func (p *HelpPane) HasFocus() bool                     { return p.parent.HasFocus() && p.parent.Focusses() == p }
 func (p *HelpPane) Focusses() ui.FocussablePane        { return nil }
