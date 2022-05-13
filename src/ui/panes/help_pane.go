@@ -110,11 +110,13 @@ func NewHelpPane(
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
 	condition func() bool,
+	inputProcessor input.ModalInputProcessor,
 ) *HelpPane {
 	return &HelpPane{
-		renderer:   renderer,
-		dimensions: dimensions,
-		stylesheet: stylesheet,
-		condition:  condition,
+		renderer:       renderer,
+		dimensions:     dimensions,
+		stylesheet:     stylesheet,
+		condition:      condition,
+		inputProcessor: inputProcessor,
 	}
 }

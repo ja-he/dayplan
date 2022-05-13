@@ -748,6 +748,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		helpDimensions,
 		stylesheet,
 		func() bool { return controller.data.ShowHelp },
+		processors.NewModalInputProcessor(input.EmptyTree()),
 	)
 	editorPane := panes.NewEditorPane(
 		tui.NewConstrainedRenderer(renderer, editorDimensions),
