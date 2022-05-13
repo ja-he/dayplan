@@ -123,8 +123,10 @@ func (p *WrapperPane) GetHelp() input.Help {
 	for k, v := range p.inputProcessor.GetHelp() {
 		result[k] = v
 	}
-	for k, v := range p.Focusses().GetHelp() {
-		result[k] = v
+	if p.Focusses() != nil {
+		for k, v := range p.Focusses().GetHelp() {
+			result[k] = v
+		}
 	}
 
 	return result
