@@ -1,6 +1,8 @@
 package panes
 
 import (
+	"sort"
+
 	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -76,53 +78,31 @@ func (p *HelpPane) Draw() {
 			keysDrawn++
 		}
 
-		drawOpposedMapping := func(keyA, keyB, description string) {
-			sepText := "/"
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText)-len([]rune(keyA)), y+border+keysDrawn, len([]rune(keyA)), 1, p.stylesheet.Help.DefaultEmphasized().Bolded(), keyA)
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB))-len(sepText), y+border+keysDrawn, len(sepText), 1, p.stylesheet.Help, sepText)
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keyB)), y+border+keysDrawn, len([]rune(keyB)), 1, p.stylesheet.Help.DefaultEmphasized().Bolded(), keyB)
-			p.renderer.DrawText(descriptionOffset, y+border+keysDrawn, w, h, p.stylesheet.Help.Italicized(), description)
-			keysDrawn++
+		content := make([]mappingAndAction, len(p.Content))
+		{
+			i := 0
+			for mapping, action := range p.Content {
+				content[i] = mappingAndAction{mapping: mapping, action: action}
+				i++
+			}
+			sort.Sort(byAction(content))
+		}
+		for i := range content {
+			drawMapping(content[i].mapping, content[i].action)
 		}
 
-		space := func() { drawMapping("", "") }
-
-		drawMapping("?", "toggle help")
-		space()
-
-		drawMapping("<lmb>[+<move down>]", "create or edit event")
-		drawMapping("<rmb>", "split event (in event view)")
-		drawMapping("<mmb>", "delete event")
-		drawMapping("<ctrl-lmb>+<move>", "move event with following")
-		space()
-
-		drawOpposedMapping("<c-u>", "<c-d>", "scroll up / down")
-		drawOpposedMapping("k", "j", "scroll up / down")
-		drawOpposedMapping("g", "G", "scroll to top / bottom")
-		space()
-
-		drawOpposedMapping("+", "-", "zoom in / out")
-		space()
-
-		drawOpposedMapping("h", "l", "go to previous / next day")
-		space()
-
-		drawOpposedMapping("i", "<esc>", "narrow / broaden view")
-		space()
-
-		drawMapping("w", "write day to file")
-		drawMapping("c", "clear day (remove all events)")
-		drawMapping("q", "quit (unwritten data is lost)")
-		space()
-
-		drawMapping("S", "toggle summary")
-		drawMapping("E", "toggle debug log")
-		space()
-
-		drawMapping("u", "update weather (requires some envvars)")
-		space()
 	}
 }
+
+type mappingAndAction = struct {
+	mapping string
+	action  string
+}
+type byAction []mappingAndAction
+
+func (a byAction) Len() int           { return len(a) }
+func (a byAction) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a byAction) Less(i, j int) bool { return a[i].action < a[j].action }
 
 // NewHelpPane constructs and returns a new HelpPane.
 func NewHelpPane(
