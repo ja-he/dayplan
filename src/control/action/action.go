@@ -5,4 +5,6 @@ type Action interface {
 
 	Undo()
 	Undoable() bool
+
+	Explain() string
 }
