@@ -555,7 +555,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			"E": action.NewSimple(func() string { return "toggle log" }, func() { controller.data.ShowLog = !controller.data.ShowLog }),
 			"?": action.NewSimple(func() string { return "toggle help" }, func() {
 				helpContentRegister()
-				controller.data.ShowHelp = !controller.data.ShowHelp // TODO(ja-he): open help only; close mapping with help pane
+				controller.data.ShowHelp = true
 			}),
 		},
 	)
@@ -748,7 +748,13 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		helpDimensions,
 		stylesheet,
 		func() bool { return controller.data.ShowHelp },
-		processors.NewModalInputProcessor(input.EmptyTree()),
+		processors.NewModalInputProcessor(input.ConstructInputTree(
+			map[string]action.Action{
+				"?": action.NewSimple(func() string { return "close help" }, func() {
+					controller.data.ShowHelp = false
+				}),
+			},
+		)),
 	)
 	editorPane := panes.NewEditorPane(
 		tui.NewConstrainedRenderer(renderer, editorDimensions),
