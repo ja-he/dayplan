@@ -160,14 +160,14 @@ func (p *RootPane) GetView() ui.ActiveView {
 func (p *RootPane) HasFocus() bool { return true }
 func (p *RootPane) Focusses() ui.FocussablePane {
 	switch {
-	case p.summary.Condition():
-		return p.summary
-	case p.log.Condition():
-		return p.log
 	case p.help.Condition():
 		return p.help
 	case p.editor.Condition():
 		return p.editor
+	case p.summary.Condition():
+		return p.summary
+	case p.log.Condition():
+		return p.log
 	default:
 		return p.focussedViewPane
 	}
