@@ -352,7 +352,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				controller.data.GetCurrentDay().RemoveEvent(event)
 			}
 		}),
-		"i": action.NewSimple(func() string { return "open the event editor" }, func() {
+		"<cr>": action.NewSimple(func() string { return "open the event editor" }, func() {
 			event := controller.data.GetCurrentDay().Current
 			if event != nil {
 				controller.data.EventEditor.Activate(event)
