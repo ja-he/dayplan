@@ -550,7 +550,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		map[string]action.Action{
 			"q": action.NewSimple(func() string { return "exit program (unsaved progress is lost)" }, func() { controller.controllerEvents <- ControllerEventExit }),
 			"P": action.NewSimple(func() string { return "show debug perf pane" }, func() { controller.data.ShowDebug = !controller.data.ShowDebug }),
-			"S": action.NewSimple(func() string { return "toggle summary" }, func() { controller.data.ShowSummary = !controller.data.ShowSummary }),
+			"S": action.NewSimple(func() string { return "open summary" }, func() { controller.data.ShowSummary = true }),
 			"E": action.NewSimple(func() string { return "toggle log" }, func() { controller.data.ShowLog = !controller.data.ShowLog }),
 			"?": action.NewSimple(func() string { return "toggle help" }, func() {
 				helpContentRegister()
@@ -665,6 +665,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	dayViewFocusPrev = dayViewMainPane.FocusPrev
 
 	summaryPaneInputTree := input.ConstructInputTree(map[string]action.Action{
+		"S": action.NewSimple(func() string { return "close summary" }, func() { controller.data.ShowSummary = false }),
 		"h": action.NewSimple(func() string { return "switch to previous day/week/month" }, func() {
 			switch controller.data.ActiveView() {
 			case ui.ViewDay:
