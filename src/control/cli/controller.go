@@ -367,7 +367,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				Cat:  controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.Start = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.NRowsPerHour)
+				newEvent.Start = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.MinutesPerRow())
 			} else {
 				newEvent.Start = current.End
 			}
@@ -387,7 +387,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				Cat:  controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.End = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.NRowsPerHour)
+				newEvent.End = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.MinutesPerRow())
 			} else {
 				newEvent.End = current.Start
 			}
@@ -1222,7 +1222,7 @@ func (t *Controller) resizeStep(nextCursortime model.Timestamp) {
 	prevCursortime := t.data.EditedEvent.PrevEditStepTimestamp
 	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
 	event := t.data.EditedEvent.Event
-	event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
+	event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
 	t.data.EditedEvent.PrevEditStepTimestamp = nextCursortime
 }
 
@@ -1232,13 +1232,13 @@ func (t *Controller) moveStep(nextCursortime model.Timestamp) {
 	if t.data.MovePropagate {
 		following := t.data.GetCurrentDay().GetEventsFrom(t.data.EditedEvent.Event)
 		for _, ptr := range following {
-			ptr.Start = ptr.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
-			ptr.End = ptr.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
+			ptr.Start = ptr.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
+			ptr.End = ptr.End.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
 		}
 	} else {
 		event := t.data.EditedEvent.Event
-		event.Start = event.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
-		event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.NRowsPerHour)
+		event.Start = event.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
+		event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
 	}
 	t.data.EditedEvent.PrevEditStepTimestamp = nextCursortime
 }

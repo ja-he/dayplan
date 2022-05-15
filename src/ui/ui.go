@@ -205,6 +205,11 @@ type ViewParams struct {
 	ScrollOffset int
 }
 
+// MinutesPerRow returns the number of minutes a single row represents.
+func (p *ViewParams) MinutesPerRow() int {
+	return 60 / p.NRowsPerHour
+}
+
 // MouseCursorPos represents the position of a mouse cursor on the UI's
 // x-y-plane, which has its origin 0,0 in the top left.
 type MouseCursorPos struct {
