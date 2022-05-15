@@ -76,11 +76,14 @@ func (a ByStartConsideringDuration) Less(i, j int) bool {
 
 func (e *Event) MoveBy(duration int, snapMinsMod int) error {
 	if e.CanMoveBy(duration, snapMinsMod) {
-		e.Start = e.Start.OffsetMinutes(duration)
+		e.Start = e.Start.OffsetMinutes(duration).Snap(snapMinsMod)
 		e.End = e.End.OffsetMinutes(duration)
 		return nil
 	} else {
-		return fmt.Errorf("moving event %s by %d would cross day boundary", e.toString(), duration)
+		return fmt.Errorf(
+			"moving event %s by %d (snapping %d) would cross day boundary",
+			e.toString(), duration, snapMinsMod,
+		)
 	}
 }
 

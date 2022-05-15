@@ -187,9 +187,9 @@ func (day *Day) MoveEventsPushingBy(event *Event, duration int, snapMinsMod int)
 		}
 	}
 
-	getMoveIfApplicable := func(e *Event) (applicable bool, newStart, newEnd Timestamp, move func()) {
+	getMoveIfApplicable := func(e *Event, d int, s int) (applicable bool, newStart, newEnd Timestamp, move func()) {
 		if e.CanMoveBy(duration, snapMinsMod) {
-			return true, e.Start.OffsetMinutes(duration).Snap(snapMinsMod), e.End.OffsetMinutes(duration).Snap(snapMinsMod), func() { e.MoveBy(duration, snapMinsMod) }
+			return true, e.Start.OffsetMinutes(d).Snap(s), e.End.OffsetMinutes(d), func() { e.MoveBy(d, s) }
 		} else {
 			return false, newStart, newEnd, nil
 		}
@@ -199,12 +199,13 @@ func (day *Day) MoveEventsPushingBy(event *Event, duration int, snapMinsMod int)
 
 	switch {
 	case duration < 0:
-		applicable, lastStart, _, move := getMoveIfApplicable(event)
+		applicable, lastStart, _, move := getMoveIfApplicable(event, duration, snapMinsMod)
 		if applicable {
 			moves = append(moves, move)
 			for _, preceding := range day.getEventsBefore(event) {
 				if preceding.End.IsAfter(lastStart) {
-					applicable, lastStart, _, move = getMoveIfApplicable(preceding)
+					d := preceding.End.DurationInMinutesUntil(lastStart)
+					applicable, lastStart, _, move = getMoveIfApplicable(preceding, d, 1)
 					if applicable {
 						moves = append(moves, move)
 					} else {
@@ -221,12 +222,13 @@ func (day *Day) MoveEventsPushingBy(event *Event, duration int, snapMinsMod int)
 		}
 
 	case duration > 0:
-		applicable, _, lastEnd, move := getMoveIfApplicable(event)
+		applicable, _, lastEnd, move := getMoveIfApplicable(event, duration, snapMinsMod)
 		if applicable {
 			moves = append(moves, move)
 			for _, follower := range day.getEventsAfter(event) {
 				if follower.Start.IsBefore(lastEnd) {
-					applicable, _, lastEnd, move = getMoveIfApplicable(follower)
+					d := follower.Start.DurationInMinutesUntil(lastEnd)
+					applicable, _, lastEnd, move = getMoveIfApplicable(follower, d, 1)
 					if applicable {
 						moves = append(moves, move)
 					} else {
