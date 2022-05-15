@@ -150,6 +150,19 @@ func (day *Day) SplitEvent(originalEvent *Event, timestamp Timestamp) error {
 	return nil
 }
 
+func (day *Day) ResizeBy(event *Event, delta int) error {
+	err := event.ResizeBy(delta)
+	if err == nil {
+		day.UpdateEventOrder()
+	}
+	return err
+}
+
+func (day *Day) ResizeTo(event *Event, newEnd Timestamp) error {
+	delta := event.End.DurationInMinutesUntil(newEnd)
+	return day.ResizeBy(event, delta)
+}
+
 func (day *Day) MoveSingleEventBy(event *Event, duration int) error {
 	err := event.MoveBy(duration)
 	if err == nil {
