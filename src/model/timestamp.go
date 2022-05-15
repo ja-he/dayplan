@@ -61,6 +61,16 @@ type TimeOffset struct {
 	Add bool
 }
 
+func (a Timestamp) IsBefore(b Timestamp) bool {
+	if b.Hour > a.Hour {
+		return true
+	} else if b.Hour == a.Hour {
+		return b.Minute > a.Minute
+	} else {
+		return false
+	}
+}
+
 func (a Timestamp) IsAfter(b Timestamp) bool {
 	if a.Hour > b.Hour {
 		return true
