@@ -74,8 +74,8 @@ func (a ByStartConsideringDuration) Less(i, j int) bool {
 	return secondStartsLater || (sameStart && secondEndEarlier)
 }
 
-func (e *Event) MoveBy(duration int) error {
-	if e.CanMoveBy(duration) {
+func (e *Event) MoveBy(duration int, snapMinsMod int) error {
+	if e.CanMoveBy(duration, snapMinsMod) {
 		e.Start = e.Start.OffsetMinutes(duration)
 		e.End = e.End.OffsetMinutes(duration)
 		return nil
@@ -104,7 +104,7 @@ func (e *Event) ResizeBy(delta int) error {
 	}
 }
 
-func (event *Event) CanMoveBy(minutes int) bool {
+func (event *Event) CanMoveBy(minutes int, snapMinsMod int) bool {
 	fullDayMinutes := 24 * 60
 
 	switch {
@@ -112,10 +112,10 @@ func (event *Event) CanMoveBy(minutes int) bool {
 		return false
 
 	case minutes > 0:
-		return event.Start.OffsetMinutes(minutes).IsAfter(event.Start) && event.End.OffsetMinutes(minutes).IsAfter(event.End)
+		return event.Start.OffsetMinutes(minutes).Snap(snapMinsMod).IsAfter(event.Start) && event.End.OffsetMinutes(minutes).Snap(snapMinsMod).IsAfter(event.End)
 
 	case minutes < 0:
-		return event.Start.OffsetMinutes(minutes).IsBefore(event.Start) && event.End.OffsetMinutes(minutes).IsBefore(event.End)
+		return event.Start.OffsetMinutes(minutes).Snap(snapMinsMod).IsBefore(event.Start) && event.End.OffsetMinutes(minutes).Snap(snapMinsMod).IsBefore(event.End)
 
 	default:
 		return true
@@ -123,7 +123,7 @@ func (event *Event) CanMoveBy(minutes int) bool {
 }
 
 func (event *Event) CanMoveTo(newStart Timestamp) bool {
-	return event.CanMoveBy(newStart.DurationInMinutesUntil(event.Start))
+	return event.CanMoveBy(newStart.DurationInMinutesUntil(event.Start), 1)
 }
 
 func (event *Event) CanBeResizedBy(delta int) bool {

@@ -164,8 +164,8 @@ func (day *Day) ResizeTo(event *Event, newEnd Timestamp) error {
 	return day.ResizeBy(event, delta)
 }
 
-func (day *Day) MoveSingleEventBy(event *Event, duration int) error {
-	err := event.MoveBy(duration)
+func (day *Day) MoveSingleEventBy(event *Event, duration int, snapMinsMod int) error {
+	err := event.MoveBy(duration, snapMinsMod)
 	if err == nil {
 		day.UpdateEventOrder()
 	}
@@ -180,7 +180,7 @@ func (day *Day) MoveSingleEventTo(event *Event, newStart Timestamp) error {
 	return err
 }
 
-func (day *Day) MoveEventsPushingBy(event *Event, duration int) error {
+func (day *Day) MoveEventsPushingBy(event *Event, duration int, snapMinsMod int) error {
 	apply := func(actions []func()) {
 		for i := range actions {
 			actions[i]()
@@ -188,8 +188,8 @@ func (day *Day) MoveEventsPushingBy(event *Event, duration int) error {
 	}
 
 	getMoveIfApplicable := func(e *Event) (applicable bool, newStart, newEnd Timestamp, move func()) {
-		if e.CanMoveBy(duration) {
-			return true, e.Start.OffsetMinutes(duration), e.End.OffsetMinutes(duration), func() { e.MoveBy(duration) }
+		if e.CanMoveBy(duration, snapMinsMod) {
+			return true, e.Start.OffsetMinutes(duration).Snap(snapMinsMod), e.End.OffsetMinutes(duration).Snap(snapMinsMod), func() { e.MoveBy(duration, snapMinsMod) }
 		} else {
 			return false, newStart, newEnd, nil
 		}

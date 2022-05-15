@@ -483,6 +483,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
 						controller.data.GetCurrentDay().Current,
 						controller.data.ViewParams.MinutesPerRow(),
+						controller.data.ViewParams.MinutesPerRow(),
 					)
 					if err != nil {
 						panic(err)
@@ -494,6 +495,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
 						controller.data.GetCurrentDay().Current,
 						-controller.data.ViewParams.MinutesPerRow(),
+						controller.data.ViewParams.MinutesPerRow(),
 					)
 					if err != nil {
 						panic(err)
@@ -526,12 +528,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(current, controller.data.ViewParams.MinutesPerRow())
+					controller.data.GetCurrentDay().MoveSingleEventBy(current, controller.data.ViewParams.MinutesPerRow(), controller.data.ViewParams.MinutesPerRow())
 					ensureVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(current, -controller.data.ViewParams.MinutesPerRow())
+					controller.data.GetCurrentDay().MoveSingleEventBy(current, -controller.data.ViewParams.MinutesPerRow(), controller.data.ViewParams.MinutesPerRow())
 					ensureVisible(current.Start)
 				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
