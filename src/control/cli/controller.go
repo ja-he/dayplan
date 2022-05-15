@@ -525,22 +525,14 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 					ensureVisible(newEnd)
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
-					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
-					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
-					controller.data.GetCurrentDay().SetTimes(
-						controller.data.GetCurrentDay().Current,
-						newStart, newEnd,
-					)
-					ensureVisible(newEnd)
+					current := controller.data.GetCurrentDay().Current
+					controller.data.GetCurrentDay().MoveSingleEventBy(current, 10)
+					ensureVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
-					newStart := controller.data.GetCurrentDay().Current.Start.OffsetMinutes(-10).Snap(controller.data.ViewParams.NRowsPerHour)
-					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(-10).Snap(controller.data.ViewParams.NRowsPerHour)
-					controller.data.GetCurrentDay().SetTimes(
-						controller.data.GetCurrentDay().Current,
-						newStart, newEnd,
-					)
-					ensureVisible(newStart)
+					current := controller.data.GetCurrentDay().Current
+					controller.data.GetCurrentDay().MoveSingleEventBy(current, -10)
+					ensureVisible(current.Start)
 				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
