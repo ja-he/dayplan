@@ -95,6 +95,15 @@ func (e *Event) MoveTo(newStart Timestamp) error {
 	}
 }
 
+func (e *Event) ResizeBy(delta int) error {
+	if e.CanBeResizedBy(delta) {
+		e.End = e.End.OffsetMinutes(delta)
+		return nil
+	} else {
+		return fmt.Errorf("resizing event %s by %d illegal", e.toString(), delta)
+	}
+}
+
 func (event *Event) CanMoveBy(minutes int) bool {
 	fullDayMinutes := 24 * 60
 
@@ -115,6 +124,24 @@ func (event *Event) CanMoveBy(minutes int) bool {
 
 func (event *Event) CanMoveTo(newStart Timestamp) bool {
 	return event.CanMoveBy(newStart.DurationInMinutesUntil(event.Start))
+}
+
+func (event *Event) CanBeResizedBy(delta int) bool {
+	fullDayMinutes := 24 * 60
+
+	switch {
+	case delta >= fullDayMinutes || delta <= -fullDayMinutes:
+		return false
+
+	case delta > 0:
+		return event.End.OffsetMinutes(delta).IsAfter(event.End)
+
+	case delta < 0:
+		return event.End.OffsetMinutes(delta).IsAfter(event.Start) && event.End.OffsetMinutes(delta).IsBefore(event.End)
+
+	default:
+		return true
+	}
 }
 
 func (e *Event) Snap(minuteResolution int) {
