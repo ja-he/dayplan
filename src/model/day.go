@@ -123,6 +123,7 @@ func (day *Day) UpdateEventOrder() {
 	sort.Sort(ByStartConsideringDuration(day.Events))
 }
 
+// TODO(ja-he): remove
 func (day *Day) GetEventsFrom(event *Event) []*Event {
 	for i := range day.Events {
 		if day.Events[i] == event {
@@ -147,6 +148,123 @@ func (day *Day) SplitEvent(originalEvent *Event, timestamp Timestamp) error {
 
 	day.AddEvent(&secondEvent)
 	return nil
+}
+
+func (day *Day) MoveSingleEventBy(event *Event, duration int) error {
+	err := event.MoveBy(duration)
+	if err == nil {
+		day.UpdateEventOrder()
+	}
+	return err
+}
+
+func (day *Day) MoveSingleEventTo(event *Event, newStart Timestamp) error {
+	err := event.MoveTo(newStart)
+	if err == nil {
+		day.UpdateEventOrder()
+	}
+	return err
+}
+
+func (day *Day) MoveEventsPushingBy(event *Event, duration int) error {
+	apply := func(actions []func()) {
+		for i := range actions {
+			actions[i]()
+		}
+	}
+
+	getMoveIfApplicable := func(e *Event) (applicable bool, newStart, newEnd Timestamp, move func()) {
+		if e.CanMoveBy(duration) {
+			return true, e.Start.OffsetMinutes(duration), e.End.OffsetMinutes(duration), func() { e.MoveBy(duration) }
+		} else {
+			return false, newStart, newEnd, nil
+		}
+	}
+
+	moves := []func(){}
+
+	switch {
+	case duration < 0:
+		applicable, lastStart, _, move := getMoveIfApplicable(event)
+		if applicable {
+			moves = append(moves, move)
+			for _, preceding := range day.getEventsBefore(event) {
+				if preceding.End.IsAfter(lastStart) {
+					applicable, lastStart, _, move = getMoveIfApplicable(preceding)
+					if applicable {
+						moves = append(moves, move)
+					} else {
+						return fmt.Errorf("cannot move event %s by %d", preceding.toString(), duration)
+					}
+				} else {
+					break
+				}
+			}
+			apply(moves)
+			return nil
+		} else {
+			return fmt.Errorf("cannot move event %s by %d", event.toString(), duration)
+		}
+
+	case duration > 0:
+		applicable, _, lastEnd, move := getMoveIfApplicable(event)
+		if applicable {
+			moves = append(moves, move)
+			for _, follower := range day.getEventsAfter(event) {
+				if follower.Start.IsBefore(lastEnd) {
+					applicable, _, lastEnd, move = getMoveIfApplicable(follower)
+					if applicable {
+						moves = append(moves, move)
+					} else {
+						return fmt.Errorf("cannot move event %s by %d", follower.toString(), duration)
+					}
+				} else {
+					break
+				}
+			}
+			apply(moves)
+			return nil
+		} else {
+			return fmt.Errorf("cannot move event %s by %d", event.toString(), duration)
+		}
+
+	default:
+		return nil
+	}
+}
+
+func (day *Day) getEventsAfter(event *Event) []*Event {
+	result := []*Event{}
+
+	found := false
+	for i := range day.Events {
+		if found {
+			result = append(result, day.Events[i])
+		}
+
+		if day.Events[i] == event {
+			found = true
+		}
+	}
+
+	return result
+}
+
+func (day *Day) getEventsBefore(event *Event) []*Event {
+	result := []*Event{}
+
+	found := false
+	for i := range day.Events {
+		if found {
+			result = append(result, day.Events[len(day.Events)-1-i])
+		}
+
+		if day.Events[len(day.Events)-1-i] == event {
+			found = true
+		}
+	}
+
+	return result
 }
 
 // TODO: obsolete?
