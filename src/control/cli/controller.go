@@ -482,7 +482,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
 						controller.data.GetCurrentDay().Current,
-						10,
+						controller.data.ViewParams.MinutesPerRow(),
 					)
 					if err != nil {
 						panic(err)
@@ -493,7 +493,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
 						controller.data.GetCurrentDay().Current,
-						-10,
+						-controller.data.ViewParams.MinutesPerRow(),
 					)
 					if err != nil {
 						panic(err)
@@ -526,12 +526,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(current, 10)
+					controller.data.GetCurrentDay().MoveSingleEventBy(current, controller.data.ViewParams.MinutesPerRow())
 					ensureVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(current, -10)
+					controller.data.GetCurrentDay().MoveSingleEventBy(current, -controller.data.ViewParams.MinutesPerRow())
 					ensureVisible(current.Start)
 				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
@@ -557,11 +557,11 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				"j": action.NewSimple(func() string { return "increase size (lengthen)" }, func() {
 					var err error
 					current := controller.data.GetCurrentDay().Current
-					err = controller.data.GetCurrentDay().ResizeBy(current, 10)
+					err = controller.data.GetCurrentDay().ResizeBy(current, controller.data.ViewParams.MinutesPerRow())
 					if err != nil {
 						controller.data.Log.Add("WARNING", err.Error())
 					}
-					err = controller.data.GetCurrentDay().SnapEnd(current, 5)
+					err = controller.data.GetCurrentDay().SnapEnd(current, controller.data.ViewParams.MinutesPerRow())
 					if err != nil {
 						controller.data.Log.Add("WARNING", err.Error())
 					}
@@ -569,8 +569,8 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				}),
 				"k": action.NewSimple(func() string { return "decrease size (shorten)" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().ResizeBy(current, -10)
-					controller.data.GetCurrentDay().SnapEnd(current, 5)
+					controller.data.GetCurrentDay().ResizeBy(current, -controller.data.ViewParams.MinutesPerRow())
+					controller.data.GetCurrentDay().SnapEnd(current, controller.data.ViewParams.MinutesPerRow())
 					ensureVisible(current.End)
 				}),
 				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
