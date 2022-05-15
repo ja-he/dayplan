@@ -280,29 +280,6 @@ func (day *Day) getEventsBefore(event *Event) []*Event {
 	return result
 }
 
-// TODO: obsolete?
-func (day *Day) OffsetEnd(e *Event, offset TimeOffset) {
-	e.End = e.End.Offset(offset)
-	if e.Start.IsAfter(e.End) {
-		panic("start after end!")
-	}
-}
-func (day *Day) SetEnd(e *Event, end Timestamp) {
-	if e.Start.IsAfter(end) {
-		panic("start after end!")
-	}
-	e.End = end
-}
-func (day *Day) SetTimes(e *Event, start, end Timestamp) error {
-	if start.IsAfter(end) {
-		return fmt.Errorf("start after end!")
-	}
-	e.Start = start
-	e.End = end
-	day.UpdateEventOrder()
-	return nil
-}
-
 func (day *Day) Clone() *Day {
 	cloned := NewDayWithEvents(day.Events)
 	return cloned

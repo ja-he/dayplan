@@ -319,6 +319,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 	)
 
+	// TODO(ja-he): move elsewhere
 	ensureVisible := func(time model.Timestamp) {
 		topRowTime := controller.data.ViewParams.TimeAtY(0)
 		if topRowTime.IsAfter(time) {
@@ -519,10 +520,9 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				"n": action.NewSimple(func() string { return "move to now" }, func() {
 					current := controller.data.GetCurrentDay().Current
 					newStart := *model.NewTimestampFromGotime(time.Now())
-					newEnd := current.End.OffsetMinutes(current.Start.DurationInMinutesUntil(newStart))
-					controller.data.GetCurrentDay().SetTimes(current, newStart, newEnd)
-					ensureVisible(newStart)
-					ensureVisible(newEnd)
+					controller.data.GetCurrentDay().MoveSingleEventTo(current, newStart)
+					ensureVisible(current.Start)
+					ensureVisible(current.End)
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					current := controller.data.GetCurrentDay().Current
@@ -551,23 +551,18 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				"n": action.NewSimple(func() string { return "resize to now" }, func() {
 					current := controller.data.GetCurrentDay().Current
 					newEnd := *model.NewTimestampFromGotime(time.Now())
-					controller.data.GetCurrentDay().SetTimes(current, current.Start, newEnd)
+					controller.data.GetCurrentDay().ResizeTo(current, newEnd)
 					ensureVisible(newEnd)
 				}),
 				"j": action.NewSimple(func() string { return "increase size (lengthen)" }, func() {
-					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(10).Snap(controller.data.ViewParams.NRowsPerHour)
-					controller.data.GetCurrentDay().SetTimes(
-						controller.data.GetCurrentDay().Current,
-						controller.data.GetCurrentDay().Current.Start, newEnd,
-					)
-					ensureVisible(newEnd)
+					current := controller.data.GetCurrentDay().Current
+					controller.data.GetCurrentDay().ResizeBy(current, 10)
+					ensureVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "decrease size (shorten)" }, func() {
-					newEnd := controller.data.GetCurrentDay().Current.End.OffsetMinutes(-10).Snap(controller.data.ViewParams.NRowsPerHour)
-					controller.data.GetCurrentDay().SetTimes(
-						controller.data.GetCurrentDay().Current,
-						controller.data.GetCurrentDay().Current.Start, newEnd,
-					)
+					current := controller.data.GetCurrentDay().Current
+					controller.data.GetCurrentDay().ResizeBy(current, -10)
+					ensureVisible(current.End)
 				}),
 				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
