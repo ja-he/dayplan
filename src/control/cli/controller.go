@@ -555,13 +555,22 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 					ensureVisible(newEnd)
 				}),
 				"j": action.NewSimple(func() string { return "increase size (lengthen)" }, func() {
+					var err error
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().ResizeBy(current, 10)
+					err = controller.data.GetCurrentDay().ResizeBy(current, 10)
+					if err != nil {
+						controller.data.Log.Add("WARNING", err.Error())
+					}
+					err = controller.data.GetCurrentDay().SnapEnd(current, 5)
+					if err != nil {
+						controller.data.Log.Add("WARNING", err.Error())
+					}
 					ensureVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "decrease size (shorten)" }, func() {
 					current := controller.data.GetCurrentDay().Current
 					controller.data.GetCurrentDay().ResizeBy(current, -10)
+					controller.data.GetCurrentDay().SnapEnd(current, 5)
 					ensureVisible(current.End)
 				}),
 				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
