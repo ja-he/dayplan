@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"sort"
 )
 
@@ -244,6 +245,19 @@ func (day *Day) MoveEventsPushingBy(event *Event, duration int) error {
 	default:
 		return nil
 	}
+}
+
+func (day *Day) SnapEnd(event *Event, resolution int) error {
+	newEnd := event.End.Snap(resolution)
+	if math.Abs(float64(newEnd.DurationInMinutesUntil(event.End))) > float64(resolution) {
+		return fmt.Errorf(
+			"snapping %s to %d min resolution is illegal (would snap end to %s)",
+			event.toString(), resolution, event.End.Snap(resolution).ToString(),
+		)
+	}
+	event.End = newEnd
+	day.UpdateEventOrder()
+	return nil
 }
 
 func (day *Day) getEventsAfter(event *Event) []*Event {
