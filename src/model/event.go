@@ -1,6 +1,9 @@
 package model
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type Event struct {
 	Start, End Timestamp
@@ -71,9 +74,47 @@ func (a ByStartConsideringDuration) Less(i, j int) bool {
 	return secondStartsLater || (sameStart && secondEndEarlier)
 }
 
-func (e *Event) Move(offset TimeOffset) {
-	e.Start = e.Start.Offset(offset)
-	e.End = e.End.Offset(offset)
+func (e *Event) MoveBy(duration int) error {
+	if e.CanMoveBy(duration) {
+		e.Start = e.Start.OffsetMinutes(duration)
+		e.End = e.End.OffsetMinutes(duration)
+		return nil
+	} else {
+		return fmt.Errorf("moving event %s by %d would cross day boundary", e.toString(), duration)
+	}
+}
+
+func (e *Event) MoveTo(newStart Timestamp) error {
+	if e.CanMoveTo(newStart) {
+		delta := e.Start.DurationInMinutesUntil(newStart)
+		e.Start = newStart
+		e.End = e.End.OffsetMinutes(delta)
+		return nil
+	} else {
+		return fmt.Errorf("moving event %s to %s would cross day boundary", e.toString(), newStart.ToString())
+	}
+}
+
+func (event *Event) CanMoveBy(minutes int) bool {
+	fullDayMinutes := 24 * 60
+
+	switch {
+	case minutes >= fullDayMinutes || minutes <= -fullDayMinutes:
+		return false
+
+	case minutes > 0:
+		return event.Start.OffsetMinutes(minutes).IsAfter(event.Start) && event.End.OffsetMinutes(minutes).IsAfter(event.End)
+
+	case minutes < 0:
+		return event.Start.OffsetMinutes(minutes).IsBefore(event.Start) && event.End.OffsetMinutes(minutes).IsBefore(event.End)
+
+	default:
+		return true
+	}
+}
+
+func (event *Event) CanMoveTo(newStart Timestamp) bool {
+	return event.CanMoveBy(newStart.DurationInMinutesUntil(event.Start))
 }
 
 func (e *Event) Snap(minuteResolution int) {
