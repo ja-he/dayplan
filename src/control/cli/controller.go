@@ -330,6 +330,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			controller.data.ViewParams.ScrollOffset += ((controller.data.ViewParams.YForTime(time)) - maxY)
 		}
 	}
+	var startMovePushing func()
 	// TODO: directly?
 	eventsPaneDayInputExtension := map[string]action.Action{
 		"j": action.NewSimple(func() string { return "switch to next event" }, func() {
@@ -429,6 +430,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			center := current.Start.OffsetMinutes(current.Start.DurationInMinutesUntil(current.End) / 2)
 			controller.data.GetCurrentDay().SplitEvent(current, center)
 		}),
+		"M": action.NewSimple(func() string { return "start move pushing" }, func() { startMovePushing() }),
 	}
 	eventsPaneDayInputMap := make(map[string]action.Action)
 	for input, action := range eventsViewBaseInputMap {
@@ -468,6 +470,44 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		&controller.data.Log,
 		&controller.data.Log,
 	)
+	startMovePushing = func() {
+		if controller.data.GetCurrentDay().Current == nil {
+			return
+		}
+
+		overlay := input.ConstructInputTree(
+			map[string]action.Action{
+				"n": action.NewSimple(func() string { return "move to now" }, func() { panic("TODO") }),
+				"j": action.NewSimple(func() string { return "move down" }, func() {
+					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
+						controller.data.GetCurrentDay().Current,
+						10,
+					)
+					if err != nil {
+						panic(err)
+					} else {
+						ensureVisible(controller.data.GetCurrentDay().Current.End)
+					}
+				}),
+				"k": action.NewSimple(func() string { return "move up" }, func() {
+					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
+						controller.data.GetCurrentDay().Current,
+						-10,
+					)
+					if err != nil {
+						panic(err)
+					} else {
+						ensureVisible(controller.data.GetCurrentDay().Current.Start)
+					}
+				}),
+				"M":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
+				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
+				// TODO(ja-he): mode switching
+			},
+		)
+		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(overlay))
+		controller.data.EventEditMode = control.EventEditModeMove
+	}
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event move mode" }, func() {
 		if controller.data.GetCurrentDay().Current == nil {
