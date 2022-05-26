@@ -9,6 +9,108 @@ import (
 	"github.com/ja-he/dayplan/src/input"
 )
 
+func TestConfigKeyspecToKey(t *testing.T) {
+
+	t.Run("valid", func(t *testing.T) {
+		expectValid := func(s string) []input.Key {
+			keys, err := input.ConfigKeyspecToKeys(s)
+			if err != nil {
+				t.Error("unexpected error on valid spec:", err.Error())
+			}
+			if keys == nil {
+				t.Error("unexpected nil keyspec on valid spec")
+			}
+			return keys
+		}
+
+		t.Run("empty", func(t *testing.T) {
+			keys := expectValid("")
+			if len(keys) != 0 {
+				t.Error("expected empty seq of keys")
+			}
+		})
+
+		t.Run("single", func(t *testing.T) {
+			keys := expectValid("x")
+			if len(keys) != 1 {
+				t.Error("expected single key")
+			}
+			if (keys[0] != input.Key{Key: tcell.KeyRune, Ch: 'x'}) {
+				t.Error("expected single key to be 'x'")
+			}
+		})
+
+		t.Run("special", func(t *testing.T) {
+			t.Run("<c-a>", func(t *testing.T) {
+				keys := expectValid("<c-a>")
+				if len(keys) != 1 {
+					t.Error("expected single key")
+				}
+				if (keys[0] != input.Key{Key: tcell.KeyCtrlA}) {
+					t.Error("expected single key to be <c-a>")
+				}
+			})
+			t.Run("<space>", func(t *testing.T) {
+				keys := expectValid("<space>")
+				if len(keys) != 1 {
+					t.Error("expected single key")
+				}
+				if (keys[0] != input.Key{Key: tcell.KeyRune, Ch: ' '}) {
+					t.Error("expected single key to be <space>")
+				}
+			})
+		})
+
+		t.Run("sequence", func(t *testing.T) {
+			t.Run("characters", func(t *testing.T) {
+				keys := expectValid("xyz")
+				if len(keys) != 3 {
+					t.Error("expected three keys")
+				}
+				if (keys[0] != input.Key{Key: tcell.KeyRune, Ch: 'x'}) && (keys[1] != input.Key{Key: tcell.KeyRune, Ch: 'y'}) && (keys[2] != input.Key{Key: tcell.KeyRune, Ch: 'z'}) {
+					t.Error("expected sequence [x,y,z], not", keys)
+				}
+			})
+			t.Run("with special", func(t *testing.T) {
+				keys := expectValid("x<c-w>z")
+				if len(keys) != 3 {
+					t.Error("expected three keys")
+				}
+				if (keys[0] != input.Key{Key: tcell.KeyRune, Ch: 'x'}) && (keys[1] != input.Key{Key: tcell.KeyCtrlW}) && (keys[2] != input.Key{Key: tcell.KeyRune, Ch: 'z'}) {
+					t.Error("expected sequence [x,<c-w>,z], not", keys)
+				}
+			})
+		})
+	})
+
+	t.Run("valid", func(t *testing.T) {
+		expectInvalid := func(s string) error {
+			keys, err := input.ConfigKeyspecToKeys(s)
+			if err == nil {
+				t.Error("unexpectedly no err on invalid spec")
+			}
+			if keys != nil {
+				t.Error("unexpected key seq on invalid spec:", keys)
+			}
+			return err
+		}
+
+		t.Run("unopened special", func(t *testing.T) {
+			expectInvalid("c-w>")
+		})
+		t.Run("unclosed special (EOL)", func(t *testing.T) {
+			expectInvalid("<c-w")
+		})
+		t.Run("unclosed special (double open)", func(t *testing.T) {
+			expectInvalid("<c-w<c-a>")
+		})
+		t.Run("wrong delimiter in special", func(t *testing.T) {
+			expectInvalid("<c+a>")
+		})
+	})
+
+}
+
 func TestNewNode(t *testing.T) {
 	n := input.NewNode()
 	if n.Children == nil {

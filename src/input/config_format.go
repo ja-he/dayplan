@@ -17,14 +17,14 @@ func ConfigKeyspecToKeys(spec string) ([]Key, error) {
 
 		case '<':
 			if specialContext {
-				return []Key{}, fmt.Errorf("illegal second opening special context ('<') before previous is closed (pos %d)", pos)
+				return nil, fmt.Errorf("illegal second opening special context ('<') before previous is closed (pos %d)", pos)
 			}
 			specialContext = true
 			keys = append(keys, []rune{specR[pos]})
 
 		case '>':
 			if !specialContext {
-				return []Key{}, fmt.Errorf("illegal closing of special context ('>') while none open (pos %d)", pos)
+				return nil, fmt.Errorf("illegal closing of special context ('>') while none open (pos %d)", pos)
 			}
 			specialContext = false
 			keys[len(keys)-1] = append(keys[len(keys)-1], specR[pos])
@@ -32,7 +32,7 @@ func ConfigKeyspecToKeys(spec string) ([]Key, error) {
 		default:
 			if specialContext {
 				if !unicode.IsLetter(specR[pos]) && spec[pos] != '-' {
-					return []Key{},
+					return nil,
 						fmt.Errorf("illegal character '%c' in special context (pos %d)", spec[pos], pos)
 				}
 				keys[len(keys)-1] = append(keys[len(keys)-1], specR[pos])
@@ -48,7 +48,7 @@ func ConfigKeyspecToKeys(spec string) ([]Key, error) {
 		if keyIdentifier[0] == '<' {
 			key, err := KeyIdentifierToKey(string(keyIdentifier[1 : len(keyIdentifier)-1]))
 			if err != nil {
-				return []Key{}, fmt.Errorf("error mapping identifier '%s' to key: %s", string(keyIdentifier), err.Error())
+				return nil, fmt.Errorf("error mapping identifier '%s' to key: %s", string(keyIdentifier), err.Error())
 			}
 			result = append(result, key)
 		} else {
