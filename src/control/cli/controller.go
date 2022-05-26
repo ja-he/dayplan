@@ -163,12 +163,16 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			return baseX + timelineWidth + (dayIndex * dayWidth), baseY, dayWidth, baseH - statusHeight
 		}
 	}
+	weekdayPaneInputTree, err := input.ConstructInputTree(eventsViewBaseInputMap)
+	if err != nil {
+		panic(err.Error())
+	}
 	weekdayPane := func(dayIndex int) *panes.EventsPane {
 		return panes.NewEventsPane(
 			tui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
 			weekdayDimensions(dayIndex),
 			stylesheet,
-			processors.NewModalInputProcessor(input.ConstructInputTree(eventsViewBaseInputMap)),
+			processors.NewModalInputProcessor(weekdayPaneInputTree),
 			func() *model.Day {
 				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
 			},
@@ -193,6 +197,10 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			return baseX + timelineWidth + (dayIndex * dayWidth), baseY, dayWidth, baseH - statusHeight
 		}
 	}
+	monthdayPaneInputTree, err := input.ConstructInputTree(eventsViewBaseInputMap)
+	if err != nil {
+		panic(err.Error())
+	}
 	monthdayPane := func(dayIndex int) *panes.MaybeEventsPane {
 		return panes.NewMaybeEventsPane(
 			func() bool {
@@ -202,7 +210,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				tui.NewConstrainedRenderer(renderer, monthdayDimensions(dayIndex)),
 				monthdayDimensions(dayIndex),
 				stylesheet,
-				processors.NewModalInputProcessor(input.ConstructInputTree(eventsViewBaseInputMap)),
+				processors.NewModalInputProcessor(monthdayPaneInputTree),
 				func() *model.Day {
 					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
 				},
@@ -294,7 +302,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		func() control.EventEditMode { return controller.data.EventEditMode },
 	)
 
-	toolsInputTree := input.ConstructInputTree(
+	toolsInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"j": action.NewSimple(func() string { return "switch to next category" }, func() {
 				for i, cat := range controller.data.Categories {
@@ -318,6 +326,9 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			}),
 		},
 	)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	// TODO(ja-he): move elsewhere
 	ensureVisible := func(time model.Timestamp) {
@@ -440,7 +451,10 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	for input, action := range eventsPaneDayInputExtension {
 		eventsPaneDayInputMap[input] = action
 	}
-	dayViewEventsPaneInputTree := input.ConstructInputTree(eventsPaneDayInputMap)
+	dayViewEventsPaneInputTree, err := input.ConstructInputTree(eventsPaneDayInputMap)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	toolsPane := panes.NewToolsPane(
 		tui.NewConstrainedRenderer(renderer, toolsDimensions),
@@ -476,7 +490,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			return
 		}
 
-		overlay := input.ConstructInputTree(
+		overlay, err := input.ConstructInputTree(
 			map[string]action.Action{
 				"n": action.NewSimple(func() string { return "move to now" }, func() { panic("TODO") }),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
@@ -508,6 +522,9 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				// TODO(ja-he): mode switching
 			},
 		)
+		if err != nil {
+			panic(err.Error())
+		}
 		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(overlay))
 		controller.data.EventEditMode = control.EventEditModeMove
 	}
@@ -517,7 +534,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			return
 		}
 
-		eventMoveOverlay := input.ConstructInputTree(
+		eventMoveOverlay, err := input.ConstructInputTree(
 			map[string]action.Action{
 				"n": action.NewSimple(func() string { return "move to now" }, func() {
 					current := controller.data.GetCurrentDay().Current
@@ -540,6 +557,9 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
 			},
 		)
+		if err != nil {
+			panic(err.Error())
+		}
 		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(eventMoveOverlay))
 		controller.data.EventEditMode = control.EventEditModeMove
 	})}
@@ -548,7 +568,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			return
 		}
 
-		eventResizeOverlay := input.ConstructInputTree(
+		eventResizeOverlay, err := input.ConstructInputTree(
 			map[string]action.Action{
 				"n": action.NewSimple(func() string { return "resize to now" }, func() {
 					current := controller.data.GetCurrentDay().Current
@@ -579,12 +599,15 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				"<esc>": action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
 			},
 		)
+		if err != nil {
+			panic(err.Error())
+		}
 		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(eventResizeOverlay))
 		controller.data.EventEditMode = control.EventEditModeResize
 	})}
 
 	var helpContentRegister func()
-	rootPaneInputTree := input.ConstructInputTree(
+	rootPaneInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"q": action.NewSimple(func() string { return "exit program (unsaved progress is lost)" }, func() { controller.controllerEvents <- ControllerEventExit }),
 			"P": action.NewSimple(func() string { return "show debug perf pane" }, func() { controller.data.ShowDebug = !controller.data.ShowDebug }),
@@ -596,16 +619,26 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			}),
 		},
 	)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	var dayViewFocusNext, dayViewFocusPrev func()
-	dayViewInputTree := input.ConstructInputTree(
+	dayViewInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"W":      action.NewSimple(func() string { return "update weather" }, controller.updateWeather),
 			"<c-w>h": action.NewSimple(func() string { return "switch to previous pane" }, func() { dayViewFocusPrev() }),
 			"<c-w>l": action.NewSimple(func() string { return "switch to next pane" }, func() { dayViewFocusNext() }),
 		},
 	)
+	if err != nil {
+		panic(err.Error())
+	}
 
+	dayViewScrollablePaneInputTree, err := input.ConstructInputTree(scrollableZoomableInputMap)
+	if err != nil {
+		panic(err.Error())
+	}
 	dayViewScrollablePane := panes.NewWrapperPane(
 		[]ui.Pane{
 			dayEventsPane,
@@ -635,20 +668,28 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		[]ui.FocussablePane{
 			dayEventsPane,
 		},
-		processors.NewModalInputProcessor(input.ConstructInputTree(scrollableZoomableInputMap)),
+		processors.NewModalInputProcessor(dayViewScrollablePaneInputTree),
 	)
 	multidayViewEventsWrapperInputMap := scrollableZoomableInputMap
 	multidayViewEventsWrapperInputMap["h"] = action.NewSimple(func() string { return "go to previous day" }, controller.goToPreviousDay)
 	multidayViewEventsWrapperInputMap["l"] = action.NewSimple(func() string { return "go to next day" }, controller.goToNextDay)
+	weekViewEventsWrapperInputTree, err := input.ConstructInputTree(multidayViewEventsWrapperInputMap)
+	if err != nil {
+		panic(err.Error())
+	}
 	weekViewEventsWrapper := panes.NewWrapperPane(
 		weekViewEventsPanes,
 		[]ui.FocussablePane{},
-		processors.NewModalInputProcessor(input.ConstructInputTree(multidayViewEventsWrapperInputMap)),
+		processors.NewModalInputProcessor(weekViewEventsWrapperInputTree),
 	)
+	monthViewEventsWrapperInputTree, err := input.ConstructInputTree(multidayViewEventsWrapperInputMap)
+	if err != nil {
+		panic(err.Error())
+	}
 	monthViewEventsWrapper := panes.NewWrapperPane(
 		monthViewEventsPanes,
 		[]ui.FocussablePane{},
-		processors.NewModalInputProcessor(input.ConstructInputTree(multidayViewEventsWrapperInputMap)),
+		processors.NewModalInputProcessor(monthViewEventsWrapperInputTree),
 	)
 
 	dayViewMainPane := panes.NewWrapperPane(
@@ -663,6 +704,10 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 		processors.NewModalInputProcessor(dayViewInputTree),
 	)
+	weekViewMainPaneInputTree, err := input.ConstructInputTree(map[string]action.Action{})
+	if err != nil {
+		panic(err.Error())
+	}
 	weekViewMainPane := panes.NewWrapperPane(
 		[]ui.Pane{
 			statusPane,
@@ -679,8 +724,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		[]ui.FocussablePane{
 			weekViewEventsWrapper,
 		},
-		processors.NewModalInputProcessor(input.ConstructInputTree(map[string]action.Action{})),
+		processors.NewModalInputProcessor(weekViewMainPaneInputTree),
 	)
+	monthViewMainPaneInputTree, err := input.ConstructInputTree(scrollableZoomableInputMap)
+	if err != nil {
+		panic(err.Error())
+	}
 	monthViewMainPane := panes.NewWrapperPane(
 		[]ui.Pane{
 			statusPane,
@@ -697,12 +746,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		[]ui.FocussablePane{
 			monthViewEventsWrapper,
 		},
-		processors.NewModalInputProcessor(input.ConstructInputTree(scrollableZoomableInputMap)),
+		processors.NewModalInputProcessor(monthViewMainPaneInputTree),
 	)
 	dayViewFocusNext = dayViewMainPane.FocusNext
 	dayViewFocusPrev = dayViewMainPane.FocusPrev
 
-	summaryPaneInputTree := input.ConstructInputTree(map[string]action.Action{
+	summaryPaneInputTree, err := input.ConstructInputTree(map[string]action.Action{
 		"S": action.NewSimple(func() string { return "close summary" }, func() { controller.data.ShowSummary = false }),
 		"h": action.NewSimple(func() string { return "switch to previous day/week/month" }, func() {
 			switch controller.data.ActiveView() {
@@ -729,6 +778,9 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			}
 		}),
 	})
+	if err != nil {
+		panic(err.Error())
+	}
 
 	var editorStartInsertMode func()
 	var editorLeaveInsertMode func()
@@ -747,7 +799,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		},
 		controller.data.EventEditor.AddRune,
 	)
-	editorNormalModeTree := input.ConstructInputTree(
+	editorNormalModeTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"<esc>": action.NewSimple(func() string { return "abord edit, discard changes" }, controller.abortEdit),
 			"<cr>":  action.NewSimple(func() string { return "finish edit, commit changes" }, controller.endEdit),
@@ -779,18 +831,25 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			}),
 		},
 	)
+	if err != nil {
+		panic(err.Error())
+	}
+	helpPaneInputTree, err := input.ConstructInputTree(
+		map[string]action.Action{
+			"?": action.NewSimple(func() string { return "close help" }, func() {
+				controller.data.ShowHelp = false
+			}),
+		},
+	)
+	if err != nil {
+		panic(err.Error())
+	}
 	helpPane := panes.NewHelpPane(
 		tui.NewConstrainedRenderer(renderer, helpDimensions),
 		helpDimensions,
 		stylesheet,
 		func() bool { return controller.data.ShowHelp },
-		processors.NewModalInputProcessor(input.ConstructInputTree(
-			map[string]action.Action{
-				"?": action.NewSimple(func() string { return "close help" }, func() {
-					controller.data.ShowHelp = false
-				}),
-			},
-		)),
+		processors.NewModalInputProcessor(helpPaneInputTree),
 	)
 	editorPane := panes.NewEditorPane(
 		tui.NewConstrainedRenderer(renderer, editorDimensions),

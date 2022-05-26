@@ -33,13 +33,13 @@ func (t *Tree) CapturesInput() bool {
 
 func ConstructInputTree(
 	spec map[string]action.Action,
-) *Tree {
+) (*Tree, error) {
 	root := NewNode()
 
 	for mapping, action := range spec {
 		sequence, err := ConfigKeyspecToKeys(mapping)
 		if err != nil {
-			panic(fmt.Sprintf("error converting config keyspec: '%s'", err.Error()))
+			return nil, fmt.Errorf("error converting config keyspec: '%s'", err.Error())
 		}
 
 		sequenceCurrent := root
@@ -60,7 +60,7 @@ func ConstructInputTree(
 	return &Tree{
 		Root:    root,
 		Current: root,
-	}
+	}, nil
 }
 
 func EmptyTree() *Tree {
