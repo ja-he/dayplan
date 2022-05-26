@@ -188,6 +188,95 @@ func TestEmptyTree(t *testing.T) {
 	validateNewlyCreatedTree(t, tree)
 }
 
+func TestGetHelp(t *testing.T) {
+	t.Run("Tree.GetHelp", func(t *testing.T) {
+		tree, err := input.ConstructInputTree(
+			map[string]action.Action{
+				"a":  &DummyAction{S: "A"},
+				"bc": &DummyAction{S: "BC"},
+			},
+		)
+		if err != nil {
+			t.Fatal("unexpectedly tree construction failed while testing help")
+		}
+		help := tree.GetHelp()
+		if help == nil {
+			t.Error("got nil help from node")
+		}
+		if len(help) != 2 {
+			t.Error("got help with unexpected amount of entries:", len(help))
+		}
+		actual, ok := help["a"]
+		if !ok {
+			t.Error("help message for 'a' not found")
+		}
+		if actual != "A" {
+			t.Errorf("got help string '%s' instead of expected", actual)
+		}
+		actual, ok = help["bc"]
+		if !ok {
+			t.Error("help message for 'bc' not found")
+		}
+		if actual != "BC" {
+			t.Errorf("got help string '%s' instead of expected", actual)
+		}
+	})
+	t.Run("Node.GetHelp", func(t *testing.T) {
+		t.Run("empty node", func(t *testing.T) {
+			node := input.NewNode()
+			help := node.GetHelp()
+			if help == nil {
+				t.Error("got nil help from node")
+			}
+			if len(help) != 0 {
+				t.Error("got non-empty help from node")
+			}
+		})
+		t.Run("leaf", func(t *testing.T) {
+			node := input.NewLeaf(&DummyAction{})
+			help := node.GetHelp()
+			if help == nil {
+				t.Error("got nil help from leaf")
+			}
+			if len(help) != 1 {
+				t.Error("expected one help result from leaf")
+			}
+		})
+		t.Run("node with children", func(t *testing.T) {
+			root := input.NewNode()
+			lLeaf := input.NewLeaf(&DummyAction{S: "x action"})
+			rMiddle := input.NewNode()
+			rLeaf := input.NewLeaf(&DummyAction{S: "yz action"})
+
+			root.Children[input.Key{Key: tcell.KeyRune, Ch: 'x'}] = lLeaf
+			root.Children[input.Key{Key: tcell.KeyRune, Ch: 'y'}] = rMiddle
+			rMiddle.Children[input.Key{Key: tcell.KeyRune, Ch: 'z'}] = rLeaf
+
+			help := root.GetHelp()
+			if help == nil {
+				t.Error("got nil help from root")
+			}
+			if len(help) != 2 {
+				t.Error("expected two help results from root")
+			}
+			actual, ok := help["x"]
+			if !ok {
+				t.Error("help message for 'x' not found")
+			}
+			if actual != "x action" {
+				t.Errorf("got help string '%s' instead of expected", actual)
+			}
+			actual, ok = help["yz"]
+			if !ok {
+				t.Error("help message for 'yz' not found")
+			}
+			if actual != "yz action" {
+				t.Errorf("got help string '%s' instead of expected", actual)
+			}
+		})
+	})
+}
+
 func validateNewlyCreatedTree(t *testing.T, newlyCreated *input.Tree) {
 	t.Helper() // NOTE(ja_he): Almost certainly not needed
 
@@ -205,9 +294,10 @@ func validateNewlyCreatedTree(t *testing.T, newlyCreated *input.Tree) {
 // to avoid depending on 'action' functions
 type DummyAction struct {
 	F func()
+	S string
 }
 
 func (d *DummyAction) Do()             { d.F() }
 func (d *DummyAction) Undo()           {}
 func (d *DummyAction) Undoable() bool  { return false }
-func (d *DummyAction) Explain() string { return "dummy" }
+func (d *DummyAction) Explain() string { return d.S }
