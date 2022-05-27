@@ -48,7 +48,13 @@ func (p *TextInputProcessor) CapturesInput() bool {
 }
 
 // GetHelp returns the input help map for this processor.
-func (p *TextInputProcessor) GetHelp() input.Help { return nil }
+func (p *TextInputProcessor) GetHelp() input.Help {
+	result := input.Help{}
+	for k, a := range p.mappings {
+		result[input.ToConfigIdentifierString(k)] = a.Explain()
+	}
+	return result
+}
 
 // NewTextInputProcessor returns a pointer to a new NewTextInputProcessor.
 func NewTextInputProcessor(
