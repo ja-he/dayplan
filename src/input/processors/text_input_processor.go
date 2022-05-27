@@ -24,17 +24,16 @@ type TextInputProcessor struct {
 func (p *TextInputProcessor) ProcessInput(key input.Key) bool {
 	if key.Key == tcell.KeyRune {
 		p.runeCallback(key.Ch)
+		return true
 	} else {
 		action, mappingExists := p.mappings[key]
 		if mappingExists {
 			action.Do()
+			return true
+		} else {
+			return false
 		}
 	}
-
-	// I think we will always want a text processor to capture all input, right?
-	// If I pressed <c-d> and we didn't have a specific mapping from the input
-	// processor, we wouldn't want the root pane to end up handling the input.
-	return true
 }
 
 // CapturesInput returns whether this processor "captures" input, i.E. whether
