@@ -7,6 +7,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+// ConfigKeyspecToKeys converts full key sequence specification strings (e.g.
+// "<space>qw" meaning the SPACE key, then the Q key, then the W key) to the
+// appropriate sequence of Keys (or an error, if invalid).
 func ConfigKeyspecToKeys(spec string) ([]Key, error) {
 	specR := []rune(spec)
 	keys := make([][]rune, 0)
@@ -59,6 +62,8 @@ func ConfigKeyspecToKeys(spec string) ([]Key, error) {
 	return result, nil
 }
 
+// KeyIdentifierToKey converts the given special identifier to the appropriate
+// key (or an error, if invalid).
 func KeyIdentifierToKey(identifier string) (Key, error) {
 	mapping := map[string]Key{
 		"space": {Key: tcell.KeyRune, Ch: ' '},
@@ -108,6 +113,8 @@ func KeyIdentifierToKey(identifier string) (Key, error) {
 	return key, nil
 }
 
+// ToConfigIdentifierString converts the given key to its configuration
+// identfier.
 func ToConfigIdentifierString(k Key) string {
 	mapping := map[Key]string{
 		{Key: tcell.KeyRune, Ch: ' '}: "space",
