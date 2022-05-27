@@ -8,7 +8,9 @@ type CapturingOverlay struct {
 
 func (o *CapturingOverlay) CapturesInput() bool     { return true }
 func (o *CapturingOverlay) ProcessInput(k Key) bool { return o.Processor.ProcessInput(k) }
-func (o *CapturingOverlay) GetHelp() Help           { return o.Processor.GetHelp() }
+
+// GetHelp returns the input help map for this processor.
+func (o *CapturingOverlay) GetHelp() Help { return o.Processor.GetHelp() }
 
 // CapturingOverlayWrap returns a wrapper over the given SimpleInputProcessor that always captures
 // all input.

@@ -301,18 +301,35 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	)
 }
 
-func (p *EventsPane) CapturesInput() bool             { return p.inputProcessor.CapturesInput() }
+// CapturesInput returns whether this processor "captures" input, i.E. whether
+// it ought to take priority in processing over other processors.
+func (p *EventsPane) CapturesInput() bool { return p.inputProcessor.CapturesInput() }
+
+// ProcessInput attempts to process the provided input.
+// Returns whether the provided input "applied", i.E. the processor performed
+// an action based on the input.
+// Defers to the panes' input processor.
 func (p *EventsPane) ProcessInput(key input.Key) bool { return p.inputProcessor.ProcessInput(key) }
+
+// ApplyModalOverlay applies an overlay to this processor.
+// It returns the processors index, by which in the future, all overlays down
+// to and including this overlay can be removed
 func (p *EventsPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
+
+// PopModalOverlay removes the topmost overlay from this processor.
 func (p *EventsPane) PopModalOverlay() error {
 	return p.inputProcessor.PopModalOverlay()
 }
+
+// PopModalOverlays pops all overlays down to and including the one at the
+// specified index.
 func (p *EventsPane) PopModalOverlays(index uint) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 
+// GetHelp returns the input help map for this processor.
 func (p *EventsPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
 
 // NewEventsPane constructs and returns a new EventsPane.

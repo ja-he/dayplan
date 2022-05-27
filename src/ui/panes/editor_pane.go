@@ -40,9 +40,16 @@ func (p *EditorPane) Dimensions() (x, y, w, h int) {
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *EditorPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 
+// CapturesInput returns whether this processor "captures" input, i.E. whether
+// it ought to take priority in processing over other processors.
 func (p *EditorPane) CapturesInput() bool {
 	return p.inputProcessor != nil && p.inputProcessor.CapturesInput()
 }
+
+// ProcessInput attempts to process the provided input.
+// Returns whether the provided input "applied", i.E. the processor performed
+// an action based on the input.
+// Defers to the panes' input processor.
 func (p *EditorPane) ProcessInput(key input.Key) bool {
 	return p.inputProcessor != nil && p.inputProcessor.ProcessInput(key)
 }
@@ -51,12 +58,21 @@ func (p *EditorPane) HasFocus() bool                     { return p.parent.HasFo
 func (p *EditorPane) Focusses() ui.FocussablePane        { return nil }
 func (p *EditorPane) SetParent(parent ui.FocusQueriable) { p.parent = parent }
 
+// ApplyModalOverlay applies an overlay to this processor.
+// It returns the processors index, by which in the future, all overlays down
+// to and including this overlay can be removed
 func (p *EditorPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *EditorPane) PopModalOverlay() error      { return p.inputProcessor.PopModalOverlay() }
+
+// PopModalOverlay removes the topmost overlay from this processor.
+func (p *EditorPane) PopModalOverlay() error { return p.inputProcessor.PopModalOverlay() }
+
+// PopModalOverlays pops all overlays down to and including the one at the
+// specified index.
 func (p *EditorPane) PopModalOverlays(index uint) { p.inputProcessor.PopModalOverlays(index) }
 
+// GetHelp returns the input help map for this processor.
 func (p *EditorPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
 
 // Draw draws the editor popup.

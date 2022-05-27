@@ -85,11 +85,18 @@ func (p *WrapperPane) FocusPrev() {
 	}
 }
 
+// CapturesInput returns whether this processor "captures" input, i.E. whether
+// it ought to take priority in processing over other processors.
 func (p *WrapperPane) CapturesInput() bool {
 	childCaptures := p.focussedPane != nil && p.focussedPane.CapturesInput()
 	selfCaptures := p.inputProcessor != nil && p.inputProcessor.CapturesInput()
 	return childCaptures || selfCaptures
 }
+
+// ProcessInput attempts to process the provided input.
+// Returns whether the provided input "applied", i.E. the processor performed
+// an action based on the input.
+// Defers to the panes' input processor or its focussed subpanes.
 func (p *WrapperPane) ProcessInput(key input.Key) bool {
 	if p.inputProcessor != nil && p.inputProcessor.CapturesInput() {
 		return p.inputProcessor.ProcessInput(key)
@@ -107,16 +114,25 @@ func (p *WrapperPane) SetParent(parent ui.FocusQueriable) {
 	p.Parent = parent
 }
 
+// ApplyModalOverlay applies an overlay to this processor.
+// It returns the processors index, by which in the future, all overlays down
+// to and including this overlay can be removed
 func (p *WrapperPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
+
+// PopModalOverlay removes the topmost overlay from this processor.
 func (p *WrapperPane) PopModalOverlay() error {
 	return p.inputProcessor.PopModalOverlay()
 }
+
+// PopModalOverlays pops all overlays down to and including the one at the
+// specified index.
 func (p *WrapperPane) PopModalOverlays(index uint) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 
+// GetHelp returns the input help map for this processor.
 func (p *WrapperPane) GetHelp() input.Help {
 	result := input.Help{}
 
