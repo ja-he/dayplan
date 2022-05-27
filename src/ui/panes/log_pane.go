@@ -91,13 +91,13 @@ func (p *LogPane) SetParent(parent ui.FocusQueriable) {
 	p.Parent = parent
 }
 
-func (p *LogPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+func (p *LogPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *LogPane) PopModalOverlay() {
-	p.inputProcessor.PopModalOverlay()
+func (p *LogPane) PopModalOverlay() error {
+	return p.inputProcessor.PopModalOverlay()
 }
-func (p *LogPane) PopModalOverlays(index int) {
+func (p *LogPane) PopModalOverlays(index uint) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 

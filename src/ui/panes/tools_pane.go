@@ -123,13 +123,13 @@ func (p *ToolsPane) HasFocus() bool                     { return p.Parent.HasFoc
 func (p *ToolsPane) Focusses() ui.FocussablePane        { return nil }
 func (p *ToolsPane) SetParent(parent ui.FocusQueriable) { p.Parent = parent }
 
-func (p *ToolsPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+func (p *ToolsPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *ToolsPane) PopModalOverlay() {
-	p.inputProcessor.PopModalOverlay()
+func (p *ToolsPane) PopModalOverlay() error {
+	return p.inputProcessor.PopModalOverlay()
 }
-func (p *ToolsPane) PopModalOverlays(index int) {
+func (p *ToolsPane) PopModalOverlays(index uint) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 

@@ -10,7 +10,7 @@ type SimpleInputProcessor interface {
 type ModalInputProcessor interface {
 	SimpleInputProcessor
 
-	ApplyModalOverlay(SimpleInputProcessor) (index int)
-	PopModalOverlay()
-	PopModalOverlays(index int)
+	ApplyModalOverlay(SimpleInputProcessor) (index uint)
+	PopModalOverlay() error
+	PopModalOverlays(index uint)
 }

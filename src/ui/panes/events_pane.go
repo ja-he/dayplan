@@ -303,13 +303,13 @@ func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 
 func (p *EventsPane) CapturesInput() bool             { return p.inputProcessor.CapturesInput() }
 func (p *EventsPane) ProcessInput(key input.Key) bool { return p.inputProcessor.ProcessInput(key) }
-func (p *EventsPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+func (p *EventsPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *EventsPane) PopModalOverlay() {
-	p.inputProcessor.PopModalOverlay()
+func (p *EventsPane) PopModalOverlay() error {
+	return p.inputProcessor.PopModalOverlay()
 }
-func (p *EventsPane) PopModalOverlays(index int) {
+func (p *EventsPane) PopModalOverlays(index uint) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 

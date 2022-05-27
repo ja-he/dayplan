@@ -119,13 +119,13 @@ func (p *SummaryPane) SetParent(parent ui.FocusQueriable) {
 	p.Parent = parent
 }
 
-func (p *SummaryPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+func (p *SummaryPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *SummaryPane) PopModalOverlay() {
-	p.inputProcessor.PopModalOverlay()
+func (p *SummaryPane) PopModalOverlay() error {
+	return p.inputProcessor.PopModalOverlay()
 }
-func (p *SummaryPane) PopModalOverlays(index int) {
+func (p *SummaryPane) PopModalOverlays(index uint) {
 	p.inputProcessor.PopModalOverlays(index)
 }
 

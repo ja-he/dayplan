@@ -51,11 +51,11 @@ func (p *EditorPane) HasFocus() bool                     { return p.parent.HasFo
 func (p *EditorPane) Focusses() ui.FocussablePane        { return nil }
 func (p *EditorPane) SetParent(parent ui.FocusQueriable) { p.parent = parent }
 
-func (p *EditorPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+func (p *EditorPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.inputProcessor.ApplyModalOverlay(overlay)
 }
-func (p *EditorPane) PopModalOverlay()           { p.inputProcessor.PopModalOverlay() }
-func (p *EditorPane) PopModalOverlays(index int) { p.inputProcessor.PopModalOverlays(index) }
+func (p *EditorPane) PopModalOverlay() error      { return p.inputProcessor.PopModalOverlay() }
+func (p *EditorPane) PopModalOverlays(index uint) { p.inputProcessor.PopModalOverlays(index) }
 
 func (p *EditorPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
 

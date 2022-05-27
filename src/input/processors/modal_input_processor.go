@@ -1,6 +1,10 @@
 package processors
 
-import "github.com/ja-he/dayplan/src/input"
+import (
+	"fmt"
+
+	"github.com/ja-he/dayplan/src/input"
+)
 
 type ModalInputProcessor struct {
 	base input.SimpleInputProcessor
@@ -23,18 +27,19 @@ func (p *ModalInputProcessor) ProcessInput(key input.Key) bool {
 	return p.getApplicableProcessor().ProcessInput(key)
 }
 
-func (p *ModalInputProcessor) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index int) {
+func (p *ModalInputProcessor) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	p.modalOverlays = append(p.modalOverlays, overlay)
-	return len(p.modalOverlays) - 1
+	return uint(len(p.modalOverlays) - 1)
 }
-func (p *ModalInputProcessor) PopModalOverlay() {
+func (p *ModalInputProcessor) PopModalOverlay() error {
 	if len(p.modalOverlays) < 1 {
-		panic("attempt to pop from empty overlay stack")
+		return fmt.Errorf("attempt to pop from empty overlay stack")
 	}
 	p.modalOverlays = p.modalOverlays[:len(p.modalOverlays)-1]
+	return nil
 }
-func (p *ModalInputProcessor) PopModalOverlays(index int) {
-	for i := len(p.modalOverlays) - 1; i >= index; i-- {
+func (p *ModalInputProcessor) PopModalOverlays(index uint) {
+	for i := uint(len(p.modalOverlays)); i > index; i-- {
 		p.PopModalOverlay()
 	}
 }
