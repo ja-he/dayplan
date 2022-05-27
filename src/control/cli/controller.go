@@ -525,7 +525,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		if err != nil {
 			panic(err.Error())
 		}
-		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(overlay))
+		dayEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(overlay))
 		controller.data.EventEditMode = control.EventEditModeMove
 	}
 
@@ -560,7 +560,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		if err != nil {
 			panic(err.Error())
 		}
-		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(eventMoveOverlay))
+		dayEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(eventMoveOverlay))
 		controller.data.EventEditMode = control.EventEditModeMove
 	})}
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'r'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event resize mode" }, func() {
@@ -602,7 +602,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		if err != nil {
 			panic(err.Error())
 		}
-		dayEventsPane.ApplyModalOverlay(processors.NewModalInputProcessor(eventResizeOverlay))
+		dayEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(eventResizeOverlay))
 		controller.data.EventEditMode = control.EventEditModeResize
 	})}
 

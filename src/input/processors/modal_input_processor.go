@@ -17,8 +17,7 @@ func NewModalInputProcessor(base input.SimpleInputProcessor) *ModalInputProcesso
 
 func (p *ModalInputProcessor) CapturesInput() bool {
 	processor := p.getApplicableProcessor()
-	haveOverlay := (processor != p.base)
-	return haveOverlay || p.base.CapturesInput()
+	return processor.CapturesInput()
 }
 func (p *ModalInputProcessor) ProcessInput(key input.Key) bool {
 	return p.getApplicableProcessor().ProcessInput(key)
