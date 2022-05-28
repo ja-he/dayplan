@@ -9,15 +9,17 @@ import (
 // RootPane acts as the root UI pane, wrapping all subpanes, managing the
 // render cycle, invoking the subpanes' rendering, etc.
 type RootPane struct {
+	ID ui.PaneID
+
 	renderer ui.RenderOrchestratorControl
 
 	dimensions func() (x, y, w, h int)
 
-	focussedViewPane ui.FocussablePane
+	focussedViewPane ui.InputProcessingPane
 
-	dayViewMainPane   ui.FocussablePane
-	weekViewMainPane  ui.FocussablePane
-	monthViewMainPane ui.FocussablePane
+	dayViewMainPane   ui.InputProcessingPane
+	weekViewMainPane  ui.InputProcessingPane
+	monthViewMainPane ui.InputProcessingPane
 
 	summary ui.ConditionalOverlayPane
 	log     ui.ConditionalOverlayPane
@@ -105,7 +107,7 @@ func (p *RootPane) Draw() {
 // CapturesInput returns whether this processor "captures" input, i.E. whether
 // it ought to take priority in processing over other processors.
 func (p *RootPane) CapturesInput() bool {
-	if p.Focusses().CapturesInput() {
+	if p.focussedPane().CapturesInput() {
 		return true
 	}
 	return p.inputProcessor.CapturesInput()
@@ -118,10 +120,10 @@ func (p *RootPane) CapturesInput() bool {
 func (p *RootPane) ProcessInput(key input.Key) bool {
 	if p.inputProcessor.CapturesInput() {
 		return p.inputProcessor.ProcessInput(key)
-	} else if p.Focusses().CapturesInput() {
-		return p.Focusses().ProcessInput(key)
+	} else if p.focussedPane().CapturesInput() {
+		return p.focussedPane().ProcessInput(key)
 	} else {
-		return p.Focusses().ProcessInput(key) || p.inputProcessor.ProcessInput(key)
+		return p.focussedPane().ProcessInput(key) || p.inputProcessor.ProcessInput(key)
 	}
 }
 
@@ -164,8 +166,13 @@ func (p *RootPane) GetView() ui.ActiveView {
 	}
 }
 
-func (p *RootPane) HasFocus() bool { return true }
-func (p *RootPane) Focusses() ui.FocussablePane {
+func (p *RootPane) Identify() ui.PaneID { return p.ID }
+func (p *RootPane) HasFocus() bool      { return true }
+func (p *RootPane) Focusses() ui.PaneID {
+	return p.focussedPane().Identify()
+}
+
+func (p *RootPane) focussedPane() ui.InputProcessingPane {
 	switch {
 	case p.help.Condition():
 		return p.help
@@ -206,7 +213,7 @@ func (p *RootPane) GetHelp() input.Help {
 	for k, v := range p.inputProcessor.GetHelp() {
 		result[k] = v
 	}
-	for k, v := range p.Focusses().GetHelp() {
+	for k, v := range p.focussedPane().GetHelp() {
 		result[k] = v
 	}
 
@@ -226,9 +233,10 @@ func NewRootPane(
 	editor ui.ConditionalOverlayPane,
 	performanceMetricsOverlay ui.EphemeralPane,
 	inputProcessor input.ModalInputProcessor,
-	focussedPane ui.FocussablePane,
+	focussedPane ui.InputProcessingPane,
 ) *RootPane {
 	rootPane := &RootPane{
+		ID:                        ui.GeneratePaneID(),
 		renderer:                  renderer,
 		dimensions:                dimensions,
 		dayViewMainPane:           dayViewMainPane,
@@ -242,9 +250,9 @@ func NewRootPane(
 		inputProcessor:            inputProcessor,
 		focussedViewPane:          focussedPane,
 	}
-	dayViewMainPane.Parent = rootPane
-	weekViewMainPane.Parent = rootPane
-	monthViewMainPane.Parent = rootPane
+	dayViewMainPane.SetParent(rootPane)
+	weekViewMainPane.SetParent(rootPane)
+	monthViewMainPane.SetParent(rootPane)
 
 	summary.SetParent(rootPane)
 	help.SetParent(rootPane)

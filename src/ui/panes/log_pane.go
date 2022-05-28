@@ -3,7 +3,6 @@ package panes
 import (
 	"strings"
 
-	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -11,14 +10,13 @@ import (
 
 // LogPane shows the log, with the most recent log entries at the top.
 type LogPane struct {
+	InputProcessingLeafPane
+
 	renderer   ui.ConstrainedRenderer
 	dimensions func() (x, y, w, h int)
 	stylesheet styling.Stylesheet
 
 	logReader potatolog.LogReader
-
-	Parent         ui.FocusQueriable
-	inputProcessor input.ModalInputProcessor
 
 	condition   func() bool
 	titleString func() string
@@ -77,48 +75,6 @@ func (p *LogPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
 }
 
-// CapturesInput returns whether this processor "captures" input, i.E. whether
-// it ought to take priority in processing over other processors.
-func (p *LogPane) CapturesInput() bool {
-	return p.inputProcessor != nil && p.inputProcessor.CapturesInput()
-}
-
-// ProcessInput attempts to process the provided input.
-// Returns whether the provided input "applied", i.E. the processor performed
-// an action based on the input.
-// Defers to the panes' input processor.
-func (p *LogPane) ProcessInput(key input.Key) bool {
-	return p.inputProcessor != nil && p.inputProcessor.ProcessInput(key)
-}
-
-func (p *LogPane) HasFocus() bool              { return p.Parent.HasFocus() && p.Parent.Focusses() == p }
-func (p *LogPane) Focusses() ui.FocussablePane { return nil }
-
-func (p *LogPane) SetParent(parent ui.FocusQueriable) {
-	p.Parent = parent
-}
-
-// ApplyModalOverlay applies an overlay to this processor.
-// It returns the processors index, by which in the future, all overlays down
-// to and including this overlay can be removed
-func (p *LogPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
-	return p.inputProcessor.ApplyModalOverlay(overlay)
-}
-
-// PopModalOverlay removes the topmost overlay from this processor.
-func (p *LogPane) PopModalOverlay() error {
-	return p.inputProcessor.PopModalOverlay()
-}
-
-// PopModalOverlays pops all overlays down to and including the one at the
-// specified index.
-func (p *LogPane) PopModalOverlays(index uint) {
-	p.inputProcessor.PopModalOverlays(index)
-}
-
-// GetHelp returns the input help map for this processor.
-func (p *LogPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
-
 // NewLogPane constructs and returns a new LogPane.
 func NewLogPane(
 	renderer ui.ConstrainedRenderer,
@@ -129,11 +85,12 @@ func NewLogPane(
 	logReader potatolog.LogReader,
 ) *LogPane {
 	return &LogPane{
-		renderer:    renderer,
-		dimensions:  dimensions,
-		stylesheet:  stylesheet,
-		condition:   condition,
-		titleString: titleString,
-		logReader:   logReader,
+		InputProcessingLeafPane: *NewLeafPaneBase(nil /* TODO */),
+		renderer:                renderer,
+		dimensions:              dimensions,
+		stylesheet:              stylesheet,
+		condition:               condition,
+		titleString:             titleString,
+		logReader:               logReader,
 	}
 }

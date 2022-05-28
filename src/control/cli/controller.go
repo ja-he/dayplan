@@ -41,7 +41,7 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 
 type Controller struct {
 	data     *control.ControlData
-	rootPane ui.FocussablePane
+	rootPane ui.InputProcessingPane
 
 	fhMutex          sync.RWMutex
 	FileHandlers     map[model.Date]*filehandling.FileHandler
@@ -665,7 +665,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				&controller.data.ViewParams,
 			),
 		},
-		[]ui.FocussablePane{
+		[]ui.InputProcessingPane{
 			dayEventsPane,
 		},
 		processors.NewModalInputProcessor(dayViewScrollablePaneInputTree),
@@ -679,7 +679,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	}
 	weekViewEventsWrapper := panes.NewWrapperPane(
 		weekViewEventsPanes,
-		[]ui.FocussablePane{},
+		[]ui.InputProcessingPane{},
 		processors.NewModalInputProcessor(weekViewEventsWrapperInputTree),
 	)
 	monthViewEventsWrapperInputTree, err := input.ConstructInputTree(multidayViewEventsWrapperInputMap)
@@ -688,7 +688,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	}
 	monthViewEventsWrapper := panes.NewWrapperPane(
 		monthViewEventsPanes,
-		[]ui.FocussablePane{},
+		[]ui.InputProcessingPane{},
 		processors.NewModalInputProcessor(monthViewEventsWrapperInputTree),
 	)
 
@@ -698,7 +698,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			toolsPane,
 			statusPane,
 		},
-		[]ui.FocussablePane{
+		[]ui.InputProcessingPane{
 			dayViewScrollablePane,
 			toolsPane,
 		},
@@ -721,7 +721,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			),
 			weekViewEventsWrapper,
 		},
-		[]ui.FocussablePane{
+		[]ui.InputProcessingPane{
 			weekViewEventsWrapper,
 		},
 		processors.NewModalInputProcessor(weekViewMainPaneInputTree),
@@ -743,7 +743,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			),
 			monthViewEventsWrapper,
 		},
-		[]ui.FocussablePane{
+		[]ui.InputProcessingPane{
 			monthViewEventsWrapper,
 		},
 		processors.NewModalInputProcessor(monthViewMainPaneInputTree),

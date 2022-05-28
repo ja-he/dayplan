@@ -8,6 +8,8 @@ import (
 
 // EditorPane visualizes the detailed editing of an event.
 type EditorPane struct {
+	InputProcessingLeafPane
+
 	renderer         ui.ConstrainedRenderer
 	cursorController ui.TextCursorController
 	dimensions       func() (x, y, w, h int)
@@ -15,9 +17,6 @@ type EditorPane struct {
 	condition        func() bool
 
 	getMode func() input.TextEditMode
-
-	inputProcessor input.ModalInputProcessor
-	parent         ui.FocusQueriable
 
 	name      func() string
 	cursorPos func() int
@@ -43,7 +42,7 @@ func (p *EditorPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 // CapturesInput returns whether this processor "captures" input, i.E. whether
 // it ought to take priority in processing over other processors.
 func (p *EditorPane) CapturesInput() bool {
-	return p.inputProcessor != nil && p.inputProcessor.CapturesInput()
+	return p.InputProcessor != nil && p.InputProcessor.CapturesInput()
 }
 
 // ProcessInput attempts to process the provided input.
@@ -51,29 +50,25 @@ func (p *EditorPane) CapturesInput() bool {
 // an action based on the input.
 // Defers to the panes' input processor.
 func (p *EditorPane) ProcessInput(key input.Key) bool {
-	return p.inputProcessor != nil && p.inputProcessor.ProcessInput(key)
+	return p.InputProcessor != nil && p.InputProcessor.ProcessInput(key)
 }
-
-func (p *EditorPane) HasFocus() bool                     { return p.parent.HasFocus() && p.parent.Focusses() == p }
-func (p *EditorPane) Focusses() ui.FocussablePane        { return nil }
-func (p *EditorPane) SetParent(parent ui.FocusQueriable) { p.parent = parent }
 
 // ApplyModalOverlay applies an overlay to this processor.
 // It returns the processors index, by which in the future, all overlays down
 // to and including this overlay can be removed
 func (p *EditorPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
-	return p.inputProcessor.ApplyModalOverlay(overlay)
+	return p.InputProcessor.ApplyModalOverlay(overlay)
 }
 
 // PopModalOverlay removes the topmost overlay from this processor.
-func (p *EditorPane) PopModalOverlay() error { return p.inputProcessor.PopModalOverlay() }
+func (p *EditorPane) PopModalOverlay() error { return p.InputProcessor.PopModalOverlay() }
 
 // PopModalOverlays pops all overlays down to and including the one at the
 // specified index.
-func (p *EditorPane) PopModalOverlays(index uint) { p.inputProcessor.PopModalOverlays(index) }
+func (p *EditorPane) PopModalOverlays(index uint) { p.InputProcessor.PopModalOverlays(index) }
 
 // GetHelp returns the input help map for this processor.
-func (p *EditorPane) GetHelp() input.Help { return p.inputProcessor.GetHelp() }
+func (p *EditorPane) GetHelp() input.Help { return p.InputProcessor.GetHelp() }
 
 // Draw draws the editor popup.
 func (p *EditorPane) Draw() {
@@ -115,14 +110,14 @@ func NewEditorPane(
 	inputProcessor input.ModalInputProcessor,
 ) *EditorPane {
 	return &EditorPane{
-		renderer:         renderer,
-		cursorController: cursorController,
-		dimensions:       dimensions,
-		stylesheet:       stylesheet,
-		condition:        condition,
-		name:             name,
-		getMode:          getMode,
-		cursorPos:        cursorPos,
-		inputProcessor:   inputProcessor,
+		InputProcessingLeafPane: *NewLeafPaneBase(inputProcessor),
+		renderer:                renderer,
+		cursorController:        cursorController,
+		dimensions:              dimensions,
+		stylesheet:              stylesheet,
+		condition:               condition,
+		name:                    name,
+		getMode:                 getMode,
+		cursorPos:               cursorPos,
 	}
 }

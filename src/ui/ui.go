@@ -102,7 +102,7 @@ type Pane interface {
 // It's probably best that the parent conditionally draws, but internal
 // verification of the condition before executing draw calls is also an option.
 type ConditionalOverlayPane interface {
-	FocussablePane
+	InputProcessingPane
 	// The condition which determines, whether this pane should be visible.
 	Condition() bool
 	// Inform the pane that it is not being shown so that it can take potential
@@ -123,15 +123,47 @@ type EphemeralPane interface {
 	EnsureHidden()
 }
 
-type FocusQueriable interface {
-	HasFocus() bool
-	Focusses() FocussablePane
+// PaneID uniquely identifies a pane. No two panes must ever share a PaneID.
+type PaneID uint
+
+var id PaneID
+
+// GeneratePaneID generates a new unique pane ID.
+var GeneratePaneID = func() PaneID {
+	id++
+	return id
 }
 
-type FocussablePane interface {
+// FocusQueriable represents the focus querying abilities of UI element that
+// can take focus.
+//
+// An element can be asked whether it HasFocus, what (by PaneID) it Focusses
+// and to Identify itself by its PaneID.
+type FocusQueriable interface {
+	HasFocus() bool
+	Focusses() PaneID
+	Identify() PaneID
+}
+
+// InputProcessingPane is a UI pane that processes input and can be focussed.
+//
+// An InputProcessingPane can focus another InputProcessingPane, in fact one of
+// any number of "child" InputProcessingPanes.
+// Thus they can be structured as a tree and any node in this tree can be asked
+// whether it HasFocus, and what it Focusses; generally, to answer wheter a
+// pane HasFocus, it would probably consult it's parent whether the parent
+// HasFocus and which pane it Focusses.
+//
+// In this tree of panes, an InputProcessingPane's should generally have a
+// parent, which can be set with SetParent; an exception would be the root pane
+// of the tree.
+type InputProcessingPane interface {
 	Pane
+
 	input.ModalInputProcessor
+
 	FocusQueriable
+
 	SetParent(FocusQueriable)
 }
 
@@ -190,7 +222,6 @@ type ConstrainedRenderer interface {
 // tcell.Screen) that the root pane needs to use to have full control over a
 // render cycle. Other panes should not need this access to the renderer.
 type RenderOrchestratorControl interface {
-	// TODO: naming: RenderOrchestratorControl?
 	Clear()
 	Show()
 }
@@ -223,6 +254,8 @@ func (p *ViewParams) TimeAtY(y int) model.Timestamp {
 	return ts
 }
 
+// YForTime gives the y value the given timestamp would be at with the
+// receiving ViewParams.
 func (p *ViewParams) YForTime(time model.Timestamp) int {
 	return ((time.Hour*p.NRowsPerHour - p.ScrollOffset) + (time.Minute / (60 / p.NRowsPerHour)))
 }
