@@ -14,7 +14,6 @@ type EditorPane struct {
 	cursorController ui.TextCursorController
 	dimensions       func() (x, y, w, h int)
 	stylesheet       styling.Stylesheet
-	condition        func() bool
 
 	getMode func() input.TextEditMode
 
@@ -22,13 +21,8 @@ type EditorPane struct {
 	cursorPos func() int
 }
 
-// EnsureHidden informs the pane that it is not being shown so that it can take
-// potential actions to ensure that, e.g., hide the terminal cursor, if
-// necessary.
-func (p *EditorPane) EnsureHidden() { p.cursorController.HideCursor() }
-
-// Condition returns whether this pane should be visible.
-func (p *EditorPane) Condition() bool { return p.condition() }
+// Undraw ensures that the cursor is hidden.
+func (p *EditorPane) Undraw() { p.cursorController.HideCursor() }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
@@ -39,40 +33,9 @@ func (p *EditorPane) Dimensions() (x, y, w, h int) {
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *EditorPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 
-// CapturesInput returns whether this processor "captures" input, i.E. whether
-// it ought to take priority in processing over other processors.
-func (p *EditorPane) CapturesInput() bool {
-	return p.InputProcessor != nil && p.InputProcessor.CapturesInput()
-}
-
-// ProcessInput attempts to process the provided input.
-// Returns whether the provided input "applied", i.E. the processor performed
-// an action based on the input.
-// Defers to the panes' input processor.
-func (p *EditorPane) ProcessInput(key input.Key) bool {
-	return p.InputProcessor != nil && p.InputProcessor.ProcessInput(key)
-}
-
-// ApplyModalOverlay applies an overlay to this processor.
-// It returns the processors index, by which in the future, all overlays down
-// to and including this overlay can be removed
-func (p *EditorPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
-	return p.InputProcessor.ApplyModalOverlay(overlay)
-}
-
-// PopModalOverlay removes the topmost overlay from this processor.
-func (p *EditorPane) PopModalOverlay() error { return p.InputProcessor.PopModalOverlay() }
-
-// PopModalOverlays pops all overlays down to and including the one at the
-// specified index.
-func (p *EditorPane) PopModalOverlays(index uint) { p.InputProcessor.PopModalOverlays(index) }
-
-// GetHelp returns the input help map for this processor.
-func (p *EditorPane) GetHelp() input.Help { return p.InputProcessor.GetHelp() }
-
 // Draw draws the editor popup.
 func (p *EditorPane) Draw() {
-	if p.condition() {
+	if p.IsVisible() {
 		x, y, w, h := p.Dimensions()
 
 		p.renderer.DrawBox(x, y, w, h, p.stylesheet.Editor)
@@ -110,14 +73,19 @@ func NewEditorPane(
 	inputProcessor input.ModalInputProcessor,
 ) *EditorPane {
 	return &EditorPane{
-		InputProcessingLeafPane: *NewLeafPaneBase(inputProcessor),
-		renderer:                renderer,
-		cursorController:        cursorController,
-		dimensions:              dimensions,
-		stylesheet:              stylesheet,
-		condition:               condition,
-		name:                    name,
-		getMode:                 getMode,
-		cursorPos:               cursorPos,
+		InputProcessingLeafPane: InputProcessingLeafPane{
+			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+				ID:             ui.GeneratePaneID(),
+				InputProcessor: inputProcessor,
+				Visible:        condition,
+			},
+		},
+		renderer:         renderer,
+		cursorController: cursorController,
+		dimensions:       dimensions,
+		stylesheet:       stylesheet,
+		name:             name,
+		getMode:          getMode,
+		cursorPos:        cursorPos,
 	}
 }

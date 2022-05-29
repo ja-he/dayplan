@@ -20,13 +20,6 @@ import (
 type EventsPane struct {
 	InputProcessingLeafPane
 
-	Parent ui.InputProcessingPane
-
-	renderer ui.ConstrainedRenderer
-
-	dimensions func() (x, y, w, h int)
-	stylesheet styling.Stylesheet
-
 	day func() *model.Day
 
 	styleForCategory func(model.Category) (styling.DrawStyling, error)
@@ -254,45 +247,6 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 	return positions
 }
 
-// MaybeEventsPane wraps an EventsPane with a condition and exposes its
-// functionality, iff the condition holds. Otherwise its operations do or
-// return nothing.
-//
-// This type exists primarily to allow us to represent the variable length
-// months in panes easily.
-type MaybeEventsPane struct {
-	eventsPane *EventsPane
-	condition  func() bool
-}
-
-// Draw draws this pane.
-func (p *MaybeEventsPane) Draw() {
-	if p.condition() {
-		p.eventsPane.Draw()
-	}
-}
-
-// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
-// height) for this pane.
-func (p *MaybeEventsPane) Dimensions() (x, y, w, h int) { return p.eventsPane.Dimensions() }
-
-// GetPositionInfo returns information on a requested position in the
-// underlying EventsPane pane, but only if this pane's condition is true.
-func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	someInfo := p.eventsPane.GetPositionInfo(x, y)
-	if p.condition() {
-		return someInfo
-	}
-	return ui.NewPositionInfo(
-		ui.NoPane,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-}
-
 // NewEventsPane constructs and returns a new EventsPane.
 func NewEventsPane(
 	renderer ui.ConstrainedRenderer,
@@ -313,39 +267,27 @@ func NewEventsPane(
 	logWriter potatolog.LogWriter,
 ) *EventsPane {
 	return &EventsPane{
-		InputProcessingLeafPane: *NewLeafPaneBase(inputProcessor),
-		renderer:                renderer,
-		dimensions:              dimensions,
-		stylesheet:              stylesheet,
-		day:                     day,
-		styleForCategory:        styleForCategory,
-		viewParams:              viewParams,
-		cursor:                  cursor,
-		pad:                     pad,
-		drawTimestamps:          drawTimestamps,
-		drawNames:               drawNames,
-		isCurrentDay:            isCurrentDay,
-		getCurrentEvent:         getCurrentEvent,
-		mouseMode:               mouseMode,
-		logReader:               logReader,
-		logWriter:               logWriter,
-		positions:               make(map[*model.Event]util.Rect, 0),
-	}
-}
-
-func (p *MaybeEventsPane) SetParent(parent ui.InputProcessingPane) {
-	if p.eventsPane != nil {
-		p.eventsPane.Parent = parent
-	}
-}
-
-// NewMaybeEventsPane constructs and returns a new MaybeEventsPane.
-func NewMaybeEventsPane(
-	condition func() bool,
-	eventsPane *EventsPane,
-) *MaybeEventsPane {
-	return &MaybeEventsPane{
-		condition:  condition,
-		eventsPane: eventsPane,
+		InputProcessingLeafPane: InputProcessingLeafPane{
+			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+				ID:             ui.GeneratePaneID(),
+				InputProcessor: inputProcessor,
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
+		day:              day,
+		styleForCategory: styleForCategory,
+		viewParams:       viewParams,
+		cursor:           cursor,
+		pad:              pad,
+		drawTimestamps:   drawTimestamps,
+		drawNames:        drawNames,
+		isCurrentDay:     isCurrentDay,
+		getCurrentEvent:  getCurrentEvent,
+		mouseMode:        mouseMode,
+		logReader:        logReader,
+		logWriter:        logWriter,
+		positions:        make(map[*model.Event]util.Rect, 0),
 	}
 }

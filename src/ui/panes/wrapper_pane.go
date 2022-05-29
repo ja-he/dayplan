@@ -13,10 +13,10 @@ import (
 // own.
 type WrapperPane struct {
 	drawables   []ui.Pane
-	focussables []ui.InputProcessingPane
+	focussables []ui.Pane
 
 	InputProcessingPaneBaseData
-	FocussedPane ui.InputProcessingPane
+	FocussedPane ui.Pane
 }
 
 // Draw draws this pane by drawing all its subpanes.
@@ -24,6 +24,12 @@ type WrapperPane struct {
 func (p *WrapperPane) Draw() {
 	for _, drawable := range p.drawables {
 		drawable.Draw()
+	}
+}
+
+func (p *WrapperPane) Undraw() {
+	for _, drawable := range p.drawables {
+		drawable.Undraw()
 	}
 }
 
@@ -150,7 +156,7 @@ func (p *WrapperPane) GetHelp() input.Help {
 // NewWrapperPane constructs and returns a new WrapperPane.
 func NewWrapperPane(
 	drawables []ui.Pane,
-	focussables []ui.InputProcessingPane,
+	focussables []ui.Pane,
 	inputProcessor input.ModalInputProcessor,
 ) *WrapperPane {
 	p := &WrapperPane{

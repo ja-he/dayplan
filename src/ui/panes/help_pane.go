@@ -12,21 +12,8 @@ import (
 type HelpPane struct {
 	InputProcessingLeafPane
 
-	renderer   ui.ConstrainedRenderer
-	dimensions func() (x, y, w, h int)
-	stylesheet styling.Stylesheet
-	condition  func() bool
-
 	Content input.Help
 }
-
-// EnsureHidden informs the pane that it is not being shown so that it can take
-// potential actions to ensure that, e.g., hide the terminal cursor, if
-// necessary.
-func (p *HelpPane) EnsureHidden() {}
-
-// Condition returns whether this pane should be visible.
-func (p *HelpPane) Condition() bool { return p.condition() }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
@@ -40,7 +27,7 @@ func (p *HelpPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 
 // Draw draws the help popup.
 func (p *HelpPane) Draw() {
-	if p.condition() {
+	if p.IsVisible() {
 
 		x, y, w, h := p.Dimensions()
 		p.renderer.DrawBox(x, y, w, h, p.stylesheet.Help)
@@ -93,10 +80,15 @@ func NewHelpPane(
 	inputProcessor input.ModalInputProcessor,
 ) *HelpPane {
 	p := &HelpPane{
-		renderer:   renderer,
-		dimensions: dimensions,
-		stylesheet: stylesheet,
-		condition:  condition,
+		InputProcessingLeafPane: InputProcessingLeafPane{
+			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+				ID:      ui.GeneratePaneID(),
+				Visible: condition,
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
 	}
 	p.InputProcessor = inputProcessor
 	return p

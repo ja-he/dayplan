@@ -13,22 +13,12 @@ import (
 // and light on the timeline. If allowed to get a current time, it will
 // highlight the current time.
 type TimelinePane struct {
-	renderer ui.ConstrainedRenderer
-
-	dimensions func() (x, y, w, h int)
-	stylesheet styling.Stylesheet
+	InputProcessingLeafPane
 
 	suntimes    func() *model.SunTimes
 	currentTime func() *model.Timestamp
 
 	viewParams *ui.ViewParams
-}
-
-// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
-// height) for this pane.
-// GetPositionInfo returns information on a requested position in this pane.
-func (p *TimelinePane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
 }
 
 // Draw draws this pane.
@@ -109,9 +99,14 @@ func NewTimelinePane(
 	viewParams *ui.ViewParams,
 ) *TimelinePane {
 	return &TimelinePane{
-		renderer:    renderer,
-		dimensions:  dimensions,
-		stylesheet:  stylesheet,
+		InputProcessingLeafPane: InputProcessingLeafPane{
+			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+				ID: ui.GeneratePaneID(),
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
 		suntimes:    suntimes,
 		currentTime: currentTime,
 		viewParams:  viewParams,

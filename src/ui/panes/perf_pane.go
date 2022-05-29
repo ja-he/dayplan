@@ -13,10 +13,7 @@ import (
 // PerfPane is an ephemeral pane used for showing debug info during normal
 // usage.
 type PerfPane struct {
-	renderer ui.ConstrainedRenderer
-
-	dimensions func() (x, y, w, h int)
-	condition  func() bool
+	InputProcessingLeafPane
 
 	renderTime          util.MetricsGetter
 	eventProcessingTime util.MetricsGetter
@@ -31,7 +28,7 @@ func (p *PerfPane) Dimensions() (x, y, w, h int) {
 
 // Draw draws this pane.
 func (p *PerfPane) Draw() {
-	if !p.condition() {
+	if !p.IsVisible() {
 		return
 	}
 
@@ -80,15 +77,10 @@ func (p *PerfPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return nil
 }
 
-// Condition indicates whether this pane is active.
-func (p *PerfPane) Condition() bool {
-	return p.condition()
-}
-
 // EnsureHidden informs the pane that it is not being shown so that it can take
 // potential actions to ensure that, e.g., hide the terminal cursor, if
 // necessary.
-func (p *PerfPane) EnsureHidden() {}
+func (p *PerfPane) Undraw() {}
 
 // NewPerfPane constructs and returns a new PerfPane.
 func NewPerfPane(
@@ -99,9 +91,14 @@ func NewPerfPane(
 	eventProcessingTime util.MetricsGetter,
 ) *PerfPane {
 	return &PerfPane{
-		renderer:            renderer,
-		dimensions:          dimensions,
-		condition:           condition,
+		InputProcessingLeafPane: InputProcessingLeafPane{
+			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+				ID:      ui.GeneratePaneID(),
+				Visible: condition,
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+		},
 		renderTime:          renderTime,
 		eventProcessingTime: eventProcessingTime,
 	}

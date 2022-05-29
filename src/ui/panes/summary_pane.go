@@ -16,11 +16,6 @@ import (
 type SummaryPane struct {
 	InputProcessingLeafPane
 
-	renderer   ui.ConstrainedRenderer
-	dimensions func() (x, y, w, h int)
-	stylesheet styling.Stylesheet
-
-	condition   func() bool
 	titleString func() string
 	days        func() []*model.Day
 
@@ -31,9 +26,6 @@ type SummaryPane struct {
 // potential actions to ensure that, e.g., hide the terminal cursor, if
 // necessary.
 func (p *SummaryPane) EnsureHidden() {}
-
-// Condition returns whether this pane should be visible.
-func (p *SummaryPane) Condition() bool { return p.condition() }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
@@ -46,7 +38,7 @@ func (p *SummaryPane) Dimensions() (x, y, w, h int) {
 // if it is currently active.
 func (p *SummaryPane) Draw() {
 
-	if p.condition() {
+	if p.IsVisible() {
 		x, y, w, h := p.Dimensions()
 
 		p.renderer.DrawBox(x, y, w, h, p.stylesheet.SummaryDefault)
@@ -116,13 +108,18 @@ func NewSummaryPane(
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
 	return &SummaryPane{
-		InputProcessingLeafPane: *NewLeafPaneBase(inputProcessor),
-		renderer:                renderer,
-		dimensions:              dimensions,
-		stylesheet:              stylesheet,
-		condition:               condition,
-		titleString:             titleString,
-		days:                    days,
-		categories:              categories,
+		InputProcessingLeafPane: InputProcessingLeafPane{
+			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+				ID:             ui.GeneratePaneID(),
+				InputProcessor: inputProcessor,
+				Visible:        condition,
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
+		titleString: titleString,
+		days:        days,
+		categories:  categories,
 	}
 }

@@ -13,12 +13,6 @@ import (
 type ToolsPane struct {
 	InputProcessingLeafPane
 
-	renderer ui.ConstrainedRenderer
-
-	dimensions func() (x, y, w, h int)
-
-	stylesheet styling.Stylesheet
-
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
 
@@ -127,14 +121,19 @@ func NewToolsPane(
 	gap int,
 ) *ToolsPane {
 	return &ToolsPane{
-		InputProcessingLeafPane: *NewLeafPaneBase(inputProcessor),
-		renderer:                renderer,
-		dimensions:              dimensions,
-		stylesheet:              stylesheet,
-		currentCategory:         currentCategory,
-		categories:              categories,
-		horizPadding:            horizPadding,
-		vertPadding:             vertPadding,
-		gap:                     gap,
+		InputProcessingLeafPane: InputProcessingLeafPane{
+			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+				ID:             ui.GeneratePaneID(),
+				InputProcessor: inputProcessor,
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
+		currentCategory: currentCategory,
+		categories:      categories,
+		horizPadding:    horizPadding,
+		vertPadding:     vertPadding,
+		gap:             gap,
 	}
 }

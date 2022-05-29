@@ -79,54 +79,14 @@ const (
 	ViewMonth
 )
 
-// Pane is a rectangular pane in a user interface.
-// It can be drawn or queried for information.
-type Pane interface {
-	// Draw draws this pane.
-	// Renders whatever contents the pane is supposed to display to whatever UI is
-	// currently in use.
-	Draw()
-
-	// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
-	// height) for this pane.
-	Dimensions() (x, y, w, h int)
-
-	// GetPositionInfo returns information on a requested position in this pane.
-	GetPositionInfo(x, y int) PositionInfo
-}
-
-// ConditionalOverlayPane is a UI pane that is only visible given some
-// condition holds true.
-//
-// The condition can be queried by whatever parent holds the pane.
-// It's probably best that the parent conditionally draws, but internal
-// verification of the condition before executing draw calls is also an option.
-type ConditionalOverlayPane interface {
-	InputProcessingPane
-	// The condition which determines, whether this pane should be visible.
-	Condition() bool
-	// Inform the pane that it is not being shown so that it can take potential
-	// actions to ensure that, e.g., hide the terminal cursor, if necessary.
-	EnsureHidden()
-}
-
-// An EphemeralPane is a conditional overlay that should be rendered normally,
-// but otherwise treated as though nonexistent. It should for example be ignored
-// when processing mouse clicks.
-type EphemeralPane interface {
-	// Implements the Pane interface.
-	Pane
-	// The condition which determines, whether this pane should be visible.
-	Condition() bool
-	// Inform the pane that it is not being shown so that it can take potential
-	// actions to ensure that, e.g., hide the terminal cursor, if necessary.
-	EnsureHidden()
-}
-
 // PaneID uniquely identifies a pane. No two panes must ever share a PaneID.
 type PaneID uint
 
-var id PaneID
+// NonePaneID represents "no pane" or "invalid pane". Panes guaranteed to be
+// assigned different IDs by GeneratePaneID.
+const NonePaneID PaneID = 0
+
+var id = NonePaneID
 
 // GeneratePaneID generates a new unique pane ID.
 var GeneratePaneID = func() PaneID {
@@ -142,10 +102,13 @@ var GeneratePaneID = func() PaneID {
 type FocusQueriable interface {
 	HasFocus() bool
 	Focusses() PaneID
+	IsVisible() bool
 	Identify() PaneID
 }
 
-// InputProcessingPane is a UI pane that processes input and can be focussed.
+// Pane is a UI pane.
+//
+// ...
 //
 // An InputProcessingPane can focus another InputProcessingPane, in fact one of
 // any number of "child" InputProcessingPanes.
@@ -157,14 +120,22 @@ type FocusQueriable interface {
 // In this tree of panes, an InputProcessingPane's should generally have a
 // parent, which can be set with SetParent; an exception would be the root pane
 // of the tree.
-type InputProcessingPane interface {
-	Pane
+type Pane interface {
+	Draw()
+	Undraw()
+	IsVisible() bool
+	Dimensions() (x, y, w, h int)
+	GetPositionInfo(x, y int) PositionInfo
 
 	input.ModalInputProcessor
 
 	FocusQueriable
 
 	SetParent(FocusQueriable)
+
+	// NOTE: always an option to add/alter to focus{left,right,up,down} or similar
+	FocusNext()
+	FocusPrev()
 }
 
 // EventBoxPart describes the part of an event box (the visual representation

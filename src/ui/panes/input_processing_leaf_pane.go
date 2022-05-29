@@ -2,6 +2,7 @@ package panes
 
 import (
 	"github.com/ja-he/dayplan/src/input"
+	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 )
 
@@ -9,7 +10,25 @@ import (
 // TODO: nil checks?
 type InputProcessingLeafPane struct {
 	InputProcessingPaneBaseData
+	renderer   ui.ConstrainedRenderer
+	dimensions func() (x, y, w, h int)
+	stylesheet styling.Stylesheet
 }
+
+// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
+// height) for this pane.
+func (p *InputProcessingLeafPane) Dimensions() (x, y, w, h int) {
+	return p.dimensions()
+}
+
+// Override this
+func (p *InputProcessingLeafPane) Draw() {
+	// TODO: draw fill with warning message
+	panic("unimplemented draw")
+}
+
+// Override this, if necessary.
+func (p *InputProcessingLeafPane) Undraw() {}
 
 func (p *InputProcessingLeafPane) HasFocus() bool {
 	return p.Parent != nil && p.Parent.HasFocus() && p.Parent.Focusses() == p.Identify()
@@ -66,11 +85,6 @@ func (p *InputProcessingLeafPane) GetHelp() input.Help {
 	return p.InputProcessor.GetHelp()
 }
 
-func NewLeafPaneBase(
-	InputProcessor input.ModalInputProcessor,
-) *InputProcessingLeafPane {
-	return &InputProcessingLeafPane{InputProcessingPaneBaseData: InputProcessingPaneBaseData{
-		ID:             ui.GeneratePaneID(),
-		InputProcessor: InputProcessor,
-	}}
-}
+func (p *InputProcessingLeafPane) FocusPrev() {}
+
+func (p *InputProcessingLeafPane) FocusNext() {}

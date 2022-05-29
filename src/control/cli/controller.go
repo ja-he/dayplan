@@ -41,7 +41,7 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 
 type Controller struct {
 	data     *control.ControlData
-	rootPane ui.InputProcessingPane
+	rootPane ui.Pane
 
 	fhMutex          sync.RWMutex
 	FileHandlers     map[model.Date]*filehandling.FileHandler
@@ -201,8 +201,8 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	if err != nil {
 		panic(err.Error())
 	}
-	monthdayPane := func(dayIndex int) *panes.MaybeEventsPane {
-		return panes.NewMaybeEventsPane(
+	monthdayPane := func(dayIndex int) ui.Pane {
+		return panes.NewMaybePane(
 			func() bool {
 				return controller.data.CurrentDate.GetDayInMonth(dayIndex).Month == controller.data.CurrentDate.Month
 			},
@@ -665,7 +665,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				&controller.data.ViewParams,
 			),
 		},
-		[]ui.InputProcessingPane{
+		[]ui.Pane{
 			dayEventsPane,
 		},
 		processors.NewModalInputProcessor(dayViewScrollablePaneInputTree),
@@ -679,7 +679,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	}
 	weekViewEventsWrapper := panes.NewWrapperPane(
 		weekViewEventsPanes,
-		[]ui.InputProcessingPane{},
+		[]ui.Pane{},
 		processors.NewModalInputProcessor(weekViewEventsWrapperInputTree),
 	)
 	monthViewEventsWrapperInputTree, err := input.ConstructInputTree(multidayViewEventsWrapperInputMap)
@@ -688,7 +688,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	}
 	monthViewEventsWrapper := panes.NewWrapperPane(
 		monthViewEventsPanes,
-		[]ui.InputProcessingPane{},
+		[]ui.Pane{},
 		processors.NewModalInputProcessor(monthViewEventsWrapperInputTree),
 	)
 
@@ -698,7 +698,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			toolsPane,
 			statusPane,
 		},
-		[]ui.InputProcessingPane{
+		[]ui.Pane{
 			dayViewScrollablePane,
 			toolsPane,
 		},
@@ -721,7 +721,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			),
 			weekViewEventsWrapper,
 		},
-		[]ui.InputProcessingPane{
+		[]ui.Pane{
 			weekViewEventsWrapper,
 		},
 		processors.NewModalInputProcessor(weekViewMainPaneInputTree),
@@ -743,7 +743,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			),
 			monthViewEventsWrapper,
 		},
-		[]ui.InputProcessingPane{
+		[]ui.Pane{
 			monthViewEventsWrapper,
 		},
 		processors.NewModalInputProcessor(monthViewMainPaneInputTree),

@@ -15,19 +15,19 @@ type RootPane struct {
 
 	dimensions func() (x, y, w, h int)
 
-	focussedViewPane ui.InputProcessingPane
+	focussedViewPane ui.Pane
 
-	dayViewMainPane   ui.InputProcessingPane
-	weekViewMainPane  ui.InputProcessingPane
-	monthViewMainPane ui.InputProcessingPane
+	dayViewMainPane   ui.Pane
+	weekViewMainPane  ui.Pane
+	monthViewMainPane ui.Pane
 
-	summary ui.ConditionalOverlayPane
-	log     ui.ConditionalOverlayPane
+	summary ui.Pane
+	log     ui.Pane
 
-	help   ui.ConditionalOverlayPane
-	editor ui.ConditionalOverlayPane
+	help   ui.Pane
+	editor ui.Pane
 
-	performanceMetricsOverlay ui.EphemeralPane
+	performanceMetricsOverlay ui.Pane
 
 	inputProcessor input.ModalInputProcessor
 }
@@ -53,9 +53,9 @@ func (p *RootPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	panic("argh!")
 }
 
-func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive []ui.ConditionalOverlayPane) {
+func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive []ui.Pane) {
 	active = make([]ui.Pane, 0)
-	inactive = make([]ui.ConditionalOverlayPane, 0)
+	inactive = make([]ui.Pane, 0)
 
 	// append day, week, or month pane
 	active = append(active, p.focussedViewPane)
@@ -63,22 +63,22 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	// TODO: this change breaks the cursor hiding, as that is done in the draw
 	//       call when !condition. it should be done differently anyways though,
 	//       imo.
-	if p.editor.Condition() {
+	if p.editor.IsVisible() {
 		active = append(active, p.editor)
 	} else {
 		inactive = append(inactive, p.editor)
 	}
-	if p.log.Condition() {
+	if p.log.IsVisible() {
 		active = append(active, p.log)
 	} else {
 		inactive = append(inactive, p.log)
 	}
-	if p.summary.Condition() {
+	if p.summary.IsVisible() {
 		active = append(active, p.summary)
 	} else {
 		inactive = append(inactive, p.summary)
 	}
-	if p.help.Condition() {
+	if p.help.IsVisible() {
 		active = append(active, p.help)
 	} else {
 		inactive = append(inactive, p.help)
@@ -86,6 +86,8 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 
 	return active, inactive
 }
+
+func (p *RootPane) IsVisible() bool { return true }
 
 // Draw draws this pane.
 func (p *RootPane) Draw() {
@@ -96,10 +98,26 @@ func (p *RootPane) Draw() {
 		pane.Draw()
 	}
 	for _, pane := range inactive {
-		pane.EnsureHidden()
+		pane.Undraw()
 	}
 
 	p.performanceMetricsOverlay.Draw()
+
+	p.renderer.Show()
+}
+
+func (p *RootPane) Undraw() {
+	p.renderer.Clear()
+
+	active, inactive := p.getCurrentlyActivePanesInOrder()
+	for _, pane := range active {
+		pane.Undraw()
+	}
+	for _, pane := range inactive {
+		pane.Undraw()
+	}
+
+	p.performanceMetricsOverlay.Undraw()
 
 	p.renderer.Show()
 }
@@ -171,16 +189,18 @@ func (p *RootPane) HasFocus() bool      { return true }
 func (p *RootPane) Focusses() ui.PaneID {
 	return p.focussedPane().Identify()
 }
+func (p *RootPane) FocusPrev() {}
+func (p *RootPane) FocusNext() {}
 
-func (p *RootPane) focussedPane() ui.InputProcessingPane {
+func (p *RootPane) focussedPane() ui.Pane {
 	switch {
-	case p.help.Condition():
+	case p.help.IsVisible():
 		return p.help
-	case p.editor.Condition():
+	case p.editor.IsVisible():
 		return p.editor
-	case p.summary.Condition():
+	case p.summary.IsVisible():
 		return p.summary
-	case p.log.Condition():
+	case p.log.IsVisible():
 		return p.log
 	default:
 		return p.focussedViewPane
@@ -227,13 +247,13 @@ func NewRootPane(
 	dayViewMainPane *WrapperPane,
 	weekViewMainPane *WrapperPane,
 	monthViewMainPane *WrapperPane,
-	summary ui.ConditionalOverlayPane,
-	log ui.ConditionalOverlayPane,
-	help ui.ConditionalOverlayPane,
-	editor ui.ConditionalOverlayPane,
-	performanceMetricsOverlay ui.EphemeralPane,
+	summary ui.Pane,
+	log ui.Pane,
+	help ui.Pane,
+	editor ui.Pane,
+	performanceMetricsOverlay ui.Pane,
 	inputProcessor input.ModalInputProcessor,
-	focussedPane ui.InputProcessingPane,
+	focussedPane ui.Pane,
 ) *RootPane {
 	rootPane := &RootPane{
 		ID:                        ui.GeneratePaneID(),
