@@ -14,7 +14,7 @@ import (
 // It shows all events' times summed up (by Summarize, meaning without counting
 // any time multiple times) and visualizes the results in simple bars.
 type SummaryPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	titleString func() string
 	days        func() []*model.Day
@@ -108,8 +108,8 @@ func NewSummaryPane(
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
 	return &SummaryPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 				Visible:        condition,

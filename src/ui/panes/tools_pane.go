@@ -11,7 +11,7 @@ import (
 // ToolsPane shows tools for editing.
 // Currently it only offers a selection of categories to select from.
 type ToolsPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
@@ -121,8 +121,8 @@ func NewToolsPane(
 	gap int,
 ) *ToolsPane {
 	return &ToolsPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 			},

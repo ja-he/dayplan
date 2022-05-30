@@ -9,25 +9,27 @@ import (
 	"github.com/ja-he/dayplan/src/util"
 )
 
-// WrapperPane is a generic wrapper pane whithout any rendering logic of its
+// Composite is a generic wrapper pane whithout any rendering logic of its
 // own.
-type WrapperPane struct {
+type Composite struct {
+	Base
+
 	drawables   []ui.Pane
 	focussables []ui.Pane
 
-	InputProcessingPaneBaseData
 	FocussedPane ui.Pane
 }
 
 // Draw draws this pane by drawing all its subpanes.
 // Absent subpanes this draws nothing.
-func (p *WrapperPane) Draw() {
+func (p *Composite) Draw() {
 	for _, drawable := range p.drawables {
 		drawable.Draw()
 	}
 }
 
-func (p *WrapperPane) Undraw() {
+// Undraw calls undraw on each drawable in the composite.
+func (p *Composite) Undraw() {
 	for _, drawable := range p.drawables {
 		drawable.Undraw()
 	}
@@ -35,7 +37,7 @@ func (p *WrapperPane) Undraw() {
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
-func (p *WrapperPane) Dimensions() (x, y, w, h int) {
+func (p *Composite) Dimensions() (x, y, w, h int) {
 	minX, minY := math.MaxInt, math.MaxInt
 	maxX, maxY := 0, 0
 	for _, drawable := range p.drawables {
@@ -57,7 +59,7 @@ func (p *WrapperPane) Dimensions() (x, y, w, h int) {
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
-func (p *WrapperPane) GetPositionInfo(x, y int) ui.PositionInfo {
+func (p *Composite) GetPositionInfo(x, y int) ui.PositionInfo {
 	for _, pane := range p.drawables {
 		if util.NewRect(pane.Dimensions()).Contains(x, y) {
 			return pane.GetPositionInfo(x, y)
@@ -67,7 +69,8 @@ func (p *WrapperPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	panic(fmt.Sprint("none of the current wrapper pane's subpanes contains pos", x, y))
 }
 
-func (p *WrapperPane) FocusNext() {
+// FocusNext focusses the next focussable in the composite.
+func (p *Composite) FocusNext() {
 	for i := range p.focussables {
 		if p.FocussedPane == p.focussables[i] {
 			if i < len(p.focussables)-1 {
@@ -78,7 +81,8 @@ func (p *WrapperPane) FocusNext() {
 	}
 }
 
-func (p *WrapperPane) FocusPrev() {
+// FocusPrev focusses the previous focussable in the composite.
+func (p *Composite) FocusPrev() {
 	for i := range p.focussables {
 		if p.FocussedPane == p.focussables[i] {
 			if i > 0 {
@@ -89,11 +93,9 @@ func (p *WrapperPane) FocusPrev() {
 	}
 }
 
-func (p *WrapperPane) Identify() ui.PaneID { return p.ID }
-
 // CapturesInput returns whether this processor "captures" input, i.E. whether
 // it ought to take priority in processing over other processors.
-func (p *WrapperPane) CapturesInput() bool {
+func (p *Composite) CapturesInput() bool {
 	childCaptures := p.FocussedPane != nil && p.FocussedPane.CapturesInput()
 	selfCaptures := p.InputProcessor != nil && p.InputProcessor.CapturesInput()
 	return childCaptures || selfCaptures
@@ -103,7 +105,7 @@ func (p *WrapperPane) CapturesInput() bool {
 // Returns whether the provided input "applied", i.E. the processor performed
 // an action based on the input.
 // Defers to the panes' input processor or its focussed subpanes.
-func (p *WrapperPane) ProcessInput(key input.Key) bool {
+func (p *Composite) ProcessInput(key input.Key) bool {
 	if p.InputProcessor != nil && p.InputProcessor.CapturesInput() {
 		return p.InputProcessor.ProcessInput(key)
 	} else if p.FocussedPane != nil && p.FocussedPane.CapturesInput() {
@@ -113,32 +115,37 @@ func (p *WrapperPane) ProcessInput(key input.Key) bool {
 	}
 }
 
-func (p *WrapperPane) HasFocus() bool {
+// HasFocus indicates, whether this composite pane has focus.
+func (p *Composite) HasFocus() bool {
 	return p.Parent.HasFocus() && p.Parent.Focusses() == p.Identify()
 }
-func (p *WrapperPane) Focusses() ui.PaneID                { return p.FocussedPane.Identify() }
-func (p *WrapperPane) SetParent(parent ui.FocusQueriable) { p.Parent = parent }
+
+// Focusses returns the ID of the pane focussed by this composite.
+func (p *Composite) Focusses() ui.PaneID { return p.FocussedPane.Identify() }
+
+// SetParent sets the parent of this composite pane.
+func (p *Composite) SetParent(parent ui.FocusQueriable) { p.Parent = parent }
 
 // ApplyModalOverlay applies an overlay to this processor.
 // It returns the processors index, by which in the future, all overlays down
 // to and including this overlay can be removed
-func (p *WrapperPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
+func (p *Composite) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	return p.InputProcessor.ApplyModalOverlay(overlay)
 }
 
 // PopModalOverlay removes the topmost overlay from this processor.
-func (p *WrapperPane) PopModalOverlay() error {
+func (p *Composite) PopModalOverlay() error {
 	return p.InputProcessor.PopModalOverlay()
 }
 
 // PopModalOverlays pops all overlays down to and including the one at the
 // specified index.
-func (p *WrapperPane) PopModalOverlays(index uint) {
+func (p *Composite) PopModalOverlays(index uint) {
 	p.InputProcessor.PopModalOverlays(index)
 }
 
 // GetHelp returns the input help map for this processor.
-func (p *WrapperPane) GetHelp() input.Help {
+func (p *Composite) GetHelp() input.Help {
 	result := input.Help{}
 
 	for k, v := range p.InputProcessor.GetHelp() {
@@ -158,11 +165,11 @@ func NewWrapperPane(
 	drawables []ui.Pane,
 	focussables []ui.Pane,
 	inputProcessor input.ModalInputProcessor,
-) *WrapperPane {
-	p := &WrapperPane{
+) *Composite {
+	p := &Composite{
 		focussables: focussables,
 		drawables:   drawables,
-		InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Base: Base{
 			InputProcessor: inputProcessor,
 			ID:             ui.GeneratePaneID(),
 		},

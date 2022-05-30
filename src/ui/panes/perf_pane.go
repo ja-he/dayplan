@@ -13,7 +13,7 @@ import (
 // PerfPane is an ephemeral pane used for showing debug info during normal
 // usage.
 type PerfPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	renderTime          util.MetricsGetter
 	eventProcessingTime util.MetricsGetter
@@ -91,8 +91,8 @@ func NewPerfPane(
 	eventProcessingTime util.MetricsGetter,
 ) *PerfPane {
 	return &PerfPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID:      ui.GeneratePaneID(),
 				Visible: condition,
 			},

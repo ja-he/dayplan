@@ -8,7 +8,7 @@ import (
 
 // EditorPane visualizes the detailed editing of an event.
 type EditorPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	renderer         ui.ConstrainedRenderer
 	cursorController ui.TextCursorController
@@ -73,8 +73,8 @@ func NewEditorPane(
 	inputProcessor input.ModalInputProcessor,
 ) *EditorPane {
 	return &EditorPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 				Visible:        condition,

@@ -11,7 +11,7 @@ import (
 // StatusPane is a status bar that displays the current date, weekday, and - if
 // in a multi-day view - the progress through those days.
 type StatusPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	currentDate *model.Date
 
@@ -88,8 +88,8 @@ func NewStatusPane(
 	eventEditMode func() control.EventEditMode,
 ) *StatusPane {
 	return &StatusPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID: ui.GeneratePaneID(),
 			},
 			renderer:   renderer,

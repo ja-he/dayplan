@@ -18,7 +18,7 @@ import (
 // hide some details (e.g., for showing events as part of multiple EventPanes in
 // in the month view.
 type EventsPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	day func() *model.Day
 
@@ -267,8 +267,8 @@ func NewEventsPane(
 	logWriter potatolog.LogWriter,
 ) *EventsPane {
 	return &EventsPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 			},

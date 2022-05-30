@@ -12,7 +12,7 @@ import (
 // WeatherPane shows a timeline of hourly weather information blocks at a
 // timescale that can be in line with an similarly positioned TimelinePane.
 type WeatherPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	weather     *weather.Handler
 	currentDate *model.Date
@@ -84,8 +84,8 @@ func NewWeatherPane(
 	viewParams *ui.ViewParams,
 ) *WeatherPane {
 	return &WeatherPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID: ui.GeneratePaneID(),
 			},
 			renderer:   renderer,

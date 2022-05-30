@@ -10,7 +10,7 @@ import (
 
 // HelpPane conditionally be hidden or display a set of keyboad shortcuts.
 type HelpPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	Content input.Help
 }
@@ -80,8 +80,8 @@ func NewHelpPane(
 	inputProcessor input.ModalInputProcessor,
 ) *HelpPane {
 	p := &HelpPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID:      ui.GeneratePaneID(),
 				Visible: condition,
 			},

@@ -244,9 +244,9 @@ func (p *RootPane) GetHelp() input.Help {
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,
 	dimensions func() (x, y, w, h int),
-	dayViewMainPane *WrapperPane,
-	weekViewMainPane *WrapperPane,
-	monthViewMainPane *WrapperPane,
+	dayViewMainPane *Composite,
+	weekViewMainPane *Composite,
+	monthViewMainPane *Composite,
 	summary ui.Pane,
 	log ui.Pane,
 	help ui.Pane,

@@ -10,7 +10,7 @@ import (
 
 // LogPane shows the log, with the most recent log entries at the top.
 type LogPane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	logReader potatolog.LogReader
 
@@ -72,8 +72,8 @@ func NewLogPane(
 	logReader potatolog.LogReader,
 ) *LogPane {
 	return &LogPane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				Visible: condition,
 				ID:      ui.GeneratePaneID(),
 			},

@@ -13,7 +13,7 @@ import (
 // and light on the timeline. If allowed to get a current time, it will
 // highlight the current time.
 type TimelinePane struct {
-	InputProcessingLeafPane
+	Leaf
 
 	suntimes    func() *model.SunTimes
 	currentTime func() *model.Timestamp
@@ -99,8 +99,8 @@ func NewTimelinePane(
 	viewParams *ui.ViewParams,
 ) *TimelinePane {
 	return &TimelinePane{
-		InputProcessingLeafPane: InputProcessingLeafPane{
-			InputProcessingPaneBaseData: InputProcessingPaneBaseData{
+		Leaf: Leaf{
+			Base: Base{
 				ID: ui.GeneratePaneID(),
 			},
 			renderer:   renderer,
