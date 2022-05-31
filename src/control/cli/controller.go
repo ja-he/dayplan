@@ -1061,13 +1061,13 @@ func (t *Controller) ScrollBottom() {
 
 func (t *Controller) abortEdit() {
 	t.data.MouseEditState = control.MouseEditStateNone
-	t.data.MouseEditedEvent = control.MouseEditedEvent{Event: nil, PrevEditStepTimestamp: model.Timestamp{Hour: 0, Minute: 0}}
+	t.data.MouseEditedEvent = nil
 	t.data.EventEditor.Active = false
 }
 
 func (t *Controller) endEdit() {
 	t.data.MouseEditState = control.MouseEditStateNone
-	t.data.MouseEditedEvent = control.MouseEditedEvent{Event: nil, PrevEditStepTimestamp: model.Timestamp{Hour: 0, Minute: 0}}
+	t.data.MouseEditedEvent = nil
 	if t.data.EventEditor.Active {
 		t.data.EventEditor.Active = false
 		tmp := t.data.EventEditor.TmpEventInfo
@@ -1078,14 +1078,13 @@ func (t *Controller) endEdit() {
 
 func (t *Controller) startMouseMove(eventsInfo ui.EventsPanePositionInfo) {
 	t.data.MouseEditState = control.MouseEditStateMoving
-	t.data.MouseEditedEvent.Event = eventsInfo.Event()
-	t.data.MouseEditedEvent.PrevEditStepTimestamp = eventsInfo.Time()
+	t.data.MouseEditedEvent = eventsInfo.Event()
+	t.data.CurrentMoveStartingOffsetMinutes = eventsInfo.Event().Start.DurationInMinutesUntil(eventsInfo.Time())
 }
 
 func (t *Controller) startMouseResize(eventsInfo ui.EventsPanePositionInfo) {
 	t.data.MouseEditState = control.MouseEditStateResizing
-	t.data.MouseEditedEvent.Event = eventsInfo.Event()
-	t.data.MouseEditedEvent.PrevEditStepTimestamp = eventsInfo.Time()
+	t.data.MouseEditedEvent = eventsInfo.Event()
 }
 
 func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
@@ -1101,16 +1100,11 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 	e.Start = start
 	e.End = start.OffsetMinutes(+10)
 
-	// give to model, get ID
 	err := t.data.GetCurrentDay().AddEvent(&e)
 	if err != nil {
 		t.data.Log.Add("ERROR", err.Error())
 	} else {
-		// save ID as edited event
-		t.data.MouseEditedEvent.Event = &e
-		t.data.MouseEditedEvent.PrevEditStepTimestamp = e.Start
-
-		// set mode to resizing
+		t.data.MouseEditedEvent = &e
 		t.data.MouseEditState = control.MouseEditStateResizing
 	}
 }
@@ -1266,7 +1260,6 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 				case ui.EventBoxBottomRight:
 					t.startMouseResize(eventsInfo)
 				case ui.EventBoxInterior:
-					t.data.MovePropagate = (e.Modifiers() == tcell.ModCtrl)
 					t.startMouseMove(eventsInfo)
 				case ui.EventBoxTopEdge:
 					t.data.EventEditor.Activate(eventsInfo.Event())
@@ -1291,28 +1284,6 @@ func (t *Controller) handleNoneEditEvent(ev tcell.Event) {
 }
 
 func (t *Controller) resizeStep(nextCursortime model.Timestamp) {
-	prevCursortime := t.data.MouseEditedEvent.PrevEditStepTimestamp
-	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
-	event := t.data.MouseEditedEvent.Event
-	event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
-	t.data.MouseEditedEvent.PrevEditStepTimestamp = nextCursortime
-}
-
-func (t *Controller) moveStep(nextCursortime model.Timestamp) {
-	prevCursortime := t.data.MouseEditedEvent.PrevEditStepTimestamp
-	offset := prevCursortime.DurationInMinutesUntil(nextCursortime)
-	if t.data.MovePropagate {
-		following := t.data.GetCurrentDay().GetEventsFrom(t.data.MouseEditedEvent.Event)
-		for _, ptr := range following {
-			ptr.Start = ptr.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
-			ptr.End = ptr.End.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
-		}
-	} else {
-		event := t.data.MouseEditedEvent.Event
-		event.Start = event.Start.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
-		event.End = event.End.OffsetMinutes(offset).Snap(t.data.ViewParams.MinutesPerRow())
-	}
-	t.data.MouseEditedEvent.PrevEditStepTimestamp = nextCursortime
 }
 
 func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
@@ -1324,8 +1295,16 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 
 		switch buttons {
 		case tcell.Button1:
-			timestampGuess := t.timestampGuesser(x, y)
-			t.resizeStep(timestampGuess)
+			cursorTime := t.timestampGuesser(x, y)
+			visualCursorTime := cursorTime.OffsetMinutes(t.data.ViewParams.MinutesPerRow())
+			event := t.data.MouseEditedEvent
+
+			var err error
+			err = t.data.GetCurrentDay().ResizeTo(event, visualCursorTime)
+			if err != nil {
+				t.data.Log.Add("WARNING", err.Error())
+			}
+
 		case tcell.ButtonNone:
 			t.endEdit()
 		}
@@ -1343,8 +1322,8 @@ func (t *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 
 		switch buttons {
 		case tcell.Button1:
-			timestampGuess := t.timestampGuesser(x, y)
-			t.moveStep(timestampGuess)
+			cursorTime := t.timestampGuesser(x, y)
+			t.data.GetCurrentDay().MoveSingleEventTo(t.data.MouseEditedEvent, cursorTime.OffsetMinutes(-t.data.CurrentMoveStartingOffsetMinutes))
 		case tcell.ButtonNone:
 			t.endEdit()
 		}

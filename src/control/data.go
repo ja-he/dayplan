@@ -100,15 +100,9 @@ type ControlData struct {
 	MouseMode     bool
 	EventEditMode EventEditMode
 
-	MovePropagate bool
-
-	MouseEditState   MouseEditState
-	MouseEditedEvent MouseEditedEvent
-}
-
-type MouseEditedEvent struct {
-	Event                 *model.Event
-	PrevEditStepTimestamp model.Timestamp
+	MouseEditState                   MouseEditState
+	MouseEditedEvent                 *model.Event
+	CurrentMoveStartingOffsetMinutes int
 }
 
 type MouseEditState int
