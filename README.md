@@ -42,8 +42,10 @@ As it still uses `go install` under the hood, the binary should be in your
 ## Usage
 
 - Help messages are available e.g. via `-h`
-- in TUI mode the key <kbd>?</kbd> toggles a help popup panel showing basic
-	controls
+- in TUI mode the key <kbd>?</kbd> toggles a help popup panel showing the
+  controls based on the current context (this is generated; while being maybe
+  not structured as nicely, it should generally provide the most complete and
+  up-to-date information
 
 ### Regular TUI Usage
 
@@ -51,11 +53,55 @@ Dayplan mainly works as a terminal UI (TUI) program invoked simply by calling
 the program without subcommand: `dayplan`.
 In this mode it allows you sketch out the events of a day, similar to how a
 graphical calendar application might work.
+
 These events can then be shuffled around, resized, renamed, etc. as the day goes
 on and it turns out that one task actually took a lot longer or that phone call
 fell through. Thus you end up with a list of the (important) events of the day.
-Make sure you use the <kbd>w</kbd> key to write the events of the day to its
-file.
+
+Dayplan can be controlled via both mouse and keyboard.
+Key mappings are "vim-ish" and not currently configurable.
+
+#### Keyboard-driven
+
+| __key input__                                                      | ___does...___                                                              |
+| :-:                                                                | :--                                                                        |
+| <kbd>?</kbd>                                                       | open help (context-based)                                                  |
+|                                                                    |                                                                            |
+| <kbd>h</kbd> / <kbd>l</kbd>                                        | switch the current day                                                     |
+| <kbd>i</kbd> / <kbd>ESC</kbd>                                      | switch between day, week, and month view                                   |
+| <kbd>+</kbd> / <kbd>-</kbd>                                        | zoom in or out                                                             |
+| <kbd>j</kbd> / <kbd>k</kbd>                                        | select next or previous event                                              |
+| <kbd>d</kbd>                                                       | delete the current event                                                   |
+|                                                                    |                                                                            |
+| <kbd>CTRL-w</kbd><kbd>h</kbd> / <kbd>CTRL-w</kbd><kbd>h</kbd>      | switch to left / right ui pane                                             |
+| <kbd>S</kbd>                                                       | toggle a summary view (for day/week/...)                                   |
+| <kbd>W</kbd>                                                       | load the weather (see [the config section](#configuration-and-defaults))   |
+|                                                                    |                                                                            |
+| <kbd>w</kbd>                                                       | write the current day to file                                              |
+| <kbd>q</kbd>                                                       | quit                                                                       |
+|                                                                    |                                                                            |
+| <kbd>m</kbd>                                                       | enter event move mode, in which...                                         |
+| <kbd>j</kbd> / <kbd>k</kbd>                                        | ...move event up or down                                                   |
+| <kbd>m</kbd> / <kbd>ESC</kbd>                                      | ...exit mode                                                               |
+|                                                                    |                                                                            |
+| <kbd>r</kbd>                                                       | enter event resize mode, in which...                                       |
+| <kbd>j</kbd> / <kbd>k</kbd>                                        | ...lengthen or shorten event                                               |
+| <kbd>r</kbd> / <kbd>ESC</kbd>                                      | ...exit mode                                                               |
+|                                                                    |                                                                            |
+| _(see help..._                                                     | _...for more)_                                                             |
+
+#### Mouse-driven
+
+To roughly emulate the expected behavior of a familiar calendar application, the
+mouse can also be used for editing (in truth, this was the initial method
+implemented, as it's pretty straightforward to define what the basic operations
+should be and how they should behave):
+
+- __move__: left click inside of an event and drag it
+- __resize__: left click on the end (timestamp) of an event and drag it
+- __edit name__: left click on the events name (or anywhere at the top of the event)
+- __delete__: middle click on the event
+- __split__: right click on the event at the time at which to split it
 
 ### Getting Summaries
 
@@ -71,14 +117,6 @@ $ dayplan summarize --from 2021-11-01 --til 2021-11-30 \
                     --category-filter work \
                     --human-readable
 ```
-
-### Views
-
-Using <kbd>ESC</kbd> you can switch from a single day's view to a week view, and
-from there to the full month. You can still scroll through the days and events
-in this mode but not perform any edits.
-
-Using <kbd>i</kbd> you can step back into the day view.
 
 ### Configuration and Defaults
 
