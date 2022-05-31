@@ -124,7 +124,7 @@ func (p *Composite) HasFocus() bool {
 func (p *Composite) Focusses() ui.PaneID { return p.FocussedPane.Identify() }
 
 // SetParent sets the parent of this composite pane.
-func (p *Composite) SetParent(parent ui.FocusQueriable) { p.Parent = parent }
+func (p *Composite) SetParent(parent ui.PaneQuerier) { p.Parent = parent }
 
 // ApplyModalOverlay applies an overlay to this processor.
 // It returns the processors index, by which in the future, all overlays down

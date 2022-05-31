@@ -11,7 +11,7 @@ import (
 // Note that constructing this value that you need to assign the ID.
 type Base struct {
 	ID             ui.PaneID
-	Parent         ui.FocusQueriable
+	Parent         ui.PaneQuerier
 	InputProcessor input.ModalInputProcessor
 	Visible        func() bool
 }
@@ -26,7 +26,7 @@ func (p *Base) Identify() ui.PaneID {
 }
 
 // SetParent sets the pane's parent.
-func (p *Base) SetParent(parent ui.FocusQueriable) { p.Parent = parent }
+func (p *Base) SetParent(parent ui.PaneQuerier) { p.Parent = parent }
 
 // IsVisible indicates whether the pane is visible.
 func (p *Base) IsVisible() bool { return p.Visible == nil || p.Visible() }

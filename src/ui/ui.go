@@ -6,6 +6,49 @@ import (
 	"github.com/ja-he/dayplan/src/styling"
 )
 
+// Pane is a UI pane.
+//
+// ...
+//
+// An InputProcessingPane can focus another InputProcessingPane, in fact one of
+// any number of "child" InputProcessingPanes.
+// Thus they can be structured as a tree and any node in this tree can be asked
+// whether it HasFocus, and what it Focusses; generally, to answer wheter a
+// pane HasFocus, it would probably consult it's parent whether the parent
+// HasFocus and which pane it Focusses.
+//
+// In this tree of panes, an InputProcessingPane's should generally have a
+// parent, which can be set with SetParent; an exception would be the root pane
+// of the tree.
+type Pane interface {
+	Draw()
+	Undraw()
+	IsVisible() bool
+	Dimensions() (x, y, w, h int)
+	GetPositionInfo(x, y int) PositionInfo
+
+	input.ModalInputProcessor
+
+	PaneQuerier
+
+	SetParent(PaneQuerier)
+
+	// NOTE: always an option to add/alter to focus{left,right,up,down} or similar
+	FocusNext()
+	FocusPrev()
+}
+
+// PaneQuerier are the querying member functions of a pane.
+//
+// E.g. letting a child access its parent, this allows limiting the childs
+// access.
+type PaneQuerier interface {
+	HasFocus() bool
+	Focusses() PaneID
+	IsVisible() bool
+	Identify() PaneID
+}
+
 // PaneType is the type of the bottommost meaningful UI pane.
 //
 // It's conceivable that panes could have sub-panes for convenience in rendering
@@ -92,50 +135,6 @@ var id = NonePaneID
 var GeneratePaneID = func() PaneID {
 	id++
 	return id
-}
-
-// FocusQueriable represents the focus querying abilities of UI element that
-// can take focus.
-//
-// An element can be asked whether it HasFocus, what (by PaneID) it Focusses
-// and to Identify itself by its PaneID.
-type FocusQueriable interface {
-	HasFocus() bool
-	Focusses() PaneID
-	IsVisible() bool
-	Identify() PaneID
-}
-
-// Pane is a UI pane.
-//
-// ...
-//
-// An InputProcessingPane can focus another InputProcessingPane, in fact one of
-// any number of "child" InputProcessingPanes.
-// Thus they can be structured as a tree and any node in this tree can be asked
-// whether it HasFocus, and what it Focusses; generally, to answer wheter a
-// pane HasFocus, it would probably consult it's parent whether the parent
-// HasFocus and which pane it Focusses.
-//
-// In this tree of panes, an InputProcessingPane's should generally have a
-// parent, which can be set with SetParent; an exception would be the root pane
-// of the tree.
-type Pane interface {
-	Draw()
-	Undraw()
-	IsVisible() bool
-	Dimensions() (x, y, w, h int)
-	GetPositionInfo(x, y int) PositionInfo
-
-	input.ModalInputProcessor
-
-	FocusQueriable
-
-	SetParent(FocusQueriable)
-
-	// NOTE: always an option to add/alter to focus{left,right,up,down} or similar
-	FocusNext()
-	FocusPrev()
 }
 
 // EventBoxPart describes the part of an event box (the visual representation

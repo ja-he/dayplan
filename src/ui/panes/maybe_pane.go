@@ -54,7 +54,7 @@ func (p *MaybePane) GetPositionInfo(x, y int) ui.PositionInfo {
 }
 
 // SetParent iff condition.
-func (p *MaybePane) SetParent(parent ui.FocusQueriable) {
+func (p *MaybePane) SetParent(parent ui.PaneQuerier) {
 	if p.condition() {
 		p.pane.SetParent(parent)
 	}

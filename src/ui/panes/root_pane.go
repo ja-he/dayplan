@@ -206,7 +206,7 @@ func (p *RootPane) focussedPane() ui.Pane {
 		return p.focussedViewPane
 	}
 }
-func (p *RootPane) SetParent(ui.FocusQueriable) { panic("root set parent") }
+func (p *RootPane) SetParent(ui.PaneQuerier) { panic("root set parent") }
 
 // ApplyModalOverlay applies an overlay to this processor.
 // It returns the processors index, by which in the future, all overlays down
