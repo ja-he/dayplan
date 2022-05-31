@@ -102,39 +102,25 @@ type ControlData struct {
 
 	MovePropagate bool
 
-	EditState   EditState
-	EditedEvent EditedEvent
+	MouseEditState   MouseEditState
+	MouseEditedEvent MouseEditedEvent
 }
 
-type EditedEvent struct {
+type MouseEditedEvent struct {
 	Event                 *model.Event
 	PrevEditStepTimestamp model.Timestamp
 }
 
-// TODO(ja-he):
-//   Remove / Change to `MouseEditState` or similar.
-//   This type would allow the controller to track state of editing, which
-//   could be the editor overlay being active, using the mouse to resize an
-//   event, resizing a "selected" event with the KB, etc.
-//   However, I came up with it before implementing the fleshed-out keyboard
-//   input concept, and I prefer using the modal overlay concept. E. g. with a
-//   move, we would (instead of using the `EditState` type) add an input tree as
-//   an overlay to the focussed pane, which would have mappings for 'j' to move
-//   down and 'k' to move up (instead of having to catch the edit state edge
-//   case before regular input processing).
-type EditState int
+type MouseEditState int
 
 const (
-	EditStateNone          EditState = 0b00000000
-	EditStateEditing       EditState = 0b00000001
-	EditStateMouseEditing  EditState = 0b00000010
-	EditStateSelectEditing EditState = 0b00000100
-	EditStateMoving        EditState = 0b00001000
-	EditStateResizing      EditState = 0b00010000
-	EditStateRenaming      EditState = 0b00100000
+	_ MouseEditState = iota
+	MouseEditStateNone
+	MouseEditStateMoving
+	MouseEditStateResizing
 )
 
-func (s EditState) toString() string {
+func (s MouseEditState) toString() string {
 	return "TODO"
 }
 
