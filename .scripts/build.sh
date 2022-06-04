@@ -25,12 +25,12 @@ fi
 case ${1} in
   install)
     printf "installing version '%s' at '%s'...\n" "${version}" "${hash}"
-    go install -ldflags="-X '${source_root}/cli.version=${version}' -X '${source_root}/cli.hash=${hash}'"
+    go install -ldflags="-X '${source_root}/control/cli.version=${version}' -X '${source_root}/control/cli.hash=${hash}'"
     printf "done\n"
     ;;
   "")
     printf "building version '%s' at '%s'...\n" "${version}" "${hash}"
-    go build -ldflags="-X '${source_root}/cli.version=${version}' -X '${source_root}/cli.hash=${hash}'"
+    go build -ldflags="-X '${source_root}/control/cli.version=${version}' -X '${source_root}/control/cli.hash=${hash}'"
     printf "done\n"
     ;;
   *)

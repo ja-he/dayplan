@@ -3,7 +3,6 @@ package model
 import (
 	"fmt"
 	"log"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -61,6 +60,16 @@ type TimeOffset struct {
 	Add bool
 }
 
+func (a Timestamp) IsBefore(b Timestamp) bool {
+	if b.Hour > a.Hour {
+		return true
+	} else if b.Hour == a.Hour {
+		return b.Minute > a.Minute
+	} else {
+		return false
+	}
+}
+
 func (a Timestamp) IsAfter(b Timestamp) bool {
 	if a.Hour > b.Hour {
 		return true
@@ -71,23 +80,23 @@ func (a Timestamp) IsAfter(b Timestamp) bool {
 	}
 }
 
-// TODO: this should work without assuming the TUI res this way
-//       it should be given a minutes modulus to snap by
-func (t Timestamp) Snap(res int) Timestamp {
-	closestMinute := 0
-	for i := 0; i <= 60; i += (60 / res) {
-		distance := math.Abs(float64(i - t.Minute))
-		if distance < math.Abs(float64(closestMinute-t.Minute)) {
-			closestMinute = i
-		}
-	}
-	if closestMinute == 60 {
-		t.Hour += 1
-		t.Minute = 0
+func (t Timestamp) Snap(minutesModulus int) Timestamp {
+	minutes := t.toMinutes()
+
+	before := minutes - minutes%minutesModulus
+	after := before + minutesModulus
+
+	var resultMinutes int
+	if after-minutes <= minutes-before {
+		resultMinutes = after
 	} else {
-		t.Minute = closestMinute
+		resultMinutes = before
 	}
-	return t
+
+	return Timestamp{
+		Hour:   resultMinutes / 60,
+		Minute: resultMinutes % 60,
+	}
 }
 
 func (t Timestamp) Legal() bool {

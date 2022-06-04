@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -10,11 +11,7 @@ import (
 // ToolsPane shows tools for editing.
 // Currently it only offers a selection of categories to select from.
 type ToolsPane struct {
-	renderer ui.ConstrainedRenderer
-
-	dimensions func() (x, y, w, h int)
-
-	stylesheet styling.Stylesheet
+	Leaf
 
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
@@ -35,7 +32,11 @@ func (p *ToolsPane) Dimensions() (x, y, w, h int) {
 func (p *ToolsPane) Draw() {
 	x, y, w, h := p.dimensions()
 
-	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
+	style := p.stylesheet.Normal
+	if p.HasFocus() {
+		style = p.stylesheet.NormalEmphasized
+	}
+	p.renderer.DrawBox(x, y, w, h, style)
 
 	boxes := p.getCategoryBoxes(x, y, w, h)
 	for cat, box := range boxes {
@@ -112,6 +113,7 @@ func NewToolsPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
+	inputProcessor input.ModalInputProcessor,
 	currentCategory *model.Category,
 	categories *styling.CategoryStyling,
 	horizPadding int,
@@ -119,9 +121,15 @@ func NewToolsPane(
 	gap int,
 ) *ToolsPane {
 	return &ToolsPane{
-		renderer:        renderer,
-		dimensions:      dimensions,
-		stylesheet:      stylesheet,
+		Leaf: Leaf{
+			Base: Base{
+				ID:             ui.GeneratePaneID(),
+				InputProcessor: inputProcessor,
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
 		currentCategory: currentCategory,
 		categories:      categories,
 		horizPadding:    horizPadding,

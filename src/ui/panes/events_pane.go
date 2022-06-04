@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
@@ -17,27 +18,27 @@ import (
 // hide some details (e.g., for showing events as part of multiple EventPanes in
 // in the month view.
 type EventsPane struct {
-	renderer ui.ConstrainedRenderer
-
-	dimensions func() (x, y, w, h int)
-	stylesheet styling.Stylesheet
+	Leaf
 
 	day func() *model.Day
 
-	categories *styling.CategoryStyling
+	styleForCategory func(model.Category) (styling.DrawStyling, error)
+
 	viewParams *ui.ViewParams
 	cursor     *ui.MouseCursorPos
 
 	logReader potatolog.LogReader
 	logWriter potatolog.LogWriter
 
-	padRight       int
-	drawTimestamps bool
-	drawNames      bool
-	isCurrent      func() bool
+	pad             int
+	drawTimestamps  bool
+	drawNames       bool
+	isCurrentDay    func() bool
+	getCurrentEvent func() *model.Event
+	mouseMode       func() bool
 
 	// TODO: get rid of this
-	positions map[model.EventID]util.Rect
+	positions map[*model.Event]util.Rect
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -64,7 +65,11 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
 	x, y, w, h := p.Dimensions()
-	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
+	style := p.stylesheet.Normal
+	if p.HasFocus() {
+		style = p.stylesheet.NormalEmphasized
+	}
+	p.renderer.DrawBox(x, y, w, h, style)
 
 	day := p.day()
 
@@ -73,20 +78,20 @@ func (p *EventsPane) Draw() {
 		// TODO: just draw this, man
 		return
 	}
-	p.positions = p.computeRects(day, x, y, w-p.padRight, h)
+	p.positions = p.computeRects(day, x+p.pad, y, w-(2*p.pad), h)
 	for _, e := range day.Events {
-		style, err := p.categories.GetStyle(e.Cat)
+		style, err := p.styleForCategory(e.Cat)
 		styling := style
 		if err != nil {
 			p.logWriter.Add("ERROR", err.Error())
 			styling = p.stylesheet.CategoryFallback
 		}
-		if !p.isCurrent() {
+		if !p.isCurrentDay() {
 			styling = styling.DefaultDimmed()
 		}
 
 		// based on event state, draw a box or maybe a smaller one, or ...
-		pos := p.positions[e.ID]
+		pos := p.positions[e]
 		var timestampWidth int
 		if p.drawTimestamps {
 			timestampWidth = 5
@@ -95,17 +100,22 @@ func (p *EventsPane) Draw() {
 		}
 		namePadding := 1
 		nameWidth := pos.W - (2 * namePadding) - timestampWidth
-		hovered := p.getEventForPos(p.cursor.X, p.cursor.Y)
-		if hovered == nil || hovered.Event() != e.ID || hovered.EventBoxPart() == ui.EventBoxNowhere {
-			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, styling)
+		var hovered ui.EventsPanePositionInfo
+		if p.mouseMode() {
+			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
+		}
+		switch {
+		case !p.mouseMode() && p.getCurrentEvent() == e:
+			currentEventStyle := styling.DefaultEmphasized()
+			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, currentEventStyle)
 			if p.drawNames {
-				p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, styling, util.TruncateAt(e.Name, nameWidth))
+				p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, currentEventStyle, util.TruncateAt(e.Name, nameWidth))
 			}
 			if p.drawTimestamps {
-				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, styling, e.Start.ToString())
-				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, styling, e.End.ToString())
+				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, currentEventStyle, e.Start.ToString())
+				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, currentEventStyle, e.End.ToString())
 			}
-		} else {
+		case p.mouseMode() && hovered != nil && hovered.Event() == e && hovered.EventBoxPart() != ui.EventBoxNowhere:
 			selectionStyling := styling.DefaultEmphasized()
 			switch hovered.EventBoxPart() {
 			case ui.EventBoxBottomRight:
@@ -139,6 +149,15 @@ func (p *EventsPane) Draw() {
 			default:
 				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart().ToString()))
 			}
+		default:
+			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, styling)
+			if p.drawNames {
+				p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, styling, util.TruncateAt(e.Name, nameWidth))
+			}
+			if p.drawTimestamps {
+				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, styling, e.Start.ToString())
+				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, styling, e.End.ToString())
+			}
 		}
 	}
 }
@@ -150,7 +169,7 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 		x < (dimX+dimW) {
 		currentDay := p.day()
 		for i := len(currentDay.Events) - 1; i >= 0; i-- {
-			eventPos := p.positions[currentDay.Events[i].ID]
+			eventPos := p.positions[currentDay.Events[i]]
 			if eventPos.Contains(x, y) {
 				var hover ui.EventBoxPart
 				switch {
@@ -162,7 +181,7 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 					hover = ui.EventBoxInterior
 				}
 				return &EventsPanePositionInfo{
-					eventID:      currentDay.Events[i].ID,
+					event:        currentDay.Events[i],
 					eventBoxPart: hover,
 					time:         p.viewParams.TimeAtY(y),
 				}
@@ -170,7 +189,7 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 		}
 	}
 	return &EventsPanePositionInfo{
-		eventID:      0,
+		event:        nil,
 		eventBoxPart: ui.EventBoxNowhere,
 		time:         p.viewParams.TimeAtY(y),
 	}
@@ -179,14 +198,14 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 // EventsPanePositionInfo provides information on a position in an EventsPane,
 // implementing the ui.EventsPanePositionInfo interface.
 type EventsPanePositionInfo struct {
-	eventID      model.EventID
+	event        *model.Event
 	eventBoxPart ui.EventBoxPart
 	time         model.Timestamp
 }
 
 // Event returns the ID of the event at the position, 0 if no event at
 // position.
-func (i *EventsPanePositionInfo) Event() model.EventID { return i.eventID }
+func (i *EventsPanePositionInfo) Event() *model.Event { return i.event }
 
 // EventBoxPart returns the part of the event box that corresponds to the
 // position (which can be EventBoxNowhere, if no event at position).
@@ -196,9 +215,9 @@ func (i *EventsPanePositionInfo) EventBoxPart() ui.EventBoxPart { return i.event
 // y-value of the position).
 func (i *EventsPanePositionInfo) Time() model.Timestamp { return i.time }
 
-func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, height int) map[model.EventID]util.Rect {
-	activeStack := make([]model.Event, 0)
-	positions := make(map[model.EventID]util.Rect)
+func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, height int) map[*model.Event]util.Rect {
+	activeStack := make([]*model.Event, 0)
+	positions := make(map[*model.Event]util.Rect)
 	for _, e := range day.Events {
 		// remove all stacked elements that have finished
 		for i := len(activeStack) - 1; i >= 0; i-- {
@@ -211,9 +230,9 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		activeStack = append(activeStack, e)
 		// based on event state, draw a box or maybe a smaller one, or ...
 		x := offsetX
-		y := p.toY(e.Start) + offsetY
+		y := p.viewParams.YForTime(e.Start) + offsetY
 		w := width
-		h := p.toY(e.End) + offsetY - y
+		h := p.viewParams.YForTime(e.End) + offsetY - y
 
 		// scale the width by 3/4 for every extra item on the stack, so for one
 		// item stacked underneath the current items width will be (3/4) ** 1 = 75%
@@ -223,52 +242,9 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		w = int(float64(w) * math.Pow(widthFactor, float64(len(activeStack)-1)))
 		x += (width - w)
 
-		positions[e.ID] = util.Rect{X: x, Y: y, W: w, H: h}
+		positions[e] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
 	return positions
-}
-
-func (p *EventsPane) toY(ts model.Timestamp) int {
-	return ((ts.Hour*p.viewParams.NRowsPerHour - p.viewParams.ScrollOffset) + (ts.Minute / (60 / p.viewParams.NRowsPerHour)))
-}
-
-// MaybeEventsPane wraps an EventsPane with a condition and exposes its
-// functionality, iff the condition holds. Otherwise its operations do or
-// return nothing.
-//
-// This type exists primarily to allow us to represent the variable length
-// months in panes easily.
-type MaybeEventsPane struct {
-	eventsPane ui.Pane
-	condition  func() bool
-}
-
-// Draw draws this pane.
-func (p *MaybeEventsPane) Draw() {
-	if p.condition() {
-		p.eventsPane.Draw()
-	}
-}
-
-// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
-// height) for this pane.
-func (p *MaybeEventsPane) Dimensions() (x, y, w, h int) { return p.eventsPane.Dimensions() }
-
-// GetPositionInfo returns information on a requested position in the
-// underlying EventsPane pane, but only if this pane's condition is true.
-func (p *MaybeEventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	someInfo := p.eventsPane.GetPositionInfo(x, y)
-	if p.condition() {
-		return someInfo
-	}
-	return ui.NewPositionInfo(
-		ui.NoPane,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
 }
 
 // NewEventsPane constructs and returns a new EventsPane.
@@ -276,43 +252,42 @@ func NewEventsPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
+	inputProcessor input.ModalInputProcessor,
 	day func() *model.Day,
-	categories *styling.CategoryStyling,
+	styleForCategory func(model.Category) (styling.DrawStyling, error),
 	viewParams *ui.ViewParams,
 	cursor *ui.MouseCursorPos,
-	padRight int,
+	pad int,
 	drawTimestamps bool,
 	drawNames bool,
-	isCurrent func() bool,
+	isCurrentDay func() bool,
+	getCurrentEvent func() *model.Event,
+	mouseMode func() bool,
 	logReader potatolog.LogReader,
 	logWriter potatolog.LogWriter,
-	positions map[model.EventID]util.Rect,
 ) *EventsPane {
 	return &EventsPane{
-		renderer:       renderer,
-		dimensions:     dimensions,
-		stylesheet:     stylesheet,
-		day:            day,
-		categories:     categories,
-		viewParams:     viewParams,
-		cursor:         cursor,
-		padRight:       padRight,
-		drawTimestamps: drawTimestamps,
-		drawNames:      drawNames,
-		isCurrent:      isCurrent,
-		logReader:      logReader,
-		logWriter:      logWriter,
-		positions:      positions,
-	}
-}
-
-// NewMaybeEventsPane constructs and returns a new MaybeEventsPane.
-func NewMaybeEventsPane(
-	condition func() bool,
-	eventsPane *EventsPane,
-) *MaybeEventsPane {
-	return &MaybeEventsPane{
-		condition:  condition,
-		eventsPane: eventsPane,
+		Leaf: Leaf{
+			Base: Base{
+				ID:             ui.GeneratePaneID(),
+				InputProcessor: inputProcessor,
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
+		day:              day,
+		styleForCategory: styleForCategory,
+		viewParams:       viewParams,
+		cursor:           cursor,
+		pad:              pad,
+		drawTimestamps:   drawTimestamps,
+		drawNames:        drawNames,
+		isCurrentDay:     isCurrentDay,
+		getCurrentEvent:  getCurrentEvent,
+		mouseMode:        mouseMode,
+		logReader:        logReader,
+		logWriter:        logWriter,
+		positions:        make(map[*model.Event]util.Rect, 0),
 	}
 }

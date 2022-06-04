@@ -92,7 +92,7 @@ func main() {
 
 	stylesheet := styling.NewStylesheetFromConfig(configData.Stylesheet)
 
-	controller := control.NewController(initialDay, envData, categoryStyling, *stylesheet)
+	controller := cli.NewController(initialDay, envData, categoryStyling, *stylesheet)
 
 	controller.Run()
 }

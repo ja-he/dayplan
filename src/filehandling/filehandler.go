@@ -35,7 +35,7 @@ func (h *FileHandler) Write(day *model.Day) {
 	h.mutex.Unlock()
 }
 
-func (h *FileHandler) Read(knownCategories map[string]*model.Category) *model.Day {
+func (h *FileHandler) Read(knownCategories []model.Category) *model.Day {
 	day := model.NewDay()
 
 	h.mutex.Lock()
@@ -45,7 +45,7 @@ func (h *FileHandler) Read(knownCategories map[string]*model.Category) *model.Da
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			s := scanner.Text()
-			day.AddEvent(*model.NewEvent(s, knownCategories))
+			day.AddEvent(model.NewEvent(s, knownCategories))
 		}
 		f.Close()
 	}

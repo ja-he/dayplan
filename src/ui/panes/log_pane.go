@@ -10,23 +10,12 @@ import (
 
 // LogPane shows the log, with the most recent log entries at the top.
 type LogPane struct {
-	renderer   ui.ConstrainedRenderer
-	dimensions func() (x, y, w, h int)
-	stylesheet styling.Stylesheet
+	Leaf
 
 	logReader potatolog.LogReader
 
-	condition   func() bool
 	titleString func() string
 }
-
-// EnsureHidden informs the pane that it is not being shown so that it can take
-// potential actions to ensure that, e.g., hide the terminal cursor, if
-// necessary.
-func (p *LogPane) EnsureHidden() {}
-
-// Condition returns whether this pane should be visible.
-func (p *LogPane) Condition() bool { return p.condition() }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
@@ -39,7 +28,7 @@ func (p *LogPane) Dimensions() (x, y, w, h int) {
 // if it is currently active.
 func (p *LogPane) Draw() {
 
-	if p.condition() {
+	if p.IsVisible() {
 		x, y, w, h := p.Dimensions()
 		row := 2
 
@@ -83,10 +72,15 @@ func NewLogPane(
 	logReader potatolog.LogReader,
 ) *LogPane {
 	return &LogPane{
-		renderer:    renderer,
-		dimensions:  dimensions,
-		stylesheet:  stylesheet,
-		condition:   condition,
+		Leaf: Leaf{
+			Base: Base{
+				Visible: condition,
+				ID:      ui.GeneratePaneID(),
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
 		titleString: titleString,
 		logReader:   logReader,
 	}

@@ -1,9 +1,53 @@
 package ui
 
 import (
+	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 )
+
+// Pane is a UI pane.
+//
+// ...
+//
+// An InputProcessingPane can focus another InputProcessingPane, in fact one of
+// any number of "child" InputProcessingPanes.
+// Thus they can be structured as a tree and any node in this tree can be asked
+// whether it HasFocus, and what it Focusses; generally, to answer wheter a
+// pane HasFocus, it would probably consult it's parent whether the parent
+// HasFocus and which pane it Focusses.
+//
+// In this tree of panes, an InputProcessingPane's should generally have a
+// parent, which can be set with SetParent; an exception would be the root pane
+// of the tree.
+type Pane interface {
+	Draw()
+	Undraw()
+	IsVisible() bool
+	Dimensions() (x, y, w, h int)
+	GetPositionInfo(x, y int) PositionInfo
+
+	input.ModalInputProcessor
+
+	PaneQuerier
+
+	SetParent(PaneQuerier)
+
+	// NOTE: always an option to add/alter to focus{left,right,up,down} or similar
+	FocusNext()
+	FocusPrev()
+}
+
+// PaneQuerier are the querying member functions of a pane.
+//
+// E.g. letting a child access its parent, this allows limiting the childs
+// access.
+type PaneQuerier interface {
+	HasFocus() bool
+	Focusses() PaneID
+	IsVisible() bool
+	Identify() PaneID
+}
 
 // PaneType is the type of the bottommost meaningful UI pane.
 //
@@ -78,43 +122,19 @@ const (
 	ViewMonth
 )
 
-// Pane is a rectangular pane in a user interface.
-// It can be drawn or queried for information.
-type Pane interface {
-	// Draw draws this pane.
-	// Renders whatever contents the pane is supposed to display to whatever UI is
-	// currently in use.
-	Draw()
+// PaneID uniquely identifies a pane. No two panes must ever share a PaneID.
+type PaneID uint
 
-	// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
-	// height) for this pane.
-	Dimensions() (x, y, w, h int)
+// NonePaneID represents "no pane" or "invalid pane". Panes guaranteed to be
+// assigned different IDs by GeneratePaneID.
+const NonePaneID PaneID = 0
 
-	// GetPositionInfo returns information on a requested position in this pane.
-	GetPositionInfo(x, y int) PositionInfo
-}
+var id = NonePaneID
 
-// ConditionalOverlayPane is a UI pane that is only visible given some
-// condition holds true.
-//
-// The condition can be queried by whatever parent holds the pane.
-// It's probably best that the parent conditionally draws, but internal
-// verification of the condition before executing draw calls is also an option.
-type ConditionalOverlayPane interface {
-	// Implements the Pane interface.
-	Pane
-	// The condition which determines, whether this pane should be visible.
-	Condition() bool
-	// Inform the pane that it is not being shown so that it can take potential
-	// actions to ensure that, e.g., hide the terminal cursor, if necessary.
-	EnsureHidden()
-}
-
-// An EphemeralPane is a conditional overlay that should be rendered normally,
-// but otherwise treated as though nonexistent. It should for example be ignored
-// when processing mouse clicks.
-type EphemeralPane interface {
-	ConditionalOverlayPane
+// GeneratePaneID generates a new unique pane ID.
+var GeneratePaneID = func() PaneID {
+	id++
+	return id
 }
 
 // EventBoxPart describes the part of an event box (the visual representation
@@ -172,7 +192,6 @@ type ConstrainedRenderer interface {
 // tcell.Screen) that the root pane needs to use to have full control over a
 // render cycle. Other panes should not need this access to the renderer.
 type RenderOrchestratorControl interface {
-	// TODO: naming: RenderOrchestratorControl?
 	Clear()
 	Show()
 }
@@ -187,6 +206,11 @@ type ViewParams struct {
 	ScrollOffset int
 }
 
+// MinutesPerRow returns the number of minutes a single row represents.
+func (p *ViewParams) MinutesPerRow() int {
+	return 60 / p.NRowsPerHour
+}
+
 // MouseCursorPos represents the position of a mouse cursor on the UI's
 // x-y-plane, which has its origin 0,0 in the top left.
 type MouseCursorPos struct {
@@ -198,6 +222,12 @@ func (p *ViewParams) TimeAtY(y int) model.Timestamp {
 	minutes := y*(60/p.NRowsPerHour) + p.ScrollOffset*(60/p.NRowsPerHour)
 	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
 	return ts
+}
+
+// YForTime gives the y value the given timestamp would be at with the
+// receiving ViewParams.
+func (p *ViewParams) YForTime(time model.Timestamp) int {
+	return ((time.Hour*p.NRowsPerHour - p.ScrollOffset) + (time.Minute / (60 / p.NRowsPerHour)))
 }
 
 // TextCursorController offers control of a text cursor, such as for a terminal.

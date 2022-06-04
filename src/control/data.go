@@ -3,6 +3,7 @@ package control
 import (
 	"sync"
 
+	"github.com/ja-he/dayplan/src/control/editor"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
@@ -70,9 +71,10 @@ type DayWithInfo struct {
 }
 
 type ControlData struct {
-	cursorPos ui.MouseCursorPos
+	CursorPos ui.MouseCursorPos
 
-	CategoryStyling styling.CategoryStyling
+	Categories      []model.Category
+	CurrentCategory model.Category
 
 	EnvData EnvData
 
@@ -80,22 +82,50 @@ type ControlData struct {
 	CurrentDate model.Date
 	Weather     weather.Handler
 
-	EventEditor EventEditor
-	showLog     bool
-	showHelp    bool
-	showSummary bool
-	showDebug   bool
+	EventEditor editor.EventEditor
+	ShowLog     bool
+	ShowHelp    bool
+	ShowSummary bool
+	ShowDebug   bool
 
 	ViewParams ui.ViewParams
 
-	CurrentCategory model.Category
-	activeView      ui.ActiveView
+	ActiveView func() ui.ActiveView
 
 	Log potatolog.Log
 
-	renderTimes          util.MetricsHandler
-	eventProcessingTimes util.MetricsHandler
+	RenderTimes          util.MetricsHandler
+	EventProcessingTimes util.MetricsHandler
+
+	MouseMode     bool
+	EventEditMode EventEditMode
+
+	MouseEditState                   MouseEditState
+	MouseEditedEvent                 *model.Event
+	CurrentMoveStartingOffsetMinutes int
 }
+
+type MouseEditState int
+
+const (
+	_ MouseEditState = iota
+	MouseEditStateNone
+	MouseEditStateMoving
+	MouseEditStateResizing
+)
+
+func (s MouseEditState) toString() string {
+	return "TODO"
+}
+
+type EventEditMode = int
+
+const (
+	_ EventEditMode = iota
+	EventEditModeNormal
+	EventEditModeMove
+	EventEditModeResize
+)
 
 type DaysData struct {
 	daysMutex sync.RWMutex
@@ -109,12 +139,13 @@ func NewControlData(cs styling.CategoryStyling) *ControlData {
 		days: make(map[model.Date]DayWithInfo),
 	}
 
-	t.CategoryStyling = cs
+	t.Categories = make([]model.Category, 0)
+	for _, style := range cs.GetAll() {
+		t.Categories = append(t.Categories, style.Cat)
+	}
 
 	t.ViewParams.NRowsPerHour = 6
 	t.ViewParams.ScrollOffset = 8 * t.ViewParams.NRowsPerHour
-
-	t.activeView = ui.ViewDay
 
 	return &t
 }

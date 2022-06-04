@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
@@ -10,11 +11,7 @@ import (
 // StatusPane is a status bar that displays the current date, weekday, and - if
 // in a multi-day view - the progress through those days.
 type StatusPane struct {
-	renderer ui.ConstrainedRenderer
-
-	dimensions func() (x, y, w, h int)
-
-	stylesheet styling.Stylesheet
+	Leaf
 
 	currentDate *model.Date
 
@@ -22,6 +19,8 @@ type StatusPane struct {
 	totalDaysInPeriod  func() int
 	passedDaysInPeriod func() int
 	firstDayXOffset    func() int
+
+	eventEditMode func() control.EventEditMode
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -33,7 +32,7 @@ func (p *StatusPane) Dimensions() (x, y, w, h int) {
 
 // Draw draws this pane.
 func (p *StatusPane) Draw() {
-	_, y, _, h := p.dimensions()
+	x, y, w, h := p.dimensions()
 
 	dateWidth := 10 // 2020-02-12 is 10 wide
 
@@ -52,6 +51,23 @@ func (p *StatusPane) Draw() {
 	p.renderer.DrawText(0, y, dateWidth, 1, dateStyle, p.currentDate.ToString())
 	// weekday string
 	p.renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(p.currentDate.ToWeekday().String(), dateWidth))
+
+	// mode string
+	modeStr := eventEditModeToString(p.eventEditMode())
+	p.renderer.DrawText(x+w-len(modeStr)-2, y+h-1, len(modeStr), 1, bgStyleEmph.DarkenedBG(10).Italicized(), modeStr)
+}
+
+func eventEditModeToString(mode control.EventEditMode) string {
+	switch mode {
+	case control.EventEditModeNormal:
+		return "-- NORMAL --"
+	case control.EventEditModeMove:
+		return "--  MOVE  --"
+	case control.EventEditModeResize:
+		return "-- RESIZE --"
+	default:
+		return "unknown"
+	}
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
@@ -69,15 +85,22 @@ func NewStatusPane(
 	totalDaysInPeriod func() int,
 	passedDaysInPeriod func() int,
 	firstDayXOffset func() int,
+	eventEditMode func() control.EventEditMode,
 ) *StatusPane {
 	return &StatusPane{
-		renderer:           renderer,
-		dimensions:         dimensions,
-		stylesheet:         stylesheet,
+		Leaf: Leaf{
+			Base: Base{
+				ID: ui.GeneratePaneID(),
+			},
+			renderer:   renderer,
+			dimensions: dimensions,
+			stylesheet: stylesheet,
+		},
 		currentDate:        currentDate,
 		dayWidth:           dayWidth,
 		totalDaysInPeriod:  totalDaysInPeriod,
 		passedDaysInPeriod: passedDaysInPeriod,
 		firstDayXOffset:    firstDayXOffset,
+		eventEditMode:      eventEditMode,
 	}
 }

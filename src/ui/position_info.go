@@ -48,7 +48,7 @@ type StatusPanePositionInfo interface{}
 
 // EventsPanePositionInfo provides information on a position in a events pane.
 type EventsPanePositionInfo interface {
-	Event() model.EventID
+	Event() *model.Event
 	EventBoxPart() EventBoxPart
 	Time() model.Timestamp
 }
