@@ -89,6 +89,11 @@ func (e *EventEditor) MoveCursorRightA() {
 }
 
 func (e *EventEditor) MoveCursorNextWordBeginning() {
+	if len([]rune(e.TmpEventInfo.Name)) == 0 {
+		e.CursorPos = 0
+		return
+	}
+
 	nameAfterCursor := []rune(e.TmpEventInfo.Name)[e.CursorPos:]
 	i := 0
 	for i < len(nameAfterCursor) && nameAfterCursor[i] != ' ' {
