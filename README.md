@@ -9,11 +9,21 @@ A utility to plan your day.
 
 ## Warning/Disclaimer
 
-This is a project initially written to familiarize myself with go.
-There will probably a lot of less-than-idiomatic (read: shitty) code in here for
-quite a while to come (read: forever).
-It's the middle ground between what I want to use and what I had time to make
-and I don't see why anybody else would want to use this, at least for now.
+- __format-wise, nothing is set in stone right now__  
+  I would like to keep things simple, but I've already thought about going to a
+  Markdown-ish format (like taskell uses) and I'll assume that any format
+	changes that I can accommodate for myself with sed are fair game
+- __it's unpolished__  
+  there's definitely rough edges that I just ignore for now to tackle more
+  relevant work
+- __the code might suck?__  
+  I wrote this to familiarize myself with Go; who knows if it worked?
+	(the goreportcard rating up top is definitely way too lenient)
+
+but also
+
+- __is it any good?__  
+  sure. I've been happily using it for months. :)
 
 ## Installation
 
