@@ -7,10 +7,6 @@ import (
 	"github.com/ja-he/dayplan/src/model"
 )
 
-// TODO: This could very well be its own package:
-//       The editor certainly isn't TUI-specific and could be used
-//       for other UIs, as long as the input is keyboard driven.
-
 type EventEditor struct {
 	Active       bool
 	Original     *model.Event
