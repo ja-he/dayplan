@@ -104,17 +104,20 @@ func (p *EventsPane) Draw() {
 		if p.mouseMode() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
+
 		switch {
+
 		case !p.mouseMode() && p.getCurrentEvent() == e:
 			currentEventStyle := styling.DefaultEmphasized()
-			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, currentEventStyle)
+			p.renderer.DrawBox(pos.X-1, pos.Y, pos.W+2, pos.H, currentEventStyle)
 			if p.drawNames {
-				p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, currentEventStyle, util.TruncateAt(e.Name, nameWidth))
+				p.renderer.DrawText(pos.X+namePadding-1, pos.Y, nameWidth, pos.H, currentEventStyle, util.TruncateAt(e.Name, nameWidth))
 			}
 			if p.drawTimestamps {
-				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, currentEventStyle, e.Start.ToString())
-				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, currentEventStyle, e.End.ToString())
+				p.renderer.DrawText(pos.X+pos.W-5+1, pos.Y, 5, 1, currentEventStyle, e.Start.ToString())
+				p.renderer.DrawText(pos.X+pos.W-5+1, pos.Y+pos.H-1, 5, 1, currentEventStyle, e.End.ToString())
 			}
+
 		case p.mouseMode() && hovered != nil && hovered.Event() == e && hovered.EventBoxPart() != ui.EventBoxNowhere:
 			selectionStyling := styling.DefaultEmphasized()
 			switch hovered.EventBoxPart() {
@@ -149,6 +152,7 @@ func (p *EventsPane) Draw() {
 			default:
 				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart().ToString()))
 			}
+
 		default:
 			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, styling)
 			if p.drawNames {
@@ -159,6 +163,7 @@ func (p *EventsPane) Draw() {
 				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, styling, e.End.ToString())
 			}
 		}
+
 	}
 }
 
