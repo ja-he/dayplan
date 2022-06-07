@@ -127,6 +127,14 @@ $ dayplan summarize --from 2021-11-01 --til 2021-11-30 \
                     --category-filter work \
                     --human-readable
 ```
+### Adding events via CLI
+
+Besides being able to add events in the TUI mode, events can also be added via
+the `add` subcommand.
+This is especially useful for adding repeat events, in which case a start date,
+an end date, and the period of repetition need to be specified.
+
+For more see `dayplan add -h`.
 
 ### Configuration and Defaults
 

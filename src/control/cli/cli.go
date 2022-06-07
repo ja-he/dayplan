@@ -6,6 +6,7 @@ type CommandLineOpts struct {
 	Theme   string `short:"t" long:"theme" choice:"light" choice:"dark" description:"Select a 'dark' or a 'light' default theme (note: only sets defaults, which are individually overridden by settings in config.yaml"`
 
 	SummarizeCommand SummarizeCommand `command:"summarize" subcommands-optional:"true"`
+	AddCommand       AddCommand       `command:"add" subcommands-optional:"true"`
 	VersionCommand   VersionCommand   `command:"version" subcommands-optional:"true"`
 }
 
