@@ -83,7 +83,7 @@ Key mappings are "vim-ish" and not currently configurable.
 | <kbd>j</kbd> / <kbd>k</kbd>                                        | select next or previous event                                              |
 | <kbd>d</kbd>                                                       | delete the current event                                                   |
 |                                                                    |                                                                            |
-| <kbd>CTRL-w</kbd><kbd>h</kbd> / <kbd>CTRL-w</kbd><kbd>h</kbd>      | switch to left / right ui pane                                             |
+| <kbd>CTRL-w</kbd><kbd>h</kbd> / <kbd>CTRL-w</kbd><kbd>l</kbd>      | switch to left / right ui pane                                             |
 | <kbd>S</kbd>                                                       | toggle a summary view (for day/week/...)                                   |
 | <kbd>W</kbd>                                                       | load the weather (see [the config section](#configuration-and-defaults))   |
 |                                                                    |                                                                            |
