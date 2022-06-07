@@ -81,14 +81,14 @@ func (p *EventsPane) Draw() {
 	p.positions = p.computeRects(day, x+p.pad, y, w-(2*p.pad), h)
 	for _, e := range day.Events {
 		style, err := p.styleForCategory(e.Cat)
-		styling := style
 		if err != nil {
 			p.logWriter.Add("ERROR", err.Error())
-			styling = p.stylesheet.CategoryFallback
+			style = p.stylesheet.CategoryFallback
 		}
 		if !p.isCurrentDay() {
-			styling = styling.DefaultDimmed()
+			style = style.DefaultDimmed()
 		}
+		style = style.NormalizeFromBG()
 
 		// based on event state, draw a box or maybe a smaller one, or ...
 		pos := p.positions[e]
@@ -98,70 +98,60 @@ func (p *EventsPane) Draw() {
 		} else {
 			timestampWidth = 0
 		}
-		namePadding := 1
-		nameWidth := pos.W - (2 * namePadding) - timestampWidth
 		var hovered ui.EventsPanePositionInfo
 		if p.mouseMode() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
 
-		switch {
+		var ex, ey, ew, eh int = pos.X, pos.Y, pos.W, pos.H
 
-		case !p.mouseMode() && p.getCurrentEvent() == e:
-			currentEventStyle := styling.DefaultEmphasized()
-			p.renderer.DrawBox(pos.X-1, pos.Y, pos.W+2, pos.H, currentEventStyle)
-			if p.drawNames {
-				p.renderer.DrawText(pos.X+namePadding-1, pos.Y, nameWidth, pos.H, currentEventStyle, util.TruncateAt(e.Name, nameWidth))
-			}
-			if p.drawTimestamps {
-				p.renderer.DrawText(pos.X+pos.W-5+1, pos.Y, 5, 1, currentEventStyle, e.Start.ToString())
-				p.renderer.DrawText(pos.X+pos.W-5+1, pos.Y+pos.H-1, 5, 1, currentEventStyle, e.End.ToString())
-			}
+		if p.getCurrentEvent() == e {
+			ex -= 1
+			ew += 2
 
-		case p.mouseMode() && hovered != nil && hovered.Event() == e && hovered.EventBoxPart() != ui.EventBoxNowhere:
-			selectionStyling := styling.DefaultEmphasized()
+			style = style.Invert()
+		}
+
+		var bodyStyling styling.DrawStyling = style
+		var bottomStyling styling.DrawStyling = style
+		var nameStyling styling.DrawStyling = style
+
+		namePadding := 1
+		nameWidth := ew - (2 * namePadding) - timestampWidth
+
+		if p.mouseMode() && hovered != nil && hovered.Event() == e && hovered.EventBoxPart() != ui.EventBoxNowhere {
+			selectionStyling := style.DefaultEmphasized()
+
 			switch hovered.EventBoxPart() {
 			case ui.EventBoxBottomRight:
-				p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H-1, styling)
-				p.renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, selectionStyling)
-				if p.drawNames {
-					p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, styling, util.TruncateAt(e.Name, nameWidth))
-				}
-				if p.drawTimestamps {
-					p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, styling, e.Start.ToString())
-					p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, selectionStyling, e.End.ToString())
-				}
+				bottomStyling = selectionStyling.Bolded()
+
 			case ui.EventBoxInterior:
-				p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, selectionStyling)
-				if p.drawNames {
-					p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, selectionStyling, util.TruncateAt(e.Name, nameWidth))
-				}
-				if p.drawTimestamps {
-					p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, selectionStyling, e.Start.ToString())
-					p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, selectionStyling, e.End.ToString())
-				}
+				bottomStyling = selectionStyling
+				bodyStyling = selectionStyling
+				nameStyling = selectionStyling
+
 			case ui.EventBoxTopEdge:
-				p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, styling)
-				if p.drawNames {
-					p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, selectionStyling, util.TruncateAt(e.Name, nameWidth))
-				}
-				if p.drawTimestamps {
-					p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, styling, e.Start.ToString())
-					p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, styling, e.End.ToString())
-				}
+				nameStyling = selectionStyling.Bolded()
+
 			default:
 				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart().ToString()))
 			}
+		}
 
-		default:
-			p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, styling)
-			if p.drawNames {
-				p.renderer.DrawText(pos.X+namePadding, pos.Y, nameWidth, pos.H, styling, util.TruncateAt(e.Name, nameWidth))
-			}
-			if p.drawTimestamps {
-				p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, styling, e.Start.ToString())
-				p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, styling, e.End.ToString())
-			}
+		p.renderer.DrawBox(ex, ey, ew, eh, bodyStyling)
+
+		if p.drawTimestamps {
+			p.renderer.DrawText(ex+ew-5, ey, 5, 1, bodyStyling, e.Start.ToString())
+		}
+
+		p.renderer.DrawBox(ex, ey+eh-1, ew, 1, bottomStyling)
+		if p.drawTimestamps {
+			p.renderer.DrawText(ex+ew-5, ey+eh-1, 5, 1, bottomStyling, e.End.ToString())
+		}
+
+		if p.drawNames {
+			p.renderer.DrawText(ex+1, ey, nameWidth, pos.H, nameStyling, util.TruncateAt(e.Name, nameWidth))
 		}
 
 	}
