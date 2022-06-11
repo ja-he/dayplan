@@ -18,6 +18,7 @@ type DrawStyling interface {
 
 	DefaultDimmed() DrawStyling
 	DefaultEmphasized() DrawStyling
+	NormalizeFromBG() DrawStyling
 	Invert() DrawStyling
 	LightenedFG(percentage int) DrawStyling
 	LightenedBG(percentage int) DrawStyling
@@ -75,6 +76,14 @@ func (s *FallbackStyling) Invert() DrawStyling {
 	result := &FallbackStyling{}
 	result.bg = s.fg
 	result.fg = s.bg
+	return result
+}
+
+// NormalizeFromBG returns a new style based off the background color where the
+// foreground is set to an appropriate pairing color for the background.
+func (s *FallbackStyling) NormalizeFromBG() DrawStyling {
+	result := s.clone()
+	result.fg = getAdequateFG(s.bg)
 	return result
 }
 

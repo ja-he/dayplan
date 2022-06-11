@@ -43,6 +43,18 @@ func darkenColorfulColor(color colorful.Color, percentage int) colorful.Color {
 	return colorful.Hsl(hue, sat, newLightness)
 }
 
+func getAdequateFG(color colorful.Color) colorful.Color {
+	hue, sat, lum := color.Clamped().HSLuv()
+
+	if lum < 0.5 {
+		lum += 0.5
+	} else {
+		lum -= 0.5
+	}
+
+	return colorful.HSLuv(hue, sat, lum)
+}
+
 func colorfulColorFromHexString(hex string) colorful.Color {
 	color, err := colorful.Hex(hex)
 	if err != nil {
