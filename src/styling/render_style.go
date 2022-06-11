@@ -18,6 +18,7 @@ type DrawStyling interface {
 
 	DefaultDimmed() DrawStyling
 	DefaultEmphasized() DrawStyling
+	Invert() DrawStyling
 	LightenedFG(percentage int) DrawStyling
 	LightenedBG(percentage int) DrawStyling
 	DarkenedFG(percentage int) DrawStyling
@@ -66,6 +67,14 @@ func (s *FallbackStyling) DefaultEmphasized() DrawStyling {
 	result := s.clone()
 	result.fg = darkenColorfulColor(result.fg, 20)
 	result.bg = darkenColorfulColor(result.bg, 20)
+	return result
+}
+
+// Invert returns an inversion of the style.
+func (s *FallbackStyling) Invert() DrawStyling {
+	result := &FallbackStyling{}
+	result.bg = s.fg
+	result.fg = s.bg
 	return result
 }
 
