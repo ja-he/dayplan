@@ -18,7 +18,7 @@ type DrawStyling interface {
 
 	DefaultDimmed() DrawStyling
 	DefaultEmphasized() DrawStyling
-	NormalizeFromBG() DrawStyling
+	NormalizeFromBG(luminanceOffset float64) DrawStyling
 	Invert() DrawStyling
 	LightenedFG(percentage int) DrawStyling
 	LightenedBG(percentage int) DrawStyling
@@ -81,9 +81,9 @@ func (s *FallbackStyling) Invert() DrawStyling {
 
 // NormalizeFromBG returns a new style based off the background color where the
 // foreground is set to an appropriate pairing color for the background.
-func (s *FallbackStyling) NormalizeFromBG() DrawStyling {
+func (s *FallbackStyling) NormalizeFromBG(luminanceOffset float64) DrawStyling {
 	result := s.clone()
-	result.fg = getAdequateFG(s.bg)
+	result.fg = smartOffsetLuminanceBy(s.bg, luminanceOffset)
 	return result
 }
 
@@ -167,6 +167,17 @@ func StyleFromHex(fg, bg string) *FallbackStyling {
 	return &FallbackStyling{
 		fg: colorfulColorFromHexString(fg),
 		bg: colorfulColorFromHexString(bg),
+	}
+}
+
+// StyleFromHexBG takes the given hex color as a background and returns a style
+// in which the foreground is inferred from the background (same hue and
+// saturation, different luminance).
+func StyleFromHexBG(bg string) *FallbackStyling {
+	bgColor := colorfulColorFromHexString(bg)
+	return &FallbackStyling{
+		fg: smartOffsetLuminanceBy(bgColor, 0.5),
+		bg: bgColor,
 	}
 }
 

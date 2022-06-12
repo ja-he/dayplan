@@ -43,13 +43,17 @@ func darkenColorfulColor(color colorful.Color, percentage int) colorful.Color {
 	return colorful.Hsl(hue, sat, newLightness)
 }
 
-func getAdequateFG(color colorful.Color) colorful.Color {
+// smartOffsetLuminanceBy returns for the given color a color with luminance
+// changed from the original by the given luminance delta, either lightening or
+// darkening the color, depending on the initial luminance value being below or
+// above a luminance threshold.
+func smartOffsetLuminanceBy(color colorful.Color, luminanceDelta float64) colorful.Color {
 	hue, sat, lum := color.Clamped().HSLuv()
 
 	if lum < 0.5 {
-		lum += 0.5
+		lum += luminanceDelta
 	} else {
-		lum -= 0.5
+		lum -= luminanceDelta
 	}
 
 	return colorful.HSLuv(hue, sat, lum)

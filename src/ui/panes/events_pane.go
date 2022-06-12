@@ -88,7 +88,6 @@ func (p *EventsPane) Draw() {
 		if !p.isCurrentDay() {
 			style = style.DefaultDimmed()
 		}
-		style = style.NormalizeFromBG()
 
 		// based on event state, draw a box or maybe a smaller one, or ...
 		pos := p.positions[e]
@@ -139,15 +138,18 @@ func (p *EventsPane) Draw() {
 			}
 		}
 
+		var topTimestampStyling = bodyStyling.NormalizeFromBG(0.4)
+		var botTimestampStyling = bottomStyling.NormalizeFromBG(0.4)
+
 		p.renderer.DrawBox(ex, ey, ew, eh, bodyStyling)
 
 		if p.drawTimestamps {
-			p.renderer.DrawText(ex+ew-5, ey, 5, 1, bodyStyling, e.Start.ToString())
+			p.renderer.DrawText(ex+ew-5, ey, 5, 1, topTimestampStyling, e.Start.ToString())
 		}
 
 		p.renderer.DrawBox(ex, ey+eh-1, ew, 1, bottomStyling)
 		if p.drawTimestamps {
-			p.renderer.DrawText(ex+ew-5, ey+eh-1, 5, 1, bottomStyling, e.End.ToString())
+			p.renderer.DrawText(ex+ew-5, ey+eh-1, 5, 1, botTimestampStyling, e.End.ToString())
 		}
 
 		if p.drawNames {
