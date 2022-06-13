@@ -102,12 +102,7 @@ func (p *EventsPane) Draw() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
 
-		var ex, ey, ew, eh int = pos.X, pos.Y, pos.W, pos.H
-
 		if p.getCurrentEvent() == e {
-			ex -= 1
-			ew += 2
-
 			style = style.Invert()
 		}
 
@@ -116,7 +111,7 @@ func (p *EventsPane) Draw() {
 		var nameStyling styling.DrawStyling = style
 
 		namePadding := 1
-		nameWidth := ew - (2 * namePadding) - timestampWidth
+		nameWidth := pos.W - (2 * namePadding) - timestampWidth
 
 		if p.mouseMode() && hovered != nil && hovered.Event() == e && hovered.EventBoxPart() != ui.EventBoxNowhere {
 			selectionStyling := style.DefaultEmphasized()
@@ -141,19 +136,19 @@ func (p *EventsPane) Draw() {
 		var topTimestampStyling = bodyStyling.NormalizeFromBG(0.4)
 		var botTimestampStyling = bottomStyling.NormalizeFromBG(0.4)
 
-		p.renderer.DrawBox(ex, ey, ew, eh, bodyStyling)
+		p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
 
 		if p.drawTimestamps {
-			p.renderer.DrawText(ex+ew-5, ey, 5, 1, topTimestampStyling, e.Start.ToString())
+			p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, topTimestampStyling, e.Start.ToString())
 		}
 
-		p.renderer.DrawBox(ex, ey+eh-1, ew, 1, bottomStyling)
+		p.renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
 		if p.drawTimestamps {
-			p.renderer.DrawText(ex+ew-5, ey+eh-1, 5, 1, botTimestampStyling, e.End.ToString())
+			p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, e.End.ToString())
 		}
 
 		if p.drawNames {
-			p.renderer.DrawText(ex+1, ey, nameWidth, pos.H, nameStyling, util.TruncateAt(e.Name, nameWidth))
+			p.renderer.DrawText(pos.X+1, pos.Y, nameWidth, pos.H, nameStyling, util.TruncateAt(e.Name, nameWidth))
 		}
 
 	}
@@ -231,6 +226,7 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		w := width
 		h := p.viewParams.YForTime(e.End) + offsetY - y
 
+
 		// scale the width by 3/4 for every extra item on the stack, so for one
 		// item stacked underneath the current items width will be (3/4) ** 1 = 75%
 		// of the original width, for four it would be (3/4) ** 4 = (3**4)/(4**4)
@@ -238,6 +234,12 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		widthFactor := 0.75
 		w = int(float64(w) * math.Pow(widthFactor, float64(len(activeStack)-1)))
 		x += (width - w)
+
+    // make the current event wider by 1 on either side
+    if e == p.getCurrentEvent() {
+      x -= 1
+      w += 2
+    }
 
 		positions[e] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
