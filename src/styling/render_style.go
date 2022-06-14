@@ -26,7 +26,9 @@ type DrawStyling interface {
 	DarkenedBG(percentage int) DrawStyling
 
 	Italicized() DrawStyling
+	Unitalicized() DrawStyling
 	Bolded() DrawStyling
+	Unbolded() DrawStyling
 
 	ToString() string
 }
@@ -125,6 +127,26 @@ func (s *FallbackStyling) DarkenedBG(percentage int) DrawStyling {
 func (s *FallbackStyling) Italicized() DrawStyling {
 	result := s.clone()
 	result.italic = true
+	return result
+}
+
+// Unitalicized returns a copy of this styling which is guaranteed
+// to _not_ be italicized.
+// If the original styling was already not italicized, this
+// effectively returns an exact copy.
+func (s *FallbackStyling) Unitalicized() DrawStyling {
+	result := s.clone()
+	result.italic = false
+	return result
+}
+
+// Unbolded returns a copy of this styling which is guaranteed to
+// _not_ be bolded.
+// If the original styling was already non-bolded, this effectively
+// returns an exact copy.
+func (s *FallbackStyling) Unbolded() DrawStyling {
+	result := s.clone()
+	result.bold = false
 	return result
 }
 
