@@ -193,10 +193,8 @@ stylesheet:
 
 categories:
   - name: uni
-    fg: '#000000'
     bg: '#ffdccc'
   - name: work
-    fg: '#000000'
     bg: '#ffcccc'
 ```
 

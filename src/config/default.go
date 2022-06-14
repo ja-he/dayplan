@@ -5,11 +5,11 @@ func Default(colorschemeType ColorschemeType) Config {
 	return Config{
 		Stylesheet: defaultStylesheet(colorschemeType),
 		Categories: []Category{
-			{Fg: "#000000", Bg: "#cccccc", Name: "default"},
-			{Fg: "#000000", Bg: "#ffdccc", Name: "mountainbiking"},
-			{Fg: "#000000", Bg: "#c2edab", Name: "a-wandering beneath the clear blue sky"},
-			{Fg: "#000000", Bg: "#ccebff", Name: "visiting a china-town section in a major city"},
-			{Fg: "#000000", Bg: "#ccffe6", Name: "writing initials in wet cement"},
+			{Bg: "#cccccc", Name: "default"},
+			{Bg: "#ffdccc", Name: "mountainbiking"},
+			{Bg: "#c2edab", Name: "a-wandering beneath the clear blue sky"},
+			{Bg: "#ccebff", Name: "visiting a china-town section in a major city"},
+			{Bg: "#ccffe6", Name: "writing initials in wet cement"},
 		},
 	}
 }

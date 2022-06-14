@@ -18,13 +18,17 @@ type DrawStyling interface {
 
 	DefaultDimmed() DrawStyling
 	DefaultEmphasized() DrawStyling
+	NormalizeFromBG(luminanceOffset float64) DrawStyling
+	Invert() DrawStyling
 	LightenedFG(percentage int) DrawStyling
 	LightenedBG(percentage int) DrawStyling
 	DarkenedFG(percentage int) DrawStyling
 	DarkenedBG(percentage int) DrawStyling
 
 	Italicized() DrawStyling
+	Unitalicized() DrawStyling
 	Bolded() DrawStyling
+	Unbolded() DrawStyling
 
 	ToString() string
 }
@@ -69,6 +73,22 @@ func (s *FallbackStyling) DefaultEmphasized() DrawStyling {
 	return result
 }
 
+// Invert returns an inversion of the style.
+func (s *FallbackStyling) Invert() DrawStyling {
+	result := &FallbackStyling{}
+	result.bg = s.fg
+	result.fg = s.bg
+	return result
+}
+
+// NormalizeFromBG returns a new style based off the background color where the
+// foreground is set to an appropriate pairing color for the background.
+func (s *FallbackStyling) NormalizeFromBG(luminanceOffset float64) DrawStyling {
+	result := s.clone()
+	result.fg = smartOffsetLuminanceBy(s.bg, luminanceOffset)
+	return result
+}
+
 // LightenedFG returns a copy of this styling with the foreground color
 // lightened by the requested percentage.
 func (s *FallbackStyling) LightenedFG(percentage int) DrawStyling {
@@ -107,6 +127,26 @@ func (s *FallbackStyling) DarkenedBG(percentage int) DrawStyling {
 func (s *FallbackStyling) Italicized() DrawStyling {
 	result := s.clone()
 	result.italic = true
+	return result
+}
+
+// Unitalicized returns a copy of this styling which is guaranteed
+// to _not_ be italicized.
+// If the original styling was already not italicized, this
+// effectively returns an exact copy.
+func (s *FallbackStyling) Unitalicized() DrawStyling {
+	result := s.clone()
+	result.italic = false
+	return result
+}
+
+// Unbolded returns a copy of this styling which is guaranteed to
+// _not_ be bolded.
+// If the original styling was already non-bolded, this effectively
+// returns an exact copy.
+func (s *FallbackStyling) Unbolded() DrawStyling {
+	result := s.clone()
+	result.bold = false
 	return result
 }
 
@@ -149,6 +189,17 @@ func StyleFromHex(fg, bg string) *FallbackStyling {
 	return &FallbackStyling{
 		fg: colorfulColorFromHexString(fg),
 		bg: colorfulColorFromHexString(bg),
+	}
+}
+
+// StyleFromHexBG takes the given hex color as a background and returns a style
+// in which the foreground is inferred from the background (same hue and
+// saturation, different luminance).
+func StyleFromHexBG(bg string) *FallbackStyling {
+	bgColor := colorfulColorFromHexString(bg)
+	return &FallbackStyling{
+		fg: smartOffsetLuminanceBy(bgColor, 0.5),
+		bg: bgColor,
 	}
 }
 
