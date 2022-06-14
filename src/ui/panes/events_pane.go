@@ -148,7 +148,7 @@ func (p *EventsPane) Draw() {
 		}
 
 		if p.drawNames {
-			p.renderer.DrawText(pos.X+1, pos.Y, nameWidth, pos.H, nameStyling, util.TruncateAt(e.Name, nameWidth))
+			p.renderer.DrawText(pos.X+1, pos.Y, nameWidth, 1, nameStyling, util.TruncateAt(e.Name, nameWidth))
 		}
 
 	}
