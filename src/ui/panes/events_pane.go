@@ -136,7 +136,6 @@ func (p *EventsPane) Draw() {
 
 		var topTimestampStyling = bodyStyling.NormalizeFromBG(0.4)
 		var botTimestampStyling = bottomStyling.NormalizeFromBG(0.4)
-		var catStyling = bottomStyling.NormalizeFromBG(0.2).Italicized()
 
 		p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
 
@@ -152,6 +151,10 @@ func (p *EventsPane) Draw() {
 		if p.drawNames {
 			p.renderer.DrawText(pos.X+1, pos.Y, nameWidth, 1, nameStyling, util.TruncateAt(e.Name, nameWidth))
 			if pos.H > 1 {
+				var catStyling = bodyStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
+				if pos.H == 2 {
+					catStyling = bottomStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
+				}
 				catWidth := pos.W - 2 - 1
 				p.renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
 			}
