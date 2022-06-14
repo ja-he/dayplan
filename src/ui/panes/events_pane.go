@@ -33,6 +33,7 @@ type EventsPane struct {
 	pad             int
 	drawTimestamps  bool
 	drawNames       bool
+	drawCat         bool
 	isCurrentDay    func() bool
 	getCurrentEvent func() *model.Event
 	mouseMode       func() bool
@@ -150,14 +151,14 @@ func (p *EventsPane) Draw() {
 
 		if p.drawNames {
 			p.renderer.DrawText(pos.X+1, pos.Y, nameWidth, 1, nameStyling, util.TruncateAt(e.Name, nameWidth))
-			if pos.H > 1 {
-				var catStyling = bodyStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
-				if pos.H == 2 {
-					catStyling = bottomStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
-				}
-				catWidth := pos.W - 2 - 1
-				p.renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
+		}
+		if p.drawCat && pos.H > 1 {
+			var catStyling = bodyStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
+			if pos.H == 2 {
+				catStyling = bottomStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
 			}
+			catWidth := pos.W - 2 - 1
+			p.renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
 		}
 
 	}
@@ -267,6 +268,7 @@ func NewEventsPane(
 	pad int,
 	drawTimestamps bool,
 	drawNames bool,
+	drawCat bool,
 	isCurrentDay func() bool,
 	getCurrentEvent func() *model.Event,
 	mouseMode func() bool,
@@ -290,6 +292,7 @@ func NewEventsPane(
 		pad:              pad,
 		drawTimestamps:   drawTimestamps,
 		drawNames:        drawNames,
+		drawCat:          drawCat,
 		isCurrentDay:     isCurrentDay,
 		getCurrentEvent:  getCurrentEvent,
 		mouseMode:        mouseMode,
