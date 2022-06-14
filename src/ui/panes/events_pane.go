@@ -117,6 +117,7 @@ func (p *EventsPane) Draw() {
 			selectionStyling := style.DefaultEmphasized()
 
 			switch hovered.EventBoxPart() {
+
 			case ui.EventBoxBottomRight:
 				bottomStyling = selectionStyling.Bolded()
 
@@ -135,6 +136,7 @@ func (p *EventsPane) Draw() {
 
 		var topTimestampStyling = bodyStyling.NormalizeFromBG(0.4)
 		var botTimestampStyling = bottomStyling.NormalizeFromBG(0.4)
+		var catStyling = bottomStyling.NormalizeFromBG(0.2).Italicized()
 
 		p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
 
@@ -149,6 +151,10 @@ func (p *EventsPane) Draw() {
 
 		if p.drawNames {
 			p.renderer.DrawText(pos.X+1, pos.Y, nameWidth, 1, nameStyling, util.TruncateAt(e.Name, nameWidth))
+			if pos.H > 1 {
+				catWidth := pos.W - 2 - 1
+				p.renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
+			}
 		}
 
 	}
@@ -226,7 +232,6 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		w := width
 		h := p.viewParams.YForTime(e.End) + offsetY - y
 
-
 		// scale the width by 3/4 for every extra item on the stack, so for one
 		// item stacked underneath the current items width will be (3/4) ** 1 = 75%
 		// of the original width, for four it would be (3/4) ** 4 = (3**4)/(4**4)
@@ -235,11 +240,11 @@ func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, heigh
 		w = int(float64(w) * math.Pow(widthFactor, float64(len(activeStack)-1)))
 		x += (width - w)
 
-    // make the current event wider by 1 on either side
-    if e == p.getCurrentEvent() {
-      x -= 1
-      w += 2
-    }
+		// make the current event wider by 1 on either side
+		if e == p.getCurrentEvent() {
+			x -= 1
+			w += 2
+		}
 
 		positions[e] = util.Rect{X: x, Y: y, W: w, H: h}
 	}
