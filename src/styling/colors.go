@@ -59,6 +59,11 @@ func smartOffsetLuminanceBy(color colorful.Color, luminanceDelta float64) colorf
 	return colorful.HSLuv(hue, sat, lum)
 }
 
+func getLuminance(color colorful.Color) float64 {
+  _, _, l := color.HSLuv()
+  return l
+}
+
 func colorfulColorFromHexString(hex string) colorful.Color {
 	color, err := colorful.Hex(hex)
 	if err != nil {

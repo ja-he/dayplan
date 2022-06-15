@@ -57,7 +57,7 @@ func (cs *CategoryStyling) AddStyleFromInput(input config.Category) bool {
 		Name:     input.Name,
 		Priority: input.Priority,
 	}
-	style := StyleFromHexBG(input.Bg)
+	style := StyleFromHexSingle(input.Bg)
 
 	// TODO: error checking e.g. for the colors (which currently would panic)
 
