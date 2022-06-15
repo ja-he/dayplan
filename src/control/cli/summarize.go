@@ -61,7 +61,7 @@ func summarize() {
 			Name:     category.Name,
 			Priority: category.Priority,
 		}
-		style := styling.StyleFromHexSingle(category.Color)
+		style := styling.StyleFromHexSingle(category.Color, false)
 		styledCategories.Add(cat, style)
 	}
 

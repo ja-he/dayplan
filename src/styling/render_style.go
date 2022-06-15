@@ -195,10 +195,11 @@ func StyleFromHexPair(fg, bg string) *FallbackStyling {
 // StyleFromHexSingle takes the given hex color as a background and returns a
 // style in which the foreground is inferred from the background (same hue and
 // saturation, different luminance).
-func StyleFromHexSingle(hexString string) *FallbackStyling {
+func StyleFromHexSingle(hexString string, darkBG bool) *FallbackStyling {
 	accentColor := colorfulColorFromHexString(hexString)
   var bg, fg colorful.Color
-  if getLuminance(accentColor) > 0.5 {
+  lum := getLuminance(accentColor)
+  if darkBG && lum <= 0.5 || !darkBG && lum > 0.5 {
     bg = accentColor
     fg = smartOffsetLuminanceBy(accentColor, 0.5)
   } else {
