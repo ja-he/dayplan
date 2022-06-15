@@ -87,7 +87,12 @@ func main() {
 	var categoryStyling styling.CategoryStyling
 	categoryStyling = *styling.EmptyCategoryStyling()
 	for _, category := range configData.Categories {
-		categoryStyling.AddStyleFromInput(category)
+		cat := model.Category{
+			Name:     category.Name,
+			Priority: category.Priority,
+		}
+		style := styling.StyleFromHexSingle(category.Bg)
+		categoryStyling.Add(cat, style)
 	}
 
 	stylesheet := styling.NewStylesheetFromConfig(configData.Stylesheet)
