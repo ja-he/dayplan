@@ -56,7 +56,7 @@ type FontStyle struct {
 // It combines the style definition with the name and priority definition.
 type Category struct {
 	Name     string `yaml:"name,omitempty"`
-	Bg       string `yaml:"bg,omitempty"`
+	Color    string `yaml:"color,omitempty"`
 	Priority int    `yaml:"priority,omitempty"`
 }
 

@@ -91,7 +91,7 @@ func main() {
 			Name:     category.Name,
 			Priority: category.Priority,
 		}
-		style := styling.StyleFromHexSingle(category.Bg)
+		style := styling.StyleFromHexSingle(category.Color)
 		categoryStyling.Add(cat, style)
 	}
 
