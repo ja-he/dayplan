@@ -465,7 +465,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		processors.NewModalInputProcessor(toolsInputTree),
 		&controller.data.CurrentCategory,
 		&categoryStyling,
-		1,
+		2,
 		1,
 		0,
 	)

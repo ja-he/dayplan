@@ -50,11 +50,13 @@ func (p *ToolsPane) Draw() {
 
 		textHeightOffset := box.H / 2
 		textLen := box.W - 2
+
+		if p.currentCategory.Name == cat.Name {
+			styling = styling.Invert().Bolded()
+		}
+
 		p.renderer.DrawBox(box.X, box.Y, box.W, box.H, styling)
 		p.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(cat.Name, textLen))
-		if p.currentCategory.Name == cat.Name {
-			p.renderer.DrawBox(box.X+box.W-1, box.Y, 1, box.H, styling.DefaultEmphasized())
-		}
 	}
 	p.lastBoxesDrawn = boxes
 }
@@ -70,6 +72,10 @@ func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rec
 			Y: p.vertPadding + i + (i * p.gap),
 			W: w - (2 * p.horizPadding),
 			H: 1,
+		}
+		if styling.Cat.Name == p.currentCategory.Name && p.horizPadding > 0 {
+			box.X -= 1
+			box.W += 2
 		}
 		result[styling.Cat] = box
 		i++
