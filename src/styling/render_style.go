@@ -177,7 +177,7 @@ func (s *FallbackStyling) clone() *FallbackStyling {
 	return &newS
 }
 
-// StyleFromHex constructs and returns a styling from two hexadecimally
+// StyleFromHexPair constructs and returns a styling from two hexadecimally
 // formatted strings for the foreground and background color.
 // Strings have to have hexadecimal or HTML color notation and lead with a '#'.
 //
@@ -185,21 +185,30 @@ func (s *FallbackStyling) clone() *FallbackStyling {
 //  - '#ff0000'
 //  - '#fff'
 //  - '#BEEF42'
-func StyleFromHex(fg, bg string) *FallbackStyling {
+func StyleFromHexPair(fg, bg string) *FallbackStyling {
 	return &FallbackStyling{
 		fg: colorfulColorFromHexString(fg),
 		bg: colorfulColorFromHexString(bg),
 	}
 }
 
-// StyleFromHexBG takes the given hex color as a background and returns a style
-// in which the foreground is inferred from the background (same hue and
+// StyleFromHexSingle takes the given hex color as a background and returns a
+// style in which the foreground is inferred from the background (same hue and
 // saturation, different luminance).
-func StyleFromHexBG(bg string) *FallbackStyling {
-	bgColor := colorfulColorFromHexString(bg)
+func StyleFromHexSingle(hexString string, darkBG bool) *FallbackStyling {
+	accentColor := colorfulColorFromHexString(hexString)
+  var bg, fg colorful.Color
+  lum := getLuminance(accentColor)
+  if darkBG && lum <= 0.5 || !darkBG && lum > 0.5 {
+    bg = accentColor
+    fg = smartOffsetLuminanceBy(accentColor, 0.5)
+  } else {
+    fg = accentColor
+    bg = smartOffsetLuminanceBy(accentColor, 0.5)
+  }
 	return &FallbackStyling{
-		fg: smartOffsetLuminanceBy(bgColor, 0.5),
-		bg: bgColor,
+		fg: fg,
+		bg: bg,
 	}
 }
 
@@ -214,7 +223,7 @@ func StyleFromColors(fg, bg colorful.Color) *FallbackStyling {
 // StyleFromConfig takes a styling as specified in a configuration file and
 // converts it to a usable DrawStyling.
 func StyleFromConfig(config config.Styling) DrawStyling {
-	styling := StyleFromHex(config.Fg, config.Bg)
+	styling := StyleFromHexPair(config.Fg, config.Bg)
 	if config.Style != nil {
 		styling.bold = config.Style.Bold
 		styling.italic = config.Style.Italic

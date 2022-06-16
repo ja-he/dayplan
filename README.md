@@ -193,9 +193,12 @@ stylesheet:
 
 categories:
   - name: uni
-    bg: '#ffdccc'
+    color: '#ffdccc'
   - name: work
-    bg: '#ffcccc'
+    color: '#ffcccc'
+  - name: cooking
+    color: '#ccffe6'
+  # ...
 ```
 
 [^longer-example]:

@@ -9,7 +9,6 @@ package styling
 import (
 	"fmt"
 
-	"github.com/ja-he/dayplan/src/config"
 	"github.com/ja-he/dayplan/src/model"
 )
 
@@ -49,20 +48,6 @@ func (cs *CategoryStyling) Add(cat model.Category, style DrawStyling) {
 func EmptyCategoryStyling() *CategoryStyling {
 	cs := CategoryStyling{}
 	return &cs
-}
-
-// AddStyleFromInput adds a style from
-func (cs *CategoryStyling) AddStyleFromInput(input config.Category) bool {
-	cat := model.Category{
-		Name:     input.Name,
-		Priority: input.Priority,
-	}
-	style := StyleFromHexBG(input.Bg)
-
-	// TODO: error checking e.g. for the colors (which currently would panic)
-
-	cs.Add(cat, style)
-	return true
 }
 
 // GetAll returns all styled categories in this styling.

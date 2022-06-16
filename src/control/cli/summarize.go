@@ -57,7 +57,12 @@ func summarize() {
 	}
 	styledCategories := styling.EmptyCategoryStyling()
 	for _, category := range configData.Categories {
-		styledCategories.AddStyleFromInput(category)
+		cat := model.Category{
+			Name:     category.Name,
+			Priority: category.Priority,
+		}
+		style := styling.StyleFromHexSingle(category.Color, false)
+		styledCategories.Add(cat, style)
 	}
 
 	currentDate, err := model.FromString(Opts.SummarizeCommand.FromDay)

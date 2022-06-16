@@ -41,7 +41,7 @@ func (p *PerfPane) Draw() {
 	lastWidth := len(" render time: ....... xs ")
 	avgWidth := w - lastWidth
 
-	defaultStyle := styling.StyleFromHex("#000000", "#f0f0f0")
+	defaultStyle := styling.StyleFromHexPair("#000000", "#f0f0f0")
 	bad := colorful.Color{R: 1.0, G: 0.8, B: 0.8}
 	hue, _, ltn := bad.Hsl()
 
