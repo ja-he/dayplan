@@ -60,8 +60,8 @@ func smartOffsetLuminanceBy(color colorful.Color, luminanceDelta float64) colorf
 }
 
 func getLuminance(color colorful.Color) float64 {
-  _, _, l := color.HSLuv()
-  return l
+	_, _, l := color.HSLuv()
+	return l
 }
 
 func colorfulColorFromHexString(hex string) colorful.Color {

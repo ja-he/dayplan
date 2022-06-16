@@ -8,10 +8,10 @@ import (
 )
 
 func Foo(t *testing.T) {
-  l := getLuminance(colorfulColorFromHexString("#000000"))
-  if l != 0.0 {
-    t.Fatalf("lum %f != 0", l)
-  }
+	l := getLuminance(colorfulColorFromHexString("#000000"))
+	if l != 0.0 {
+		t.Fatalf("lum %f != 0", l)
+	}
 }
 
 func TestLighten(t *testing.T) {

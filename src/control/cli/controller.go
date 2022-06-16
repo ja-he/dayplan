@@ -221,7 +221,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				0,
 				false,
 				false,
-			  false,
+				false,
 				func() bool { return controller.data.CurrentDate.GetDayInMonth(dayIndex) == controller.data.CurrentDate },
 				func() *model.Event { return nil /* TODO */ },
 				func() bool { return controller.data.MouseMode },

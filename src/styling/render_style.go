@@ -197,15 +197,15 @@ func StyleFromHexPair(fg, bg string) *FallbackStyling {
 // saturation, different luminance).
 func StyleFromHexSingle(hexString string, darkBG bool) *FallbackStyling {
 	accentColor := colorfulColorFromHexString(hexString)
-  var bg, fg colorful.Color
-  lum := getLuminance(accentColor)
-  if darkBG && lum <= 0.5 || !darkBG && lum > 0.5 {
-    bg = accentColor
-    fg = smartOffsetLuminanceBy(accentColor, 0.5)
-  } else {
-    fg = accentColor
-    bg = smartOffsetLuminanceBy(accentColor, 0.5)
-  }
+	var bg, fg colorful.Color
+	lum := getLuminance(accentColor)
+	if darkBG && lum <= 0.5 || !darkBG && lum > 0.5 {
+		bg = accentColor
+		fg = smartOffsetLuminanceBy(accentColor, 0.5)
+	} else {
+		fg = accentColor
+		bg = smartOffsetLuminanceBy(accentColor, 0.5)
+	}
 	return &FallbackStyling{
 		fg: fg,
 		bg: bg,
