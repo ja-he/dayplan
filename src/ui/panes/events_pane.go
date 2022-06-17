@@ -175,7 +175,7 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 			if eventPos.Contains(x, y) {
 				var hover ui.EventBoxPart
 				switch {
-				case y == (eventPos.Y+eventPos.H-1) && x > eventPos.X+eventPos.W-5:
+				case y == (eventPos.Y+eventPos.H-1) && x >= eventPos.X+eventPos.W-5:
 					hover = ui.EventBoxBottomRight
 				case y == (eventPos.Y):
 					hover = ui.EventBoxTopEdge
