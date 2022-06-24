@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ja-he/dayplan/src/config"
 	"github.com/ja-he/dayplan/src/control"
@@ -73,10 +74,11 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		styledCategories.Add(cat, style)
 	}
 
-	currentDate, err := model.FromString(Opts.SummarizeCommand.FromDay)
+	startDate, err := model.FromString(Opts.SummarizeCommand.FromDay)
 	if err != nil {
 		log.Fatalf("from date '%s' invalid", Opts.SummarizeCommand.FromDay)
 	}
+	currentDate := startDate
 	finalDate, err := model.FromString(Opts.SummarizeCommand.TilDay)
 	if err != nil {
 		log.Fatalf("til date '%s' invalid", Opts.SummarizeCommand.TilDay)
@@ -134,8 +136,18 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		} else {
 			durationStr = fmt.Sprint(duration, " min")
 		}
+
+		var goalStr string = ""
+		if category.Goal != nil {
+			goal := model.GoalForRange(category.Goal, startDate, finalDate)
+			actual := time.Duration(duration) * time.Minute
+			deficit := goal - actual
+			deficitStr := fmt.Sprint(deficit - (deficit % time.Minute))
+			goalStr = fmt.Sprintf("(%.2f%% of goal, %s deficit)", (float64(actual)/float64(goal))*100.0, deficitStr)
+		}
+
 		fmt.Print("  ")
-		fmt.Printf("% 20s (prio:% 3d): % 10s\n", category.Name, category.Priority, durationStr)
+		fmt.Printf("% 20s (prio:% 3d): % 10s %s\n", category.Name, category.Priority, durationStr, goalStr)
 	}
 
 	return nil

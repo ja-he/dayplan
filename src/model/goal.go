@@ -109,3 +109,15 @@ func NewWorkweekGoalFromConfig(cfg config.WorkweekGoal) (*WorkweekGoal, error) {
 		}, nil
 	}
 }
+
+func GoalForRange(goal Goal, startDate, endDate Date) time.Duration {
+	sum := time.Duration(0)
+
+	currentDate := startDate
+	for currentDate != endDate.Next() {
+		sum += goal.Requires(currentDate)
+		currentDate = currentDate.Next()
+	}
+
+	return sum
+}
