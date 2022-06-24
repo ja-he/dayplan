@@ -58,6 +58,28 @@ type Category struct {
 	Name     string `yaml:"name,omitempty"`
 	Color    string `yaml:"color,omitempty"`
 	Priority int    `yaml:"priority,omitempty"`
+	Goal     Goal   `yaml:"goal,omitempty"`
+}
+
+type Goal struct {
+	Workweek *WorkweekGoal `yaml:"workweek,omitempty"`
+	Ranged   *RangedGoal   `yaml:"ranged,omitempty"`
+}
+
+type WorkweekGoal struct {
+	Monday    string `yaml:"monday"`
+	Tuesday   string `yaml:"tuesday"`
+	Wednesday string `yaml:"wednesday"`
+	Thursday  string `yaml:"thursday"`
+	Friday    string `yaml:"friday"`
+	Saturday  string `yaml:"saturday"`
+	Sunday    string `yaml:"sunday"`
+}
+
+type RangedGoal struct {
+	Start string `yaml:"start"`
+	End   string `yaml:"end"`
+	Time  string `yaml:"time"`
 }
 
 // ParseConfigAugmentDefaults parses the configuration specified in
