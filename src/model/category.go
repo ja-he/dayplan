@@ -3,6 +3,7 @@ package model
 type Category struct {
 	Name     string
 	Priority int
+	Goal     Goal
 }
 
 type ByName []Category

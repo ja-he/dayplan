@@ -73,9 +73,23 @@ func (command *TuiCommand) Execute(args []string) error {
 	var categoryStyling styling.CategoryStyling
 	categoryStyling = *styling.EmptyCategoryStyling()
 	for _, category := range configData.Categories {
+
+		var goal model.Goal
+		var err error
+		switch {
+		case category.Goal.Ranged != nil:
+			goal, err = model.NewRangedGoalFromConfig(*category.Goal.Ranged)
+		case category.Goal.Workweek != nil:
+			goal, err = model.NewWorkweekGoalFromConfig(*category.Goal.Workweek)
+		}
+		if err != nil {
+			return err
+		}
+
 		cat := model.Category{
 			Name:     category.Name,
 			Priority: category.Priority,
+			Goal:     goal,
 		}
 		style := styling.StyleFromHexSingle(category.Color, theme == config.Dark)
 		categoryStyling.Add(cat, style)
