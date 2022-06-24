@@ -31,11 +31,6 @@ type SummarizeCommand struct {
 // (This gets called by `go-flags` when `summarize` is provided on the command
 // line)
 func (command *SummarizeCommand) Execute(args []string) error {
-	summarize()
-	return nil
-}
-
-func summarize() {
 	var envData control.EnvData
 
 	// set up dir per option
@@ -130,5 +125,5 @@ func summarize() {
 		fmt.Printf("% 20s (prio:% 3d): % 10s\n", category.Name, category.Priority, durationStr)
 	}
 
-	os.Exit(0)
+	return nil
 }
