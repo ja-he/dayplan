@@ -57,10 +57,13 @@ As it still uses `go install` under the hood, the binary should be in your
   not structured as nicely, it should generally provide the most complete and
   up-to-date information
 
-### Regular TUI Usage
+### Regular TUI Usage (`tui`)
 
 Dayplan mainly works as a terminal UI (TUI) program invoked simply by calling
-the program without subcommand: `dayplan`.
+the program with the `tui` subcommand:
+
+		$ dayplan tui
+
 In this mode it allows you sketch out the events of a day, similar to how a
 graphical calendar application might work.
 
@@ -113,7 +116,7 @@ should be and how they should behave):
 - __delete__: middle click on the event
 - __split__: right click on the event at the time at which to split it
 
-### Getting Summaries
+### Getting Summaries (`summarize`)
 
 To then get summary information about the information generated in this way,
 dayplan has the subcommand `summarize`. It requires you to specify a `--from`
@@ -127,7 +130,7 @@ $ dayplan summarize --from 2021-11-01 --til 2021-11-30 \
                     --category-filter work \
                     --human-readable
 ```
-### Adding events via CLI
+### Adding events via CLI (`add`)
 
 Besides being able to add events in the TUI mode, events can also be added via
 the `add` subcommand.
