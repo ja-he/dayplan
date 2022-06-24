@@ -63,7 +63,7 @@ As it still uses `go install` under the hood, the binary should be in your
 Dayplan mainly works as a terminal UI (TUI) program invoked simply by calling
 the program with the `tui` subcommand:
 
-		$ dayplan tui
+    $ dayplan tui
 
 In this mode it allows you sketch out the events of a day, similar to how a
 graphical calendar application might work.
