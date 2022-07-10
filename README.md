@@ -6,7 +6,7 @@
 
 # Dayplan
 
-A utility to plan your day.
+A utility to plan and track your time.
 
 ## Warning/Disclaimer
 
