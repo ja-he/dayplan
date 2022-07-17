@@ -184,6 +184,11 @@ func (a Date) IsAfter(b Date) bool {
 	return false
 }
 
+// Whether a date A is before a date B.
+func (a Date) IsBefore(b Date) bool {
+	return b.IsAfter(a) && a != b
+}
+
 // Returns the number of days from a date A until a date B is reached.
 // (e.g. from 2021-12-14 until 2021-12-19 -> 5 days)
 // expects b not to be before a
