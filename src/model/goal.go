@@ -87,14 +87,33 @@ func (g *WorkweekGoal) Requires(date Date) time.Duration {
 
 // NewWorkweekGoalFromConfig constructs a new WorkweekGoal from config data.
 func NewWorkweekGoalFromConfig(cfg config.WorkweekGoal) (*WorkweekGoal, error) {
-	monday, mondayErr := time.ParseDuration(cfg.Monday)
-	tuesday, tuesdayErr := time.ParseDuration(cfg.Tuesday)
-	wednesday, wednesdayErr := time.ParseDuration(cfg.Wednesday)
-	thursday, thursdayErr := time.ParseDuration(cfg.Thursday)
-	friday, fridayErr := time.ParseDuration(cfg.Friday)
-	saturday, saturdayErr := time.ParseDuration(cfg.Saturday)
-	sunday, sundayErr := time.ParseDuration(cfg.Sunday)
+	var monday, tuesday, wednesday, thursday, friday, saturday, sunday time.Duration
+	var mondayErr, tuesdayErr, wednesdayErr, thursdayErr, fridayErr, saturdayErr, sundayErr error
 
+	// parse any provided durations (else defaults to 0)
+	if cfg.Monday != "" {
+		monday, mondayErr = time.ParseDuration(cfg.Monday)
+	}
+	if cfg.Tuesday != "" {
+		tuesday, tuesdayErr = time.ParseDuration(cfg.Tuesday)
+	}
+	if cfg.Wednesday != "" {
+		wednesday, wednesdayErr = time.ParseDuration(cfg.Wednesday)
+	}
+	if cfg.Thursday != "" {
+		thursday, thursdayErr = time.ParseDuration(cfg.Thursday)
+	}
+	if cfg.Friday != "" {
+		friday, fridayErr = time.ParseDuration(cfg.Friday)
+	}
+	if cfg.Saturday != "" {
+		saturday, saturdayErr = time.ParseDuration(cfg.Saturday)
+	}
+	if cfg.Sunday != "" {
+		sunday, sundayErr = time.ParseDuration(cfg.Sunday)
+	}
+
+	// return valid config, unless errors occurred during parsing
 	switch {
 	case mondayErr != nil:
 		return nil, mondayErr
