@@ -61,11 +61,16 @@ type Category struct {
 	Goal     Goal   `yaml:"goal,omitempty"`
 }
 
+// Goal is a time goal.
 type Goal struct {
 	Workweek *WorkweekGoal `yaml:"workweek,omitempty"`
-	Ranged   *RangedGoal   `yaml:"ranged,omitempty"`
+	Ranged   *[]RangedGoal `yaml:"ranged,omitempty"`
 }
 
+// WorkweekGoal allows defining an expected duration per weekday.
+//
+// For format see time.ParseDuration. It probably wouldn't make sense to define
+// negative values.
 type WorkweekGoal struct {
 	Monday    string `yaml:"monday"`
 	Tuesday   string `yaml:"tuesday"`
@@ -76,6 +81,10 @@ type WorkweekGoal struct {
 	Sunday    string `yaml:"sunday"`
 }
 
+// RangedGoal allows defining an expected duration over a period of time.
+//
+// For format see time.ParseDuration. It probably wouldn't make sense to define
+// negative values.
 type RangedGoal struct {
 	Start string `yaml:"start"`
 	End   string `yaml:"end"`

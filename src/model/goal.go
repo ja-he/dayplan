@@ -13,9 +13,15 @@ type Goal interface {
 	Requires(Date) time.Duration
 }
 
-// RangedGoal is a Goal that is defined by an expected total duration over a
-// bounded period of time.
+// RangedGoal is a Goal that is defined by any number of ranges and the
+// expected duration for each.
 type RangedGoal struct {
+	Entries []rangedGoalEntry
+}
+
+// rangedGoalEntry is a Goal that is defined by an expected total duration over a
+// bounded period of time.
+type rangedGoalEntry struct {
 	Start Date
 	End   Date
 	Time  time.Duration
@@ -25,29 +31,36 @@ type RangedGoal struct {
 //
 // It is (Time/ DAYSINRANGE(Start, End)) for any day in range, 0 otherwise.
 func (g *RangedGoal) Requires(date Date) time.Duration {
-	if date.IsBefore(g.Start) || date.IsAfter(g.End) {
-		return 0
-	} else {
-		return g.Time / time.Duration(g.Start.DaysUntil(g.End)+1)
+	for _, e := range g.Entries {
+		// if within range of entry, return the duration (proportional to range length)
+		if !date.IsBefore(e.Start) && !date.IsAfter(e.End) {
+			return e.Time / time.Duration(e.Start.DaysUntil(e.End)+1)
+		}
 	}
+
+	return 0
 }
 
 // NewRangedGoalFromConfig constructs a new RangedGoal from config data.
-func NewRangedGoalFromConfig(cfg config.RangedGoal) (*RangedGoal, error) {
+func NewRangedGoalFromConfig(cfg []config.RangedGoal) (*RangedGoal, error) {
+	result := RangedGoal{}
 
-	start, err := FromString(cfg.Start)
-	end, err := FromString(cfg.End)
-
-	duration, err := time.ParseDuration(cfg.Time)
-	if err != nil {
-		return nil, err
-	} else {
-		return &RangedGoal{
-			Start: start,
-			End:   end,
-			Time:  duration,
-		}, nil
+	for i := range cfg {
+		start, err := FromString(cfg[i].Start)
+		end, err := FromString(cfg[i].End)
+		duration, err := time.ParseDuration(cfg[i].Time)
+		if err != nil {
+			return nil, err
+		} else {
+			result.Entries = append(result.Entries, rangedGoalEntry{
+				Start: start,
+				End:   end,
+				Time:  duration,
+			})
+		}
 	}
+
+	return &result, nil
 }
 
 // WorkweekGoal is a goal that defines the duration per day of the week.
