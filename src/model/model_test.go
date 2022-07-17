@@ -229,7 +229,7 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"eating", 0}: 40,
+			{"eating", 0, nil}: 40,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
@@ -245,7 +245,7 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("18:15|19:00|eating|Dinner", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"eating", 0}: 125,
+			{"eating", 0, nil}: 125,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
@@ -261,8 +261,8 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("18:15|19:00|cooking|Dinner", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"eating", 0}:  80,
-			{"cooking", 0}: 45,
+			{"eating", 0, nil}:  80,
+			{"cooking", 0, nil}: 45,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
@@ -277,7 +277,7 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("01:30|02:30|a|A2", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"a", 0}: 90,
+			{"a", 0, nil}: 90,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
@@ -292,7 +292,7 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("01:15|01:45|a|A subevent", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"a", 0}: 60,
+			{"a", 0, nil}: 60,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {

@@ -201,6 +201,16 @@ categories:
     color: '#ffdccc'
   - name: work
     color: '#ffcccc'
+    goal: # this helps track overtime
+      workweek:
+        monday:    5h
+        tuesday:   5h
+        wednesday: 5h
+        thursday:  5h
+        friday:    0h
+        saturday:  0h
+        sunday:    0h
+
   - name: cooking
     color: '#ccffe6'
   # ...
