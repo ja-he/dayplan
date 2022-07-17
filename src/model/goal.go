@@ -52,6 +52,12 @@ func NewRangedGoalFromConfig(cfg []config.RangedGoal) (*RangedGoal, error) {
 		if err != nil {
 			return nil, err
 		} else {
+			for j := 0; j < i; j++ {
+				if !((start.IsBefore(result.Entries[j].Start) && end.IsBefore(result.Entries[j].Start)) || (start.IsAfter(result.Entries[j].End) && end.IsAfter(result.Entries[j].End))) {
+					return nil, fmt.Errorf("range no. %d defined overlaps with range no. %d", i, j)
+				}
+			}
+
 			result.Entries = append(result.Entries, rangedGoalEntry{
 				Start: start,
 				End:   end,
