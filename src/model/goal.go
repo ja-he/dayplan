@@ -7,16 +7,23 @@ import (
 	"github.com/ja-he/dayplan/src/config"
 )
 
+// Goal defines a time goal.
+// It can be queried, for any given date, what duration the goal requires.
 type Goal interface {
 	Requires(Date) time.Duration
 }
 
+// RangedGoal is a Goal that is defined by an expected total duration over a
+// bounded period of time.
 type RangedGoal struct {
 	Start Date
 	End   Date
 	Time  time.Duration
 }
 
+// Requires returns the duration required for the given date.
+//
+// It is (Time/ DAYSINRANGE(Start, End)) for any day in range, 0 otherwise.
 func (g *RangedGoal) Requires(date Date) time.Duration {
 	if date.IsBefore(g.Start) || date.IsAfter(g.End) {
 		return 0
@@ -25,6 +32,7 @@ func (g *RangedGoal) Requires(date Date) time.Duration {
 	}
 }
 
+// NewRangedGoalFromConfig constructs a new RangedGoal from config data.
 func NewRangedGoalFromConfig(cfg config.RangedGoal) (*RangedGoal, error) {
 
 	start, err := FromString(cfg.Start)
@@ -42,6 +50,7 @@ func NewRangedGoalFromConfig(cfg config.RangedGoal) (*RangedGoal, error) {
 	}
 }
 
+// WorkweekGoal is a goal that defines the duration per day of the week.
 type WorkweekGoal struct {
 	Monday    time.Duration
 	Tuesday   time.Duration
@@ -52,6 +61,9 @@ type WorkweekGoal struct {
 	Sunday    time.Duration
 }
 
+// Requires returns the duration required for the given date.
+//
+// It is just the duration defined for the date's weekday.
 func (g *WorkweekGoal) Requires(date Date) time.Duration {
 	switch date.ToWeekday() {
 	case time.Monday:
@@ -73,6 +85,7 @@ func (g *WorkweekGoal) Requires(date Date) time.Duration {
 	}
 }
 
+// NewWorkweekGoalFromConfig constructs a new WorkweekGoal from config data.
 func NewWorkweekGoalFromConfig(cfg config.WorkweekGoal) (*WorkweekGoal, error) {
 	monday, mondayErr := time.ParseDuration(cfg.Monday)
 	tuesday, tuesdayErr := time.ParseDuration(cfg.Tuesday)
@@ -110,6 +123,8 @@ func NewWorkweekGoalFromConfig(cfg config.WorkweekGoal) (*WorkweekGoal, error) {
 	}
 }
 
+// GoalForRange is a helper to sum up the duration for the given range expected
+// by the given Goal.
 func GoalForRange(goal Goal, startDate, endDate Date) time.Duration {
 	sum := time.Duration(0)
 
