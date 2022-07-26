@@ -66,7 +66,12 @@ type Controller struct {
 	syncer            tui.ScreenSynchronizer
 }
 
-func NewController(date model.Date, envData control.EnvData, categoryStyling styling.CategoryStyling, stylesheet styling.Stylesheet) *Controller {
+func NewController(
+	date model.Date,
+	envData control.EnvData,
+	categoryStyling styling.CategoryStyling,
+	stylesheet styling.Stylesheet,
+) *Controller {
 	controller := Controller{}
 
 	controller.data = control.NewControlData(categoryStyling)
