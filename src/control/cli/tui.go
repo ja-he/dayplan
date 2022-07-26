@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -26,13 +25,16 @@ type TuiCommand struct {
 }
 
 func (command *TuiCommand) Execute(args []string) error {
-	// set up dual logger
+	// set up stderr logger until TUI set up
+	stderrLogger := log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	// create TUI logger
 	var logWriter io.Writer
 	if command.LogOutputFile != "" {
 		var fileLogger io.Writer
 		file, err := os.OpenFile(command.LogOutputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not open file '%s' for logging (%s)", command.LogOutputFile, err.Error())
+			stderrLogger.Fatal().Err(err).Str("file", command.LogOutputFile).Msg("could not open file for logging")
 		}
 		if command.LogPretty {
 			fileLogger = zerolog.ConsoleWriter{Out: file}
@@ -43,8 +45,11 @@ func (command *TuiCommand) Execute(args []string) error {
 	} else {
 		logWriter = &potatolog.GlobalMemoryLogReaderWriter
 	}
-	log.Logger = zerolog.New(logWriter).With().Timestamp().Caller().Logger()
-	log.Debug().Msg("logger set up")
+	tuiLogger := zerolog.New(logWriter).With().Timestamp().Caller().Logger()
+
+	// temporarily log to both (in case the TUI doesn't get set we want the info
+	// on the stderr logger, otherwise the TUI logger is relevant)
+	log.Logger = log.Output(zerolog.MultiLevelWriter(stderrLogger, tuiLogger))
 
 	var theme config.ColorschemeType
 	switch command.Theme {
@@ -75,7 +80,7 @@ func (command *TuiCommand) Execute(args []string) error {
 	} else {
 		initialDay, err = model.FromString(command.Day)
 		if err != nil {
-			panic(err) // TODO
+			stderrLogger.Fatal().Err(err).Msg("could not parse given date") // TODO
 		}
 	}
 
@@ -92,7 +97,7 @@ func (command *TuiCommand) Execute(args []string) error {
 	}
 	configData, err := config.ParseConfigAugmentDefaults(theme, yamlData)
 	if err != nil {
-		panic(fmt.Sprintf("can't parse config data: '%s'", err))
+		stderrLogger.Fatal().Err(err).Msg("can't parse config data")
 	}
 
 	// get categories from config
@@ -123,7 +128,11 @@ func (command *TuiCommand) Execute(args []string) error {
 
 	stylesheet := styling.NewStylesheetFromConfig(configData.Stylesheet)
 
-	controller := NewController(initialDay, envData, categoryStyling, *stylesheet)
+	controller := NewController(initialDay, envData, categoryStyling, *stylesheet, stderrLogger, tuiLogger)
+
+	// now that the screen is initialized, we'll always want the TUI logger, so
+	// we're making it the global logger
+	log.Logger = tuiLogger
 
 	controller.Run()
 	return nil
