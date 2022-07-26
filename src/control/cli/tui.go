@@ -21,6 +21,7 @@ type TuiCommand struct {
 	Day           string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
 	Theme         string `short:"t" long:"theme" choice:"light" choice:"dark" description:"Select a 'dark' or a 'light' default theme (note: only sets defaults, which are individually overridden by settings in config.yaml"`
 	LogOutputFile string `short:"l" long:"log-output-file" description:"specify a log output file (otherwise logs dropped)"`
+	LogPretty     bool   `short:"p" long:"log-pretty" description:"prettify logs to file"`
 }
 
 func (command *TuiCommand) Execute(args []string) error {
@@ -32,7 +33,11 @@ func (command *TuiCommand) Execute(args []string) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not open file '%s' for logging (%s)", command.LogOutputFile, err.Error())
 		}
-		fileLogger = file
+		if command.LogPretty {
+			fileLogger = zerolog.ConsoleWriter{Out: file}
+		} else {
+			fileLogger = file
+		}
 		logWriter = zerolog.MultiLevelWriter(fileLogger, &potatolog.GlobalMemoryLogReaderWriter)
 	} else {
 		logWriter = &potatolog.GlobalMemoryLogReaderWriter
