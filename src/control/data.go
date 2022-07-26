@@ -5,7 +5,6 @@ import (
 
 	"github.com/ja-he/dayplan/src/control/editor"
 	"github.com/ja-he/dayplan/src/model"
-	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
@@ -91,8 +90,6 @@ type ControlData struct {
 	ViewParams ui.ViewParams
 
 	ActiveView func() ui.ActiveView
-
-	Log potatolog.Log
 
 	RenderTimes          util.MetricsHandler
 	EventProcessingTimes util.MetricsHandler

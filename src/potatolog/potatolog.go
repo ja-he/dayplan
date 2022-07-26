@@ -1,47 +1,47 @@
 package potatolog
 
 import (
+	"encoding/json"
 	"fmt"
-	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 )
 
-type LogEntry struct {
-	At       time.Time
-	Location string
-	Type     string
-	Message  string
+var GlobalMemoryLogReaderWriter = MemoryLogReaderWriter{
+	mtx: sync.Mutex{},
+	log: []*LogEntry{},
 }
 
-type Log struct {
-	mutex   sync.Mutex
-	entries []LogEntry
+type MemoryLogReaderWriter struct {
+	mtx sync.Mutex
+	log []*LogEntry
 }
 
-func (l *Log) Add(entryType, message string) {
-	_, path, line, ok := runtime.Caller(1)
-	file := filepath.Base(path)
-	location := "[irretrievable]"
-	if ok {
-		location = fmt.Sprintf("%s:%d", file, line)
+func (w *MemoryLogReaderWriter) Write(p []byte) (int, error) {
+	entry := &LogEntry{}
+	err := json.Unmarshal(p, entry)
+	if err != nil {
+		return 0, fmt.Errorf("could not unmarshal log entry (%s)", err.Error())
 	}
-	l.mutex.Lock()
-	l.entries = append(l.entries, LogEntry{time.Now(), location, entryType, message})
-	l.mutex.Unlock()
+
+	w.mtx.Lock()
+	defer w.mtx.Unlock()
+	w.log = append(w.log, entry)
+	return len(p), nil
 }
 
-func (l *Log) Get() []LogEntry {
-	return l.entries
+func (w *MemoryLogReaderWriter) Get() []*LogEntry {
+	return w.log
 }
 
-// LogWriter allows adding to a log.
-type LogWriter interface {
-	Add(entryType, message string)
+type LogEntry struct {
+	Time    time.Time `json:"time"`
+	Level   string    `json:"level"`
+	Message string    `json:"message"`
+	Caller  string    `json:"caller,omitempty"`
 }
 
 // LogReader allows reading access to a log.
 type LogReader interface {
-	Get() []LogEntry
+	Get() []*LogEntry
 }

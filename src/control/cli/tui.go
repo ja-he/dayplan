@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -10,15 +11,35 @@ import (
 	"github.com/ja-he/dayplan/src/config"
 	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type TuiCommand struct {
-	Day   string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
-	Theme string `short:"t" long:"theme" choice:"light" choice:"dark" description:"Select a 'dark' or a 'light' default theme (note: only sets defaults, which are individually overridden by settings in config.yaml"`
+	Day           string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
+	Theme         string `short:"t" long:"theme" choice:"light" choice:"dark" description:"Select a 'dark' or a 'light' default theme (note: only sets defaults, which are individually overridden by settings in config.yaml"`
+	LogOutputFile string `short:"l" long:"log-output-file" description:"specify a log output file (otherwise logs dropped)"`
 }
 
 func (command *TuiCommand) Execute(args []string) error {
+	// set up dual logger
+	var logWriter io.Writer
+	if command.LogOutputFile != "" {
+		var fileLogger io.Writer
+		file, err := os.OpenFile(command.LogOutputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not open file '%s' for logging (%s)", command.LogOutputFile, err.Error())
+		}
+		fileLogger = file
+		logWriter = zerolog.MultiLevelWriter(fileLogger, &potatolog.GlobalMemoryLogReaderWriter)
+	} else {
+		logWriter = &potatolog.GlobalMemoryLogReaderWriter
+	}
+	log.Logger = zerolog.New(logWriter).With().Timestamp().Caller().Logger()
+	log.Debug().Msg("logger set up")
+
 	var theme config.ColorschemeType
 	switch command.Theme {
 	case "light":
@@ -60,8 +81,7 @@ func (command *TuiCommand) Execute(args []string) error {
 	// read config from file
 	yamlData, err := ioutil.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: can't read config file: '%s'.\n", err)
-		fmt.Fprintf(os.Stderr, "         using defaults.\n")
+		log.Warn().Err(err).Msg("can't read config file: '%s', using defaults")
 		yamlData = make([]byte, 0)
 	}
 	configData, err := config.ParseConfigAugmentDefaults(theme, yamlData)

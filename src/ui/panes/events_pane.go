@@ -6,10 +6,10 @@ import (
 
 	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/model"
-	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/ui"
 	"github.com/ja-he/dayplan/src/util"
+	"github.com/rs/zerolog/log"
 )
 
 // An EventsPane displays a single days events.
@@ -26,9 +26,6 @@ type EventsPane struct {
 
 	viewParams *ui.ViewParams
 	cursor     *ui.MouseCursorPos
-
-	logReader potatolog.LogReader
-	logWriter potatolog.LogWriter
 
 	pad             int
 	drawTimestamps  bool
@@ -75,7 +72,7 @@ func (p *EventsPane) Draw() {
 	day := p.day()
 
 	if day == nil {
-		p.logWriter.Add("DEBUG", "current day nil on render; skipping")
+		log.Debug().Msg("current day nil on render; skipping")
 		// TODO: just draw this, man
 		return
 	}
@@ -83,7 +80,7 @@ func (p *EventsPane) Draw() {
 	for _, e := range day.Events {
 		style, err := p.styleForCategory(e.Cat)
 		if err != nil {
-			p.logWriter.Add("ERROR", err.Error())
+			log.Error().Err(err).Str("category-name", e.Cat.Name).Msg("an error occurred getting category style")
 			style = p.stylesheet.CategoryFallback
 		}
 		if !p.isCurrentDay() {
@@ -272,8 +269,6 @@ func NewEventsPane(
 	isCurrentDay func() bool,
 	getCurrentEvent func() *model.Event,
 	mouseMode func() bool,
-	logReader potatolog.LogReader,
-	logWriter potatolog.LogWriter,
 ) *EventsPane {
 	return &EventsPane{
 		Leaf: Leaf{
@@ -296,8 +291,6 @@ func NewEventsPane(
 		isCurrentDay:     isCurrentDay,
 		getCurrentEvent:  getCurrentEvent,
 		mouseMode:        mouseMode,
-		logReader:        logReader,
-		logWriter:        logWriter,
 		positions:        make(map[*model.Event]util.Rect, 0),
 	}
 }

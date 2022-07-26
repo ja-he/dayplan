@@ -6,12 +6,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/control/action"
 	"github.com/ja-he/dayplan/src/filehandling"
 	"github.com/ja-he/dayplan/src/input"
 	"github.com/ja-he/dayplan/src/input/processors"
 	"github.com/ja-he/dayplan/src/model"
+	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
 	"github.com/ja-he/dayplan/src/tui"
 	"github.com/ja-he/dayplan/src/ui"
@@ -91,7 +94,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				controller.data.ViewParams.NRowsPerHour /= 2
 				controller.data.ViewParams.ScrollOffset /= 2
 			} else {
-				controller.data.Log.Add("WARNING", fmt.Sprintf("can't decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
+				log.Warn().Msg(fmt.Sprintf("can't decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
 			}
 		}),
 	}
@@ -186,8 +189,6 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			func() bool { return controller.data.CurrentDate.GetDayInWeek(dayIndex) == controller.data.CurrentDate },
 			func() *model.Event { return nil /* TODO */ },
 			func() bool { return controller.data.MouseMode },
-			&controller.data.Log,
-			&controller.data.Log,
 		)
 	}
 	monthdayDimensions := func(dayIndex int) func() (x, y, w, h int) {
@@ -225,8 +226,6 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 				func() bool { return controller.data.CurrentDate.GetDayInMonth(dayIndex) == controller.data.CurrentDate },
 				func() *model.Event { return nil /* TODO */ },
 				func() bool { return controller.data.MouseMode },
-				&controller.data.Log,
-				&controller.data.Log,
 			),
 		)
 	}
@@ -485,8 +484,6 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		func() bool { return true },
 		func() *model.Event { return controller.data.GetCurrentDay().Current },
 		func() bool { return controller.data.MouseMode },
-		&controller.data.Log,
-		&controller.data.Log,
 	)
 	startMovePushing = func() {
 		if controller.data.GetCurrentDay().Current == nil {
@@ -584,11 +581,11 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 					current := controller.data.GetCurrentDay().Current
 					err = controller.data.GetCurrentDay().ResizeBy(current, controller.data.ViewParams.MinutesPerRow())
 					if err != nil {
-						controller.data.Log.Add("WARNING", err.Error())
+						log.Warn().Msg(err.Error())
 					}
 					err = controller.data.GetCurrentDay().SnapEnd(current, controller.data.ViewParams.MinutesPerRow())
 					if err != nil {
-						controller.data.Log.Add("WARNING", err.Error())
+						log.Warn().Msg(err.Error())
 					}
 					ensureVisible(current.End)
 				}),
@@ -935,7 +932,7 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 			stylesheet,
 			func() bool { return controller.data.ShowLog },
 			func() string { return "LOG" },
-			&controller.data.Log,
+			&potatolog.GlobalMemoryLogReaderWriter,
 		),
 		helpPane,
 		editorPane,
@@ -979,10 +976,10 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 		controller.data.Weather = *weather.NewHandler(envData.Latitude, envData.Longitude, envData.OwmApiKey)
 	} else {
 		if !owmApiKeyProvided {
-			controller.data.Log.Add("ERROR", "no OWM API key provided -> no weather data")
+			log.Error().Msg("no OWM API key provided -> no weather data")
 		}
 		if !coordinatesProvided {
-			controller.data.Log.Add("ERROR", "no lat-/longitude provided -> no weather data")
+			log.Error().Msg("no lat-/longitude provided -> no weather data")
 		}
 	}
 
@@ -990,12 +987,12 @@ func NewController(date model.Date, envData control.EnvData, categoryStyling sty
 	// TODO
 	var suntimes model.SunTimes
 	if !coordinatesProvided {
-		controller.data.Log.Add("ERROR", "could not fetch lat-&longitude -> no sunrise/-set times known")
+		log.Error().Msg("could not fetch lat-&longitude -> no sunrise/-set times known")
 	} else {
 		latF, parseErr := strconv.ParseFloat(envData.Latitude, 64)
 		lonF, parseErr := strconv.ParseFloat(envData.Longitude, 64)
 		if parseErr != nil {
-			controller.data.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
+			log.Error().Msg(fmt.Sprint("parse error:", parseErr))
 		} else {
 			suntimes = date.GetSunTimes(latF, lonF)
 		}
@@ -1094,7 +1091,7 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 	// find out cursor time
 	start := info.Time()
 
-	t.data.Log.Add("DEBUG", fmt.Sprintf("creation called for '%s'", info.Time().ToString()))
+	log.Debug().Msg(fmt.Sprintf("creation called for '%s'", info.Time().ToString()))
 
 	// create event at time with cat etc.
 	e := model.Event{}
@@ -1105,7 +1102,7 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 
 	err := t.data.GetCurrentDay().AddEvent(&e)
 	if err != nil {
-		t.data.Log.Add("ERROR", err.Error())
+		log.Error().Msg(err.Error())
 	} else {
 		t.data.MouseEditedEvent = &e
 		t.data.MouseEditState = control.MouseEditStateResizing
@@ -1113,7 +1110,7 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 }
 
 func (t *Controller) goToDay(newDate model.Date) {
-	t.data.Log.Add("DEBUG", "going to "+newDate.ToString())
+	log.Debug().Msg("going to " + newDate.ToString())
 
 	t.data.CurrentDate = newDate
 	t.loadDaysForView(t.data.ActiveView())
@@ -1145,7 +1142,7 @@ func (t *Controller) loadDay(date model.Date) {
 			latF, parseErr := strconv.ParseFloat(t.data.EnvData.Latitude, 64)
 			lonF, parseErr := strconv.ParseFloat(t.data.EnvData.Longitude, 64)
 			if parseErr != nil {
-				t.data.Log.Add("ERROR", fmt.Sprint("parse error:", parseErr))
+				log.Error().Msg(fmt.Sprint("parse error:", parseErr))
 			} else {
 				suntimes = date.GetSunTimes(latF, lonF)
 			}
@@ -1300,7 +1297,7 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 			var err error
 			err = t.data.GetCurrentDay().ResizeTo(event, visualCursorTime)
 			if err != nil {
-				t.data.Log.Add("WARNING", err.Error())
+				log.Warn().Msg(err.Error())
 			}
 
 		case tcell.ButtonNone:
@@ -1334,9 +1331,9 @@ func (c *Controller) updateWeather() {
 	go func() {
 		err := c.data.Weather.Update()
 		if err != nil {
-			c.data.Log.Add("ERROR", err.Error())
+			log.Error().Err(err).Msg("could not update weather data")
 		} else {
-			c.data.Log.Add("DEBUG", "successfully retrieved weather data")
+			log.Debug().Msg("successfully retrieved weather data")
 		}
 		c.controllerEvents <- ControllerEventRender
 	}()
@@ -1371,6 +1368,8 @@ func emptyRenderEvents(c chan ControllerEvent) bool {
 }
 
 func (t *Controller) Run() {
+	log.Info().Msg("dayplan TUI started")
+
 	t.controllerEvents = make(chan ControllerEvent, 32)
 	var wg sync.WaitGroup
 
@@ -1432,7 +1431,7 @@ func (t *Controller) Run() {
 					key := input.KeyFromTcellEvent(e)
 					inputApplied := t.rootPane.ProcessInput(key)
 					if !inputApplied {
-						t.data.Log.Add("ERROR", fmt.Sprintf("could not apply key input %s", key.ToDebugString()))
+						log.Error().Msg(fmt.Sprintf("could not apply key input %s", key.ToDebugString()))
 					}
 
 				case *tcell.EventMouse:
