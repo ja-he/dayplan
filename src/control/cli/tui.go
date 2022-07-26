@@ -8,13 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/src/config"
 	"github.com/ja-he/dayplan/src/control"
 	"github.com/ja-he/dayplan/src/model"
 	"github.com/ja-he/dayplan/src/potatolog"
 	"github.com/ja-he/dayplan/src/styling"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 type TuiCommand struct {
