@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // Config is the configuration data as present in a config file at
