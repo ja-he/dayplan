@@ -7,7 +7,7 @@
 #     $ ./build.sh install
 
 project_base="github.com/ja-he/dayplan"
-source_root="${project_base}/src"
+source_root="${project_base}/internal"
 
 # get the version tag that points to HEAD
 version="$(git tag --points-at HEAD | grep '^v[0-9]\+.[0-9]\+.[0-9]\+$')"
@@ -25,12 +25,12 @@ fi
 case ${1} in
   install)
     printf "installing version '%s' at '%s'...\n" "${version}" "${hash}"
-    go install -ldflags="-X '${source_root}/control/cli.version=${version}' -X '${source_root}/control/cli.hash=${hash}'"
+    go install -ldflags="-X '${source_root}/control/cli.version=${version}' -X '${source_root}/control/cli.hash=${hash}'" cmd/dayplan.go
     printf "done\n"
     ;;
   "")
     printf "building version '%s' at '%s'...\n" "${version}" "${hash}"
-    go build -ldflags="-X '${source_root}/control/cli.version=${version}' -X '${source_root}/control/cli.hash=${hash}'"
+    go build -v -ldflags="-X '${source_root}/control/cli.version=${version}' -X '${source_root}/control/cli.hash=${hash}'" cmd/dayplan.go
     printf "done\n"
     ;;
   *)
