@@ -29,3 +29,6 @@ jobs:
 
     - name: Vet
       run: go vet ./...
+
+    - name: Buildscript
+      run: .scripts/build.sh && test -f dayplan || echo 'build script fails to produce binary'
