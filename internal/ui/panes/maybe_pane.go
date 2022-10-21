@@ -43,14 +43,7 @@ func (p *MaybePane) GetPositionInfo(x, y int) ui.PositionInfo {
 	if p.condition() {
 		return p.pane.GetPositionInfo(x, y)
 	}
-	return ui.NewPositionInfo(
-		ui.NoPane,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	return nil
 }
 
 // SetParent iff condition.

@@ -94,25 +94,8 @@ func (p *ToolsPane) getCategoryForPos(x, y int) *model.Category {
 
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *ToolsPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	return ui.NewPositionInfo(
-		ui.ToolsPaneType,
-		nil,
-		nil,
-		&ToolsPanePositionInfo{category: p.getCategoryForPos(x, y)},
-		nil,
-		nil,
-	)
+	return &ui.ToolsPanePositionInfo{Category: p.getCategoryForPos(x, y)}
 }
-
-// ToolsPanePositionInfo conveys information on a position in a tools pane,
-// importantly the possible category displayed at that position.
-type ToolsPanePositionInfo struct {
-	category *model.Category
-}
-
-// Category gives the category at the position, or nil if none (e.g., because
-// in padding space).
-func (i *ToolsPanePositionInfo) Category() *model.Category { return i.category }
 
 // NewToolsPane constructs and returns a new ToolsPane.
 func NewToolsPane(

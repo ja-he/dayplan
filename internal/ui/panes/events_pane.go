@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
-	"github.com/rs/zerolog/log"
 )
 
 // An EventsPane displays a single days events.
@@ -50,14 +51,7 @@ func (p *EventsPane) Dimensions() (x, y, w, h int) {
 // Importantly, when there is an event at the position, it will inform of that
 // in detail.
 func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	return ui.NewPositionInfo(
-		ui.EventsPaneType,
-		nil,
-		nil,
-		nil,
-		nil,
-		p.getEventForPos(x, y),
-	)
+	return p.getEventForPos(x, y)
 }
 
 // Draw draws this pane.
@@ -95,7 +89,7 @@ func (p *EventsPane) Draw() {
 		} else {
 			timestampWidth = 0
 		}
-		var hovered ui.EventsPanePositionInfo
+		var hovered *ui.EventsPanePositionInfo
 		if p.mouseMode() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
@@ -111,10 +105,10 @@ func (p *EventsPane) Draw() {
 		namePadding := 1
 		nameWidth := pos.W - (2 * namePadding) - timestampWidth
 
-		if p.mouseMode() && hovered != nil && hovered.Event() == e && hovered.EventBoxPart() != ui.EventBoxNowhere {
+		if p.mouseMode() && hovered != nil && hovered.Event == e && hovered.EventBoxPart != ui.EventBoxNowhere {
 			selectionStyling := style.DefaultEmphasized()
 
-			switch hovered.EventBoxPart() {
+			switch hovered.EventBoxPart {
 
 			case ui.EventBoxBottomRight:
 				bottomStyling = selectionStyling.Bolded()
@@ -128,7 +122,7 @@ func (p *EventsPane) Draw() {
 				nameStyling = selectionStyling.Bolded()
 
 			default:
-				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart().ToString()))
+				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart.ToString()))
 			}
 		}
 
@@ -161,7 +155,7 @@ func (p *EventsPane) Draw() {
 	}
 }
 
-func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
+func (p *EventsPane) getEventForPos(x, y int) *ui.EventsPanePositionInfo {
 	dimX, _, dimW, _ := p.Dimensions()
 
 	if x >= dimX &&
@@ -179,40 +173,20 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 				default:
 					hover = ui.EventBoxInterior
 				}
-				return &EventsPanePositionInfo{
-					event:        currentDay.Events[i],
-					eventBoxPart: hover,
-					time:         p.viewParams.TimeAtY(y),
+				return &ui.EventsPanePositionInfo{
+					Event:        currentDay.Events[i],
+					EventBoxPart: hover,
+					Time:         p.viewParams.TimeAtY(y),
 				}
 			}
 		}
 	}
-	return &EventsPanePositionInfo{
-		event:        nil,
-		eventBoxPart: ui.EventBoxNowhere,
-		time:         p.viewParams.TimeAtY(y),
+	return &ui.EventsPanePositionInfo{
+		Event:        nil,
+		EventBoxPart: ui.EventBoxNowhere,
+		Time:         p.viewParams.TimeAtY(y),
 	}
 }
-
-// EventsPanePositionInfo provides information on a position in an EventsPane,
-// implementing the ui.EventsPanePositionInfo interface.
-type EventsPanePositionInfo struct {
-	event        *model.Event
-	eventBoxPart ui.EventBoxPart
-	time         model.Timestamp
-}
-
-// Event returns the ID of the event at the position, 0 if no event at
-// position.
-func (i *EventsPanePositionInfo) Event() *model.Event { return i.event }
-
-// EventBoxPart returns the part of the event box that corresponds to the
-// position (which can be EventBoxNowhere, if no event at position).
-func (i *EventsPanePositionInfo) EventBoxPart() ui.EventBoxPart { return i.eventBoxPart }
-
-// Time returns the time that corresponds to the position (specifically the
-// y-value of the position).
-func (i *EventsPanePositionInfo) Time() model.Timestamp { return i.time }
 
 func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, height int) map[*model.Event]util.Rect {
 	activeStack := make([]*model.Event, 0)

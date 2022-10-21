@@ -69,6 +69,8 @@ const (
 	EventsPaneType
 	// ToolsPaneType represents a tools pane.
 	ToolsPaneType
+	// TasksPaneType represents a tasks pane.
+	TasksPaneType
 	// StatusPaneType represents a status pane (or status bar).
 	StatusPaneType
 	// EditorPaneType represents an editor (popup/floating) pane.

@@ -1087,22 +1087,22 @@ func (t *Controller) endEdit() {
 	t.data.GetCurrentDay().UpdateEventOrder()
 }
 
-func (t *Controller) startMouseMove(eventsInfo ui.EventsPanePositionInfo) {
+func (t *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
 	t.data.MouseEditState = control.MouseEditStateMoving
-	t.data.MouseEditedEvent = eventsInfo.Event()
-	t.data.CurrentMoveStartingOffsetMinutes = eventsInfo.Event().Start.DurationInMinutesUntil(eventsInfo.Time())
+	t.data.MouseEditedEvent = eventsInfo.Event
+	t.data.CurrentMoveStartingOffsetMinutes = eventsInfo.Event.Start.DurationInMinutesUntil(eventsInfo.Time)
 }
 
-func (t *Controller) startMouseResize(eventsInfo ui.EventsPanePositionInfo) {
+func (t *Controller) startMouseResize(eventsInfo *ui.EventsPanePositionInfo) {
 	t.data.MouseEditState = control.MouseEditStateResizing
-	t.data.MouseEditedEvent = eventsInfo.Event()
+	t.data.MouseEditedEvent = eventsInfo.Event
 }
 
-func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
+func (t *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 	// find out cursor time
-	start := info.Time()
+	start := info.Time
 
-	log.Debug().Str("position-time", info.Time().ToString()).Msg("creation called")
+	log.Debug().Str("position-time", info.Time.ToString()).Msg("creation called")
 
 	// create event at time with cat etc.
 	e := model.Event{}
@@ -1226,11 +1226,10 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 
 	buttons := e.Buttons()
 
-	paneType := positionInfo.PaneType()
-	switch paneType {
-	case ui.StatusPaneType:
+	switch positionInfo := positionInfo.(type) {
+	case *ui.StatusPanePositionInfo:
 
-	case ui.WeatherPaneType:
+	case *ui.WeatherPanePositionInfo:
 		switch buttons {
 		case tcell.WheelUp:
 			t.ScrollUp(1)
@@ -1238,7 +1237,7 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			t.ScrollDown(1)
 		}
 
-	case ui.TimelinePaneType:
+	case *ui.TimelinePanePositionInfo:
 		switch buttons {
 		case tcell.WheelUp:
 			t.ScrollUp(1)
@@ -1246,24 +1245,24 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			t.ScrollDown(1)
 		}
 
-	case ui.EventsPaneType:
-		eventsInfo := positionInfo.GetExtraEventsInfo()
+	case *ui.EventsPanePositionInfo:
+		eventsInfo := positionInfo
 
 		// if button clicked, handle
 		switch buttons {
 		case tcell.Button3:
-			t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
+			t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event)
 		case tcell.Button2:
-			event := eventsInfo.Event()
-			if event != nil && eventsInfo.Time().IsAfter(event.Start) {
-				t.data.GetCurrentDay().SplitEvent(event, eventsInfo.Time())
+			event := eventsInfo.Event
+			if event != nil && eventsInfo.Time.IsAfter(event.Start) {
+				t.data.GetCurrentDay().SplitEvent(event, eventsInfo.Time)
 			}
 
 		case tcell.Button1:
 			// we've clicked while not editing
 			// now we need to check where the cursor is and either start event
 			// creation, resizing or moving
-			switch eventsInfo.EventBoxPart() {
+			switch eventsInfo.EventBoxPart {
 			case ui.EventBoxNowhere:
 				t.startMouseEventCreation(eventsInfo)
 			case ui.EventBoxBottomRight:
@@ -1271,7 +1270,7 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			case ui.EventBoxInterior:
 				t.startMouseMove(eventsInfo)
 			case ui.EventBoxTopEdge:
-				t.data.EventEditor.Activate(eventsInfo.Event())
+				t.data.EventEditor.Activate(eventsInfo.Event)
 			}
 
 		case tcell.WheelUp:
@@ -1282,11 +1281,11 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 
 		}
 
-	case ui.ToolsPaneType:
-		toolsInfo := positionInfo.GetExtraToolsInfo()
+	case *ui.ToolsPanePositionInfo:
+		toolsInfo := positionInfo
 		switch buttons {
 		case tcell.Button1:
-			cat := toolsInfo.Category()
+			cat := toolsInfo.Category
 			if cat != nil {
 				t.data.CurrentCategory = *cat
 			}
