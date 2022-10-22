@@ -79,6 +79,7 @@ func NewController(
 
 	controller.data = control.NewControlData(categoryStyling)
 
+	tasksWidth := 40
 	toolsWidth := 20
 	rightFlexWidth := toolsWidth
 
@@ -132,6 +133,10 @@ func NewController(
 	}
 	helpDimensions := screenDimensions
 	editorDimensions := centeredFloat(editorWidth, editorHeight)
+	tasksDimensions := func() (x, y, w, h int) {
+		screenWidth, screenHeight := screenSize()
+		return screenWidth - rightFlexWidth, 0, tasksWidth, screenHeight - statusHeight
+	}
 	toolsDimensions := func() (x, y, w, h int) {
 		screenWidth, screeenHeight := screenSize()
 		return screenWidth - toolsWidth, 0, toolsWidth, screeenHeight - statusHeight
@@ -313,6 +318,13 @@ func NewController(
 		func() control.EventEditMode { return controller.data.EventEditMode },
 	)
 
+	tasksInputTree, err := input.ConstructInputTree(
+		map[string]action.Action{
+			"x": action.NewSimple(func() string { return "switch to next category" }, func() {
+				log.Debug().Msg("Tasks action triggered by tasks pane input processing")
+			}),
+		},
+	)
 	toolsInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"j": action.NewSimple(func() string { return "switch to next category" }, func() {
@@ -467,7 +479,15 @@ func NewController(
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for day view pane's events subpane")
 	}
 
+	tasksVisible := false
 	toolsVisible := true
+	tasksPane := panes.NewTasksPane(
+		tui.NewConstrainedRenderer(renderer, tasksDimensions),
+		tasksDimensions,
+		stylesheet,
+		processors.NewModalInputProcessor(tasksInputTree),
+		func() bool { return tasksVisible },
+	)
 	toolsPane := panes.NewToolsPane(
 		tui.NewConstrainedRenderer(renderer, toolsDimensions),
 		toolsDimensions,
@@ -635,14 +655,28 @@ func NewController(
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for root pane")
 	}
 	var ensureDayViewMainPaneFocusIsOnVisible func()
+	updateMainPaneRightFlexWidth := func() {
+		rightFlexWidth = 0
+		if tasksPane.IsVisible() {
+			rightFlexWidth += tasksWidth
+		}
+		if toolsPane.IsVisible() {
+			rightFlexWidth += toolsWidth
+		}
+	}
 	toggleToolsPane := func() {
 		toolsVisible = !toolsVisible
-		if toolsVisible {
-			rightFlexWidth = toolsWidth
-		} else {
-			rightFlexWidth = 0
+		if !toolsVisible {
 			ensureDayViewMainPaneFocusIsOnVisible()
 		}
+		updateMainPaneRightFlexWidth()
+	}
+	toggleTasksPane := func() {
+		tasksVisible = !tasksVisible
+		if !tasksVisible {
+			ensureDayViewMainPaneFocusIsOnVisible()
+		}
+		updateMainPaneRightFlexWidth()
 	}
 
 	var dayViewFocusNext, dayViewFocusPrev func()
@@ -650,6 +684,7 @@ func NewController(
 		map[string]action.Action{
 			"W":      action.NewSimple(func() string { return "update weather" }, controller.updateWeather),
 			"t":      action.NewSimple(func() string { return "toggle tools pane" }, toggleToolsPane),
+			"T":      action.NewSimple(func() string { return "toggle tasks pane" }, toggleTasksPane),
 			"<c-w>h": action.NewSimple(func() string { return "switch to previous pane" }, func() { dayViewFocusPrev() }),
 			"<c-w>l": action.NewSimple(func() string { return "switch to next pane" }, func() { dayViewFocusNext() }),
 		},
@@ -718,11 +753,13 @@ func NewController(
 	dayViewMainPane := panes.NewWrapperPane(
 		[]ui.Pane{
 			dayViewScrollablePane,
+			tasksPane,
 			toolsPane,
 			statusPane,
 		},
 		[]ui.Pane{
 			dayViewScrollablePane,
+			tasksPane,
 			toolsPane,
 		},
 		processors.NewModalInputProcessor(dayViewInputTree),
