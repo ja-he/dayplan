@@ -2,6 +2,7 @@ package panes
 
 import (
 	"github.com/ja-he/dayplan/internal/input"
+	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 )
@@ -10,6 +11,7 @@ import (
 // be selected and moved into concrete days, i.e., planned.
 type TasksPane struct {
 	Leaf
+	backlog *model.Backlog
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -49,6 +51,7 @@ func NewTasksPane(
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
 	inputProcessor input.ModalInputProcessor,
+	backlog *model.Backlog,
 	visible func() bool,
 ) *TasksPane {
 	return &TasksPane{
@@ -62,5 +65,6 @@ func NewTasksPane(
 			dimensions: dimensions,
 			stylesheet: stylesheet,
 		},
+		backlog: backlog,
 	}
 }

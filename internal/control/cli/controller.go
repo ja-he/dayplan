@@ -78,6 +78,7 @@ func NewController(
 	controller := Controller{}
 
 	controller.data = control.NewControlData(categoryStyling)
+	var backlog *model.Backlog
 
 	tasksWidth := 40
 	toolsWidth := 20
@@ -486,6 +487,7 @@ func NewController(
 		tasksDimensions,
 		stylesheet,
 		processors.NewModalInputProcessor(tasksInputTree),
+		backlog,
 		func() bool { return tasksVisible },
 	)
 	toolsPane := panes.NewToolsPane(
