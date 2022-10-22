@@ -73,10 +73,12 @@ func (p *Composite) GetPositionInfo(x, y int) ui.PositionInfo {
 func (p *Composite) FocusNext() {
 	for i := range p.focussables {
 		if p.FocussedPane == p.focussables[i] {
-			if i < len(p.focussables)-1 {
-				p.FocussedPane = p.focussables[i+1]
+			for j := i + 1; j < len(p.focussables); j++ {
+				if p.focussables[j].IsVisible() {
+					p.FocussedPane = p.focussables[j]
+					return
+				}
 			}
-			return
 		}
 	}
 }
@@ -85,10 +87,22 @@ func (p *Composite) FocusNext() {
 func (p *Composite) FocusPrev() {
 	for i := range p.focussables {
 		if p.FocussedPane == p.focussables[i] {
-			if i > 0 {
-				p.FocussedPane = p.focussables[i-1]
+			for j := i - 1; j >= 0; j-- {
+				if p.focussables[j].IsVisible() {
+					p.FocussedPane = p.focussables[j]
+					return
+				}
 			}
-			return
+		}
+	}
+}
+
+func (p *Composite) EnsureFocusIsOnVisible() {
+	if !p.FocussedPane.IsVisible() {
+		for i := range p.focussables {
+			if p.focussables[i].IsVisible() {
+				p.FocussedPane = p.focussables[i]
+			}
 		}
 	}
 }

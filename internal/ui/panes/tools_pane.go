@@ -30,6 +30,10 @@ func (p *ToolsPane) Dimensions() (x, y, w, h int) {
 
 // Draw draws this pane.
 func (p *ToolsPane) Draw() {
+	if !p.IsVisible() {
+		return
+	}
+
 	x, y, w, h := p.dimensions()
 
 	style := p.stylesheet.Normal
@@ -108,12 +112,14 @@ func NewToolsPane(
 	horizPadding int,
 	vertPadding int,
 	gap int,
+	visible func() bool,
 ) *ToolsPane {
 	return &ToolsPane{
 		Leaf: Leaf{
 			Base: Base{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
+				Visible:        visible,
 			},
 			renderer:   renderer,
 			dimensions: dimensions,

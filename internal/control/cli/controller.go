@@ -80,6 +80,8 @@ func NewController(
 	controller.data = control.NewControlData(categoryStyling)
 
 	toolsWidth := 20
+	rightFlexWidth := toolsWidth
+
 	statusHeight := 2
 	weatherWidth := 20
 	timelineWidth := 10
@@ -141,7 +143,7 @@ func NewController(
 	dayViewMainPaneDimensions := screenDimensions
 	dayViewScrollablePaneDimensions := func() (x, y, w, h int) {
 		parentX, parentY, parentW, parentH := dayViewMainPaneDimensions()
-		return parentX, parentY, parentW - toolsWidth, parentH - statusHeight
+		return parentX, parentY, parentW - rightFlexWidth, parentH - statusHeight
 	}
 	weekViewMainPaneDimensions := screenDimensions
 	monthViewMainPaneDimensions := screenDimensions
@@ -465,6 +467,7 @@ func NewController(
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for day view pane's events subpane")
 	}
 
+	toolsVisible := true
 	toolsPane := panes.NewToolsPane(
 		tui.NewConstrainedRenderer(renderer, toolsDimensions),
 		toolsDimensions,
@@ -475,6 +478,7 @@ func NewController(
 		2,
 		1,
 		0,
+		func() bool { return toolsVisible },
 	)
 	dayEventsPane := panes.NewEventsPane(
 		tui.NewConstrainedRenderer(renderer, dayViewEventsPaneDimensions),
@@ -630,11 +634,22 @@ func NewController(
 	if err != nil {
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for root pane")
 	}
+	var ensureDayViewMainPaneFocusIsOnVisible func()
+	toggleToolsPane := func() {
+		toolsVisible = !toolsVisible
+		if toolsVisible {
+			rightFlexWidth = toolsWidth
+		} else {
+			rightFlexWidth = 0
+			ensureDayViewMainPaneFocusIsOnVisible()
+		}
+	}
 
 	var dayViewFocusNext, dayViewFocusPrev func()
 	dayViewInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"W":      action.NewSimple(func() string { return "update weather" }, controller.updateWeather),
+			"t":      action.NewSimple(func() string { return "toggle tools pane" }, toggleToolsPane),
 			"<c-w>h": action.NewSimple(func() string { return "switch to previous pane" }, func() { dayViewFocusPrev() }),
 			"<c-w>l": action.NewSimple(func() string { return "switch to next pane" }, func() { dayViewFocusNext() }),
 		},
@@ -712,6 +727,7 @@ func NewController(
 		},
 		processors.NewModalInputProcessor(dayViewInputTree),
 	)
+	ensureDayViewMainPaneFocusIsOnVisible = dayViewMainPane.EnsureFocusIsOnVisible
 	weekViewMainPaneInputTree, err := input.ConstructInputTree(map[string]action.Action{})
 	if err != nil {
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for week view main pane")
