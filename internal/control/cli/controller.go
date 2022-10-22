@@ -79,6 +79,18 @@ func NewController(
 
 	controller.data = control.NewControlData(categoryStyling)
 	var backlog *model.Backlog
+	backlog = &model.Backlog{
+		Tasks: []model.Task{
+			{
+				Name:     "Test",
+				Category: "uni::namib",
+			},
+			{
+				Name:     "Test 2",
+				Category: "uni::shsq",
+			},
+		},
+	}
 
 	tasksWidth := 40
 	toolsWidth := 20

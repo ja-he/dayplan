@@ -5,6 +5,7 @@ import (
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
+	"github.com/ja-he/dayplan/internal/util"
 )
 
 // TasksPane shows a tasks backlog from which tasks and prospective events can
@@ -29,11 +30,55 @@ func (p *TasksPane) Draw() {
 
 	x, y, w, h := p.dimensions()
 
-	style := p.stylesheet.CategoryFallback
-	if p.HasFocus() {
-		style = p.stylesheet.CategoryFallback.DarkenedBG(20)
+	// background
+	func() {
+		style := p.stylesheet.Normal
+		if p.HasFocus() {
+			style = p.stylesheet.NormalEmphasized
+		}
+		p.renderer.DrawBox(x, y, w, h, style)
+	}()
+
+	// title
+	func() {
+		style := p.stylesheet.NormalEmphasized.DefaultEmphasized()
+
+		p.renderer.DrawBox(x, y, w, 1, style)
+
+		titleText := "Backlog"
+		p.renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
+	}()
+
+	// draws task, returns y space used
+	drawTask := func(xBase, yOffset, wBase int, t model.Task) int {
+		h := 2 // TODO: make based on duration and viewparams
+
+		p.renderer.DrawBox(
+			xBase+1, yOffset, wBase-2, h,
+			p.stylesheet.CategoryFallback,
+		)
+		p.renderer.DrawText(
+			xBase+1, yOffset, wBase-2, 1,
+			p.stylesheet.CategoryFallback.Bolded(),
+			util.TruncateAt(t.Name, wBase-2),
+		)
+		p.renderer.DrawText(
+			xBase+3, yOffset+1, wBase-2-2, 1,
+			p.stylesheet.CategoryFallback.Italicized(),
+			util.TruncateAt(t.Category, wBase-2-2),
+		)
+
+		return h
 	}
-	p.renderer.DrawBox(x, y, w, h, style)
+
+	// draw tasks
+	func() {
+		yIter := y
+		for _, task := range p.backlog.Tasks {
+			yIter += 1
+			yIter += drawTask(x, yIter, w, task)
+		}
+	}()
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
