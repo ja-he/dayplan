@@ -12,7 +12,8 @@ import (
 // be selected and moved into concrete days, i.e., planned.
 type TasksPane struct {
 	Leaf
-	backlog *model.Backlog
+	backlog               *model.Backlog
+	categoryStyleProvider func(model.Category) (styling.DrawStyling, error)
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -52,19 +53,23 @@ func (p *TasksPane) Draw() {
 	// draws task, returns y space used
 	drawTask := func(xBase, yOffset, wBase int, t model.Task) int {
 		h := 2 // TODO: make based on duration and viewparams
+		style, err := p.categoryStyleProvider(t.Category)
+		if err != nil {
+			style = p.stylesheet.CategoryFallback
+		}
 
 		p.renderer.DrawBox(
 			xBase+1, yOffset, wBase-2, h,
-			p.stylesheet.CategoryFallback,
+			style,
 		)
 		p.renderer.DrawText(
 			xBase+1, yOffset, wBase-2, 1,
-			p.stylesheet.CategoryFallback.Bolded(),
+			style.Bolded(),
 			util.TruncateAt(t.Name, wBase-2),
 		)
 		p.renderer.DrawText(
 			xBase+3, yOffset+1, wBase-2-2, 1,
-			p.stylesheet.CategoryFallback.Italicized(),
+			style.Italicized(),
 			util.TruncateAt(t.Category.Name, wBase-2-2),
 		)
 
@@ -97,6 +102,7 @@ func NewTasksPane(
 	stylesheet styling.Stylesheet,
 	inputProcessor input.ModalInputProcessor,
 	backlog *model.Backlog,
+	categoryStyleProvider func(model.Category) (styling.DrawStyling, error),
 	visible func() bool,
 ) *TasksPane {
 	return &TasksPane{
@@ -110,6 +116,7 @@ func NewTasksPane(
 			dimensions: dimensions,
 			stylesheet: stylesheet,
 		},
-		backlog: backlog,
+		backlog:               backlog,
+		categoryStyleProvider: categoryStyleProvider,
 	}
 }

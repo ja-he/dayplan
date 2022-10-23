@@ -513,6 +513,7 @@ func NewController(
 		stylesheet,
 		processors.NewModalInputProcessor(tasksInputTree),
 		backlog,
+		categoryStyling.GetStyle,
 		func() bool { return tasksVisible },
 	)
 	toolsPane := panes.NewToolsPane(
