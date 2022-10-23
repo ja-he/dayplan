@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strconv"
 	"sync"
 	"time"
@@ -77,20 +79,31 @@ func NewController(
 ) *Controller {
 	controller := Controller{}
 
-	controller.data = control.NewControlData(categoryStyling)
-	var backlog *model.Backlog
-	backlog = &model.Backlog{
-		Tasks: []model.Task{
-			{
-				Name:     "Test",
-				Category: "uni::namib",
-			},
-			{
-				Name:     "Test 2",
-				Category: "uni::shsq",
-			},
-		},
+	categoryGetter := func(name string) model.Category {
+		cat, ok := categoryStyling.GetKnownCategoriesByName()[name]
+		if ok {
+			return *cat
+		}
+		return model.Category{
+			Name: name,
+		}
 	}
+
+	controller.data = control.NewControlData(categoryStyling)
+	backlogFilePath := path.Join(envData.BaseDirPath, "days", "backlog.yml") // TODO(ja_he): Migrate 'days' -> 'data', perhaps subdir 'days'
+	backlog, err := func() (*model.Backlog, error) {
+		reader, err := os.Open(backlogFilePath)
+		if err != nil {
+			return nil, err
+		}
+		return model.BacklogFromReader(reader, categoryGetter)
+	}()
+	if err != nil {
+		tuiLogger.Error().Err(err).Str("file", backlogFilePath).Msg("could not read backlog")
+	} else {
+		tuiLogger.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
+	}
+	tuiLogger.Debug().Interface("backlog", backlog).Msg("backlog")
 
 	tasksWidth := 40
 	toolsWidth := 20

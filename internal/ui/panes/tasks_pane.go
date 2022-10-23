@@ -65,7 +65,7 @@ func (p *TasksPane) Draw() {
 		p.renderer.DrawText(
 			xBase+3, yOffset+1, wBase-2-2, 1,
 			p.stylesheet.CategoryFallback.Italicized(),
-			util.TruncateAt(t.Category, wBase-2-2),
+			util.TruncateAt(t.Category.Name, wBase-2-2),
 		)
 
 		return h
