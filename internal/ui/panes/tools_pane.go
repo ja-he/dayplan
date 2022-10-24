@@ -42,7 +42,17 @@ func (p *ToolsPane) Draw() {
 	}
 	p.renderer.DrawBox(x, y, w, h, style)
 
-	boxes := p.getCategoryBoxes(x, y, w, h)
+	// title
+	func() {
+		style := p.stylesheet.NormalEmphasized.DefaultEmphasized()
+
+		p.renderer.DrawBox(x, y, w, 1, style)
+
+		titleText := "Tools"
+		p.renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
+	}()
+
+	boxes := p.getCategoryBoxes(x, y+1, w, h)
 	for cat, box := range boxes {
 		categoryStyle, err := p.categories.GetStyle(cat)
 		var styling styling.DrawStyling
