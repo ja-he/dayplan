@@ -66,7 +66,7 @@ func (p *ToolsPane) Draw() {
 }
 
 func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rect {
-	i := 0
+	i := y
 
 	result := make(map[model.Category]util.Rect)
 
