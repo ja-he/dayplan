@@ -72,6 +72,14 @@ func (p *TasksPane) Draw() {
 			style.Italicized(),
 			util.TruncateAt(t.Category.Name, wBase-2-2),
 		)
+		if t.Deadline != nil {
+			deadline := t.Deadline.Format("2006-01-02 15:04:05")
+			p.renderer.DrawText(
+				xBase+wBase-len(deadline)-1, yOffset+1, len(deadline), 1,
+				style.Bolded(),
+				deadline,
+			)
+		}
 
 		return h
 	}
