@@ -3,8 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-
-	"github.com/rs/zerolog/log"
 )
 
 // For proper builds, these variables should be set via ldflags.
@@ -25,7 +23,6 @@ func (command *VersionCommand) Execute(args []string) error {
 }
 
 func showVersion() {
-	log.Debug().Msg("printing version...")
 	fmt.Printf("%s (%s)\n", version, hash)
 	os.Exit(0)
 }
