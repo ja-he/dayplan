@@ -182,9 +182,9 @@ func (s *FallbackStyling) clone() *FallbackStyling {
 // Strings have to have hexadecimal or HTML color notation and lead with a '#'.
 //
 // Examples:
-//  - '#ff0000'
-//  - '#fff'
-//  - '#BEEF42'
+//   - '#ff0000'
+//   - '#fff'
+//   - '#BEEF42'
 func StyleFromHexPair(fg, bg string) *FallbackStyling {
 	return &FallbackStyling{
 		fg: colorfulColorFromHexString(fg),

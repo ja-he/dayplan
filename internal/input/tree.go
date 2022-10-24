@@ -11,13 +11,13 @@ import (
 //
 // Example:
 //
-//    tree:                       mapping:
+//	tree:                       mapping:
 //
-//    x
-//    +-y
-//    | +-z   -> action1          "xyz" -> action1
-//    +-z     -> action2          "xz"  -> action2
-//    z       -> action3          "z"   -> action3
+//	x
+//	+-y
+//	| +-z   -> action1          "xyz" -> action1
+//	+-z     -> action2          "xz"  -> action2
+//	z       -> action3          "z"   -> action3
 type Tree struct {
 	Root    *Node
 	Current *Node

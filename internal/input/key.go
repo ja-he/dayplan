@@ -9,8 +9,9 @@ import (
 // Key represents a key input.
 //
 // NOTE:
-//   currently barely generifying tcell's input type; could eventually be
-//   properly generified for other input sources.
+//
+//	currently barely generifying tcell's input type; could eventually be
+//	properly generified for other input sources.
 type Key struct {
 	Mod tcell.ModMask
 	Key tcell.Key

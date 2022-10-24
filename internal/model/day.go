@@ -323,21 +323,20 @@ func (day *Day) SumUpByCategory() map[Category]int {
 // splitting a less prioritized event if it had a higher-priority event occur
 // during it as shown here:
 //
-//     +-------+         +-------+
-//     | a     |         | a     |    (`a` lower prio than `B`)
-//     |   +-----+       +-------+
-//     |   | B   |  ~~>  | B     |
-//     |   +-----+       +-------+
-//     |       |         | a     |
-//     +-------+         +-------+
+//	+-------+         +-------+
+//	| a     |         | a     |    (`a` lower prio than `B`)
+//	|   +-----+       +-------+
+//	|   | B   |  ~~>  | B     |
+//	|   +-----+       +-------+
+//	|       |         | a     |
+//	+-------+         +-------+
 //
-//     +-------+         +-------+
-//     | a     |         | a     |    (`a` lower prio than `B`)
-//     |   +-----+       +-------+
-//     |   | B   |  ~~>  | B     |
-//     +---|     |       |       |
-//         +-----+       +-------+
-//
+//	+-------+         +-------+
+//	| a     |         | a     |    (`a` lower prio than `B`)
+//	|   +-----+       +-------+
+//	|   | B   |  ~~>  | B     |
+//	+---|     |       |       |
+//	    +-----+       +-------+
 func (day *Day) Flatten() {
 	if len(day.Events) < 2 {
 		return

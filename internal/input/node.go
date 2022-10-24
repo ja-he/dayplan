@@ -8,8 +8,9 @@ import (
 // It can have child nodes or an action.
 //
 // NOTE:
-//   must not have children if it has an action, and must not have an action if
-//   it has children.
+//
+//	must not have children if it has an action, and must not have an action if
+//	it has children.
 type Node struct {
 	Children map[Key]*Node
 	Action   action.Action
