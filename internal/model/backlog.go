@@ -54,13 +54,13 @@ func (b *Backlog) Write(w io.Writer) error {
 func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Backlog, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read from reader (%s)", err.Error())
+		return &Backlog{}, fmt.Errorf("unable to read from reader (%s)", err.Error())
 	}
 
 	stored := BacklogStored{}
 	err = yaml.Unmarshal(data, &stored)
 	if err != nil {
-		return nil, fmt.Errorf("yaml unmarshaling error (%s)", err.Error())
+		return &Backlog{}, fmt.Errorf("yaml unmarshaling error (%s)", err.Error())
 	}
 	log.Debug().Int("N-Cats", len(stored.TasksByCategory)).Msg("read storeds")
 

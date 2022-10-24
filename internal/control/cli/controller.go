@@ -94,7 +94,7 @@ func NewController(
 	backlog, err := func() (*model.Backlog, error) {
 		reader, err := os.Open(backlogFilePath)
 		if err != nil {
-			return nil, err
+			return &model.Backlog{}, err
 		}
 		return model.BacklogFromReader(reader, categoryGetter)
 	}()
