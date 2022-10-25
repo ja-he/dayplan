@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sort"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -79,6 +80,7 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 		for _, t := range tasks {
 			result = append(result, toTask(cat, t))
 		}
+		sort.Sort(ByDeadline(result))
 		return result
 	}
 
@@ -88,6 +90,36 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 			b.Tasks = append(b.Tasks, toTask(cat, task))
 		}
 	}
+	sort.Sort(ByDeadline(b.Tasks))
 
 	return b, nil
+}
+
+type ByDeadline []Task
+
+func (a ByDeadline) Len() int      { return len(a) }
+func (a ByDeadline) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+
+func (a ByDeadline) Less(i, j int) bool {
+	switch {
+
+	case a[i].Deadline == nil && a[j].Deadline == nil: // neither deadlines
+		if a[i].Category.Priority != a[i].Category.Priority {
+			return a[i].Category.Priority > a[j].Category.Priority
+		}
+		return true
+
+	case a[i].Deadline == nil && a[j].Deadline != nil: // only second deadline
+		return false
+
+	case a[i].Deadline != nil && a[j].Deadline == nil: // only first deadline
+		return true
+
+	case a[i].Deadline != nil && a[j].Deadline != nil: // both deadlines
+		return a[i].Deadline.Before(*a[j].Deadline)
+
+	}
+
+	log.Fatal().Msg("this is impossible to reach, how did you do it?")
+	return true
 }
