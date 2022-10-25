@@ -86,6 +86,9 @@ func (p *TasksPane) Draw() {
 
 	// draw tasks
 	func() {
+		p.backlog.Mtx.RLock()
+		defer p.backlog.Mtx.RUnlock()
+
 		yIter := y + 1
 		for _, task := range p.backlog.Tasks {
 			yIter += 1

@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -17,6 +18,7 @@ import (
 // to-do list.
 type Backlog struct {
 	Tasks []Task
+	Mtx   sync.RWMutex
 }
 
 // A Task remains to be done (or dropped) but is not yet scheduled.
