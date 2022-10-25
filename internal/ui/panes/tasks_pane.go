@@ -51,37 +51,57 @@ func (p *TasksPane) Draw() {
 	}()
 
 	// draws task, returns y space used
-	drawTask := func(xBase, yOffset, wBase int, t model.Task) int {
-		h := 2 // TODO: make based on duration and viewparams
+	var drawTask func(xBase, yOffset, wBase int, t model.Task, depth int) (int, []func())
+	drawTask = func(xBase, yOffset, wBase int, t model.Task, depth int) (int, []func()) {
+		drawThis := []func(){}
+
+		h := 2 // TODO: make based on duration and viewparams when no subtasks
+		if len(t.Subtasks) > 0 {
+			yIter := yOffset + 1
+			for i, st := range t.Subtasks {
+				drawnHeight, drawCalls := drawTask(xBase+1, yIter, wBase-2, st, depth+1)
+				drawThis = append(drawThis, drawCalls...)
+				effectiveYIncrease := drawnHeight
+				if i != len(t.Subtasks)-1 {
+					effectiveYIncrease += 1
+				}
+				h += effectiveYIncrease
+				yIter += effectiveYIncrease
+			}
+		}
+
 		style, err := p.categoryStyleProvider(t.Category)
 		if err != nil {
 			style = p.stylesheet.CategoryFallback
 		}
+		style = style.DarkenedBG(depth * 10)
 
-		p.renderer.DrawBox(
-			xBase+1, yOffset, wBase-2, h,
-			style,
-		)
-		p.renderer.DrawText(
-			xBase+1+1, yOffset, wBase-2-1, 1,
-			style.Bolded(),
-			util.TruncateAt(t.Name, wBase-2-1),
-		)
-		p.renderer.DrawText(
-			xBase+3, yOffset+1, wBase-2-2, 1,
-			style.Italicized(),
-			util.TruncateAt(t.Category.Name, wBase-2-2),
-		)
-		if t.Deadline != nil {
-			deadline := t.Deadline.Format("2006-01-02 15:04:05")
-			p.renderer.DrawText(
-				xBase+wBase-len(deadline)-1, yOffset+1, len(deadline), 1,
-				style.Bolded(),
-				deadline,
+		drawThis = append(drawThis, func() {
+			p.renderer.DrawBox(
+				xBase+1, yOffset, wBase-2, h,
+				style,
 			)
-		}
+			p.renderer.DrawText(
+				xBase+1+1, yOffset, wBase-2-1, 1,
+				style.Bolded(),
+				util.TruncateAt(t.Name, wBase-2-1),
+			)
+			p.renderer.DrawText(
+				xBase+3, yOffset+1, wBase-2-2, 1,
+				style.Italicized(),
+				util.TruncateAt(t.Category.Name, wBase-2-2),
+			)
+			if t.Deadline != nil {
+				deadline := t.Deadline.Format("2006-01-02 15:04:05")
+				p.renderer.DrawText(
+					xBase+wBase-len(deadline)-1, yOffset+1, len(deadline), 1,
+					style.Bolded(),
+					deadline,
+				)
+			}
+		})
 
-		return h
+		return h, drawThis
 	}
 
 	// draw tasks
@@ -92,7 +112,11 @@ func (p *TasksPane) Draw() {
 		yIter := y + 1
 		for _, task := range p.backlog.Tasks {
 			yIter += 1
-			yIter += drawTask(x+1, yIter, w-2, task)
+			heightDrawn, drawFuncs := drawTask(x+1, yIter, w-2, task, 0)
+			for i := range drawFuncs {
+				drawFuncs[len(drawFuncs)-1-i]()
+			}
+			yIter += heightDrawn
 		}
 	}()
 }
