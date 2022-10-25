@@ -63,9 +63,9 @@ func (p *TasksPane) Draw() {
 			style,
 		)
 		p.renderer.DrawText(
-			xBase+1, yOffset, wBase-2, 1,
+			xBase+1+1, yOffset, wBase-2-1, 1,
 			style.Bolded(),
-			util.TruncateAt(t.Name, wBase-2),
+			util.TruncateAt(t.Name, wBase-2-1),
 		)
 		p.renderer.DrawText(
 			xBase+3, yOffset+1, wBase-2-2, 1,
@@ -86,10 +86,10 @@ func (p *TasksPane) Draw() {
 
 	// draw tasks
 	func() {
-		yIter := y
+		yIter := y + 1
 		for _, task := range p.backlog.Tasks {
 			yIter += 1
-			yIter += drawTask(x, yIter, w, task)
+			yIter += drawTask(x+1, yIter, w-2, task)
 		}
 	}()
 }
