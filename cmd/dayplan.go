@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/jessevdk/go-flags"
@@ -18,11 +19,16 @@ func main() {
 	if flags.WroteHelp(err) {
 		os.Exit(0)
 	} else if err != nil {
-		panic("some flag parsing error occurred")
+		fmt.Fprintf(os.Stderr, "flag parsing error:\n > %s\n", err.Error())
+		os.Exit(1)
 	}
 
 	if cli.Opts.Version {
 		cmd := cli.VersionCommand{}
-		cmd.Execute([]string{})
+		err := cmd.Execute([]string{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "exited with error:\n > %s\n", err.Error())
+			os.Exit(1)
+		}
 	}
 }
