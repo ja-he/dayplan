@@ -15,25 +15,29 @@ type Config struct {
 
 // A Stylesheet is the stylesheet contents defined in a config file.
 type Stylesheet struct {
-	Normal           Styling `yaml:"normal"`
-	NormalEmphasized Styling `yaml:"normal-emphasized"`
-	WeatherNormal    Styling `yaml:"weather-normal"`
-	WeatherSunny     Styling `yaml:"weather-sunny"`
-	WeatherRainy     Styling `yaml:"weather-rainy"`
-	TimelineDay      Styling `yaml:"timeline-day"`
-	TimelineNight    Styling `yaml:"timeline-night"`
-	TimelineNow      Styling `yaml:"timeline-now"`
-	Status           Styling `yaml:"status"`
-	LogDefault       Styling `yaml:"log-default"`
-	LogTitleBox      Styling `yaml:"log-title-box"`
-	LogEntryType     Styling `yaml:"log-entry-type"`
-	LogEntryLocation Styling `yaml:"log-entry-location"`
-	LogEntryTime     Styling `yaml:"log-entry-time"`
-	Help             Styling `yaml:"help"`
-	Editor           Styling `yaml:"editor"`
-	SummaryDefault   Styling `yaml:"summary-default"`
-	SummaryTitleBox  Styling `yaml:"summary-title-box"`
-	CategoryFallback Styling `yaml:"category-fallback"`
+	Normal            Styling `yaml:"normal"`
+	NormalEmphasized  Styling `yaml:"normal-emphasized"`
+	WeatherNormal     Styling `yaml:"weather-normal"`
+	WeatherSunny      Styling `yaml:"weather-sunny"`
+	WeatherRainy      Styling `yaml:"weather-rainy"`
+	TimelineDay       Styling `yaml:"timeline-day"`
+	TimelineNight     Styling `yaml:"timeline-night"`
+	TimelineNow       Styling `yaml:"timeline-now"`
+	Status            Styling `yaml:"status"`
+	LogDefault        Styling `yaml:"log-default"`
+	LogTitleBox       Styling `yaml:"log-title-box"`
+	LogEntryTypeError Styling `yaml:"log-entry-type-error"`
+	LogEntryTypeWarn  Styling `yaml:"log-entry-type-warn"`
+	LogEntryTypeInfo  Styling `yaml:"log-entry-type-info"`
+	LogEntryTypeDebug Styling `yaml:"log-entry-type-debug"`
+	LogEntryTypeTrace Styling `yaml:"log-entry-type-trace"`
+	LogEntryLocation  Styling `yaml:"log-entry-location"`
+	LogEntryTime      Styling `yaml:"log-entry-time"`
+	Help              Styling `yaml:"help"`
+	Editor            Styling `yaml:"editor"`
+	SummaryDefault    Styling `yaml:"summary-default"`
+	SummaryTitleBox   Styling `yaml:"summary-title-box"`
+	CategoryFallback  Styling `yaml:"category-fallback"`
 }
 
 // A Styling is a styling as defined in a config file.
@@ -139,7 +143,11 @@ func (base Stylesheet) augmentWith(augment Stylesheet) Stylesheet {
 	result.Status.overwriteIfDefined(augment.Status)
 	result.LogDefault.overwriteIfDefined(augment.LogDefault)
 	result.LogTitleBox.overwriteIfDefined(augment.LogTitleBox)
-	result.LogEntryType.overwriteIfDefined(augment.LogEntryType)
+	result.LogEntryTypeError.overwriteIfDefined(augment.LogEntryTypeError)
+	result.LogEntryTypeWarn.overwriteIfDefined(augment.LogEntryTypeWarn)
+	result.LogEntryTypeInfo.overwriteIfDefined(augment.LogEntryTypeInfo)
+	result.LogEntryTypeDebug.overwriteIfDefined(augment.LogEntryTypeDebug)
+	result.LogEntryTypeTrace.overwriteIfDefined(augment.LogEntryTypeTrace)
 	result.LogEntryLocation.overwriteIfDefined(augment.LogEntryLocation)
 	result.LogEntryTime.overwriteIfDefined(augment.LogEntryTime)
 	result.Help.overwriteIfDefined(augment.Help)

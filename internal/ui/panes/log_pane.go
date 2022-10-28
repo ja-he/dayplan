@@ -39,7 +39,25 @@ func (p *LogPane) Draw() {
 		for i := len(p.logReader.Get()) - 1; i >= 0; i-- {
 			entry := p.logReader.Get()[i]
 
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryType, entry.Level)
+			p.renderer.DrawText(
+				x, y+row, w, 1,
+				func() styling.DrawStyling {
+					switch entry.Level {
+					case "error":
+						return p.stylesheet.LogEntryTypeError
+					case "warn":
+						return p.stylesheet.LogEntryTypeWarn
+					case "info":
+						return p.stylesheet.LogEntryTypeInfo
+					case "debug":
+						return p.stylesheet.LogEntryTypeDebug
+					case "trace":
+						return p.stylesheet.LogEntryTypeTrace
+					}
+					return p.stylesheet.LogDefault
+				}(),
+				entry.Level,
+			)
 			x += len(entry.Level) + 1
 
 			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogDefault, entry.Message)

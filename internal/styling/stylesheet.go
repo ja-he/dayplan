@@ -21,9 +21,15 @@ type Stylesheet struct {
 
 	CategoryFallback DrawStyling
 
-	LogDefault       DrawStyling
-	LogTitleBox      DrawStyling
-	LogEntryType     DrawStyling
+	LogDefault  DrawStyling
+	LogTitleBox DrawStyling
+
+	LogEntryTypeError DrawStyling
+	LogEntryTypeWarn  DrawStyling
+	LogEntryTypeInfo  DrawStyling
+	LogEntryTypeDebug DrawStyling
+	LogEntryTypeTrace DrawStyling
+
 	LogEntryLocation DrawStyling
 	LogEntryTime     DrawStyling
 
@@ -51,7 +57,11 @@ func NewStylesheetFromConfig(config config.Stylesheet) *Stylesheet {
 	stylesheet.Status = StyleFromConfig(config.Status)
 	stylesheet.LogDefault = StyleFromConfig(config.LogDefault)
 	stylesheet.LogTitleBox = StyleFromConfig(config.LogTitleBox)
-	stylesheet.LogEntryType = StyleFromConfig(config.LogEntryType)
+	stylesheet.LogEntryTypeError = StyleFromConfig(config.LogEntryTypeError)
+	stylesheet.LogEntryTypeWarn = StyleFromConfig(config.LogEntryTypeWarn)
+	stylesheet.LogEntryTypeInfo = StyleFromConfig(config.LogEntryTypeInfo)
+	stylesheet.LogEntryTypeDebug = StyleFromConfig(config.LogEntryTypeDebug)
+	stylesheet.LogEntryTypeTrace = StyleFromConfig(config.LogEntryTypeTrace)
 	stylesheet.LogEntryLocation = StyleFromConfig(config.LogEntryLocation)
 	stylesheet.LogEntryTime = StyleFromConfig(config.LogEntryTime)
 	stylesheet.Help = StyleFromConfig(config.Help)
