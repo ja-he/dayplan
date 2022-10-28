@@ -41,3 +41,12 @@ func DurationToString(minutes int) string {
 func NewRect(x, y, w, h int) *Rect {
 	return &Rect{X: x, Y: y, W: w, H: h}
 }
+
+func PadCenter(s string, length int) string {
+	if len(s) >= length {
+		return s
+	}
+	prefix := strings.Repeat(" ", (length-len(s))/2)
+	suffix := strings.Repeat(" ", length-len(prefix))
+	return prefix + s + suffix
+}
