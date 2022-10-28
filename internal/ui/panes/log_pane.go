@@ -6,6 +6,7 @@ import (
 	"github.com/ja-he/dayplan/internal/potatolog"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
+	"github.com/ja-he/dayplan/internal/util"
 )
 
 // LogPane shows the log, with the most recent log entries at the top.
@@ -39,8 +40,9 @@ func (p *LogPane) Draw() {
 		for i := len(p.logReader.Get()) - 1; i >= 0; i-- {
 			entry := p.logReader.Get()[i]
 
+			levelLen := len(" error ")
 			p.renderer.DrawText(
-				x, y+row, w, 1,
+				x, y+row, levelLen, 1,
 				func() styling.DrawStyling {
 					switch entry.Level {
 					case "error":
@@ -56,9 +58,9 @@ func (p *LogPane) Draw() {
 					}
 					return p.stylesheet.LogDefault
 				}(),
-				entry.Level,
+				util.PadCenter(entry.Level, levelLen),
 			)
-			x += len(entry.Level) + 1
+			x += levelLen + 1
 
 			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogDefault, entry.Message)
 			x += len(entry.Message) + 1
