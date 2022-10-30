@@ -1,8 +1,6 @@
 package panes
 
 import (
-	"strings"
-
 	"github.com/ja-he/dayplan/internal/potatolog"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -41,10 +39,11 @@ func (p *LogPane) Draw() {
 			entry := p.logReader.Get()[i]
 
 			levelLen := len(" error ")
+			extraDataIndentWidth := levelLen + 1
 			p.renderer.DrawText(
 				x, y+row, levelLen, 1,
 				func() styling.DrawStyling {
-					switch entry.Level {
+					switch entry["level"] {
 					case "error":
 						return p.stylesheet.LogEntryTypeError
 					case "warn":
@@ -58,21 +57,31 @@ func (p *LogPane) Draw() {
 					}
 					return p.stylesheet.LogDefault
 				}(),
-				util.PadCenter(entry.Level, levelLen),
+				util.PadCenter(entry["level"], levelLen),
 			)
-			x += levelLen + 1
+			x = extraDataIndentWidth
 
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogDefault, entry.Message)
-			x += len(entry.Message) + 1
+			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogDefault, entry["message"])
+			x += len(entry["message"]) + 1
 
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryLocation, entry.Caller)
-			x += len(entry.Caller) + 1
+			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryLocation, entry["caller"])
+			x += len(entry["caller"]) + 1
 
-			timeStr := strings.Join(strings.Split(entry.Time.String(), " ")[0:2], " ")
+			timeStr := entry["time"]
 			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryTime, timeStr)
 
-			x = 0
+			x = extraDataIndentWidth
 			row++
+
+			for k, v := range entry {
+				if k != "caller" && k != "message" && k != "time" && k != "level" {
+					p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryTime, k)
+					p.renderer.DrawText(x+len(k)+2, y+row, w, 1, p.stylesheet.LogEntryLocation, v)
+					row++
+				}
+			}
+
+			x = 0
 		}
 	}
 }
