@@ -589,11 +589,11 @@ func NewController(
 					current := controller.data.GetCurrentDay().Current
 					err = controller.data.GetCurrentDay().ResizeBy(current, controller.data.ViewParams.MinutesPerRow())
 					if err != nil {
-						log.Warn().Msg(err.Error())
+						log.Warn().Err(err).Msg("unable to resize")
 					}
 					err = controller.data.GetCurrentDay().SnapEnd(current, controller.data.ViewParams.MinutesPerRow())
 					if err != nil {
-						log.Warn().Msg(err.Error())
+						log.Warn().Err(err).Msg("unable to snap")
 					}
 					ensureVisible(current.End)
 				}),
@@ -997,10 +997,13 @@ func NewController(
 	if !coordinatesProvided {
 		log.Error().Msg("could not fetch lat-&longitude -> no sunrise/-set times known")
 	} else {
-		latF, parseErr := strconv.ParseFloat(envData.Latitude, 64)
-		lonF, parseErr := strconv.ParseFloat(envData.Longitude, 64)
-		if parseErr != nil {
-			log.Error().Msg(fmt.Sprint("parse error:", parseErr))
+		latF, parseErrLat := strconv.ParseFloat(envData.Latitude, 64)
+		lonF, parseErrLon := strconv.ParseFloat(envData.Longitude, 64)
+		if parseErrLon != nil || parseErrLat != nil {
+			log.Error().
+				Interface("lon-parse-error", parseErrLon).
+				Interface("lat-parse-error", parseErrLat).
+				Msg("could not parse longitude/latitude")
 		} else {
 			suntimes = date.GetSunTimes(latF, lonF)
 		}
@@ -1099,7 +1102,7 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 	// find out cursor time
 	start := info.Time()
 
-	log.Debug().Msg(fmt.Sprintf("creation called for '%s'", info.Time().ToString()))
+	log.Debug().Str("position-time", info.Time().ToString()).Msg("creation called")
 
 	// create event at time with cat etc.
 	e := model.Event{}
@@ -1110,7 +1113,7 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 
 	err := t.data.GetCurrentDay().AddEvent(&e)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error().Err(err).Interface("event", e).Msg("error occurred adding event")
 	} else {
 		t.data.MouseEditedEvent = &e
 		t.data.MouseEditState = control.MouseEditStateResizing
@@ -1118,7 +1121,7 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 }
 
 func (t *Controller) goToDay(newDate model.Date) {
-	log.Debug().Msg("going to " + newDate.ToString())
+	log.Debug().Str("new-date", newDate.ToString()).Msg("going to new date")
 
 	t.data.CurrentDate = newDate
 	t.loadDaysForView(t.data.ActiveView())
@@ -1147,10 +1150,13 @@ func (t *Controller) loadDay(date model.Date) {
 		var suntimes model.SunTimes
 		coordinatesProvided := (t.data.EnvData.Latitude != "" && t.data.EnvData.Longitude != "")
 		if coordinatesProvided {
-			latF, parseErr := strconv.ParseFloat(t.data.EnvData.Latitude, 64)
-			lonF, parseErr := strconv.ParseFloat(t.data.EnvData.Longitude, 64)
-			if parseErr != nil {
-				log.Error().Msg(fmt.Sprint("parse error:", parseErr))
+			latF, parseErrLat := strconv.ParseFloat(t.data.EnvData.Latitude, 64)
+			lonF, parseErrLon := strconv.ParseFloat(t.data.EnvData.Longitude, 64)
+			if parseErrLon != nil || parseErrLat != nil {
+				log.Error().
+					Interface("lon-parse-error", parseErrLon).
+					Interface("lat-parse-error", parseErrLat).
+					Msg("could not parse longitude/latitude")
 			} else {
 				suntimes = date.GetSunTimes(latF, lonF)
 			}
@@ -1305,7 +1311,7 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 			var err error
 			err = t.data.GetCurrentDay().ResizeTo(event, visualCursorTime)
 			if err != nil {
-				log.Warn().Msg(err.Error())
+				log.Warn().Err(err).Msg("unable to resize")
 			}
 
 		case tcell.ButtonNone:
@@ -1439,7 +1445,7 @@ func (t *Controller) Run() {
 					key := input.KeyFromTcellEvent(e)
 					inputApplied := t.rootPane.ProcessInput(key)
 					if !inputApplied {
-						log.Error().Msg(fmt.Sprintf("could not apply key input %s", key.ToDebugString()))
+						log.Warn().Str("key", key.ToDebugString()).Msg("could not apply key input")
 					}
 
 				case *tcell.EventMouse:
