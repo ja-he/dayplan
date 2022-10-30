@@ -39,6 +39,7 @@ func (p *LogPane) Draw() {
 			entry := p.logReader.Get()[i]
 
 			levelLen := len(" error ")
+			extraDataIndentWidth := levelLen + 1
 			p.renderer.DrawText(
 				x, y+row, levelLen, 1,
 				func() styling.DrawStyling {
@@ -58,7 +59,7 @@ func (p *LogPane) Draw() {
 				}(),
 				util.PadCenter(entry["level"], levelLen),
 			)
-			x += levelLen + 1
+			x = extraDataIndentWidth
 
 			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogDefault, entry["message"])
 			x += len(entry["message"]) + 1
@@ -69,8 +70,18 @@ func (p *LogPane) Draw() {
 			timeStr := entry["time"]
 			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryTime, timeStr)
 
-			x = 0
+			x = extraDataIndentWidth
 			row++
+
+			for k, v := range entry {
+				if k != "caller" && k != "message" && k != "time" && k != "level" {
+					p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryTime, k)
+					p.renderer.DrawText(x+len(k)+2, y+row, w, 1, p.stylesheet.LogEntryLocation, v)
+					row++
+				}
+			}
+
+			x = 0
 		}
 	}
 }
