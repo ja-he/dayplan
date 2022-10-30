@@ -164,12 +164,12 @@ func NewController(
 		return screenWidth - rightFlexWidth, 0, tasksWidth, screenHeight - statusHeight
 	}
 	toolsDimensions := func() (x, y, w, h int) {
-		screenWidth, screeenHeight := screenSize()
-		return screenWidth - toolsWidth, 0, toolsWidth, screeenHeight - statusHeight
+		screenWidth, screenHeight := screenSize()
+		return screenWidth - toolsWidth, 0, toolsWidth, screenHeight - statusHeight
 	}
 	statusDimensions := func() (x, y, w, h int) {
-		screenWidth, screeenHeight := screenSize()
-		return 0, screeenHeight - statusHeight, screenWidth, statusHeight
+		screenWidth, screenHeight := screenSize()
+		return 0, screenHeight - statusHeight, screenWidth, statusHeight
 	}
 	dayViewMainPaneDimensions := screenDimensions
 	dayViewScrollablePaneDimensions := func() (x, y, w, h int) {
