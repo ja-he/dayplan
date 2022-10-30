@@ -61,7 +61,7 @@ func (p *Composite) Dimensions() (x, y, w, h int) {
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *Composite) GetPositionInfo(x, y int) ui.PositionInfo {
 	for _, pane := range p.drawables {
-		if util.NewRect(pane.Dimensions()).Contains(x, y) {
+		if pane.IsVisible() && util.NewRect(pane.Dimensions()).Contains(x, y) {
 			return pane.GetPositionInfo(x, y)
 		}
 	}
