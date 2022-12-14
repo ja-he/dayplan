@@ -344,10 +344,23 @@ func NewController(
 		func() control.EventEditMode { return controller.data.EventEditMode },
 	)
 
+	backlogViewParams := ui.BacklogViewParams{
+		NRowsPerHour: 6,
+		ScrollOffset: 0,
+	}
 	tasksInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"x": action.NewSimple(func() string { return "switch to next category" }, func() {
 				log.Debug().Msg("Tasks action triggered by tasks pane input processing")
+			}),
+			"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() {
+				backlogViewParams.ScrollOffset -= 10
+				if backlogViewParams.ScrollOffset < 0 {
+					backlogViewParams.ScrollOffset = 0
+				}
+			}),
+			"<c-d>": action.NewSimple(func() string { return "scroll down" }, func() {
+				backlogViewParams.ScrollOffset += 10
 			}),
 		},
 	)
@@ -514,6 +527,7 @@ func NewController(
 		tasksDimensions,
 		stylesheet,
 		processors.NewModalInputProcessor(tasksInputTree),
+		&backlogViewParams,
 		backlog,
 		categoryStyling.GetStyle,
 		func() bool { return tasksVisible },

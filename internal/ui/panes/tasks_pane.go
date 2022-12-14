@@ -12,6 +12,7 @@ import (
 // be selected and moved into concrete days, i.e., planned.
 type TasksPane struct {
 	Leaf
+	viewParams            ui.TimeViewParams
 	backlog               *model.Backlog
 	categoryStyleProvider func(model.Category) (styling.DrawStyling, error)
 }
@@ -40,22 +41,12 @@ func (p *TasksPane) Draw() {
 		p.renderer.DrawBox(x, y, w, h, style)
 	}()
 
-	// title
-	func() {
-		style := p.stylesheet.NormalEmphasized.DefaultEmphasized()
-
-		p.renderer.DrawBox(x, y, w, 1, style)
-
-		titleText := "Backlog"
-		p.renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
-	}()
-
-	// draws task, returns y space used
+	// draws task, taking into account view params, returns y space used
 	var drawTask func(xBase, yOffset, wBase int, t model.Task, depth int) (int, []func())
 	drawTask = func(xBase, yOffset, wBase int, t model.Task, depth int) (int, []func()) {
 		drawThis := []func(){}
 
-		h := 2 // TODO: make based on duration and viewparams when no subtasks
+		h := 2 * int(p.viewParams.GetZoomPercentage()/50.0) // TODO: make based on duration and viewparams when no subtasks
 		if len(t.Subtasks) > 0 {
 			yIter := yOffset + 1
 			for i, st := range t.Subtasks {
@@ -109,7 +100,7 @@ func (p *TasksPane) Draw() {
 		p.backlog.Mtx.RLock()
 		defer p.backlog.Mtx.RUnlock()
 
-		yIter := y + 1
+		yIter := y + 1 - p.viewParams.GetScrollOffset()
 		for _, task := range p.backlog.Tasks {
 			yIter += 1
 			heightDrawn, drawFuncs := drawTask(x+1, yIter, w-2, task, 0)
@@ -119,6 +110,17 @@ func (p *TasksPane) Draw() {
 			yIter += heightDrawn
 		}
 	}()
+
+	// draw title last
+	func() {
+		style := p.stylesheet.NormalEmphasized.DefaultEmphasized()
+
+		p.renderer.DrawBox(x, y, w, 1, style)
+
+		titleText := "Backlog"
+		p.renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
+	}()
+
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
@@ -136,6 +138,7 @@ func NewTasksPane(
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
 	inputProcessor input.ModalInputProcessor,
+	viewParams ui.TimeViewParams,
 	backlog *model.Backlog,
 	categoryStyleProvider func(model.Category) (styling.DrawStyling, error),
 	visible func() bool,
@@ -151,6 +154,7 @@ func NewTasksPane(
 			dimensions: dimensions,
 			stylesheet: stylesheet,
 		},
+		viewParams:            viewParams,
 		backlog:               backlog,
 		categoryStyleProvider: categoryStyleProvider,
 	}
