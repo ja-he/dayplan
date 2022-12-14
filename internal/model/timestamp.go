@@ -80,6 +80,7 @@ func (a Timestamp) IsAfter(b Timestamp) bool {
 	}
 }
 
+// TODO: migrate to time.Duration-based
 func (t Timestamp) Snap(minutesModulus int) Timestamp {
 	minutes := t.toMinutes()
 
