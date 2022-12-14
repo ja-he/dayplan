@@ -2,7 +2,6 @@ package ui
 
 import (
 	"github.com/ja-he/dayplan/internal/input"
-	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 )
 
@@ -198,38 +197,10 @@ type RenderOrchestratorControl interface {
 	Show()
 }
 
-// ViewParams represents the zoom and scroll of a timeline  in the UI.
-type ViewParams struct {
-	// NRowsPerHour is the number of rows in the UI that represent an hour in the
-	// timeline.
-	NRowsPerHour int
-	// ScrollOffset is the offset in rows by which the UI is scrolled.
-	// (An unscrolled UI would have 00:00 at the very top.)
-	ScrollOffset int
-}
-
-// MinutesPerRow returns the number of minutes a single row represents.
-func (p *ViewParams) MinutesPerRow() int {
-	return 60 / p.NRowsPerHour
-}
-
 // MouseCursorPos represents the position of a mouse cursor on the UI's
 // x-y-plane, which has its origin 0,0 in the top left.
 type MouseCursorPos struct {
 	X, Y int
-}
-
-// TimeAtY is the time that corresponds to a given y-position.
-func (p *ViewParams) TimeAtY(y int) model.Timestamp {
-	minutes := y*(60/p.NRowsPerHour) + p.ScrollOffset*(60/p.NRowsPerHour)
-	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
-	return ts
-}
-
-// YForTime gives the y value the given timestamp would be at with the
-// receiving ViewParams.
-func (p *ViewParams) YForTime(time model.Timestamp) int {
-	return ((time.Hour*p.NRowsPerHour - p.ScrollOffset) + (time.Minute / (60 / p.NRowsPerHour)))
 }
 
 // TextCursorController offers control of a text cursor, such as for a terminal.

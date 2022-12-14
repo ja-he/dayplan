@@ -2,6 +2,7 @@ package panes
 
 import (
 	"strings"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
@@ -18,7 +19,7 @@ type TimelinePane struct {
 	suntimes    func() *model.SunTimes
 	currentTime func() *model.Timestamp
 
-	viewParams *ui.ViewParams
+	viewParams ui.TimespanViewParams
 }
 
 // Draw draws this pane.
@@ -36,7 +37,7 @@ func (p *TimelinePane) Draw() {
 	timestampRPad := " "
 	emptyTimestamp := strings.Repeat(" ", timestampLength)
 
-	if p.viewParams.NRowsPerHour == 0 {
+	if p.viewParams.HeightOfDuration(time.Hour) == 0 {
 		panic("RES IS ZERO?!")
 	}
 
@@ -78,7 +79,7 @@ func (p *TimelinePane) GetPositionInfo(x, y int) ui.PositionInfo {
 
 // TODO: remove, this will be part of info returned to controller on query
 func (p *TimelinePane) timeAtY(y int) model.Timestamp {
-	minutes := y*(60/p.viewParams.NRowsPerHour) + p.viewParams.ScrollOffset*(60/p.viewParams.NRowsPerHour)
+	minutes := y*(60/int(p.viewParams.HeightOfDuration(time.Hour))) + p.viewParams.GetScrollOffset()*(60/int(p.viewParams.HeightOfDuration(time.Hour)))
 
 	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
 
@@ -86,7 +87,7 @@ func (p *TimelinePane) timeAtY(y int) model.Timestamp {
 }
 
 func (p *TimelinePane) toY(ts model.Timestamp) int {
-	return ((ts.Hour*p.viewParams.NRowsPerHour - p.viewParams.ScrollOffset) + (ts.Minute / (60 / p.viewParams.NRowsPerHour)))
+	return ((ts.Hour*int(p.viewParams.HeightOfDuration(time.Hour)) - p.viewParams.GetScrollOffset()) + (ts.Minute / (60 / int(p.viewParams.HeightOfDuration(time.Hour)))))
 }
 
 // NewTimelinePane constructs and returns a new TimelinePane.
@@ -96,7 +97,7 @@ func NewTimelinePane(
 	stylesheet styling.Stylesheet,
 	suntimes func() *model.SunTimes,
 	currentTime func() *model.Timestamp,
-	viewParams *ui.ViewParams,
+	viewParams ui.TimespanViewParams,
 ) *TimelinePane {
 	return &TimelinePane{
 		Leaf: Leaf{

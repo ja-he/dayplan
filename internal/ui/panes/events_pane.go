@@ -25,7 +25,7 @@ type EventsPane struct {
 
 	styleForCategory func(model.Category) (styling.DrawStyling, error)
 
-	viewParams *ui.ViewParams
+	viewParams ui.TimespanViewParams
 	cursor     *ui.MouseCursorPos
 
 	pad             int
@@ -234,7 +234,7 @@ func NewEventsPane(
 	inputProcessor input.ModalInputProcessor,
 	day func() *model.Day,
 	styleForCategory func(model.Category) (styling.DrawStyling, error),
-	viewParams *ui.ViewParams,
+	viewParams ui.TimespanViewParams,
 	cursor *ui.MouseCursorPos,
 	pad int,
 	drawTimestamps bool,

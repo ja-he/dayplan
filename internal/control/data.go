@@ -87,7 +87,7 @@ type ControlData struct {
 	ShowSummary bool
 	ShowDebug   bool
 
-	ViewParams ui.ViewParams
+	MainTimelineViewParams ui.SingleDayViewParams
 
 	ActiveView func() ui.ActiveView
 
@@ -141,8 +141,8 @@ func NewControlData(cs styling.CategoryStyling) *ControlData {
 		t.Categories = append(t.Categories, style.Cat)
 	}
 
-	t.ViewParams.NRowsPerHour = 6
-	t.ViewParams.ScrollOffset = 8 * t.ViewParams.NRowsPerHour
+	t.MainTimelineViewParams.NRowsPerHour = 6
+	t.MainTimelineViewParams.ScrollOffset = 8 * t.MainTimelineViewParams.NRowsPerHour
 
 	return &t
 }

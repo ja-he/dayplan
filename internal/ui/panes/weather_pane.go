@@ -2,6 +2,7 @@ package panes
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
@@ -16,7 +17,7 @@ type WeatherPane struct {
 
 	weather     *weather.Handler
 	currentDate *model.Date
-	viewParams  *ui.ViewParams
+	viewParams  ui.TimespanViewParams
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -53,7 +54,7 @@ func (p *WeatherPane) Draw() {
 				weatherStyling = p.stylesheet.WeatherSunny
 			}
 
-			p.renderer.DrawBox(x, row, w, p.viewParams.NRowsPerHour, weatherStyling)
+			p.renderer.DrawBox(x, row, w, int(p.viewParams.HeightOfDuration(time.Hour)), weatherStyling)
 
 			p.renderer.DrawText(x, row, w, 1, weatherStyling, weather.Info)
 			p.renderer.DrawText(x, row+1, w, 1, weatherStyling, fmt.Sprintf("%2.0f°C", weather.TempC))
@@ -66,7 +67,7 @@ func (p *WeatherPane) Draw() {
 
 // TODO: remove
 func (p *WeatherPane) toY(ts model.Timestamp) int {
-	return ((ts.Hour*p.viewParams.NRowsPerHour - p.viewParams.ScrollOffset) + (ts.Minute / (60 / p.viewParams.NRowsPerHour)))
+	return ((ts.Hour*int(p.viewParams.HeightOfDuration(time.Hour)) - p.viewParams.GetScrollOffset()) + (ts.Minute / (60 / int(p.viewParams.HeightOfDuration(time.Hour)))))
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
@@ -81,7 +82,7 @@ func NewWeatherPane(
 	stylesheet styling.Stylesheet,
 	currentDate *model.Date,
 	weather *weather.Handler,
-	viewParams *ui.ViewParams,
+	viewParams ui.TimespanViewParams,
 ) *WeatherPane {
 	return &WeatherPane{
 		Leaf: Leaf{

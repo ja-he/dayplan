@@ -121,17 +121,17 @@ func NewController(
 		"gg":    action.NewSimple(func() string { return "scroll to top" }, controller.ScrollTop),
 		"G":     action.NewSimple(func() string { return "scroll to bottom" }, controller.ScrollBottom),
 		"+": action.NewSimple(func() string { return "zoom in" }, func() {
-			if controller.data.ViewParams.NRowsPerHour*2 <= 12 {
-				controller.data.ViewParams.NRowsPerHour *= 2
-				controller.data.ViewParams.ScrollOffset *= 2
+			if controller.data.MainTimelineViewParams.NRowsPerHour*2 <= 12 {
+				controller.data.MainTimelineViewParams.NRowsPerHour *= 2
+				controller.data.MainTimelineViewParams.ScrollOffset *= 2
 			}
 		}),
 		"-": action.NewSimple(func() string { return "zoom out" }, func() {
-			if (controller.data.ViewParams.NRowsPerHour % 2) == 0 {
-				controller.data.ViewParams.NRowsPerHour /= 2
-				controller.data.ViewParams.ScrollOffset /= 2
+			if (controller.data.MainTimelineViewParams.NRowsPerHour % 2) == 0 {
+				controller.data.MainTimelineViewParams.NRowsPerHour /= 2
+				controller.data.MainTimelineViewParams.ScrollOffset /= 2
 			} else {
-				log.Warn().Msg(fmt.Sprintf("can't decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
+				log.Warn().Msg(fmt.Sprintf("can't decrease resolution below %d", controller.data.MainTimelineViewParams.NRowsPerHour))
 			}
 		}),
 	}
@@ -221,7 +221,7 @@ func NewController(
 				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
 			},
 			categoryStyling.GetStyle,
-			&controller.data.ViewParams,
+			&controller.data.MainTimelineViewParams,
 			&controller.data.CursorPos,
 			0,
 			false,
@@ -258,7 +258,7 @@ func NewController(
 					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
 				},
 				categoryStyling.GetStyle,
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 				&controller.data.CursorPos,
 				0,
 				false,
@@ -381,14 +381,14 @@ func NewController(
 
 	// TODO(ja-he): move elsewhere
 	ensureVisible := func(time model.Timestamp) {
-		topRowTime := controller.data.ViewParams.TimeAtY(0)
+		topRowTime := controller.data.MainTimelineViewParams.TimeAtY(0)
 		if topRowTime.IsAfter(time) {
-			controller.data.ViewParams.ScrollOffset += (controller.data.ViewParams.YForTime(time))
+			controller.data.MainTimelineViewParams.ScrollOffset += (controller.data.MainTimelineViewParams.YForTime(time))
 		}
 		_, _, _, maxY := dayViewEventsPaneDimensions()
-		bottomRowTime := controller.data.ViewParams.TimeAtY(maxY)
+		bottomRowTime := controller.data.MainTimelineViewParams.TimeAtY(maxY)
 		if time.IsAfter(bottomRowTime) {
-			controller.data.ViewParams.ScrollOffset += ((controller.data.ViewParams.YForTime(time)) - maxY)
+			controller.data.MainTimelineViewParams.ScrollOffset += ((controller.data.MainTimelineViewParams.YForTime(time)) - maxY)
 		}
 	}
 	var startMovePushing func()
@@ -427,7 +427,8 @@ func NewController(
 				Cat:  controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.Start = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.MinutesPerRow())
+				newEvent.Start = model.NewTimestampFromGotime(time.Now()).
+					Snap(int(controller.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
 			} else {
 				newEvent.Start = current.End
 			}
@@ -447,7 +448,8 @@ func NewController(
 				Cat:  controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.End = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.MinutesPerRow())
+				newEvent.End = model.NewTimestampFromGotime(time.Now()).
+					Snap(int(controller.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
 			} else {
 				newEvent.End = current.Start
 			}
@@ -535,7 +537,7 @@ func NewController(
 		processors.NewModalInputProcessor(dayViewEventsPaneInputTree),
 		controller.data.GetCurrentDay,
 		categoryStyling.GetStyle,
-		&controller.data.ViewParams,
+		&controller.data.MainTimelineViewParams,
 		&controller.data.CursorPos,
 		2,
 		true,
@@ -556,8 +558,8 @@ func NewController(
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
 						controller.data.GetCurrentDay().Current,
-						controller.data.ViewParams.MinutesPerRow(),
-						controller.data.ViewParams.MinutesPerRow(),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 					)
 					if err != nil {
 						panic(err)
@@ -568,8 +570,8 @@ func NewController(
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
 						controller.data.GetCurrentDay().Current,
-						-controller.data.ViewParams.MinutesPerRow(),
-						controller.data.ViewParams.MinutesPerRow(),
+						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 					)
 					if err != nil {
 						panic(err)
@@ -605,12 +607,20 @@ func NewController(
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(current, controller.data.ViewParams.MinutesPerRow(), controller.data.ViewParams.MinutesPerRow())
+					controller.data.GetCurrentDay().MoveSingleEventBy(
+						current,
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
 					ensureVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(current, -controller.data.ViewParams.MinutesPerRow(), controller.data.ViewParams.MinutesPerRow())
+					controller.data.GetCurrentDay().MoveSingleEventBy(
+						current,
+						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
 					ensureVisible(current.Start)
 				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
@@ -639,11 +649,17 @@ func NewController(
 				"j": action.NewSimple(func() string { return "increase size (lengthen)" }, func() {
 					var err error
 					current := controller.data.GetCurrentDay().Current
-					err = controller.data.GetCurrentDay().ResizeBy(current, controller.data.ViewParams.MinutesPerRow())
+					err = controller.data.GetCurrentDay().ResizeBy(
+						current,
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to resize")
 					}
-					err = controller.data.GetCurrentDay().SnapEnd(current, controller.data.ViewParams.MinutesPerRow())
+					err = controller.data.GetCurrentDay().SnapEnd(
+						current,
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to snap")
 					}
@@ -651,8 +667,14 @@ func NewController(
 				}),
 				"k": action.NewSimple(func() string { return "decrease size (shorten)" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().ResizeBy(current, -controller.data.ViewParams.MinutesPerRow())
-					controller.data.GetCurrentDay().SnapEnd(current, controller.data.ViewParams.MinutesPerRow())
+					controller.data.GetCurrentDay().ResizeBy(
+						current,
+						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
+					controller.data.GetCurrentDay().SnapEnd(
+						current,
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
 					ensureVisible(current.End)
 				}),
 				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
@@ -740,7 +762,7 @@ func NewController(
 						return nil
 					}
 				},
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 			),
 			panes.NewWeatherPane(
 				tui.NewConstrainedRenderer(renderer, weatherDimensions),
@@ -748,7 +770,7 @@ func NewController(
 				stylesheet,
 				&controller.data.CurrentDate,
 				&controller.data.Weather,
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 			),
 		},
 		[]ui.Pane{
@@ -806,7 +828,7 @@ func NewController(
 				stylesheet,
 				func() *model.SunTimes { return nil },
 				func() *model.Timestamp { return nil },
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 			),
 			weekViewEventsWrapper,
 		},
@@ -828,7 +850,7 @@ func NewController(
 				stylesheet,
 				func() *model.SunTimes { return nil },
 				func() *model.Timestamp { return nil },
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 			),
 			monthViewEventsWrapper,
 		},
@@ -1113,7 +1135,7 @@ func NewController(
 
 	controller.timestampGuesser = func(cursorX, cursorY int) model.Timestamp {
 		_, yOffset, _, _ := dayViewEventsPaneDimensions()
-		return controller.data.ViewParams.TimeAtY(yOffset + cursorY)
+		return controller.data.MainTimelineViewParams.TimeAtY(yOffset + cursorY)
 	}
 
 	controller.initializedScreen = renderer
@@ -1126,8 +1148,8 @@ func NewController(
 
 func (t *Controller) ScrollUp(by int) {
 	eventviewTopRow := 0
-	if t.data.ViewParams.ScrollOffset-by >= eventviewTopRow {
-		t.data.ViewParams.ScrollOffset -= by
+	if t.data.MainTimelineViewParams.ScrollOffset-by >= eventviewTopRow {
+		t.data.MainTimelineViewParams.ScrollOffset -= by
 	} else {
 		t.ScrollTop()
 	}
@@ -1135,20 +1157,20 @@ func (t *Controller) ScrollUp(by int) {
 
 func (t *Controller) ScrollDown(by int) {
 	eventviewBottomRow := t.tmpStatusYOffsetGetter()
-	if t.data.ViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.data.ViewParams.NRowsPerHour) {
-		t.data.ViewParams.ScrollOffset += by
+	if t.data.MainTimelineViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.data.MainTimelineViewParams.NRowsPerHour) {
+		t.data.MainTimelineViewParams.ScrollOffset += by
 	} else {
 		t.ScrollBottom()
 	}
 }
 
 func (t *Controller) ScrollTop() {
-	t.data.ViewParams.ScrollOffset = 0
+	t.data.MainTimelineViewParams.ScrollOffset = 0
 }
 
 func (t *Controller) ScrollBottom() {
 	eventviewBottomRow := t.tmpStatusYOffsetGetter()
-	t.data.ViewParams.ScrollOffset = 24*t.data.ViewParams.NRowsPerHour - eventviewBottomRow
+	t.data.MainTimelineViewParams.ScrollOffset = 24*t.data.MainTimelineViewParams.NRowsPerHour - eventviewBottomRow
 }
 
 func (t *Controller) abortEdit() {
@@ -1385,7 +1407,7 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 		switch buttons {
 		case tcell.Button1:
 			cursorTime := t.timestampGuesser(x, y)
-			visualCursorTime := cursorTime.OffsetMinutes(t.data.ViewParams.MinutesPerRow())
+			visualCursorTime := cursorTime.OffsetMinutes(int(t.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
 			event := t.data.MouseEditedEvent
 
 			var err error
