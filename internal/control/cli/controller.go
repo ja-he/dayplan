@@ -428,7 +428,7 @@ func NewController(
 	}
 
 	// TODO(ja-he): move elsewhere
-	ensureVisible := func(time model.Timestamp) {
+	ensureEventsPaneTimestampVisible := func(time model.Timestamp) {
 		topRowTime := controller.data.MainTimelineViewParams.TimeAtY(0)
 		if topRowTime.IsAfter(time) {
 			controller.data.MainTimelineViewParams.ScrollOffset += (controller.data.MainTimelineViewParams.YForTime(time))
@@ -445,15 +445,15 @@ func NewController(
 		"j": action.NewSimple(func() string { return "switch to next event" }, func() {
 			controller.data.GetCurrentDay().CurrentNext()
 			if controller.data.GetCurrentDay().Current != nil {
-				ensureVisible(controller.data.GetCurrentDay().Current.Start)
-				ensureVisible(controller.data.GetCurrentDay().Current.End)
+				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
+				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
 			}
 		}),
 		"k": action.NewSimple(func() string { return "switch to previous event" }, func() {
 			controller.data.GetCurrentDay().CurrentPrev()
 			if controller.data.GetCurrentDay().Current != nil {
-				ensureVisible(controller.data.GetCurrentDay().Current.End)
-				ensureVisible(controller.data.GetCurrentDay().Current.Start)
+				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
+				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
 			}
 		}),
 		"d": action.NewSimple(func() string { return "delete selected event" }, func() {
@@ -487,7 +487,7 @@ func NewController(
 				newEvent.End = newEvent.Start.OffsetMinutes(60)
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureVisible(newEvent.End)
+			ensureEventsPaneTimestampVisible(newEvent.End)
 		}),
 		"O": action.NewSimple(func() string { return "add event before selected" }, func() {
 			current := controller.data.GetCurrentDay().Current
@@ -508,7 +508,7 @@ func NewController(
 				newEvent.Start = newEvent.End.OffsetMinutes(-60)
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureVisible(newEvent.Start)
+			ensureEventsPaneTimestampVisible(newEvent.Start)
 		}),
 		"<c-o>": action.NewSimple(func() string { return "add event now" }, func() {
 			newEvent := &model.Event{
@@ -523,7 +523,7 @@ func NewController(
 				newEvent.End = newEvent.Start.OffsetMinutes(60)
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureVisible(newEvent.Start)
+			ensureEventsPaneTimestampVisible(newEvent.Start)
 		}),
 		"sn": action.NewSimple(func() string { return "split selected event now" }, func() {
 			current := controller.data.GetCurrentDay().Current
@@ -614,7 +614,7 @@ func NewController(
 					if err != nil {
 						panic(err)
 					} else {
-						ensureVisible(controller.data.GetCurrentDay().Current.End)
+						ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
 					}
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
@@ -626,7 +626,7 @@ func NewController(
 					if err != nil {
 						panic(err)
 					} else {
-						ensureVisible(controller.data.GetCurrentDay().Current.Start)
+						ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
 					}
 				}),
 				"M":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
@@ -652,8 +652,8 @@ func NewController(
 					current := controller.data.GetCurrentDay().Current
 					newStart := *model.NewTimestampFromGotime(time.Now())
 					controller.data.GetCurrentDay().MoveSingleEventTo(current, newStart)
-					ensureVisible(current.Start)
-					ensureVisible(current.End)
+					ensureEventsPaneTimestampVisible(current.Start)
+					ensureEventsPaneTimestampVisible(current.End)
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					current := controller.data.GetCurrentDay().Current
@@ -662,7 +662,7 @@ func NewController(
 						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 					)
-					ensureVisible(current.End)
+					ensureEventsPaneTimestampVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					current := controller.data.GetCurrentDay().Current
@@ -671,7 +671,7 @@ func NewController(
 						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 					)
-					ensureVisible(current.Start)
+					ensureEventsPaneTimestampVisible(current.Start)
 				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
@@ -694,7 +694,7 @@ func NewController(
 					current := controller.data.GetCurrentDay().Current
 					newEnd := *model.NewTimestampFromGotime(time.Now())
 					controller.data.GetCurrentDay().ResizeTo(current, newEnd)
-					ensureVisible(newEnd)
+					ensureEventsPaneTimestampVisible(newEnd)
 				}),
 				"j": action.NewSimple(func() string { return "increase size (lengthen)" }, func() {
 					var err error
@@ -713,7 +713,7 @@ func NewController(
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to snap")
 					}
-					ensureVisible(current.End)
+					ensureEventsPaneTimestampVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "decrease size (shorten)" }, func() {
 					current := controller.data.GetCurrentDay().Current
@@ -725,7 +725,7 @@ func NewController(
 						current,
 						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 					)
-					ensureVisible(current.End)
+					ensureEventsPaneTimestampVisible(current.End)
 				}),
 				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
