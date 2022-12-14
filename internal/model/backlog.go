@@ -17,7 +17,7 @@ import (
 // Backlogging Tasks is a planning mechanism; the Backlog can be seen as a
 // to-do list.
 type Backlog struct {
-	Tasks []Task
+	Tasks []*Task
 	Mtx   sync.RWMutex
 }
 
@@ -30,7 +30,7 @@ type Task struct {
 	Category Category
 	Duration *time.Duration
 	Deadline *time.Time
-	Subtasks []Task
+	Subtasks []*Task
 }
 
 // BacklogStored.
@@ -67,9 +67,9 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 	}
 	log.Debug().Int("N-Cats", len(stored.TasksByCategory)).Msg("read storeds")
 
-	var mapSubtasks func(cat string, tasks []BaseTask) []Task
-	toTask := func(cat string, b BaseTask) Task {
-		return Task{
+	var mapSubtasks func(cat string, tasks []BaseTask) []*Task
+	toTask := func(cat string, b BaseTask) *Task {
+		return &Task{
 			Name:     b.Name,
 			Category: categoryGetter(cat),
 			Duration: b.Duration,
@@ -77,8 +77,8 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 			Subtasks: mapSubtasks(cat, b.Subtasks),
 		}
 	}
-	mapSubtasks = func(cat string, tasks []BaseTask) []Task {
-		result := []Task{}
+	mapSubtasks = func(cat string, tasks []BaseTask) []*Task {
+		result := []*Task{}
 		for _, t := range tasks {
 			result = append(result, toTask(cat, t))
 		}
@@ -86,7 +86,7 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 		return result
 	}
 
-	b := &Backlog{Tasks: []Task{}}
+	b := &Backlog{Tasks: []*Task{}}
 	for cat, tasks := range stored.TasksByCategory {
 		for _, task := range tasks {
 			b.Tasks = append(b.Tasks, toTask(cat, task))
@@ -97,7 +97,7 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 	return b, nil
 }
 
-type ByDeadline []Task
+type ByDeadline []*Task
 
 func (a ByDeadline) Len() int      { return len(a) }
 func (a ByDeadline) Swap(i, j int) { a[i], a[j] = a[j], a[i] }

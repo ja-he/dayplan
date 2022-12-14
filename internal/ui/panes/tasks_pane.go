@@ -13,6 +13,7 @@ import (
 type TasksPane struct {
 	Leaf
 	viewParams            ui.TimeViewParams
+	getCurrentTask        func() *model.Task
 	backlog               *model.Backlog
 	categoryStyleProvider func(model.Category) (styling.DrawStyling, error)
 }
@@ -42,15 +43,15 @@ func (p *TasksPane) Draw() {
 	}()
 
 	// draws task, taking into account view params, returns y space used
-	var drawTask func(xBase, yOffset, wBase int, t model.Task, depth int) (int, []func())
-	drawTask = func(xBase, yOffset, wBase int, t model.Task, depth int) (int, []func()) {
+	var drawTask func(xBase, yOffset, wBase int, t *model.Task, depth int, emphasize bool) (int, []func())
+	drawTask = func(xBase, yOffset, wBase int, t *model.Task, depth int, emphasize bool) (int, []func()) {
 		drawThis := []func(){}
 
 		h := 2 * int(p.viewParams.GetZoomPercentage()/50.0) // TODO: make based on duration and viewparams when no subtasks
 		if len(t.Subtasks) > 0 {
 			yIter := yOffset + 1
 			for i, st := range t.Subtasks {
-				drawnHeight, drawCalls := drawTask(xBase+1, yIter, wBase-2, st, depth+1)
+				drawnHeight, drawCalls := drawTask(xBase+1, yIter, wBase-2, st, depth+1, emphasize || p.getCurrentTask() == st)
 				drawThis = append(drawThis, drawCalls...)
 				effectiveYIncrease := drawnHeight
 				if i != len(t.Subtasks)-1 {
@@ -66,6 +67,10 @@ func (p *TasksPane) Draw() {
 			style = p.stylesheet.CategoryFallback
 		}
 		style = style.DarkenedBG(depth * 10)
+
+		if emphasize {
+			style = style.DefaultEmphasized()
+		}
 
 		drawThis = append(drawThis, func() {
 			p.renderer.DrawBox(
@@ -103,7 +108,7 @@ func (p *TasksPane) Draw() {
 		yIter := y + 1 - p.viewParams.GetScrollOffset()
 		for _, task := range p.backlog.Tasks {
 			yIter += 1
-			heightDrawn, drawFuncs := drawTask(x+1, yIter, w-2, task, 0)
+			heightDrawn, drawFuncs := drawTask(x+1, yIter, w-2, task, 0, p.getCurrentTask() == task)
 			for i := range drawFuncs {
 				drawFuncs[len(drawFuncs)-1-i]()
 			}
@@ -139,6 +144,7 @@ func NewTasksPane(
 	stylesheet styling.Stylesheet,
 	inputProcessor input.ModalInputProcessor,
 	viewParams ui.TimeViewParams,
+	getCurrentTask func() *model.Task,
 	backlog *model.Backlog,
 	categoryStyleProvider func(model.Category) (styling.DrawStyling, error),
 	visible func() bool,
@@ -155,6 +161,7 @@ func NewTasksPane(
 			stylesheet: stylesheet,
 		},
 		viewParams:            viewParams,
+		getCurrentTask:        getCurrentTask,
 		backlog:               backlog,
 		categoryStyleProvider: categoryStyleProvider,
 	}

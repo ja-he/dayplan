@@ -344,6 +344,7 @@ func NewController(
 		func() control.EventEditMode { return controller.data.EventEditMode },
 	)
 
+	var currentTask *model.Task
 	backlogViewParams := ui.BacklogViewParams{
 		NRowsPerHour: 6,
 		ScrollOffset: 0,
@@ -528,6 +529,7 @@ func NewController(
 		stylesheet,
 		processors.NewModalInputProcessor(tasksInputTree),
 		&backlogViewParams,
+		func() *model.Task { return currentTask },
 		backlog,
 		categoryStyling.GetStyle,
 		func() bool { return tasksVisible },
