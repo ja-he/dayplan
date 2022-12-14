@@ -72,6 +72,10 @@ func (p *BacklogPane) Draw() {
 			style = style.DefaultEmphasized()
 		}
 
+		if emphasize {
+			xBase -= 1
+			wBase += 2
+		}
 		drawThis = append(drawThis, func() {
 			p.renderer.DrawBox(
 				xBase+1, yOffset, wBase-2, h,
