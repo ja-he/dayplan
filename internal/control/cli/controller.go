@@ -363,6 +363,40 @@ func NewController(
 			"<c-d>": action.NewSimple(func() string { return "scroll down" }, func() {
 				backlogViewParams.ScrollOffset += 10
 			}),
+			"j": action.NewSimple(func() string { return "go down a task" }, func() {
+				currentIndex := -1
+				if currentTask != nil {
+					for i, t := range backlog.Tasks {
+						if currentTask == t {
+							currentIndex = i
+							break
+						}
+					}
+				}
+				if len(backlog.Tasks) > currentIndex+1 {
+					currentTask = backlog.Tasks[currentIndex+1]
+				} else {
+					log.Debug().Msg("not allowing selecting next task, as at end of backlog")
+				}
+			}),
+			"k": action.NewSimple(func() string { return "go up a task" }, func() {
+				currentIndex := -1
+				if currentTask != nil {
+					for i, t := range backlog.Tasks {
+						if currentTask == t {
+							currentIndex = i
+							break
+						}
+					}
+				}
+				if currentIndex-1 >= 0 {
+					currentTask = backlog.Tasks[currentIndex-1]
+				} else if currentIndex == -1 && len(backlog.Tasks) > 0 {
+					currentTask = backlog.Tasks[0]
+				} else {
+					log.Debug().Msg("already at topmost task, so not going up")
+				}
+			}),
 		},
 	)
 	toolsInputTree, err := input.ConstructInputTree(
