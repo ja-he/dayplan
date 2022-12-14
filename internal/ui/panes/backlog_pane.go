@@ -8,9 +8,9 @@ import (
 	"github.com/ja-he/dayplan/internal/util"
 )
 
-// TasksPane shows a tasks backlog from which tasks and prospective events can
+// BacklogPane shows a tasks backlog from which tasks and prospective events can
 // be selected and moved into concrete days, i.e., planned.
-type TasksPane struct {
+type BacklogPane struct {
 	Leaf
 	viewParams            ui.TimeViewParams
 	getCurrentTask        func() *model.Task
@@ -21,12 +21,12 @@ type TasksPane struct {
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
-func (p *TasksPane) Dimensions() (x, y, w, h int) {
+func (p *BacklogPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
 // Draw draws this pane.
-func (p *TasksPane) Draw() {
+func (p *BacklogPane) Draw() {
 	if !p.IsVisible() {
 		return
 	}
@@ -129,16 +129,16 @@ func (p *TasksPane) Draw() {
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
-func (p *TasksPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	return &TasksPanePositionInfo{}
+func (p *BacklogPane) GetPositionInfo(x, y int) ui.PositionInfo {
+	return &BacklogPanePositionInfo{}
 }
 
-// TasksPanePositionInfo conveys information on a position in a tasks pane.
-type TasksPanePositionInfo struct {
+// BacklogPanePositionInfo conveys information on a position in a BacklogPane.
+type BacklogPanePositionInfo struct {
 }
 
-// NewTasksPane constructs and returns a new TasksPane.
-func NewTasksPane(
+// NewBacklogPane constructs and returns a new BacklogPane.
+func NewBacklogPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
@@ -148,8 +148,8 @@ func NewTasksPane(
 	backlog *model.Backlog,
 	categoryStyleProvider func(model.Category) (styling.DrawStyling, error),
 	visible func() bool,
-) *TasksPane {
-	return &TasksPane{
+) *BacklogPane {
+	return &BacklogPane{
 		Leaf: Leaf{
 			Base: Base{
 				ID:             ui.GeneratePaneID(),

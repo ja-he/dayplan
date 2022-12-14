@@ -557,7 +557,7 @@ func NewController(
 
 	tasksVisible := false
 	toolsVisible := true
-	tasksPane := panes.NewTasksPane(
+	tasksPane := panes.NewBacklogPane(
 		tui.NewConstrainedRenderer(renderer, tasksDimensions),
 		tasksDimensions,
 		stylesheet,
