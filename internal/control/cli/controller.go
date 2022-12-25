@@ -346,7 +346,7 @@ func NewController(
 
 	var currentTask *model.Task
 	backlogViewParams := ui.BacklogViewParams{
-		NRowsPerHour: 6,
+		NRowsPerHour: &controller.data.MainTimelineViewParams.NRowsPerHour,
 		ScrollOffset: 0,
 	}
 	tasksInputTree, err := input.ConstructInputTree(
