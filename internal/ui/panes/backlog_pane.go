@@ -47,7 +47,12 @@ func (p *BacklogPane) Draw() {
 	drawTask = func(xBase, yOffset, wBase int, t *model.Task, depth int, emphasize bool) (int, []func()) {
 		drawThis := []func(){}
 
-		h := 2 * int(p.viewParams.GetZoomPercentage()/50.0) // TODO: make based on duration and viewparams when no subtasks
+		var h int
+		if t.Duration == nil {
+			h = 2 * int(p.viewParams.GetZoomPercentage()/50.0)
+		} else {
+			h = int(p.viewParams.HeightOfDuration(*t.Duration))
+		}
 		if len(t.Subtasks) > 0 {
 			yIter := yOffset + 1
 			for i, st := range t.Subtasks {
