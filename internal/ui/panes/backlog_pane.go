@@ -1,11 +1,14 @@
 package panes
 
 import (
+	"sync"
+
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
+	"github.com/rs/zerolog/log"
 )
 
 // BacklogPane shows a tasks backlog from which tasks and prospective events can
@@ -16,6 +19,9 @@ type BacklogPane struct {
 	getCurrentTask        func() *model.Task
 	backlog               *model.Backlog
 	categoryStyleProvider func(model.Category) (styling.DrawStyling, error)
+
+	uiBoundsMtx sync.RWMutex
+	uiBounds    map[*model.Task]taskUIYBounds
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -27,6 +33,9 @@ func (p *BacklogPane) Dimensions() (x, y, w, h int) {
 
 // Draw draws this pane.
 func (p *BacklogPane) Draw() {
+	p.uiBoundsMtx.Lock()
+	defer p.uiBoundsMtx.Unlock()
+
 	if !p.IsVisible() {
 		return
 	}
@@ -104,6 +113,7 @@ func (p *BacklogPane) Draw() {
 					deadline,
 				)
 			}
+			p.uiBounds[t] = taskUIYBounds{yOffset, yOffset + h - 1}
 		})
 
 		return h, drawThis
@@ -134,7 +144,24 @@ func (p *BacklogPane) Draw() {
 		titleText := "Backlog"
 		p.renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
 	}()
+}
 
+func (p *BacklogPane) GetTaskUIYBounds(t *model.Task) (lb, ub int) {
+	p.uiBoundsMtx.RLock()
+	defer p.uiBoundsMtx.RUnlock()
+	r, ok := p.uiBounds[t]
+	if ok {
+		return r.lb, r.ub
+	} else {
+		log.Warn().Interface("task", t).
+			Msg("backlog pane asked for position of unknown task")
+		return 0, 0
+	}
+}
+
+func (p *BacklogPane) GetTaskVisibilityBounds() (lb, ub int) {
+	_, y, _, h := p.dimensions()
+	return y, y + h - 1
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
@@ -158,7 +185,7 @@ func NewBacklogPane(
 	categoryStyleProvider func(model.Category) (styling.DrawStyling, error),
 	visible func() bool,
 ) *BacklogPane {
-	return &BacklogPane{
+	p := BacklogPane{
 		Leaf: Leaf{
 			Base: Base{
 				ID:             ui.GeneratePaneID(),
@@ -173,5 +200,11 @@ func NewBacklogPane(
 		getCurrentTask:        getCurrentTask,
 		backlog:               backlog,
 		categoryStyleProvider: categoryStyleProvider,
+		uiBounds:              make(map[*model.Task]taskUIYBounds),
 	}
+	return &p
+}
+
+type taskUIYBounds struct {
+	lb, ub int
 }

@@ -349,6 +349,7 @@ func NewController(
 		NRowsPerHour: &controller.data.MainTimelineViewParams.NRowsPerHour,
 		ScrollOffset: 0,
 	}
+	var ensureBacklogTaskVisible func(t *model.Task)
 	tasksInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"x": action.NewSimple(func() string { return "switch to next category" }, func() {
@@ -378,6 +379,7 @@ func NewController(
 				} else {
 					log.Debug().Msg("not allowing selecting next task, as at end of backlog")
 				}
+				ensureBacklogTaskVisible(currentTask)
 			}),
 			"k": action.NewSimple(func() string { return "go up a task" }, func() {
 				currentIndex := -1
@@ -396,6 +398,7 @@ func NewController(
 				} else {
 					log.Debug().Msg("already at topmost task, so not going up")
 				}
+				ensureBacklogTaskVisible(currentTask)
 			}),
 		},
 	)
@@ -639,6 +642,15 @@ func NewController(
 		}
 		dayEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(overlay))
 		controller.data.EventEditMode = control.EventEditModeMove
+	}
+	ensureBacklogTaskVisible = func(t *model.Task) {
+		viewportLB, viewportUB := tasksPane.GetTaskVisibilityBounds()
+		taskLB, taskUB := tasksPane.GetTaskUIYBounds(t)
+		if taskLB < viewportLB {
+			backlogViewParams.ScrollOffset -= viewportLB - taskLB
+		} else if taskUB > viewportUB {
+			backlogViewParams.ScrollOffset -= viewportUB - taskUB
+		}
 	}
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event move mode" }, func() {
