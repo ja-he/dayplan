@@ -357,9 +357,6 @@ func NewController(
 	var getBacklogBottomScrollOffset func() int
 	tasksInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
-			"x": action.NewSimple(func() string { return "switch to next category" }, func() {
-				log.Debug().Msg("Tasks action triggered by tasks pane input processing")
-			}),
 			"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() {
 				backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - 10)
 				if backlogViewParams.GetScrollOffset() < 0 {
