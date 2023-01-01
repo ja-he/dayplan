@@ -350,6 +350,9 @@ func NewController(
 		ScrollOffset: 0,
 	}
 	var ensureBacklogTaskVisible func(t *model.Task)
+	var scrollBacklogTop func()
+	var scrollBacklogBottom func()
+	var getBacklogBottomScrollOffset func() int
 	tasksInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"x": action.NewSimple(func() string { return "switch to next category" }, func() {
@@ -399,6 +402,12 @@ func NewController(
 					log.Debug().Msg("already at topmost task, so not going up")
 				}
 				ensureBacklogTaskVisible(currentTask)
+			}),
+			"gg": action.NewSimple(func() string { return "scroll to top" }, func() {
+				scrollBacklogTop()
+			}),
+			"G": action.NewSimple(func() string { return "scroll to bottom" }, func() {
+				scrollBacklogBottom()
 			}),
 		},
 	)
@@ -651,6 +660,23 @@ func NewController(
 		} else if taskUB > viewportUB {
 			backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - (viewportUB - taskUB))
 		}
+	}
+	scrollBacklogTop = func() {
+		backlogViewParams.SetScrollOffset(0)
+	}
+	scrollBacklogBottom = func() {
+		backlogViewParams.SetScrollOffset(getBacklogBottomScrollOffset())
+	}
+	getBacklogBottomScrollOffset = func() int {
+		if len(backlog.Tasks) == 0 {
+			return 0
+		}
+		lastTask := backlog.Tasks[len(backlog.Tasks)-1]
+		currentScrollOffset := backlogViewParams.GetScrollOffset()
+		_, tUB := tasksPane.GetTaskUIYBounds(lastTask)
+		_, vUB := tasksPane.GetTaskVisibilityBounds()
+		desiredScrollDelta := vUB - tUB - 1
+		return currentScrollOffset - desiredScrollDelta
 	}
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event move mode" }, func() {
