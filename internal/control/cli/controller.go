@@ -361,11 +361,16 @@ func NewController(
 			"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() {
 				backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - 10)
 				if backlogViewParams.GetScrollOffset() < 0 {
-					backlogViewParams.SetScrollOffset(0)
+					scrollBacklogTop()
 				}
 			}),
 			"<c-d>": action.NewSimple(func() string { return "scroll down" }, func() {
-				backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() + 10)
+				scrollTarget := backlogViewParams.GetScrollOffset() + 10
+				if scrollTarget > getBacklogBottomScrollOffset() {
+					scrollBacklogBottom()
+				} else {
+					backlogViewParams.SetScrollOffset(scrollTarget)
+				}
 			}),
 			"j": action.NewSimple(func() string { return "go down a task" }, func() {
 				currentIndex := -1
