@@ -345,6 +345,7 @@ func NewController(
 	)
 
 	var currentTask *model.Task
+	setCurrentTask := func(t *model.Task) { currentTask = t }
 	backlogViewParams := ui.BacklogViewParams{
 		NRowsPerHour: &controller.data.MainTimelineViewParams.NRowsPerHour,
 		ScrollOffset: 0,
@@ -355,6 +356,7 @@ func NewController(
 	var backlogSetCurrentToTopmost func()
 	var backlogSetCurrentToBottommost func()
 	var getBacklogBottomScrollOffset func() int
+	var offsetCurrentTask func(tl []*model.Task, setToNext bool) bool
 	tasksInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() {
@@ -372,38 +374,30 @@ func NewController(
 				}
 			}),
 			"j": action.NewSimple(func() string { return "go down a task" }, func() {
-				currentIndex := -1
-				if currentTask != nil {
-					for i, t := range backlog.Tasks {
-						if currentTask == t {
-							currentIndex = i
-							break
-						}
+				if currentTask == nil {
+					if len(backlog.Tasks) > 0 {
+						currentTask = backlog.Tasks[0]
 					}
+					return
 				}
-				if len(backlog.Tasks) > currentIndex+1 {
-					currentTask = backlog.Tasks[currentIndex+1]
-				} else {
-					log.Debug().Msg("not allowing selecting next task, as at end of backlog")
+
+				found := offsetCurrentTask(backlog.Tasks, true)
+				if !found {
+					setCurrentTask(nil)
 				}
 				ensureBacklogTaskVisible(currentTask)
 			}),
 			"k": action.NewSimple(func() string { return "go up a task" }, func() {
-				currentIndex := -1
-				if currentTask != nil {
-					for i, t := range backlog.Tasks {
-						if currentTask == t {
-							currentIndex = i
-							break
-						}
+				if currentTask == nil {
+					if len(backlog.Tasks) > 0 {
+						currentTask = backlog.Tasks[0]
 					}
+					return
 				}
-				if currentIndex-1 >= 0 {
-					currentTask = backlog.Tasks[currentIndex-1]
-				} else if currentIndex == -1 && len(backlog.Tasks) > 0 {
-					currentTask = backlog.Tasks[0]
-				} else {
-					log.Debug().Msg("already at topmost task, so not going up")
+
+				found := offsetCurrentTask(backlog.Tasks, false)
+				if !found {
+					setCurrentTask(nil)
 				}
 				ensureBacklogTaskVisible(currentTask)
 			}),
@@ -695,6 +689,35 @@ func NewController(
 		}
 		currentTask = backlog.Tasks[len(backlog.Tasks)-1]
 		scrollBacklogBottom()
+	}
+	offsetCurrentTask = func(tl []*model.Task, setToNext bool) bool {
+		if len(tl) == 0 {
+			return false
+		}
+
+		for i, t := range tl {
+			if currentTask == t {
+				if setToNext {
+					if i < len(tl)-1 {
+						setCurrentTask(tl[i+1])
+					} else {
+						log.Debug().Msg("not allowing selecting next task, as at last task in scope")
+					}
+				} else {
+					if i > 0 {
+						setCurrentTask(tl[i-1])
+					} else {
+						log.Debug().Msg("not allowing selecting previous task, as at first task in scope")
+					}
+				}
+				return true
+			}
+			if offsetCurrentTask(t.Subtasks, setToNext) {
+				return true
+			}
+		}
+
+		return false
 	}
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event move mode" }, func() {
