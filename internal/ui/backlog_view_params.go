@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -9,6 +10,8 @@ import (
 
 // BacklogViewParams represents the zoom and scroll of a timeline  in the UI.
 type BacklogViewParams struct {
+	mtx sync.RWMutex
+
 	// NRowsPerHour is the number of rows in the UI that represent an hour in the
 	// timeline.
 	NRowsPerHour *int
@@ -19,15 +22,30 @@ type BacklogViewParams struct {
 
 // MinutesPerRow returns the number of minutes a single row represents.
 func (p *BacklogViewParams) DurationOfHeight(rows int) time.Duration {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+
 	return time.Duration(int64(60/float64(*p.NRowsPerHour))) * time.Minute
 }
 
 func (p *BacklogViewParams) HeightOfDuration(dur time.Duration) float64 {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+
 	return float64(*p.NRowsPerHour) * (float64(dur) / float64(time.Hour))
 }
 
-func (p *BacklogViewParams) GetScrollOffset() int { return p.ScrollOffset }
+func (p *BacklogViewParams) GetScrollOffset() int {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+
+	return p.ScrollOffset
+}
+
 func (p *BacklogViewParams) GetZoomPercentage() float64 {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+
 	switch *p.NRowsPerHour {
 	case 6:
 		return 100
@@ -42,6 +60,9 @@ func (p *BacklogViewParams) GetZoomPercentage() float64 {
 }
 
 func (p *BacklogViewParams) SetZoom(percentage float64) error {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+
 	switch percentage {
 	case 50:
 		*p.NRowsPerHour = 3
@@ -54,7 +75,11 @@ func (p *BacklogViewParams) SetZoom(percentage float64) error {
 	}
 	return nil
 }
+
 func (p *BacklogViewParams) ChangeZoomBy(percentage float64) error {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+
 	switch {
 	case percentage == 50 && (*p.NRowsPerHour == 12 || *p.NRowsPerHour == 6):
 		*p.NRowsPerHour /= 2
@@ -67,4 +92,11 @@ func (p *BacklogViewParams) ChangeZoomBy(percentage float64) error {
 	default:
 		return fmt.Errorf("invalid zoom change percentage %f for this view-param", percentage)
 	}
+}
+
+func (p *BacklogViewParams) SetScrollOffset(offset int) {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+
+	p.ScrollOffset = offset
 }

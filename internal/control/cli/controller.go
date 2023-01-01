@@ -356,13 +356,13 @@ func NewController(
 				log.Debug().Msg("Tasks action triggered by tasks pane input processing")
 			}),
 			"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() {
-				backlogViewParams.ScrollOffset -= 10
-				if backlogViewParams.ScrollOffset < 0 {
-					backlogViewParams.ScrollOffset = 0
+				backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - 10)
+				if backlogViewParams.GetScrollOffset() < 0 {
+					backlogViewParams.SetScrollOffset(0)
 				}
 			}),
 			"<c-d>": action.NewSimple(func() string { return "scroll down" }, func() {
-				backlogViewParams.ScrollOffset += 10
+				backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() + 10)
 			}),
 			"j": action.NewSimple(func() string { return "go down a task" }, func() {
 				currentIndex := -1
@@ -647,9 +647,9 @@ func NewController(
 		viewportLB, viewportUB := tasksPane.GetTaskVisibilityBounds()
 		taskLB, taskUB := tasksPane.GetTaskUIYBounds(t)
 		if taskLB < viewportLB {
-			backlogViewParams.ScrollOffset -= viewportLB - taskLB
+			backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - (viewportLB - taskLB))
 		} else if taskUB > viewportUB {
-			backlogViewParams.ScrollOffset -= viewportUB - taskUB
+			backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - (viewportUB - taskUB))
 		}
 	}
 
