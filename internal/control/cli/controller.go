@@ -407,6 +407,39 @@ func NewController(
 			"G": action.NewSimple(func() string { return "scroll to bottom" }, func() {
 				backlogSetCurrentToBottommost()
 			}),
+			"l": action.NewSimple(func() string { return "step into subtasks" }, func() {
+				if currentTask == nil {
+					return
+				}
+				if len(currentTask.Subtasks) > 0 {
+					currentTask = currentTask.Subtasks[0]
+					ensureBacklogTaskVisible(currentTask)
+				} else {
+					log.Debug().Msg("current task has no subtasks, so remaining at it")
+				}
+			}),
+			"h": action.NewSimple(func() string { return "step out to parent task" }, func() {
+				var findParent func(searchedTask *model.Task, parent *model.Task, tasks []*model.Task) *model.Task
+				findParent = func(searchedTask *model.Task, parent *model.Task, parentsTasks []*model.Task) *model.Task {
+					for _, t := range parentsTasks {
+						if t == searchedTask {
+							return parent
+						}
+						maybeParent := findParent(searchedTask, t, t.Subtasks)
+						if maybeParent != nil {
+							return maybeParent
+						}
+					}
+					return nil
+				}
+				maybeParent := findParent(currentTask, nil, backlog.Tasks)
+				if maybeParent != nil {
+					setCurrentTask(maybeParent)
+					ensureBacklogTaskVisible(currentTask)
+				} else {
+					log.Debug().Msg("could not find parent, so not changing current task")
+				}
+			}),
 		},
 	)
 	toolsInputTree, err := input.ConstructInputTree(
