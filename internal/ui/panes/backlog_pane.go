@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/ja-he/dayplan/internal/input"
@@ -43,12 +44,12 @@ func (p *BacklogPane) Draw() {
 	x, y, w, h := p.dimensions()
 
 	// background
+	bgStyle := p.stylesheet.Normal
+	if p.HasFocus() {
+		bgStyle = p.stylesheet.NormalEmphasized
+	}
 	func() {
-		style := p.stylesheet.Normal
-		if p.HasFocus() {
-			style = p.stylesheet.NormalEmphasized
-		}
-		p.renderer.DrawBox(x, y, w, h, style)
+		p.renderer.DrawBox(x, y, w, h, bgStyle)
 	}()
 
 	// draws task, taking into account view params, returns y space used
@@ -124,7 +125,22 @@ func (p *BacklogPane) Draw() {
 		p.backlog.Mtx.RLock()
 		defer p.backlog.Mtx.RUnlock()
 
-		yIter := y + 1 - p.viewParams.GetScrollOffset()
+		yIter := y - p.viewParams.GetScrollOffset()
+
+		// draw top indicator
+		func() {
+			text := " top "
+			padFront := strings.Repeat("-", (w-2-len(text))/2)
+			padBack := strings.Repeat("-", (w-2)-(len(padFront)+len(text)))
+			p.renderer.DrawText(
+				x+1, yIter+1, w-2, 1,
+				bgStyle,
+				padFront+text+padBack,
+			)
+		}()
+
+		yIter += 1
+
 		for _, task := range p.backlog.Tasks {
 			yIter += 1
 			heightDrawn, drawFuncs := drawTask(x+1, yIter, w-2, task, 0, p.getCurrentTask() == task)
@@ -133,6 +149,17 @@ func (p *BacklogPane) Draw() {
 			}
 			yIter += heightDrawn
 		}
+
+		func() {
+			text := " bottom "
+			padFront := strings.Repeat("-", (w-2-len(text))/2)
+			padBack := strings.Repeat("-", (w-2)-(len(padFront)+len(text)))
+			p.renderer.DrawText(
+				x+1, yIter, w-2, 1,
+				bgStyle,
+				padFront+text+padBack,
+			)
+		}()
 	}()
 
 	// draw title last
