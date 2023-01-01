@@ -352,6 +352,8 @@ func NewController(
 	var ensureBacklogTaskVisible func(t *model.Task)
 	var scrollBacklogTop func()
 	var scrollBacklogBottom func()
+	var backlogSetCurrentToTopmost func()
+	var backlogSetCurrentToBottommost func()
 	var getBacklogBottomScrollOffset func() int
 	tasksInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
@@ -409,10 +411,10 @@ func NewController(
 				ensureBacklogTaskVisible(currentTask)
 			}),
 			"gg": action.NewSimple(func() string { return "scroll to top" }, func() {
-				scrollBacklogTop()
+				backlogSetCurrentToTopmost()
 			}),
 			"G": action.NewSimple(func() string { return "scroll to bottom" }, func() {
-				scrollBacklogBottom()
+				backlogSetCurrentToBottommost()
 			}),
 		},
 	)
@@ -682,6 +684,20 @@ func NewController(
 		_, vUB := tasksPane.GetTaskVisibilityBounds()
 		desiredScrollDelta := vUB - tUB - 1
 		return currentScrollOffset - desiredScrollDelta
+	}
+	backlogSetCurrentToTopmost = func() {
+		if len(backlog.Tasks) == 0 {
+			return
+		}
+		currentTask = backlog.Tasks[0]
+		scrollBacklogTop()
+	}
+	backlogSetCurrentToBottommost = func() {
+		if len(backlog.Tasks) == 0 {
+			return
+		}
+		currentTask = backlog.Tasks[len(backlog.Tasks)-1]
+		scrollBacklogBottom()
 	}
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event move mode" }, func() {
