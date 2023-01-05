@@ -105,6 +105,11 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		currentDate = currentDate.Next()
 	}
 
+	categoryIncluded := func(cat model.Category) bool {
+		_, ok := includeCategoriesByName[cat.Name]
+		return ok
+	}
+
 	totalSummary := make(map[model.Category]int)
 	for _, day := range days {
 		daySummary := day.SumUpByCategory()
@@ -125,8 +130,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 	}
 
 	for category, duration := range totalSummary {
-		_, categoryIncluded := includeCategoriesByName[category.Name]
-		if filterCategories && !categoryIncluded {
+		if filterCategories && !categoryIncluded(category) {
 			continue
 		}
 
