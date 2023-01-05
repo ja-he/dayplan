@@ -24,3 +24,8 @@ func (e *TimesheetEntry) ToPrintableFormat() string {
 		e.End.ToString(),
 	)
 }
+
+// IsEmpty is a helper to identify empty timesheet entries.
+func (e *TimesheetEntry) IsEmpty() bool {
+	return e.Start == e.End
+}

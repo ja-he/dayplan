@@ -29,6 +29,8 @@ type TimesheetCommand struct {
 	TilDay  string `short:"t" long:"til" description:"the day til which to summarize (inclusive)" value-name:"<yyyy-mm-dd>" required:"true"`
 
 	Category string `long:"category" description:"the category for which to generate the timesheet" value-name:"<category name>" required:"true"`
+
+	IncludeEmpty bool `long:"include-empty"`
 }
 
 // Execute executes the timesheet command.
@@ -104,6 +106,11 @@ func (command *TimesheetCommand) Execute(args []string) error {
 
 	for _, dataEntry := range data {
 		timesheetEntry := dataEntry.Day.GetTimesheetEntry(command.Category)
+
+		if !command.IncludeEmpty && timesheetEntry.IsEmpty() {
+			continue
+		}
+
 		fmt.Printf(
 			"%s,%s\n",
 			dataEntry.Date.ToString(),
