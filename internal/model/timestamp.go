@@ -142,6 +142,9 @@ func (t1 Timestamp) DurationInMinutesUntil(t2 Timestamp) int {
 	return t2.toMinutes() - t1.toMinutes()
 }
 
+
+// toMinutes returns the number of minutes into the day (from 00:00) that this
+// timestamp is.
 func (t Timestamp) toMinutes() int {
 	return t.Hour*60 + t.Minute
 }
