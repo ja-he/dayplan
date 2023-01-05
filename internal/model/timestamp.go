@@ -142,9 +142,22 @@ func (t1 Timestamp) DurationInMinutesUntil(t2 Timestamp) int {
 	return t2.toMinutes() - t1.toMinutes()
 }
 
+// Returns the duration (time.Duration) to a given timestamp t2.
+// Does not check that t2 is in fact later!
+func (t1 Timestamp) DurationUntil(t2 Timestamp) time.Duration {
+	return t2.toGotime().Sub(t1.toGotime())
+}
 
 // toMinutes returns the number of minutes into the day (from 00:00) that this
 // timestamp is.
 func (t Timestamp) toMinutes() int {
 	return t.Hour*60 + t.Minute
+}
+
+// toGotime returns the given timestamp as a time.Time, so only hours and
+// minutes, without any date.
+func (t Timestamp) toGotime() time.Time {
+	return time.Time{}.
+		Add(time.Duration(t.Hour) * time.Hour).
+		Add(time.Duration(t.Minute) * time.Minute)
 }
