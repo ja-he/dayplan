@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -17,10 +18,14 @@ type TimesheetEntry struct {
 
 // ToPrintableFormat returns this TimesheetEntry in its printable (CSV) format.
 func (e *TimesheetEntry) ToPrintableFormat() string {
+	dur := e.BreakDuration.String()
+	if strings.HasSuffix(dur, "m0s") {
+		dur = strings.TrimSuffix(dur, "0s")
+	}
 	return fmt.Sprintf(
 		"%s,%s,%s",
 		e.Start.ToString(),
-		e.BreakDuration.String(),
+		dur,
 		e.End.ToString(),
 	)
 }
