@@ -1,8 +1,6 @@
 package model
 
 import (
-	"fmt"
-	"strings"
 	"time"
 )
 
@@ -14,20 +12,6 @@ type TimesheetEntry struct {
 	Start         Timestamp
 	BreakDuration time.Duration
 	End           Timestamp
-}
-
-// ToPrintableFormat returns this TimesheetEntry in its printable (CSV) format.
-func (e *TimesheetEntry) ToPrintableFormat() string {
-	dur := e.BreakDuration.String()
-	if strings.HasSuffix(dur, "m0s") {
-		dur = strings.TrimSuffix(dur, "0s")
-	}
-	return fmt.Sprintf(
-		"%s,%s,%s",
-		e.Start.ToString(),
-		dur,
-		e.End.ToString(),
-	)
 }
 
 // IsEmpty is a helper to identify empty timesheet entries.

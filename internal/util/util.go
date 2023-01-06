@@ -50,3 +50,9 @@ func PadCenter(s string, length int) string {
 	suffix := strings.Repeat(" ", length-len(prefix))
 	return prefix + s + suffix
 }
+
+// Enquote takes a string and surrounds it with quotes, escaping any quotes
+// already present in the given string.
+func Enquote(s string) string {
+	return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/storage"
 	"github.com/ja-he/dayplan/internal/styling"
+	"github.com/ja-he/dayplan/internal/util"
 )
 
 // TimesheetCommand is the command `timesheet`, which produces a timesheet for
@@ -30,7 +31,9 @@ type TimesheetCommand struct {
 
 	Category string `long:"category" description:"the category for which to generate the timesheet" value-name:"<category name>" required:"true"`
 
-	IncludeEmpty bool `long:"include-empty"`
+	IncludeEmpty bool   `long:"include-empty"`
+	DateFormat   string `long:"date-format" description:"the date format (see <https://pkg.go.dev/time#pkg-constants>)" default:"2006-01-02"`
+	Enquote      bool   `long:"enquote" description:"add quotes around field values"`
 }
 
 // Execute executes the timesheet command.
@@ -111,12 +114,40 @@ func (command *TimesheetCommand) Execute(args []string) error {
 			continue
 		}
 
-		fmt.Printf(
-			"%s,%s\n",
-			dataEntry.Date.ToString(),
-			timesheetEntry.ToPrintableFormat(),
+		maybeEnquote := func(s string) string {
+			if command.Enquote {
+				return util.Enquote(s)
+			} else {
+				return s
+			}
+		}
+
+		fmt.Println(
+			strings.Join(
+				[]string{
+					maybeEnquote(dataEntry.Date.ToGotime().Format(command.DateFormat)),
+					asCSVString(timesheetEntry, maybeEnquote),
+				},
+				",",
+			),
 		)
 	}
 
 	return nil
+}
+
+// asCSVString returns this TimesheetEntry in CSV format.
+func asCSVString(e model.TimesheetEntry, processFieldString func(string) string) string {
+	dur := e.BreakDuration.String()
+	if strings.HasSuffix(dur, "m0s") {
+		dur = strings.TrimSuffix(dur, "0s")
+	}
+	return strings.Join(
+		[]string{
+			processFieldString(e.Start.ToString()),
+			processFieldString(dur),
+			processFieldString(e.End.ToString()),
+		},
+		",",
+	)
 }
