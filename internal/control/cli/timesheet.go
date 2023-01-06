@@ -32,7 +32,7 @@ type TimesheetCommand struct {
 	Category string `long:"category" description:"the category for which to generate the timesheet" value-name:"<category name>" required:"true"`
 
 	IncludeEmpty bool   `long:"include-empty"`
-	DateFormat   string `long:"date-format" description:"the date format (see <https://pkg.go.dev/time#pkg-constants>)" default:"2006-01-02"`
+	DateFormat   string `long:"date-format" value-name:"<format>" description:"specify the date format (see <https://pkg.go.dev/time#pkg-constants>)" default:"2006-01-02"`
 	Enquote      bool   `long:"enquote" description:"add quotes around field values"`
 	Separator    string `long:"separator" value-name:"<CSV separator (default ',')>" default:","`
 }
