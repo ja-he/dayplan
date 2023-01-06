@@ -34,6 +34,7 @@ type TimesheetCommand struct {
 	IncludeEmpty bool   `long:"include-empty"`
 	DateFormat   string `long:"date-format" description:"the date format (see <https://pkg.go.dev/time#pkg-constants>)" default:"2006-01-02"`
 	Enquote      bool   `long:"enquote" description:"add quotes around field values"`
+	Separator    string `long:"separator" value-name:"<CSV separator (default ',')>" default:","`
 }
 
 // Execute executes the timesheet command.
@@ -126,9 +127,9 @@ func (command *TimesheetCommand) Execute(args []string) error {
 			strings.Join(
 				[]string{
 					maybeEnquote(dataEntry.Date.ToGotime().Format(command.DateFormat)),
-					asCSVString(timesheetEntry, maybeEnquote),
+					asCSVString(timesheetEntry, maybeEnquote, command.Separator),
 				},
-				",",
+				command.Separator,
 			),
 		)
 	}
@@ -137,7 +138,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 }
 
 // asCSVString returns this TimesheetEntry in CSV format.
-func asCSVString(e model.TimesheetEntry, processFieldString func(string) string) string {
+func asCSVString(e model.TimesheetEntry, processFieldString func(string) string, separator string) string {
 	dur := e.BreakDuration.String()
 	if strings.HasSuffix(dur, "m0s") {
 		dur = strings.TrimSuffix(dur, "0s")
@@ -148,6 +149,6 @@ func asCSVString(e model.TimesheetEntry, processFieldString func(string) string)
 			processFieldString(dur),
 			processFieldString(e.End.ToString()),
 		},
-		",",
+		separator,
 	)
 }
