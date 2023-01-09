@@ -357,6 +357,41 @@ func NewController(
 	var backlogSetCurrentToBottommost func()
 	var getBacklogBottomScrollOffset func() int
 	var offsetCurrentTask func(tl []*model.Task, setToNext bool) bool
+	scheduleTask := func(when time.Time) {
+		if currentTask == nil {
+			return
+		}
+		scheduledTask := currentTask
+		prev, next, parentage, err := backlog.Pop(scheduledTask)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Interface("task", currentTask).
+				Interface("backlog", backlog).
+				Msg("could not find task")
+		} else {
+			currentTask = func() *model.Task {
+				switch {
+				case next != nil:
+					return next
+				case prev != nil:
+					return prev
+				case len(parentage) > 0:
+					return parentage[0]
+				default:
+					return nil
+				}
+			}()
+			namePrefix := ""
+			for _, parent := range parentage {
+				namePrefix = parent.Name + ": " + namePrefix
+			}
+			newEvents := scheduledTask.ToEvent(time.Now(), namePrefix)
+			for _, newEvent := range newEvents {
+				controller.data.GetCurrentDay().AddEvent(newEvent)
+			}
+		}
+	}
 	tasksInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() {
@@ -406,6 +441,9 @@ func NewController(
 			}),
 			"G": action.NewSimple(func() string { return "scroll to bottom" }, func() {
 				backlogSetCurrentToBottommost()
+			}),
+			"sn": action.NewSimple(func() string { return "schedule now" }, func() {
+				scheduleTask(time.Now())
 			}),
 			"l": action.NewSimple(func() string { return "step into subtasks" }, func() {
 				if currentTask == nil {
