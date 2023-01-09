@@ -357,7 +357,8 @@ func NewController(
 	var backlogSetCurrentToBottommost func()
 	var getBacklogBottomScrollOffset func() int
 	var offsetCurrentTask func(tl []*model.Task, setToNext bool) bool
-	scheduleTask := func(when time.Time) {
+	popAndScheduleCurrentTask := func(when *time.Time) {
+		// pass nil time to not schedule
 		if currentTask == nil {
 			return
 		}
@@ -370,6 +371,7 @@ func NewController(
 				Interface("backlog", backlog).
 				Msg("could not find task")
 		} else {
+			// update current task
 			currentTask = func() *model.Task {
 				switch {
 				case next != nil:
@@ -382,13 +384,16 @@ func NewController(
 					return nil
 				}
 			}()
-			namePrefix := ""
-			for _, parent := range parentage {
-				namePrefix = parent.Name + ": " + namePrefix
-			}
-			newEvents := scheduledTask.ToEvent(time.Now(), namePrefix)
-			for _, newEvent := range newEvents {
-				controller.data.GetCurrentDay().AddEvent(newEvent)
+			// schedule task, if time for that was given
+			if when != nil {
+				namePrefix := ""
+				for _, parent := range parentage {
+					namePrefix = parent.Name + ": " + namePrefix
+				}
+				newEvents := scheduledTask.ToEvent(*when, namePrefix)
+				for _, newEvent := range newEvents {
+					controller.data.GetCurrentDay().AddEvent(newEvent)
+				}
 			}
 		}
 	}
@@ -443,7 +448,11 @@ func NewController(
 				backlogSetCurrentToBottommost()
 			}),
 			"sn": action.NewSimple(func() string { return "schedule now" }, func() {
-				scheduleTask(time.Now())
+				when := time.Now()
+				popAndScheduleCurrentTask(&when)
+			}),
+			"d": action.NewSimple(func() string { return "delete task" }, func() {
+				popAndScheduleCurrentTask(nil)
 			}),
 			"l": action.NewSimple(func() string { return "step into subtasks" }, func() {
 				if currentTask == nil {
