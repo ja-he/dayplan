@@ -320,7 +320,7 @@ func (day *Day) SumUpByCategory() map[Category]int {
 
 // GetTimesheetEntry returns the TimesheetEntry for this day for a given
 // category (e.g. "work").
-func (day *Day) GetTimesheetEntry(categoryName string) TimesheetEntry {
+func (day *Day) GetTimesheetEntry(matcher func(string) bool) TimesheetEntry {
 	result := TimesheetEntry{}
 	startFound := false
 	var lastEnd Timestamp
@@ -330,7 +330,7 @@ func (day *Day) GetTimesheetEntry(categoryName string) TimesheetEntry {
 
 	for _, event := range flattened.Events {
 
-		if event.Cat.Name == categoryName {
+		if matcher(event.Cat.Name) {
 
 			if !startFound {
 				result.Start = event.Start

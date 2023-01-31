@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/ja-he/dayplan/internal/config"
@@ -29,16 +30,21 @@ type TimesheetCommand struct {
 	FromDay string `short:"f" long:"from" description:"the day from which to start summarizing" value-name:"<yyyy-mm-dd>" required:"true"`
 	TilDay  string `short:"t" long:"til" description:"the day til which to summarize (inclusive)" value-name:"<yyyy-mm-dd>" required:"true"`
 
-	Category string `long:"category" description:"the category for which to generate the timesheet" value-name:"<category name>" required:"true"`
-
 	IncludeEmpty bool   `long:"include-empty"`
 	DateFormat   string `long:"date-format" value-name:"<format>" description:"specify the date format (see <https://pkg.go.dev/time#pkg-constants>)" default:"2006-01-02"`
 	Enquote      bool   `long:"enquote" description:"add quotes around field values"`
 	Separator    string `long:"separator" value-name:"<CSV separator (default ',')>" default:","`
+	CategoryIncludeFilter string `long:"category-include-filter" short:"i" description:"the category filter include regex for which to generate the timesheet (empty value is ignored)" value-name:"<regex>"`
+	CategoryExcludeFilter string `long:"category-exclude-filter" short:"e" description:"the category filter exclude regex for which to generate the timesheet (empty value is ignored)" value-name:"<regex>"`
+
 }
 
 // Execute executes the timesheet command.
 func (command *TimesheetCommand) Execute(args []string) error {
+	if command.CategoryIncludeFilter == "" && command.CategoryExcludeFilter == "" {
+		return fmt.Errorf("at least one of '--category-include-filter'/'-i' and '--category-exclude-filter'/'-e' is required")
+	}
+
 	var envData control.EnvData
 
 	// set up dir per option
@@ -108,8 +114,40 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		currentDate = currentDate.Next()
 	}
 
+	var includeRegex, excludeRegex *regexp.Regexp
+	if command.CategoryIncludeFilter != "" {
+		includeRegex, err = regexp.Compile(command.CategoryIncludeFilter)
+		if err != nil {
+			return fmt.Errorf("category include filter regex is invalid (%s)", err.Error())
+		}
+	}
+	if command.CategoryExcludeFilter != "" {
+		excludeRegex, err = regexp.Compile(command.CategoryExcludeFilter)
+		if err != nil {
+			return fmt.Errorf("category exclude filter regex is invalid (%s)", err.Error())
+		}
+	}
+	matcher := func(catName string) bool {
+		if includeRegex != nil && !includeRegex.MatchString(catName) {
+			return false
+		}
+		if excludeRegex != nil && excludeRegex.MatchString(catName) {
+			return false
+		}
+		return true
+	}
+
+	func() {
+		fmt.Fprintln(os.Stderr, "PROSPECTIVE MATCHES:")
+		for _, cat := range configData.Categories {
+			if matcher(cat.Name) {
+				fmt.Fprintf(os.Stderr, "  '%s'\n", cat.Name)
+			}
+		}
+	}()
+
 	for _, dataEntry := range data {
-		timesheetEntry := dataEntry.Day.GetTimesheetEntry(command.Category)
+		timesheetEntry := dataEntry.Day.GetTimesheetEntry(matcher)
 
 		if !command.IncludeEmpty && timesheetEntry.IsEmpty() {
 			continue
