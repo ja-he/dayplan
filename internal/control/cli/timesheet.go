@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
@@ -30,13 +31,14 @@ type TimesheetCommand struct {
 	FromDay string `short:"f" long:"from" description:"the day from which to start summarizing" value-name:"<yyyy-mm-dd>" required:"true"`
 	TilDay  string `short:"t" long:"til" description:"the day til which to summarize (inclusive)" value-name:"<yyyy-mm-dd>" required:"true"`
 
-	IncludeEmpty bool   `long:"include-empty"`
-	DateFormat   string `long:"date-format" value-name:"<format>" description:"specify the date format (see <https://pkg.go.dev/time#pkg-constants>)" default:"2006-01-02"`
-	Enquote      bool   `long:"enquote" description:"add quotes around field values"`
-	Separator    string `long:"separator" value-name:"<CSV separator (default ',')>" default:","`
 	CategoryIncludeFilter string `long:"category-include-filter" short:"i" description:"the category filter include regex for which to generate the timesheet (empty value is ignored)" value-name:"<regex>"`
 	CategoryExcludeFilter string `long:"category-exclude-filter" short:"e" description:"the category filter exclude regex for which to generate the timesheet (empty value is ignored)" value-name:"<regex>"`
 
+	IncludeEmpty   bool   `long:"include-empty"`
+	DateFormat     string `long:"date-format" value-name:"<format>" description:"specify the date format (see <https://pkg.go.dev/time#pkg-constants>)" default:"2006-01-02"`
+	Enquote        bool   `long:"enquote" description:"add quotes around field values"`
+	FieldSeparator string `long:"field-separator" value-name:"<CSV separator (default ',')>" default:","`
+	DurationFormat string `long:"duration-format" option:"golang" option:"colon-delimited" default:"golang"`
 }
 
 // Execute executes the timesheet command.
@@ -161,13 +163,34 @@ func (command *TimesheetCommand) Execute(args []string) error {
 			}
 		}
 
+		stringifyTimestamp := func(ts model.Timestamp) string {
+			return ts.ToString()
+		}
+
+		stringifyDuration := func(dur time.Duration) string {
+			switch command.DurationFormat {
+			case "golang":
+				str := dur.String()
+				if strings.HasSuffix(str, "m0s") {
+					str = strings.TrimSuffix(str, "0s")
+				}
+				return str
+			case "colon-delimited":
+				durHours := dur.Truncate(time.Hour)
+				durMins := (dur - durHours)
+				return fmt.Sprintf("%d:%02d", int(durHours.Hours()), int(durMins.Minutes()))
+			default:
+				panic("unhandled case '" + command.DurationFormat + "'")
+			}
+		}
+
 		fmt.Println(
 			strings.Join(
 				[]string{
 					maybeEnquote(dataEntry.Date.ToGotime().Format(command.DateFormat)),
-					asCSVString(timesheetEntry, maybeEnquote, command.Separator),
+					asCSVString(timesheetEntry, maybeEnquote, stringifyTimestamp, stringifyDuration, command.FieldSeparator),
 				},
-				command.Separator,
+				command.FieldSeparator,
 			),
 		)
 	}
@@ -176,16 +199,12 @@ func (command *TimesheetCommand) Execute(args []string) error {
 }
 
 // asCSVString returns this TimesheetEntry in CSV format.
-func asCSVString(e model.TimesheetEntry, processFieldString func(string) string, separator string) string {
-	dur := e.BreakDuration.String()
-	if strings.HasSuffix(dur, "m0s") {
-		dur = strings.TrimSuffix(dur, "0s")
-	}
+func asCSVString(e model.TimesheetEntry, processFieldString func(string) string, stringifyTimestamp func(model.Timestamp) string, stringifyDuration func(time.Duration) string, separator string) string {
 	return strings.Join(
 		[]string{
-			processFieldString(e.Start.ToString()),
-			processFieldString(dur),
-			processFieldString(e.End.ToString()),
+			processFieldString(stringifyTimestamp(e.Start)),
+			processFieldString(stringifyDuration(e.BreakDuration)),
+			processFieldString(stringifyTimestamp(e.End)),
 		},
 		separator,
 	)
