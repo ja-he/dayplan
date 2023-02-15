@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"sort"
 	"sync"
 	"time"
 
@@ -82,7 +81,6 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 		for _, t := range tasks {
 			result = append(result, toTask(cat, t))
 		}
-		sort.Sort(ByDeadline(result))
 		return result
 	}
 
@@ -92,7 +90,6 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 			b.Tasks = append(b.Tasks, toTask(cat, task))
 		}
 	}
-	sort.Sort(ByDeadline(b.Tasks))
 
 	return b, nil
 }
@@ -200,6 +197,8 @@ func (t *Task) getDurationNormalized() time.Duration {
 		return *t.Duration
 	}
 }
+
+// NOTE: technically this following code is unused, it may be useful at some point though
 
 type ByDeadline []*Task
 
