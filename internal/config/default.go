@@ -39,7 +39,7 @@ func defaultStylesheet(colorschemeType ColorschemeType) Stylesheet {
 			Editor:            Styling{Fg: "#ffffff", Bg: "#606060", Style: &FontStyle{}},
 			SummaryDefault:    Styling{Fg: "#ffffff", Bg: "#000000", Style: &FontStyle{}},
 			SummaryTitleBox:   Styling{Fg: "#f0f0f0", Bg: "#000000", Style: &FontStyle{Bold: true}},
-			CategoryFallback:  Styling{Fg: "#882222", Bg: "#ffaaaa", Style: &FontStyle{}},
+			CategoryFallback:  Styling{Fg: "#ffaaaa", Bg: "#882222", Style: &FontStyle{}},
 		}
 	} else {
 		return Stylesheet{
@@ -65,7 +65,7 @@ func defaultStylesheet(colorschemeType ColorschemeType) Stylesheet {
 			Editor:            Styling{Fg: "#000000", Bg: "#cccccc", Style: &FontStyle{}},
 			SummaryDefault:    Styling{Fg: "#000000", Bg: "#ffffff", Style: &FontStyle{}},
 			SummaryTitleBox:   Styling{Fg: "#000000", Bg: "#f0f0f0", Style: &FontStyle{Bold: true}},
-			CategoryFallback:  Styling{Fg: "#ffaaaa", Bg: "#882222", Style: &FontStyle{}},
+			CategoryFallback:  Styling{Fg: "#882222", Bg: "#ffaaaa", Style: &FontStyle{}},
 		}
 	}
 }
