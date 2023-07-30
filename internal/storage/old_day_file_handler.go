@@ -1,4 +1,4 @@
-package filehandling
+package storage
 
 import (
 	"bufio"

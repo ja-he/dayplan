@@ -7,8 +7,8 @@ import (
 
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
-	"github.com/ja-he/dayplan/internal/filehandling"
 	"github.com/ja-he/dayplan/internal/model"
+	"github.com/ja-he/dayplan/internal/storage"
 )
 
 // AddCommand contains flags for the `summarize` command line command, for
@@ -88,13 +88,13 @@ func (command *AddCommand) Execute(args []string) error {
 	}
 
 	type fileAndDay struct {
-		file *filehandling.FileHandler
+		file *storage.FileHandler
 		data *model.Day
 		date model.Date
 	}
 	toWrite := []fileAndDay{}
 
-	startDayFile := filehandling.NewFileHandler(envData.BaseDirPath + "/days/" + date.ToString())
+	startDayFile := storage.NewFileHandler(envData.BaseDirPath + "/days/" + date.ToString())
 	startDay := startDayFile.Read([]model.Category{}) // we don't need the categories for this
 	err = startDay.AddEvent(
 		&model.Event{
@@ -131,7 +131,7 @@ func (command *AddCommand) Execute(args []string) error {
 		current := dateIncrementer(date)
 
 		for !current.IsAfter(repeatTilDate) {
-			currentDayFile := filehandling.NewFileHandler(envData.BaseDirPath + "/days/" + current.ToString())
+			currentDayFile := storage.NewFileHandler(envData.BaseDirPath + "/days/" + current.ToString())
 			currentDay := currentDayFile.Read([]model.Category{}) // we don't need the categories for this
 			err = currentDay.AddEvent(
 				&model.Event{

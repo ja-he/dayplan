@@ -13,11 +13,11 @@ import (
 
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/control/action"
-	"github.com/ja-he/dayplan/internal/filehandling"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
+	"github.com/ja-he/dayplan/internal/storage"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/tui"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -36,7 +36,7 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 		tmp := fh.Read(t.data.Categories)
 		return tmp
 	} else {
-		newHandler := filehandling.NewFileHandler(t.data.EnvData.BaseDirPath + "/days/" + date.ToString())
+		newHandler := storage.NewFileHandler(t.data.EnvData.BaseDirPath + "/days/" + date.ToString())
 		t.fhMutex.Lock()
 		t.FileHandlers[date] = newHandler
 		t.fhMutex.Unlock()
@@ -50,7 +50,7 @@ type Controller struct {
 	rootPane ui.Pane
 
 	fhMutex          sync.RWMutex
-	FileHandlers     map[model.Date]*filehandling.FileHandler
+	FileHandlers     map[model.Date]*storage.FileHandler
 	controllerEvents chan ControllerEvent
 
 	// TODO: remove, obviously
@@ -486,6 +486,8 @@ func NewController(
 				} else {
 					log.Debug().Msg("could not find parent, so not changing current task")
 				}
+			}),
+			"w": action.NewSimple(func() string { return "store backlog to file" }, func() {
 			}),
 		},
 	)
@@ -1327,8 +1329,8 @@ func NewController(
 
 	controller.fhMutex.Lock()
 	defer controller.fhMutex.Unlock()
-	controller.FileHandlers = make(map[model.Date]*filehandling.FileHandler)
-	controller.FileHandlers[date] = filehandling.NewFileHandler(controller.data.EnvData.BaseDirPath + "/days/" + date.ToString())
+	controller.FileHandlers = make(map[model.Date]*storage.FileHandler)
+	controller.FileHandlers[date] = storage.NewFileHandler(controller.data.EnvData.BaseDirPath + "/days/" + date.ToString())
 
 	controller.data.CurrentDate = date
 	if controller.FileHandlers[date] == nil {
