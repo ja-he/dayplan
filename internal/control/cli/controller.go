@@ -491,6 +491,9 @@ func NewController(
 			}),
 		},
 	)
+	if err != nil {
+		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for tasks pane")
+	}
 	toolsInputTree, err := input.ConstructInputTree(
 		map[string]action.Action{
 			"j": action.NewSimple(func() string { return "switch to next category" }, func() {
