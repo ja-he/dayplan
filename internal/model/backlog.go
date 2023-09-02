@@ -193,31 +193,31 @@ func (b *Backlog) Locate(task *Task) (prev *Task, next *Task, parentage []*Task,
 
 // AddAfter adds the given newTask after the given anchorTask.
 func (b *Backlog) AddAfter(anchorTask *Task, newTask *Task) error {
-  _, _, parentage, index, err := b.Locate(anchorTask)
-  if err != nil {
-    return fmt.Errorf("could not locate anchor task (%s)", err.Error())
-  }
-  taskList := b.Tasks
-  if len(parentage) > 0 {
-    taskList = parentage[0].Subtasks
-  }
+	_, _, parentage, index, err := b.Locate(anchorTask)
+	if err != nil {
+		return fmt.Errorf("could not locate anchor task (%s)", err.Error())
+	}
+	taskList := b.Tasks
+	if len(parentage) > 0 {
+		taskList = parentage[0].Subtasks
+	}
 
-  // sanity check
-  {
-    if taskList[index] != anchorTask {
-      return fmt.Errorf("implementation error: task[%d].Name == '%s' != '%s", index, taskList[index].Name, anchorTask.Name)
-    }
-  }
+	// sanity check
+	{
+		if taskList[index] != anchorTask {
+			return fmt.Errorf("implementation error: task[%d].Name == '%s' != '%s", index, taskList[index].Name, anchorTask.Name)
+		}
+	}
 
-  // insert new task after given index
-  taskList = append(taskList[:index+1], append([]*Task{newTask}, taskList[index+1:]...)...)
-  if len(parentage) > 0 {
-    parentage[0].Subtasks = taskList
-  } else {
-    b.Tasks = taskList
-  }
+	// insert new task after given index
+	taskList = append(taskList[:index+1], append([]*Task{newTask}, taskList[index+1:]...)...)
+	if len(parentage) > 0 {
+		parentage[0].Subtasks = taskList
+	} else {
+		b.Tasks = taskList
+	}
 
-  return nil
+	return nil
 }
 
 func (t *Task) toEvent(startTime time.Time, namePrefix string) Event {

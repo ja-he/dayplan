@@ -489,7 +489,21 @@ func NewController(
 				}
 			}),
 			"o": action.NewSimple(func() string { return "add a new task below the current one" }, func() {
+				if currentTask == nil {
+					log.Warn().Msgf("asked to add a task after to nil current task")
+					return
+				}
 				backlog.AddAfter(currentTask, &model.Task{
+					Name:     "(need to implement task editor)",
+					Category: controller.data.CurrentCategory,
+				})
+			}),
+			"i": action.NewSimple(func() string { return "add a new subtask of the current task" }, func() {
+				if currentTask == nil {
+					log.Warn().Msgf("asked to add a subtask to nil current task")
+					return
+				}
+				currentTask.Subtasks = append(currentTask.Subtasks, &model.Task{
 					Name:     "(need to implement task editor)",
 					Category: controller.data.CurrentCategory,
 				})
