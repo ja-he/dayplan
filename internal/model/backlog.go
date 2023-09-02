@@ -32,6 +32,27 @@ type Task struct {
 	Subtasks []*Task
 }
 
+func (t Task) toBaseTask() BaseTask {
+	result := BaseTask{
+		Name:     t.Name,
+		Duration: t.Duration,
+		Deadline: t.Deadline,
+		Subtasks: make([]BaseTask, 0, len(t.Subtasks)),
+	}
+	for _, subtask := range t.Subtasks {
+		if t.Category.Name != subtask.Category.Name {
+			log.Warn().
+				Str("subtask", subtask.Name).
+				Str("parent-task", t.Name).
+				Str("subtask-category", subtask.Category.Name).
+				Str("parent-task-category", t.Category.Name).
+				Msg("subtask has different category from parent, which will be lost")
+		}
+		result.Subtasks = append(result.Subtasks, subtask.toBaseTask())
+	}
+	return result
+}
+
 // BacklogStored.
 type BacklogStored struct {
 	TasksByCategory map[string][]BaseTask `yaml:",inline"`
@@ -47,8 +68,28 @@ type BaseTask struct {
 
 // Write writes the Backlog to the given io.Writer, e.g., an opened file.
 func (b *Backlog) Write(w io.Writer) error {
-	// TODO
-	return fmt.Errorf("unimplemented")
+
+	toBeWritten := BacklogStored{
+		TasksByCategory: map[string][]BaseTask{},
+	}
+	for _, task := range b.Tasks {
+		categoryName := task.Category.Name
+		toBeWritten.TasksByCategory[categoryName] = append(
+			toBeWritten.TasksByCategory[categoryName],
+			task.toBaseTask(),
+		)
+	}
+
+	data, err := yaml.Marshal(toBeWritten)
+	if err != nil {
+		return fmt.Errorf("unabel to marshal backlog (%s)", err.Error())
+	}
+	_, err = w.Write(data)
+	if err != nil {
+		return fmt.Errorf("unable to write to backlog writer (%s)", err.Error())
+	}
+
+	return nil
 }
 
 // Read reads and deserializes a backlog from the io.Reader and returns the
