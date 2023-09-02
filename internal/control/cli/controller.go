@@ -92,11 +92,12 @@ func NewController(
 	controller.data = control.NewControlData(categoryStyling)
 	backlogFilePath := path.Join(envData.BaseDirPath, "days", "backlog.yml") // TODO(ja_he): Migrate 'days' -> 'data', perhaps subdir 'days'
 	backlog, err := func() (*model.Backlog, error) {
-		reader, err := os.Open(backlogFilePath)
+		backlogReader, err := os.Open(backlogFilePath)
 		if err != nil {
 			return &model.Backlog{}, err
 		}
-		return model.BacklogFromReader(reader, categoryGetter)
+		defer backlogReader.Close()
+		return model.BacklogFromReader(backlogReader, categoryGetter)
 	}()
 	if err != nil {
 		tuiLogger.Error().Err(err).Str("file", backlogFilePath).Msg("could not read backlog")
