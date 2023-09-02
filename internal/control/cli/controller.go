@@ -488,6 +488,12 @@ func NewController(
 					log.Debug().Msg("could not find parent, so not changing current task")
 				}
 			}),
+			"o": action.NewSimple(func() string { return "add a new task below the current one" }, func() {
+				backlog.AddAfter(currentTask, &model.Task{
+					Name:     "(need to implement task editor)",
+					Category: controller.data.CurrentCategory,
+				})
+			}),
 			"w": action.NewSimple(func() string { return "store backlog to file" }, func() {
 				writer, err := os.OpenFile(backlogFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 				if err != nil {
