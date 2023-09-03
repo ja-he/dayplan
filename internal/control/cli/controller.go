@@ -493,10 +493,17 @@ func NewController(
 					log.Warn().Msgf("asked to add a task after to nil current task")
 					return
 				}
-				backlog.AddAfter(currentTask, &model.Task{
-					Name:     "(need to implement task editor)",
-					Category: controller.data.CurrentCategory,
-				})
+				newTask, parent, err := backlog.AddAfter(currentTask)
+				if err != nil {
+					log.Error().Err(err).Msgf("was unable to add a task after '%s'", currentTask.Name)
+					return
+				}
+				newTask.Name = "(need to implement task editor)"
+				if parent != nil {
+					newTask.Category = parent.Category
+				} else {
+					newTask.Category = controller.data.CurrentCategory
+				}
 			}),
 			"i": action.NewSimple(func() string { return "add a new subtask of the current task" }, func() {
 				if currentTask == nil {
@@ -505,7 +512,7 @@ func NewController(
 				}
 				currentTask.Subtasks = append(currentTask.Subtasks, &model.Task{
 					Name:     "(need to implement task editor)",
-					Category: controller.data.CurrentCategory,
+					Category: currentTask.Category,
 				})
 			}),
 			"w": action.NewSimple(func() string { return "store backlog to file" }, func() {
