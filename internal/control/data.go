@@ -82,6 +82,8 @@ type ControlData struct {
 	Weather     weather.Handler
 
 	EventEditor editor.EventEditor
+	TaskEditor  editor.Editor
+
 	ShowLog     bool
 	ShowHelp    bool
 	ShowSummary bool

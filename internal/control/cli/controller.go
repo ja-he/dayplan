@@ -13,6 +13,7 @@ import (
 
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/control/action"
+	"github.com/ja-he/dayplan/internal/control/editor"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/ja-he/dayplan/internal/model"
@@ -45,9 +46,10 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 	}
 }
 
+// Controller
 type Controller struct {
 	data     *control.ControlData
-	rootPane ui.Pane
+	rootPane *panes.RootPane
 
 	fhMutex          sync.RWMutex
 	FileHandlers     map[model.Date]*storage.FileHandler
@@ -69,6 +71,7 @@ type Controller struct {
 	syncer            tui.ScreenSynchronizer
 }
 
+// NewController
 func NewController(
 	date model.Date,
 	envData control.EnvData,
@@ -345,6 +348,18 @@ func NewController(
 		func() control.EventEditMode { return controller.data.EventEditMode },
 	)
 
+	var stringEditorAbort, stringEditorCommitAndExit, stringEditorMoveCursorLeft, stringEditorMoveCursorRight, stringEditorInsertMode func()
+	stringsEditorInputTree, err := input.ConstructInputTree(map[string]action.Action{
+		"<esc>": action.NewSimple(func() string { return "cancel editing" }, func() { stringEditorAbort() }),
+		"<cr>":  action.NewSimple(func() string { return "cancel editing" }, func() { stringEditorCommitAndExit() }),
+		"h":     action.NewSimple(func() string { return "move cursor left" }, func() { stringEditorMoveCursorLeft() }),
+		"l":     action.NewSimple(func() string { return "move cursor left" }, func() { stringEditorMoveCursorRight() }),
+		"i":     action.NewSimple(func() string { return "insert mode" }, func() { stringEditorInsertMode() }),
+	})
+	if err != nil {
+		stderrLogger.Fatal().Err(err).Msgf("could not create strings pane input tree")
+	}
+
 	var currentTask *model.Task
 	setCurrentTask := func(t *model.Task) { currentTask = t }
 	backlogViewParams := ui.BacklogViewParams{
@@ -490,7 +505,11 @@ func NewController(
 			}),
 			"o": action.NewSimple(func() string { return "add a new task below the current one" }, func() {
 				if currentTask == nil {
-					log.Warn().Msgf("asked to add a task after to nil current task")
+					log.Debug().Msgf("asked to add a task after to nil current task, adding as first")
+					newTask := backlog.AddLast()
+					newTask.Name = "(need to implement task editor)"
+					newTask.Category = controller.data.CurrentCategory
+					currentTask = newTask
 					return
 				}
 				newTask, parent, err := backlog.AddAfter(currentTask)
@@ -514,6 +533,53 @@ func NewController(
 					Name:     "(need to implement task editor)",
 					Category: currentTask.Category,
 				})
+			}),
+			"<cr>": action.NewSimple(func() string { return "begin editing of task" }, func() {
+				if controller.data.TaskEditor != nil {
+					log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
+				}
+				var err error
+				controller.data.TaskEditor, err = editor.ConstructEditor(currentTask, nil)
+				if err != nil {
+					log.Error().Err(err).Interface("current-task", currentTask).Msg("was not able to construct editor for current task")
+					return
+				}
+
+				nameStringEditor := controller.data.TaskEditor.GetEditor("name")
+				if nameStringEditor == nil {
+					log.Warn().Msgf("task editor for '%s' has no view 'name'", currentTask.Name)
+					return
+				}
+				stringEditorAbort = func() {
+					controller.rootPane.PopSubpane()
+				}
+				stringEditorMoveCursorLeft = nameStringEditor.MoveCursorLeft
+				stringEditorMoveCursorRight = nameStringEditor.MoveCursorRight
+				stringEditorPane := panes.NewStringEditorPane(
+					func() (int, int, int, int) { return 0, 0, 60, 1 },
+					func() bool { return true },
+					processors.NewModalInputProcessor(stringsEditorInputTree),
+					tui.NewConstrainedRenderer(renderer, func() (int, int, int, int) { return 0, 0, 60, 1 }),
+					nameStringEditor,
+					stylesheet,
+					renderer,
+				)
+				editorInsertMode := processors.NewTextInputProcessor( // TODO rename
+					map[input.Key]action.Action{{Key: tcell.KeyESC}: action.NewSimple(func() string { return "exit insert mode" }, func() {
+						stringEditorPane.PopModalOverlay()
+						nameStringEditor.SetMode(input.TextEditModeNormal) // TODO: probably want to move away from this model of having the editor store the mode? maybe?
+					})},
+					nameStringEditor.AddRune,
+				)
+				stringEditorInsertMode = func() {
+					stringEditorPane.ApplyModalOverlay(editorInsertMode)
+					nameStringEditor.SetMode(input.TextEditModeInsert) // TODO: probably want to move away from this model of having the editor store the mode? maybe?
+				}
+				stringEditorCommitAndExit = func() {
+					nameStringEditor.Commit()
+					controller.rootPane.PopSubpane()
+				}
+				controller.rootPane.PushSubpane(stringEditorPane)
 			}),
 			"w": action.NewSimple(func() string { return "store backlog to file" }, func() {
 				writer, err := os.OpenFile(backlogFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
@@ -575,6 +641,7 @@ func NewController(
 		}
 	}
 	var startMovePushing func()
+	var pushEditorAsRootSubpane func()
 	// TODO: directly?
 	eventsPaneDayInputExtension := map[string]action.Action{
 		"j": action.NewSimple(func() string { return "switch to next event" }, func() {
@@ -602,6 +669,7 @@ func NewController(
 			if event != nil {
 				controller.data.EventEditor.Activate(event)
 			}
+			pushEditorAsRootSubpane()
 		}),
 		"o": action.NewSimple(func() string { return "add event after selected" }, func() {
 			current := controller.data.GetCurrentDay().Current
@@ -1216,7 +1284,7 @@ func NewController(
 		func() bool { return controller.data.ShowHelp },
 		processors.NewModalInputProcessor(helpPaneInputTree),
 	)
-	editorPane := panes.NewEditorPane(
+	editorPane := panes.NewEventEditorPane(
 		tui.NewConstrainedRenderer(renderer, editorDimensions),
 		renderer,
 		editorDimensions,
@@ -1227,6 +1295,7 @@ func NewController(
 		func() int { return controller.data.EventEditor.CursorPos },
 		processors.NewModalInputProcessor(editorNormalModeTree),
 	)
+	pushEditorAsRootSubpane = func() { controller.rootPane.PushSubpane(editorPane) }
 	editorStartInsertMode = func() {
 		editorPane.ApplyModalOverlay(editorInsertMode)
 		controller.data.EventEditor.SetMode(input.TextEditModeInsert)
@@ -1300,7 +1369,6 @@ func NewController(
 			&potatolog.GlobalMemoryLogReaderWriter,
 		),
 		helpPane,
-		editorPane,
 
 		panes.NewPerfPane(
 			tui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) { return 2, 2, 50, 2 }),
@@ -1431,6 +1499,7 @@ func (t *Controller) abortEdit() {
 	t.data.MouseEditState = control.MouseEditStateNone
 	t.data.MouseEditedEvent = nil
 	t.data.EventEditor.Active = false
+	t.rootPane.PopSubpane()
 }
 
 func (t *Controller) endEdit() {
@@ -1442,6 +1511,7 @@ func (t *Controller) endEdit() {
 		t.data.EventEditor.Original.Name = tmp.Name
 	}
 	t.data.GetCurrentDay().UpdateEventOrder()
+	t.rootPane.PopSubpane()
 }
 
 func (t *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
@@ -1737,6 +1807,7 @@ func emptyRenderEvents(c chan ControllerEvent) bool {
 	}
 }
 
+// Run
 func (t *Controller) Run() {
 	log.Info().Msg("dayplan TUI started")
 

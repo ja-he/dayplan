@@ -25,11 +25,11 @@ type Backlog struct {
 // it can further have a duration (estimate), a deadline (due date) and
 // subtasks.
 type Task struct {
-	Name     string
-	Category Category
-	Duration *time.Duration
-	Deadline *time.Time
-	Subtasks []*Task
+	Name     string         `dpedit:"name"`
+	Category Category       `dpedit:"category"`
+	Duration *time.Duration `dpedit:"duration"`
+	Deadline *time.Time     `dpedit:"deadline"`
+	Subtasks []*Task        `dpedit:",ignore"`
 }
 
 func (t Task) toBaseTask() BaseTask {
@@ -189,6 +189,13 @@ func (b *Backlog) Locate(task *Task) (prev *Task, next *Task, parentage []*Task,
 	b.Mtx.RLock()
 	defer b.Mtx.RUnlock()
 	return locateRecursive(task, b.Tasks, nil)
+}
+
+// AddFirst
+func (b *Backlog) AddLast() *Task {
+	newTask := new(Task)
+	b.Tasks = append(b.Tasks, newTask)
+	return newTask
 }
 
 // AddAfter adds a new task after the given anchorTask.

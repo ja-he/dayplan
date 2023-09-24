@@ -1,5 +1,7 @@
 package action
 
+import "github.com/rs/zerolog/log"
+
 // Simple implements the Action interface.
 // It models a simple, non-undoable action as a func() which is called on Do.
 type Simple struct {
@@ -10,6 +12,17 @@ type Simple struct {
 // Do performs this simple action.
 // A simple action is not undoable.
 func (a *Simple) Do() {
+	if a.action == nil { // NOTE: this check is pointless for how I am using these...
+		explanation := func() string {
+			if a.explain == nil {
+				return "no explanation available"
+			}
+			return a.explain()
+		}()
+		log.Warn().Msgf("Simple action '%s' has no action function (is nil)", explanation)
+		return
+	}
+
 	a.action()
 }
 
