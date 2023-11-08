@@ -3,7 +3,8 @@ package control
 import (
 	"sync"
 
-	"github.com/ja-he/dayplan/internal/control/editor"
+	"github.com/ja-he/dayplan/internal/control/edit"
+	"github.com/ja-he/dayplan/internal/control/edit/editors"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -81,8 +82,8 @@ type ControlData struct {
 	CurrentDate model.Date
 	Weather     weather.Handler
 
-	EventEditor editor.EventEditor
-	TaskEditor  editor.Editor
+	EventEditor editors.EventEditor
+	TaskEditor  edit.Editor
 
 	ShowLog     bool
 	ShowHelp    bool
@@ -97,34 +98,12 @@ type ControlData struct {
 	EventProcessingTimes util.MetricsHandler
 
 	MouseMode     bool
-	EventEditMode EventEditMode
+	EventEditMode edit.EventEditMode
 
-	MouseEditState                   MouseEditState
+	MouseEditState                   edit.MouseEditState
 	MouseEditedEvent                 *model.Event
 	CurrentMoveStartingOffsetMinutes int
 }
-
-type MouseEditState int
-
-const (
-	_ MouseEditState = iota
-	MouseEditStateNone
-	MouseEditStateMoving
-	MouseEditStateResizing
-)
-
-func (s MouseEditState) toString() string {
-	return "TODO"
-}
-
-type EventEditMode = int
-
-const (
-	_ EventEditMode = iota
-	EventEditModeNormal
-	EventEditModeMove
-	EventEditModeResize
-)
 
 type DaysData struct {
 	daysMutex sync.RWMutex

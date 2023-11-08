@@ -55,7 +55,7 @@ func (t *Tree) CapturesInput() bool {
 // sequence strings to actions.
 // If the given mapping is invalid, this returns an error.
 func ConstructInputTree(
-	spec map[string]action.Action,
+	spec map[Keyspec]action.Action,
 ) (*Tree, error) {
 	root := NewNode()
 

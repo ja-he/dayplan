@@ -172,9 +172,7 @@ func (p EventBoxPart) ToString() string {
 	return "[unknown event box part]"
 }
 
-// ConstrainedRenderer is a renderer that is assumed to be constrained to
-// certain dimensions, i.E. it does not draw outside of them.
-type ConstrainedRenderer interface {
+type Renderer interface {
 	// Draw a box of the indicated dimensions at the indicated location but
 	// limited to the constraint (bounding box) of the renderer.
 	// In the case that the box is  not fully contained by the bounding box,
@@ -187,6 +185,15 @@ type ConstrainedRenderer interface {
 	// it is truncated to fit and drawn at the corrected coordinates with the
 	// corrected dimensions.
 	DrawText(x, y, w, h int, style styling.DrawStyling, text string)
+}
+
+// ConstrainedRenderer is a renderer that is assumed to be constrained to
+// certain dimensions, i.E. it does not draw outside of them.
+type ConstrainedRenderer interface {
+	Renderer
+
+	// Dimensions returns the dimensions of the renderer.
+	Dimensions() (x, y, w, h int)
 }
 
 // RenderOrchestratorControl is the set of functions of a renderer (e.g.,

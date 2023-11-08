@@ -14,7 +14,7 @@ import (
 // and light on the timeline. If allowed to get a current time, it will
 // highlight the current time.
 type TimelinePane struct {
-	Leaf
+	ui.LeafPane
 
 	suntimes    func() *model.SunTimes
 	currentTime func() *model.Timestamp
@@ -25,9 +25,9 @@ type TimelinePane struct {
 // Draw draws this pane.
 func (p *TimelinePane) Draw() {
 
-	x, y, w, h := p.dimensions()
+	x, y, w, h := p.Dims()
 
-	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
+	p.Renderer.DrawBox(x, y, w, h, p.Stylesheet.Normal)
 
 	suntimes := p.suntimes()
 	currentTime := p.currentTime()
@@ -58,17 +58,17 @@ func (p *TimelinePane) Draw() {
 
 		var styling styling.DrawStyling
 		if suntimes != nil && (!(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set))) {
-			styling = p.stylesheet.TimelineNight
+			styling = p.Stylesheet.TimelineNight
 		} else {
-			styling = p.stylesheet.TimelineDay
+			styling = p.Stylesheet.TimelineDay
 		}
 
-		p.renderer.DrawText(x, virtRow+y, w, 1, styling, timeText)
+		p.Renderer.DrawText(x, virtRow+y, w, 1, styling, timeText)
 	}
 
 	if currentTime != nil {
 		timeText := timestampLPad + currentTime.ToString() + timestampRPad
-		p.renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, p.stylesheet.TimelineNow, timeText)
+		p.Renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, p.Stylesheet.TimelineNow, timeText)
 	}
 }
 
@@ -100,13 +100,13 @@ func NewTimelinePane(
 	viewParams ui.TimespanViewParams,
 ) *TimelinePane {
 	return &TimelinePane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID: ui.GeneratePaneID(),
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		suntimes:    suntimes,
 		currentTime: currentTime,

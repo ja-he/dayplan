@@ -3,7 +3,6 @@ package model
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sync"
 	"time"
 
@@ -95,7 +94,7 @@ func (b *Backlog) Write(w io.Writer) error {
 // Read reads and deserializes a backlog from the io.Reader and returns the
 // backlog.
 func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Backlog, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return &Backlog{}, fmt.Errorf("unable to read from reader (%s)", err.Error())
 	}

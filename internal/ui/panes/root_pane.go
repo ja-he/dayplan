@@ -80,11 +80,6 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	} else {
 		inactive = append(inactive, p.summary)
 	}
-	if p.help.IsVisible() {
-		active = append(active, p.help)
-	} else {
-		inactive = append(inactive, p.help)
-	}
 
 	for i := range p.subpanes {
 		if p.subpanes[i].IsVisible() {
@@ -92,6 +87,13 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 		} else {
 			inactive = append(inactive, p.subpanes[i])
 		}
+	}
+
+	// TODO: help should probably be a subpane? for now, always on top.
+	if p.help.IsVisible() {
+		active = append(active, p.help)
+	} else {
+		inactive = append(inactive, p.help)
 	}
 
 	return active, inactive
@@ -157,13 +159,26 @@ func (p *RootPane) CapturesInput() bool {
 // an action based on the input.
 // Defers to the panes' input processor or its focussed subpanes.
 func (p *RootPane) ProcessInput(key input.Key) bool {
+
 	if p.inputProcessor.CapturesInput() {
+
 		return p.inputProcessor.ProcessInput(key)
+
 	} else if p.focussedPane().CapturesInput() {
+
 		return p.focussedPane().ProcessInput(key)
+
 	} else {
-		return p.focussedPane().ProcessInput(key) || p.inputProcessor.ProcessInput(key)
+
+		processAttemptResult := p.focussedPane().ProcessInput(key)
+		if processAttemptResult {
+			return true
+		}
+
+		return p.inputProcessor.ProcessInput(key)
+
 	}
+
 }
 
 func (p *RootPane) ViewUp() {
@@ -283,6 +298,9 @@ func (p *RootPane) PushSubpane(pane ui.Pane) {
 func (p *RootPane) PopSubpane() {
 	p.subpanesMtx.Lock()
 	defer p.subpanesMtx.Unlock()
+	if len(p.subpanes) == 0 {
+		return
+	}
 	p.DeferPreDraw(p.subpanes[len(p.subpanes)-1].Undraw)
 	p.subpanes = p.subpanes[:len(p.subpanes)-1]
 }

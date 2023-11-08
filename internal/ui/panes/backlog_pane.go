@@ -15,7 +15,7 @@ import (
 // BacklogPane shows a tasks backlog from which tasks and prospective events can
 // be selected and moved into concrete days, i.e., planned.
 type BacklogPane struct {
-	Leaf
+	ui.LeafPane
 	viewParams            ui.TimeViewParams
 	getCurrentTask        func() *model.Task
 	backlog               *model.Backlog
@@ -29,7 +29,7 @@ type BacklogPane struct {
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *BacklogPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // Draw draws this pane.
@@ -41,15 +41,15 @@ func (p *BacklogPane) Draw() {
 		return
 	}
 
-	x, y, w, h := p.dimensions()
+	x, y, w, h := p.Dims()
 
 	// background
-	bgStyle := p.stylesheet.Normal
+	bgStyle := p.Stylesheet.Normal
 	if p.HasFocus() {
-		bgStyle = p.stylesheet.NormalEmphasized
+		bgStyle = p.Stylesheet.NormalEmphasized
 	}
 	func() {
-		p.renderer.DrawBox(x, y, w, h, bgStyle)
+		p.Renderer.DrawBox(x, y, w, h, bgStyle)
 	}()
 
 	// draws task, taking into account view params, returns y space used
@@ -79,7 +79,7 @@ func (p *BacklogPane) Draw() {
 
 		style, err := p.categoryStyleProvider(t.Category)
 		if err != nil {
-			style = p.stylesheet.CategoryFallback
+			style = p.Stylesheet.CategoryFallback
 		}
 		style = style.DarkenedBG(depth * 10)
 
@@ -92,23 +92,23 @@ func (p *BacklogPane) Draw() {
 			wBase += 2
 		}
 		drawThis = append(drawThis, func() {
-			p.renderer.DrawBox(
+			p.Renderer.DrawBox(
 				xBase+1, yOffset, wBase-2, h,
 				style,
 			)
-			p.renderer.DrawText(
+			p.Renderer.DrawText(
 				xBase+1+1, yOffset, wBase-2-1, 1,
 				style.Bolded(),
 				util.TruncateAt(t.Name, wBase-2-1),
 			)
-			p.renderer.DrawText(
+			p.Renderer.DrawText(
 				xBase+3, yOffset+1, wBase-2-2, 1,
 				style.Italicized(),
 				util.TruncateAt(t.Category.Name, wBase-2-2),
 			)
 			if t.Deadline != nil {
 				deadline := t.Deadline.Format("2006-01-02 15:04:05")
-				p.renderer.DrawText(
+				p.Renderer.DrawText(
 					xBase+wBase-len(deadline)-1, yOffset+1, len(deadline), 1,
 					style.Bolded(),
 					deadline,
@@ -132,7 +132,7 @@ func (p *BacklogPane) Draw() {
 			text := " top "
 			padFront := strings.Repeat("-", (w-2-len(text))/2)
 			padBack := strings.Repeat("-", (w-2)-(len(padFront)+len(text)))
-			p.renderer.DrawText(
+			p.Renderer.DrawText(
 				x+1, yIter+1, w-2, 1,
 				bgStyle,
 				padFront+text+padBack,
@@ -154,7 +154,7 @@ func (p *BacklogPane) Draw() {
 			text := " bottom "
 			padFront := strings.Repeat("-", (w-2-len(text))/2)
 			padBack := strings.Repeat("-", (w-2)-(len(padFront)+len(text)))
-			p.renderer.DrawText(
+			p.Renderer.DrawText(
 				x+1, yIter, w-2, 1,
 				bgStyle,
 				padFront+text+padBack,
@@ -164,12 +164,12 @@ func (p *BacklogPane) Draw() {
 
 	// draw title last
 	func() {
-		style := p.stylesheet.NormalEmphasized.DefaultEmphasized()
+		style := p.Stylesheet.NormalEmphasized.DefaultEmphasized()
 
-		p.renderer.DrawBox(x, y, w, 1, style)
+		p.Renderer.DrawBox(x, y, w, 1, style)
 
 		titleText := "Backlog"
-		p.renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
+		p.Renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
 	}()
 }
 
@@ -187,7 +187,7 @@ func (p *BacklogPane) GetTaskUIYBounds(t *model.Task) (lb, ub int) {
 }
 
 func (p *BacklogPane) GetTaskVisibilityBounds() (lb, ub int) {
-	_, y, _, h := p.dimensions()
+	_, y, _, h := p.Dims()
 	return y, y + h - 1
 }
 
@@ -213,15 +213,15 @@ func NewBacklogPane(
 	visible func() bool,
 ) *BacklogPane {
 	p := BacklogPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 				Visible:        visible,
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		viewParams:            viewParams,
 		getCurrentTask:        getCurrentTask,

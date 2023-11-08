@@ -1,4 +1,4 @@
-package editor
+package editors
 
 import (
 	"strconv"

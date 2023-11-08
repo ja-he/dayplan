@@ -11,7 +11,7 @@ import (
 // ToolsPane shows tools for editing.
 // Currently it only offers a selection of categories to select from.
 type ToolsPane struct {
-	Leaf
+	ui.LeafPane
 
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
@@ -25,7 +25,7 @@ type ToolsPane struct {
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *ToolsPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // Draw draws this pane.
@@ -34,22 +34,22 @@ func (p *ToolsPane) Draw() {
 		return
 	}
 
-	x, y, w, h := p.dimensions()
+	x, y, w, h := p.Dims()
 
-	style := p.stylesheet.Normal
+	style := p.Stylesheet.Normal
 	if p.HasFocus() {
-		style = p.stylesheet.NormalEmphasized
+		style = p.Stylesheet.NormalEmphasized
 	}
-	p.renderer.DrawBox(x, y, w, h, style)
+	p.Renderer.DrawBox(x, y, w, h, style)
 
 	// title
 	func() {
-		style := p.stylesheet.NormalEmphasized.DefaultEmphasized()
+		style := p.Stylesheet.NormalEmphasized.DefaultEmphasized()
 
-		p.renderer.DrawBox(x, y, w, 1, style)
+		p.Renderer.DrawBox(x, y, w, 1, style)
 
 		titleText := "Tools"
-		p.renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
+		p.Renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
 	}()
 
 	boxes := p.getCategoryBoxes(x, y+1, w, h)
@@ -57,7 +57,7 @@ func (p *ToolsPane) Draw() {
 		categoryStyle, err := p.categories.GetStyle(cat)
 		var styling styling.DrawStyling
 		if err != nil {
-			styling = p.stylesheet.CategoryFallback
+			styling = p.Stylesheet.CategoryFallback
 		} else {
 			styling = categoryStyle
 		}
@@ -69,8 +69,8 @@ func (p *ToolsPane) Draw() {
 			styling = styling.Invert().Bolded()
 		}
 
-		p.renderer.DrawBox(box.X, box.Y, box.W, box.H, styling)
-		p.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(cat.Name, textLen))
+		p.Renderer.DrawBox(box.X, box.Y, box.W, box.H, styling)
+		p.Renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(cat.Name, textLen))
 	}
 	p.lastBoxesDrawn = boxes
 }
@@ -125,15 +125,15 @@ func NewToolsPane(
 	visible func() bool,
 ) *ToolsPane {
 	return &ToolsPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 				Visible:        visible,
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		currentCategory: currentCategory,
 		categories:      categories,

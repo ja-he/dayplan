@@ -11,7 +11,7 @@ import (
 
 // LogPane shows the log, with the most recent log entries at the top.
 type LogPane struct {
-	Leaf
+	ui.LeafPane
 
 	logReader potatolog.LogReader
 
@@ -22,7 +22,7 @@ type LogPane struct {
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *LogPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // Draw draws the time summary view over top of all previously drawn contents,
@@ -33,44 +33,44 @@ func (p *LogPane) Draw() {
 		x, y, w, h := p.Dimensions()
 		row := 2
 
-		p.renderer.DrawBox(x, y, w, h, p.stylesheet.LogDefault)
+		p.Renderer.DrawBox(x, y, w, h, p.Stylesheet.LogDefault)
 		title := p.titleString()
-		p.renderer.DrawBox(x, y, w, 1, p.stylesheet.LogTitleBox)
-		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.stylesheet.LogTitleBox, title)
+		p.Renderer.DrawBox(x, y, w, 1, p.Stylesheet.LogTitleBox)
+		p.Renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.Stylesheet.LogTitleBox, title)
 		for i := len(p.logReader.Get()) - 1; i >= 0; i-- {
 			entry := p.logReader.Get()[i]
 
 			levelLen := len(" error ")
 			extraDataIndentWidth := levelLen + 1
-			p.renderer.DrawText(
+			p.Renderer.DrawText(
 				x, y+row, levelLen, 1,
 				func() styling.DrawStyling {
 					switch entry["level"] {
 					case "error":
-						return p.stylesheet.LogEntryTypeError
+						return p.Stylesheet.LogEntryTypeError
 					case "warn":
-						return p.stylesheet.LogEntryTypeWarn
+						return p.Stylesheet.LogEntryTypeWarn
 					case "info":
-						return p.stylesheet.LogEntryTypeInfo
+						return p.Stylesheet.LogEntryTypeInfo
 					case "debug":
-						return p.stylesheet.LogEntryTypeDebug
+						return p.Stylesheet.LogEntryTypeDebug
 					case "trace":
-						return p.stylesheet.LogEntryTypeTrace
+						return p.Stylesheet.LogEntryTypeTrace
 					}
-					return p.stylesheet.LogDefault
+					return p.Stylesheet.LogDefault
 				}(),
 				util.PadCenter(entry["level"], levelLen),
 			)
 			x = extraDataIndentWidth
 
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogDefault, entry["message"])
+			p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogDefault, entry["message"])
 			x += len(entry["message"]) + 1
 
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryLocation, entry["caller"])
+			p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogEntryLocation, entry["caller"])
 			x += len(entry["caller"]) + 1
 
 			timeStr := entry["time"]
-			p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryTime, timeStr)
+			p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogEntryTime, timeStr)
 
 			x = extraDataIndentWidth
 			row++
@@ -84,8 +84,8 @@ func (p *LogPane) Draw() {
 			sort.Sort(ByAlphabeticOrder(keys))
 			for _, k := range keys {
 				if k != "caller" && k != "message" && k != "time" && k != "level" {
-					p.renderer.DrawText(x, y+row, w, 1, p.stylesheet.LogEntryTime, k)
-					p.renderer.DrawText(x+len(k)+2, y+row, w, 1, p.stylesheet.LogEntryLocation, entry[k])
+					p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogEntryTime, k)
+					p.Renderer.DrawText(x+len(k)+2, y+row, w, 1, p.Stylesheet.LogEntryLocation, entry[k])
 					row++
 				}
 			}
@@ -110,14 +110,14 @@ func NewLogPane(
 	logReader potatolog.LogReader,
 ) *LogPane {
 	return &LogPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				Visible: condition,
 				ID:      ui.GeneratePaneID(),
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		titleString: titleString,
 		logReader:   logReader,

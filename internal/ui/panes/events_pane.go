@@ -19,7 +19,7 @@ import (
 // hide some details (e.g., for showing events as part of multiple EventPanes in
 // in the month view.
 type EventsPane struct {
-	Leaf
+	ui.LeafPane
 
 	day func() *model.Day
 
@@ -44,7 +44,7 @@ type EventsPane struct {
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *EventsPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
@@ -57,11 +57,11 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
 	x, y, w, h := p.Dimensions()
-	style := p.stylesheet.Normal
+	style := p.Stylesheet.Normal
 	if p.HasFocus() {
-		style = p.stylesheet.NormalEmphasized
+		style = p.Stylesheet.NormalEmphasized
 	}
-	p.renderer.DrawBox(x, y, w, h, style)
+	p.Renderer.DrawBox(x, y, w, h, style)
 
 	day := p.day()
 
@@ -75,7 +75,7 @@ func (p *EventsPane) Draw() {
 		style, err := p.styleForCategory(e.Cat)
 		if err != nil {
 			log.Error().Err(err).Str("category-name", e.Cat.Name).Msg("an error occurred getting category style")
-			style = p.stylesheet.CategoryFallback
+			style = p.Stylesheet.CategoryFallback
 		}
 		if !p.isCurrentDay() {
 			style = style.DefaultDimmed()
@@ -129,19 +129,19 @@ func (p *EventsPane) Draw() {
 		var topTimestampStyling = bodyStyling.NormalizeFromBG(0.4)
 		var botTimestampStyling = bottomStyling.NormalizeFromBG(0.4)
 
-		p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
+		p.Renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
 
 		if p.drawTimestamps {
-			p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, topTimestampStyling, e.Start.ToString())
+			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, topTimestampStyling, e.Start.ToString())
 		}
 
-		p.renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
+		p.Renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
 		if p.drawTimestamps {
-			p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, e.End.ToString())
+			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, e.End.ToString())
 		}
 
 		if p.drawNames {
-			p.renderer.DrawText(pos.X+1, pos.Y, nameWidth, 1, nameStyling, util.TruncateAt(e.Name, nameWidth))
+			p.Renderer.DrawText(pos.X+1, pos.Y, nameWidth, 1, nameStyling, util.TruncateAt(e.Name, nameWidth))
 		}
 		if p.drawCat && pos.H > 1 {
 			var catStyling = bodyStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
@@ -149,7 +149,7 @@ func (p *EventsPane) Draw() {
 				catStyling = bottomStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
 			}
 			catWidth := pos.W - 2 - 1
-			p.renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
+			p.Renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
 		}
 
 	}
@@ -245,14 +245,14 @@ func NewEventsPane(
 	mouseMode func() bool,
 ) *EventsPane {
 	return &EventsPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		day:              day,
 		styleForCategory: styleForCategory,

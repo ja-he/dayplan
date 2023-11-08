@@ -10,7 +10,7 @@ import (
 
 // HelpPane conditionally be hidden or display a set of keyboad shortcuts.
 type HelpPane struct {
-	Leaf
+	ui.LeafPane
 
 	Content input.Help
 }
@@ -19,7 +19,7 @@ type HelpPane struct {
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *HelpPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
@@ -30,7 +30,7 @@ func (p *HelpPane) Draw() {
 	if p.IsVisible() {
 
 		x, y, w, h := p.Dimensions()
-		p.renderer.DrawBox(x, y, w, h, p.stylesheet.Help)
+		p.Renderer.DrawBox(x, y, w, h, p.Stylesheet.Help)
 
 		keysDrawn := 0
 		const border = 1
@@ -40,8 +40,8 @@ func (p *HelpPane) Draw() {
 		descriptionOffset := keyOffset + maxKeyWidth + pad
 
 		drawMapping := func(keys, description string) {
-			p.renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keys)), y+border+keysDrawn, len([]rune(keys)), 1, p.stylesheet.Help.DefaultEmphasized().Bolded(), keys)
-			p.renderer.DrawText(descriptionOffset, y+border+keysDrawn, w, h, p.stylesheet.Help.Italicized(), description)
+			p.Renderer.DrawText(keyOffset+maxKeyWidth-len([]rune(keys)), y+border+keysDrawn, len([]rune(keys)), 1, p.Stylesheet.Help.DefaultEmphasized().Bolded(), keys)
+			p.Renderer.DrawText(descriptionOffset, y+border+keysDrawn, w, h, p.Stylesheet.Help.Italicized(), description)
 			keysDrawn++
 		}
 
@@ -80,14 +80,14 @@ func NewHelpPane(
 	inputProcessor input.ModalInputProcessor,
 ) *HelpPane {
 	p := &HelpPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:      ui.GeneratePaneID(),
 				Visible: condition,
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 	}
 	p.InputProcessor = inputProcessor

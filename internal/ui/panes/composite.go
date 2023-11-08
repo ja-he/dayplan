@@ -12,7 +12,7 @@ import (
 // Composite is a generic wrapper pane whithout any rendering logic of its
 // own.
 type Composite struct {
-	Base
+	ui.BasePane
 
 	drawables   []ui.Pane
 	focussables []ui.Pane
@@ -183,7 +183,7 @@ func NewWrapperPane(
 	p := &Composite{
 		focussables: focussables,
 		drawables:   drawables,
-		Base: Base{
+		BasePane: ui.BasePane{
 			InputProcessor: inputProcessor,
 			ID:             ui.GeneratePaneID(),
 		},
