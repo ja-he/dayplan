@@ -2,7 +2,6 @@ package cli
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -90,7 +89,7 @@ func (command *TuiCommand) Execute(args []string) error {
 	envData.Longitude = os.Getenv("LONGITUDE")
 
 	// read config from file
-	yamlData, err := ioutil.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
+	yamlData, err := os.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
 	if err != nil {
 		log.Warn().Err(err).Msg("can't read config file: '%s', using defaults")
 		yamlData = make([]byte, 0)
