@@ -602,6 +602,20 @@ func NewController(
 					controller.controllerEvents <- ControllerEventTaskEditorExit
 				}()
 			}),
+			"w": action.NewSimple(func() string { return "store backlog to file" }, func() {
+				writer, err := os.OpenFile(backlogFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+				if err != nil {
+					log.Error().Err(err).Msgf("unable to write open backlog file '%s' for writing", backlogFilePath)
+					return
+				}
+				defer writer.Close()
+				err = backlog.Write(writer)
+				if err != nil {
+					log.Error().Err(err).Msg("unable to write backlog to writer")
+					return
+				}
+				log.Info().Msgf("wrote backlog to '%s' sucessfully", backlogFilePath)
+			}),
 		},
 	)
 	if err != nil {
