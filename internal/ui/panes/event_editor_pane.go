@@ -6,9 +6,9 @@ import (
 	"github.com/ja-he/dayplan/internal/ui"
 )
 
-// EditorPane visualizes the detailed editing of an event.
-type EditorPane struct {
-	Leaf
+// EventEditorPane visualizes the detailed editing of an event.
+type EventEditorPane struct {
+	ui.LeafPane
 
 	renderer         ui.ConstrainedRenderer
 	cursorController ui.TextCursorController
@@ -22,19 +22,21 @@ type EditorPane struct {
 }
 
 // Undraw ensures that the cursor is hidden.
-func (p *EditorPane) Undraw() { p.cursorController.HideCursor() }
+func (p *EventEditorPane) Undraw() {
+	p.cursorController.HideCursor()
+}
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
 // height) for this pane.
-func (p *EditorPane) Dimensions() (x, y, w, h int) {
+func (p *EventEditorPane) Dimensions() (x, y, w, h int) {
 	return p.dimensions()
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
-func (p *EditorPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
+func (p *EventEditorPane) GetPositionInfo(x, y int) ui.PositionInfo { return nil }
 
 // Draw draws the editor popup.
-func (p *EditorPane) Draw() {
+func (p *EventEditorPane) Draw() {
 	if p.IsVisible() {
 		x, y, w, h := p.Dimensions()
 
@@ -60,8 +62,8 @@ func (p *EditorPane) Draw() {
 	}
 }
 
-// NewEditorPane constructs and returns a new EditorPane.
-func NewEditorPane(
+// NewEventEditorPane constructs and returns a new EventEditorPane.
+func NewEventEditorPane(
 	renderer ui.ConstrainedRenderer,
 	cursorController ui.TextCursorController,
 	dimensions func() (x, y, w, h int),
@@ -71,10 +73,10 @@ func NewEditorPane(
 	getMode func() input.TextEditMode,
 	cursorPos func() int,
 	inputProcessor input.ModalInputProcessor,
-) *EditorPane {
-	return &EditorPane{
-		Leaf: Leaf{
-			Base: Base{
+) *EventEditorPane {
+	return &EventEditorPane{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 				Visible:        condition,

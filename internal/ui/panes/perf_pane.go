@@ -13,7 +13,7 @@ import (
 // PerfPane is an ephemeral pane used for showing debug info during normal
 // usage.
 type PerfPane struct {
-	Leaf
+	ui.LeafPane
 
 	renderTime          util.MetricsGetter
 	eventProcessingTime util.MetricsGetter
@@ -23,7 +23,7 @@ type PerfPane struct {
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *PerfPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // Draw draws this pane.
@@ -37,7 +37,7 @@ func (p *PerfPane) Draw() {
 	eventAvg := p.eventProcessingTime.Avg()
 	eventLast := p.eventProcessingTime.GetLast()
 
-	x, y, w, h := p.dimensions()
+	x, y, w, h := p.Dims()
 	lastWidth := len(" render time: ....... xs ")
 	avgWidth := w - lastWidth
 
@@ -63,13 +63,13 @@ func (p *PerfPane) Draw() {
 		colorful.Hsl(hue, eventSat, ltn),
 	)
 
-	p.renderer.DrawBox(x, y, w, h, defaultStyle)
+	p.Renderer.DrawBox(x, y, w, h, defaultStyle)
 
-	p.renderer.DrawText(x, y, lastWidth, 1, renderStyle, fmt.Sprintf(" render time: % 7d µs ", renderLast))
-	p.renderer.DrawText(x, y+1, lastWidth, 1, eventStyle, fmt.Sprintf(" input  time: % 7d µs ", eventLast))
+	p.Renderer.DrawText(x, y, lastWidth, 1, renderStyle, fmt.Sprintf(" render time: % 7d µs ", renderLast))
+	p.Renderer.DrawText(x, y+1, lastWidth, 1, eventStyle, fmt.Sprintf(" input  time: % 7d µs ", eventLast))
 
-	p.renderer.DrawText(x+lastWidth, y, avgWidth, 1, defaultStyle, fmt.Sprintf(" render avg ~ % 7d µs", renderAvg))
-	p.renderer.DrawText(x+lastWidth, y+1, avgWidth, 1, defaultStyle, fmt.Sprintf(" input  avg ~ % 7d µs", eventAvg))
+	p.Renderer.DrawText(x+lastWidth, y, avgWidth, 1, defaultStyle, fmt.Sprintf(" render avg ~ % 7d µs", renderAvg))
+	p.Renderer.DrawText(x+lastWidth, y+1, avgWidth, 1, defaultStyle, fmt.Sprintf(" input  avg ~ % 7d µs", eventAvg))
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
@@ -91,13 +91,13 @@ func NewPerfPane(
 	eventProcessingTime util.MetricsGetter,
 ) *PerfPane {
 	return &PerfPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:      ui.GeneratePaneID(),
 				Visible: condition,
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
+			Renderer: renderer,
+			Dims:     dimensions,
 		},
 		renderTime:          renderTime,
 		eventProcessingTime: eventProcessingTime,

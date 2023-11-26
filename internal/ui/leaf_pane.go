@@ -1,46 +1,43 @@
-package panes
+package ui
 
 import (
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/styling"
-	"github.com/ja-he/dayplan/internal/ui"
 )
 
-// Leaf is a simple set of data and implementation of a "leaf pane", i.E. a
+// LeafPane is a simple set of data and implementation of a "leaf pane", i.E. a
 // pane that does not have subpanes but instead makes actual draw calls.
-type Leaf struct {
-	Base
-	renderer   ui.ConstrainedRenderer
-	dimensions func() (x, y, w, h int)
-	stylesheet styling.Stylesheet
+type LeafPane struct {
+	BasePane
+	Renderer   ConstrainedRenderer
+	Dims       func() (x, y, w, h int)
+	Stylesheet styling.Stylesheet
 }
 
-// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
-// height) for this pane.
-func (p *Leaf) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+func (p *LeafPane) Dimensions() (x, y, w, h int) {
+	return p.Dims()
 }
 
 // Draw panics. It MUST be overridden if it is to be called.
-func (p *Leaf) Draw() {
+func (p *LeafPane) Draw() {
 	// TODO: draw fill with warning message
 	panic("unimplemented draw")
 }
 
 // Undraw does nothing. Override this, if necessary.
-func (p *Leaf) Undraw() {}
+func (p *LeafPane) Undraw() {}
 
 // HasFocus returns whether the pane has focus.
-func (p *Leaf) HasFocus() bool {
+func (p *LeafPane) HasFocus() bool {
 	return p.Parent != nil && p.Parent.HasFocus() && p.Parent.Focusses() == p.Identify()
 }
 
 // Focusses returns the "none pane", as a leaf does not focus another pane.
-func (p *Leaf) Focusses() ui.PaneID { return ui.NonePaneID }
+func (p *LeafPane) Focusses() PaneID { return NonePaneID }
 
 // CapturesInput returns whether this processor "captures" input, i.E. whether
 // it ought to take priority in processing over other processors.
-func (p *Leaf) CapturesInput() bool {
+func (p *LeafPane) CapturesInput() bool {
 	return p.InputProcessor != nil && p.InputProcessor.CapturesInput()
 }
 
@@ -48,14 +45,14 @@ func (p *Leaf) CapturesInput() bool {
 // Returns whether the provided input "applied", i.E. the processor performed
 // an action based on the input.
 // Defers to the panes' input processor.
-func (p *Leaf) ProcessInput(key input.Key) bool {
+func (p *LeafPane) ProcessInput(key input.Key) bool {
 	return p.InputProcessor != nil && p.InputProcessor.ProcessInput(key)
 }
 
 // ApplyModalOverlay applies an overlay to this processor.
 // It returns the processors index, by which in the future, all overlays down
 // to and including this overlay can be removed
-func (p *Leaf) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
+func (p *LeafPane) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint) {
 	if p.InputProcessor == nil {
 		panic("ApplyModalOverlay on nil InputProcessor")
 	}
@@ -63,7 +60,7 @@ func (p *Leaf) ApplyModalOverlay(overlay input.SimpleInputProcessor) (index uint
 }
 
 // PopModalOverlay removes the topmost overlay from this processor.
-func (p *Leaf) PopModalOverlay() error {
+func (p *LeafPane) PopModalOverlay() error {
 	if p.InputProcessor == nil {
 		panic("PopModalOverlay on nil InputProcessor")
 	}
@@ -72,7 +69,7 @@ func (p *Leaf) PopModalOverlay() error {
 
 // PopModalOverlays pops all overlays down to and including the one at the
 // specified index.
-func (p *Leaf) PopModalOverlays(index uint) {
+func (p *LeafPane) PopModalOverlays(index uint) {
 	if p.InputProcessor == nil {
 		panic("PopModalOverlays on nil InputProcessor")
 	}
@@ -80,7 +77,7 @@ func (p *Leaf) PopModalOverlays(index uint) {
 }
 
 // GetHelp returns the input help map for this processor.
-func (p *Leaf) GetHelp() input.Help {
+func (p *LeafPane) GetHelp() input.Help {
 	if p.InputProcessor == nil {
 		return input.Help{}
 	}
@@ -89,8 +86,8 @@ func (p *Leaf) GetHelp() input.Help {
 
 // FocusPrev does nothing, as this implements a leaf, which does not focus
 // anything.
-func (p *Leaf) FocusPrev() {}
+func (p *LeafPane) FocusPrev() {}
 
 // FocusNext does nothing, as this implements a leaf, which does not focus
 // anything.
-func (p *Leaf) FocusNext() {}
+func (p *LeafPane) FocusNext() {}

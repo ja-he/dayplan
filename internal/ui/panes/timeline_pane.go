@@ -2,6 +2,7 @@ package panes
 
 import (
 	"strings"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
@@ -13,20 +14,20 @@ import (
 // and light on the timeline. If allowed to get a current time, it will
 // highlight the current time.
 type TimelinePane struct {
-	Leaf
+	ui.LeafPane
 
 	suntimes    func() *model.SunTimes
 	currentTime func() *model.Timestamp
 
-	viewParams *ui.ViewParams
+	viewParams ui.TimespanViewParams
 }
 
 // Draw draws this pane.
 func (p *TimelinePane) Draw() {
 
-	x, y, w, h := p.dimensions()
+	x, y, w, h := p.Dims()
 
-	p.renderer.DrawBox(x, y, w, h, p.stylesheet.Normal)
+	p.Renderer.DrawBox(x, y, w, h, p.Stylesheet.Normal)
 
 	suntimes := p.suntimes()
 	currentTime := p.currentTime()
@@ -36,7 +37,7 @@ func (p *TimelinePane) Draw() {
 	timestampRPad := " "
 	emptyTimestamp := strings.Repeat(" ", timestampLength)
 
-	if p.viewParams.NRowsPerHour == 0 {
+	if p.viewParams.HeightOfDuration(time.Hour) == 0 {
 		panic("RES IS ZERO?!")
 	}
 
@@ -57,17 +58,17 @@ func (p *TimelinePane) Draw() {
 
 		var styling styling.DrawStyling
 		if suntimes != nil && (!(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set))) {
-			styling = p.stylesheet.TimelineNight
+			styling = p.Stylesheet.TimelineNight
 		} else {
-			styling = p.stylesheet.TimelineDay
+			styling = p.Stylesheet.TimelineDay
 		}
 
-		p.renderer.DrawText(x, virtRow+y, w, 1, styling, timeText)
+		p.Renderer.DrawText(x, virtRow+y, w, 1, styling, timeText)
 	}
 
 	if currentTime != nil {
 		timeText := timestampLPad + currentTime.ToString() + timestampRPad
-		p.renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, p.stylesheet.TimelineNow, timeText)
+		p.Renderer.DrawText(x, p.toY(*currentTime)+y, w, 1, p.Stylesheet.TimelineNow, timeText)
 	}
 }
 
@@ -78,7 +79,7 @@ func (p *TimelinePane) GetPositionInfo(x, y int) ui.PositionInfo {
 
 // TODO: remove, this will be part of info returned to controller on query
 func (p *TimelinePane) timeAtY(y int) model.Timestamp {
-	minutes := y*(60/p.viewParams.NRowsPerHour) + p.viewParams.ScrollOffset*(60/p.viewParams.NRowsPerHour)
+	minutes := y*(60/int(p.viewParams.HeightOfDuration(time.Hour))) + p.viewParams.GetScrollOffset()*(60/int(p.viewParams.HeightOfDuration(time.Hour)))
 
 	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
 
@@ -86,7 +87,7 @@ func (p *TimelinePane) timeAtY(y int) model.Timestamp {
 }
 
 func (p *TimelinePane) toY(ts model.Timestamp) int {
-	return ((ts.Hour*p.viewParams.NRowsPerHour - p.viewParams.ScrollOffset) + (ts.Minute / (60 / p.viewParams.NRowsPerHour)))
+	return ((ts.Hour*int(p.viewParams.HeightOfDuration(time.Hour)) - p.viewParams.GetScrollOffset()) + (ts.Minute / (60 / int(p.viewParams.HeightOfDuration(time.Hour)))))
 }
 
 // NewTimelinePane constructs and returns a new TimelinePane.
@@ -96,16 +97,16 @@ func NewTimelinePane(
 	stylesheet styling.Stylesheet,
 	suntimes func() *model.SunTimes,
 	currentTime func() *model.Timestamp,
-	viewParams *ui.ViewParams,
+	viewParams ui.TimespanViewParams,
 ) *TimelinePane {
 	return &TimelinePane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID: ui.GeneratePaneID(),
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		suntimes:    suntimes,
 		currentTime: currentTime,

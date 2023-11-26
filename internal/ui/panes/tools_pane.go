@@ -11,7 +11,7 @@ import (
 // ToolsPane shows tools for editing.
 // Currently it only offers a selection of categories to select from.
 type ToolsPane struct {
-	Leaf
+	ui.LeafPane
 
 	currentCategory *model.Category
 	categories      *styling.CategoryStyling
@@ -25,25 +25,39 @@ type ToolsPane struct {
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *ToolsPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // Draw draws this pane.
 func (p *ToolsPane) Draw() {
-	x, y, w, h := p.dimensions()
-
-	style := p.stylesheet.Normal
-	if p.HasFocus() {
-		style = p.stylesheet.NormalEmphasized
+	if !p.IsVisible() {
+		return
 	}
-	p.renderer.DrawBox(x, y, w, h, style)
 
-	boxes := p.getCategoryBoxes(x, y, w, h)
+	x, y, w, h := p.Dims()
+
+	style := p.Stylesheet.Normal
+	if p.HasFocus() {
+		style = p.Stylesheet.NormalEmphasized
+	}
+	p.Renderer.DrawBox(x, y, w, h, style)
+
+	// title
+	func() {
+		style := p.Stylesheet.NormalEmphasized.DefaultEmphasized()
+
+		p.Renderer.DrawBox(x, y, w, 1, style)
+
+		titleText := "Tools"
+		p.Renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
+	}()
+
+	boxes := p.getCategoryBoxes(x, y+1, w, h)
 	for cat, box := range boxes {
 		categoryStyle, err := p.categories.GetStyle(cat)
 		var styling styling.DrawStyling
 		if err != nil {
-			styling = p.stylesheet.CategoryFallback
+			styling = p.Stylesheet.CategoryFallback
 		} else {
 			styling = categoryStyle
 		}
@@ -55,14 +69,14 @@ func (p *ToolsPane) Draw() {
 			styling = styling.Invert().Bolded()
 		}
 
-		p.renderer.DrawBox(box.X, box.Y, box.W, box.H, styling)
-		p.renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(cat.Name, textLen))
+		p.Renderer.DrawBox(box.X, box.Y, box.W, box.H, styling)
+		p.Renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(cat.Name, textLen))
 	}
 	p.lastBoxesDrawn = boxes
 }
 
 func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rect {
-	i := 0
+	i := y
 
 	result := make(map[model.Category]util.Rect)
 
@@ -94,25 +108,8 @@ func (p *ToolsPane) getCategoryForPos(x, y int) *model.Category {
 
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *ToolsPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	return ui.NewPositionInfo(
-		ui.ToolsPaneType,
-		nil,
-		nil,
-		&ToolsPanePositionInfo{category: p.getCategoryForPos(x, y)},
-		nil,
-		nil,
-	)
+	return &ui.ToolsPanePositionInfo{Category: p.getCategoryForPos(x, y)}
 }
-
-// ToolsPanePositionInfo conveys information on a position in a tools pane,
-// importantly the possible category displayed at that position.
-type ToolsPanePositionInfo struct {
-	category *model.Category
-}
-
-// Category gives the category at the position, or nil if none (e.g., because
-// in padding space).
-func (i *ToolsPanePositionInfo) Category() *model.Category { return i.category }
 
 // NewToolsPane constructs and returns a new ToolsPane.
 func NewToolsPane(
@@ -125,16 +122,18 @@ func NewToolsPane(
 	horizPadding int,
 	vertPadding int,
 	gap int,
+	visible func() bool,
 ) *ToolsPane {
 	return &ToolsPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
+				Visible:        visible,
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		currentCategory: currentCategory,
 		categories:      categories,

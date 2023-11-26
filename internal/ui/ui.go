@@ -2,7 +2,6 @@ package ui
 
 import (
 	"github.com/ja-he/dayplan/internal/input"
-	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 )
 
@@ -69,6 +68,8 @@ const (
 	EventsPaneType
 	// ToolsPaneType represents a tools pane.
 	ToolsPaneType
+	// TasksPaneType represents a tasks pane.
+	TasksPaneType
 	// StatusPaneType represents a status pane (or status bar).
 	StatusPaneType
 	// EditorPaneType represents an editor (popup/floating) pane.
@@ -171,9 +172,7 @@ func (p EventBoxPart) ToString() string {
 	return "[unknown event box part]"
 }
 
-// ConstrainedRenderer is a renderer that is assumed to be constrained to
-// certain dimensions, i.E. it does not draw outside of them.
-type ConstrainedRenderer interface {
+type Renderer interface {
 	// Draw a box of the indicated dimensions at the indicated location but
 	// limited to the constraint (bounding box) of the renderer.
 	// In the case that the box is  not fully contained by the bounding box,
@@ -188,6 +187,15 @@ type ConstrainedRenderer interface {
 	DrawText(x, y, w, h int, style styling.DrawStyling, text string)
 }
 
+// ConstrainedRenderer is a renderer that is assumed to be constrained to
+// certain dimensions, i.E. it does not draw outside of them.
+type ConstrainedRenderer interface {
+	Renderer
+
+	// Dimensions returns the dimensions of the renderer.
+	Dimensions() (x, y, w, h int)
+}
+
 // RenderOrchestratorControl is the set of functions of a renderer (e.g.,
 // tcell.Screen) that the root pane needs to use to have full control over a
 // render cycle. Other panes should not need this access to the renderer.
@@ -196,38 +204,10 @@ type RenderOrchestratorControl interface {
 	Show()
 }
 
-// ViewParams represents the zoom and scroll of a timeline  in the UI.
-type ViewParams struct {
-	// NRowsPerHour is the number of rows in the UI that represent an hour in the
-	// timeline.
-	NRowsPerHour int
-	// ScrollOffset is the offset in rows by which the UI is scrolled.
-	// (An unscrolled UI would have 00:00 at the very top.)
-	ScrollOffset int
-}
-
-// MinutesPerRow returns the number of minutes a single row represents.
-func (p *ViewParams) MinutesPerRow() int {
-	return 60 / p.NRowsPerHour
-}
-
 // MouseCursorPos represents the position of a mouse cursor on the UI's
 // x-y-plane, which has its origin 0,0 in the top left.
 type MouseCursorPos struct {
 	X, Y int
-}
-
-// TimeAtY is the time that corresponds to a given y-position.
-func (p *ViewParams) TimeAtY(y int) model.Timestamp {
-	minutes := y*(60/p.NRowsPerHour) + p.ScrollOffset*(60/p.NRowsPerHour)
-	ts := model.Timestamp{Hour: minutes / 60, Minute: minutes % 60}
-	return ts
-}
-
-// YForTime gives the y value the given timestamp would be at with the
-// receiving ViewParams.
-func (p *ViewParams) YForTime(time model.Timestamp) int {
-	return ((time.Hour*p.NRowsPerHour - p.ScrollOffset) + (time.Minute / (60 / p.NRowsPerHour)))
 }
 
 // TextCursorController offers control of a text cursor, such as for a terminal.

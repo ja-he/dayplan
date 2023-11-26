@@ -1,6 +1,8 @@
 package panes
 
 import (
+	"sync"
+
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
@@ -24,12 +26,17 @@ type RootPane struct {
 	summary ui.Pane
 	log     ui.Pane
 
-	help   ui.Pane
-	editor ui.Pane
+	help ui.Pane
+
+	subpanesMtx sync.Mutex
+	subpanes    []ui.Pane
 
 	performanceMetricsOverlay ui.Pane
 
 	inputProcessor input.ModalInputProcessor
+
+	preDrawStackMtx sync.Mutex
+	preDrawStack    []func()
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -63,11 +70,6 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	// TODO: this change breaks the cursor hiding, as that is done in the draw
 	//       call when !condition. it should be done differently anyways though,
 	//       imo.
-	if p.editor.IsVisible() {
-		active = append(active, p.editor)
-	} else {
-		inactive = append(inactive, p.editor)
-	}
 	if p.log.IsVisible() {
 		active = append(active, p.log)
 	} else {
@@ -78,6 +80,16 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	} else {
 		inactive = append(inactive, p.summary)
 	}
+
+	for i := range p.subpanes {
+		if p.subpanes[i].IsVisible() {
+			active = append(active, p.subpanes[i])
+		} else {
+			inactive = append(inactive, p.subpanes[i])
+		}
+	}
+
+	// TODO: help should probably be a subpane? for now, always on top.
 	if p.help.IsVisible() {
 		active = append(active, p.help)
 	} else {
@@ -91,15 +103,26 @@ func (p *RootPane) IsVisible() bool { return true }
 
 // Draw draws this pane.
 func (p *RootPane) Draw() {
+	p.preDrawStackMtx.Lock()
+	for _, f := range p.preDrawStack {
+		f()
+	}
+	p.preDrawStack = nil
+	p.preDrawStackMtx.Unlock()
+
+	p.subpanesMtx.Lock()
+	defer p.subpanesMtx.Unlock()
+
 	p.renderer.Clear()
 
-	active, inactive := p.getCurrentlyActivePanesInOrder()
+	// FIXME: probably simplify this
+	active, _ := p.getCurrentlyActivePanesInOrder()
 	for _, pane := range active {
 		pane.Draw()
 	}
-	for _, pane := range inactive {
-		pane.Undraw()
-	}
+	// for _, pane := range _ {
+	// 	pane.Undraw()
+	// }
 
 	p.performanceMetricsOverlay.Draw()
 
@@ -136,13 +159,26 @@ func (p *RootPane) CapturesInput() bool {
 // an action based on the input.
 // Defers to the panes' input processor or its focussed subpanes.
 func (p *RootPane) ProcessInput(key input.Key) bool {
+
 	if p.inputProcessor.CapturesInput() {
+
 		return p.inputProcessor.ProcessInput(key)
+
 	} else if p.focussedPane().CapturesInput() {
+
 		return p.focussedPane().ProcessInput(key)
+
 	} else {
-		return p.focussedPane().ProcessInput(key) || p.inputProcessor.ProcessInput(key)
+
+		processAttemptResult := p.focussedPane().ProcessInput(key)
+		if processAttemptResult {
+			return true
+		}
+
+		return p.inputProcessor.ProcessInput(key)
+
 	}
+
 }
 
 func (p *RootPane) ViewUp() {
@@ -196,17 +232,27 @@ func (p *RootPane) focussedPane() ui.Pane {
 	switch {
 	case p.help.IsVisible():
 		return p.help
-	case p.editor.IsVisible():
-		return p.editor
 	case p.summary.IsVisible():
 		return p.summary
 	case p.log.IsVisible():
 		return p.log
 	default:
+		for i := range p.subpanes {
+			if p.subpanes[i].IsVisible() {
+				return p.subpanes[i]
+			}
+		}
 		return p.focussedViewPane
 	}
 }
 func (p *RootPane) SetParent(ui.PaneQuerier) { panic("root set parent") }
+
+// DeferPreDraw attaches a function to the pre-draw stack, which is executed
+func (p *RootPane) DeferPreDraw(f func()) {
+	p.preDrawStackMtx.Lock()
+	p.preDrawStack = append(p.preDrawStack, f)
+	p.preDrawStackMtx.Unlock()
+}
 
 // ApplyModalOverlay applies an overlay to this processor.
 // It returns the processors index, by which in the future, all overlays down
@@ -240,6 +286,25 @@ func (p *RootPane) GetHelp() input.Help {
 	return result
 }
 
+// PushSubpane allows adding a subpane over top of other subpanes.
+func (p *RootPane) PushSubpane(pane ui.Pane) {
+	pane.SetParent(p)
+	p.subpanesMtx.Lock()
+	defer p.subpanesMtx.Unlock()
+	p.subpanes = append(p.subpanes, pane)
+}
+
+// PopSubpane pops the topmost subpane
+func (p *RootPane) PopSubpane() {
+	p.subpanesMtx.Lock()
+	defer p.subpanesMtx.Unlock()
+	if len(p.subpanes) == 0 {
+		return
+	}
+	p.DeferPreDraw(p.subpanes[len(p.subpanes)-1].Undraw)
+	p.subpanes = p.subpanes[:len(p.subpanes)-1]
+}
+
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,
@@ -250,7 +315,6 @@ func NewRootPane(
 	summary ui.Pane,
 	log ui.Pane,
 	help ui.Pane,
-	editor ui.Pane,
 	performanceMetricsOverlay ui.Pane,
 	inputProcessor input.ModalInputProcessor,
 	focussedPane ui.Pane,
@@ -265,7 +329,6 @@ func NewRootPane(
 		summary:                   summary,
 		log:                       log,
 		help:                      help,
-		editor:                    editor,
 		performanceMetricsOverlay: performanceMetricsOverlay,
 		inputProcessor:            inputProcessor,
 		focussedViewPane:          focussedPane,
@@ -276,7 +339,6 @@ func NewRootPane(
 
 	summary.SetParent(rootPane)
 	help.SetParent(rootPane)
-	editor.SetParent(rootPane)
 	log.SetParent(rootPane)
 
 	return rootPane

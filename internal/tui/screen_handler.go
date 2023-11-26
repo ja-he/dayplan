@@ -59,10 +59,10 @@ func (s *ScreenHandler) NeedsSync() {
 	s.needsSync = true
 }
 
-// GetScreenDimensions returns the current dimensions of the underlying screen.
-func (s *ScreenHandler) GetScreenDimensions() (int, int) {
-	s.screen.SetStyle(tcell.StyleDefault)
-	return s.screen.Size()
+// Dimensions returns the current dimensions of the underlying screen.
+func (s *ScreenHandler) Dimensions() (x, y, w, h int) {
+	w, h = s.screen.Size()
+	return 0, 0, w, h
 }
 
 // ShowCursor sets the position of the text cursor.
@@ -94,15 +94,17 @@ func (s *ScreenHandler) Show() {
 }
 
 // DrawText draws given text, within given dimensions in the given style.
-func (s *ScreenHandler) DrawText(x, y, w, h int, style tcell.Style, text string) {
+func (s *ScreenHandler) DrawText(x, y, w, h int, style styling.DrawStyling, text string) {
 	if w <= 0 || h <= 0 {
 		return
 	}
 
+	tcellStyle := style.AsTcell()
+
 	col := x
 	row := y
 	for _, r := range text {
-		s.screen.SetContent(col, row, r, nil, style)
+		s.screen.SetContent(col, row, r, nil, tcellStyle)
 		col++
 		if col >= x+w {
 			row++
@@ -116,85 +118,13 @@ func (s *ScreenHandler) DrawText(x, y, w, h int, style tcell.Style, text string)
 
 // DrawBox draws a box of the given dimensions in the given style's background
 // color. Note that this overwrites contents within the dimensions.
-func (s *ScreenHandler) DrawBox(style tcell.Style, x, y, w, h int) {
+func (s *ScreenHandler) DrawBox(x, y, w, h int, style styling.DrawStyling) {
+	tcellStyle := style.AsTcell()
 	for row := y; row < y+h; row++ {
 		for col := x; col < x+w; col++ {
-			s.screen.SetContent(col, row, ' ', nil, style)
+			s.screen.SetContent(col, row, ' ', nil, tcellStyle)
 		}
 	}
-}
-
-// ConstrainedRenderer is a constrained renderer for a TUI.
-// It only allows rendering using the underlying screen handler within the set
-// dimension constraint.
-//
-// Non-conforming rendering requests are corrected to be within the bounds.
-type ConstrainedRenderer struct {
-	screenHandler *ScreenHandler
-
-	constraint func() (x, y, w, h int)
-}
-
-func NewConstrainedRenderer(
-	screenHandler *ScreenHandler,
-	constraint func() (x, y, w, h int),
-) *ConstrainedRenderer {
-	return &ConstrainedRenderer{
-		screenHandler: screenHandler,
-		constraint:    constraint,
-	}
-}
-
-// DrawText draws the given text, within the given dimensions, constrained by
-// the set constraint, in the given style.
-// TODO: should probably change the drawn text manually.
-func (r *ConstrainedRenderer) DrawText(x, y, w, h int, styling styling.DrawStyling, text string) {
-	cx, cy, cw, ch := r.constrain(x, y, w, h)
-
-	r.screenHandler.DrawText(cx, cy, cw, ch, styling.AsTcell(), text)
-}
-
-// DrawBox draws a box of the given dimensions, constrained by the set
-// constraint, in the given style.
-func (r *ConstrainedRenderer) DrawBox(x, y, w, h int, styling styling.DrawStyling) {
-	cx, cy, cw, ch := r.constrain(x, y, w, h)
-	r.screenHandler.DrawBox(styling.AsTcell(), cx, cy, cw, ch)
-}
-
-func (r *ConstrainedRenderer) constrain(rawX, rawY, rawW, rawH int) (constrainedX, constrainedY, constrainedW, constrainedH int) {
-	xConstraint, yConstraint, wConstraint, hConstraint := r.constraint()
-
-	// ensure x, y in bounds, shorten width,height if x,y needed to be moved
-	if rawX < xConstraint {
-		constrainedX = xConstraint
-		rawW -= xConstraint - rawX
-	} else {
-		constrainedX = rawX
-	}
-	if rawY < yConstraint {
-		constrainedY = yConstraint
-		rawH -= yConstraint - rawY
-	} else {
-		constrainedY = rawY
-	}
-
-	xRelativeOffset := constrainedX - xConstraint
-	maxAllowableW := wConstraint - xRelativeOffset
-	yRelativeOffset := constrainedY - yConstraint
-	maxAllowableH := hConstraint - yRelativeOffset
-
-	if rawW > maxAllowableW {
-		constrainedW = maxAllowableW
-	} else {
-		constrainedW = rawW
-	}
-	if rawH > maxAllowableH {
-		constrainedH = maxAllowableH
-	} else {
-		constrainedH = rawH
-	}
-
-	return constrainedX, constrainedY, constrainedW, constrainedH
 }
 
 // EventPollable only allows access to PollEvent of a tcell.Screen.

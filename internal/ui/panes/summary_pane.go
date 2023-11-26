@@ -14,7 +14,7 @@ import (
 // It shows all events' times summed up (by Summarize, meaning without counting
 // any time multiple times) and visualizes the results in simple bars.
 type SummaryPane struct {
-	Leaf
+	ui.LeafPane
 
 	titleString func() string
 	days        func() []*model.Day
@@ -31,7 +31,7 @@ func (p *SummaryPane) EnsureHidden() {}
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *SummaryPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // Draw draws the time summary view over top of all previously drawn contents,
@@ -41,10 +41,10 @@ func (p *SummaryPane) Draw() {
 	if p.IsVisible() {
 		x, y, w, h := p.Dimensions()
 
-		p.renderer.DrawBox(x, y, w, h, p.stylesheet.SummaryDefault)
+		p.Renderer.DrawBox(x, y, w, h, p.Stylesheet.SummaryDefault)
 		title := p.titleString()
-		p.renderer.DrawBox(x, y, w, 1, p.stylesheet.SummaryTitleBox)
-		p.renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.stylesheet.SummaryTitleBox, title)
+		p.Renderer.DrawBox(x, y, w, 1, p.Stylesheet.SummaryTitleBox)
+		p.Renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.Stylesheet.SummaryTitleBox, title)
 
 		summary := make(map[model.Category]int)
 
@@ -77,15 +77,15 @@ func (p *SummaryPane) Draw() {
 			duration := summary[category]
 			style, err := p.categories.GetStyle(category)
 			if err != nil {
-				style = p.stylesheet.CategoryFallback
+				style = p.Stylesheet.CategoryFallback
 			}
 			categoryStyling := style
 			catLen := 20
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
-			p.renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
-			p.renderer.DrawText(x, y+row, catLen, 1, p.stylesheet.SummaryDefault, util.TruncateAt(category.Name, catLen))
-			p.renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+util.DurationToString(duration)+")")
+			p.Renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
+			p.Renderer.DrawText(x, y+row, catLen, 1, p.Stylesheet.SummaryDefault, util.TruncateAt(category.Name, catLen))
+			p.Renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+util.DurationToString(duration)+")")
 			row++
 		}
 	}
@@ -108,15 +108,15 @@ func NewSummaryPane(
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
 	return &SummaryPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 				Visible:        condition,
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		titleString: titleString,
 		days:        days,

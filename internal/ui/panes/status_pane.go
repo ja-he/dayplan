@@ -1,7 +1,7 @@
 package panes
 
 import (
-	"github.com/ja-he/dayplan/internal/control"
+	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -11,7 +11,7 @@ import (
 // StatusPane is a status bar that displays the current date, weekday, and - if
 // in a multi-day view - the progress through those days.
 type StatusPane struct {
-	Leaf
+	ui.LeafPane
 
 	currentDate *model.Date
 
@@ -20,50 +20,43 @@ type StatusPane struct {
 	passedDaysInPeriod func() int
 	firstDayXOffset    func() int
 
-	eventEditMode func() control.EventEditMode
-}
-
-// Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
-// height) for this pane.
-// GetPositionInfo returns information on a requested position in this pane.
-func (p *StatusPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	eventEditMode func() edit.EventEditMode
 }
 
 // Draw draws this pane.
 func (p *StatusPane) Draw() {
-	x, y, w, h := p.dimensions()
+	x, y, w, h := p.Dimensions()
 
 	dateWidth := 10 // 2020-02-12 is 10 wide
 
-	bgStyle := p.stylesheet.Status
+	bgStyle := p.Stylesheet.Status
 	bgStyleEmph := bgStyle.DefaultEmphasized()
 	dateStyle := bgStyleEmph
 	weekdayStyle := dateStyle.LightenedFG(60)
 
 	// header background
-	p.renderer.DrawBox(0, y, p.firstDayXOffset()+p.totalDaysInPeriod()*p.dayWidth(), h, bgStyle)
+	p.Renderer.DrawBox(0, y, p.firstDayXOffset()+p.totalDaysInPeriod()*p.dayWidth(), h, bgStyle)
 	// header bar (filled for days until current)
-	p.renderer.DrawBox(0, y, p.firstDayXOffset()+(p.passedDaysInPeriod())*p.dayWidth(), h, bgStyleEmph)
+	p.Renderer.DrawBox(0, y, p.firstDayXOffset()+(p.passedDaysInPeriod())*p.dayWidth(), h, bgStyleEmph)
 	// date box background
-	p.renderer.DrawBox(0, y, dateWidth, h, bgStyleEmph)
+	p.Renderer.DrawBox(0, y, dateWidth, h, bgStyleEmph)
 	// date string
-	p.renderer.DrawText(0, y, dateWidth, 1, dateStyle, p.currentDate.ToString())
+	p.Renderer.DrawText(0, y, dateWidth, 1, dateStyle, p.currentDate.ToString())
 	// weekday string
-	p.renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(p.currentDate.ToWeekday().String(), dateWidth))
+	p.Renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(p.currentDate.ToWeekday().String(), dateWidth))
 
 	// mode string
 	modeStr := eventEditModeToString(p.eventEditMode())
-	p.renderer.DrawText(x+w-len(modeStr)-2, y+h-1, len(modeStr), 1, bgStyleEmph.DarkenedBG(10).Italicized(), modeStr)
+	p.Renderer.DrawText(x+w-len(modeStr)-2, y+h-1, len(modeStr), 1, bgStyleEmph.DarkenedBG(10).Italicized(), modeStr)
 }
 
-func eventEditModeToString(mode control.EventEditMode) string {
+func eventEditModeToString(mode edit.EventEditMode) string {
 	switch mode {
-	case control.EventEditModeNormal:
+	case edit.EventEditModeNormal:
 		return "-- NORMAL --"
-	case control.EventEditModeMove:
+	case edit.EventEditModeMove:
 		return "--  MOVE  --"
-	case control.EventEditModeResize:
+	case edit.EventEditModeResize:
 		return "-- RESIZE --"
 	default:
 		return "unknown"
@@ -85,16 +78,16 @@ func NewStatusPane(
 	totalDaysInPeriod func() int,
 	passedDaysInPeriod func() int,
 	firstDayXOffset func() int,
-	eventEditMode func() control.EventEditMode,
+	eventEditMode func() edit.EventEditMode,
 ) *StatusPane {
 	return &StatusPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID: ui.GeneratePaneID(),
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		currentDate:        currentDate,
 		dayWidth:           dayWidth,

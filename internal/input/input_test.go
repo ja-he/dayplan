@@ -12,7 +12,7 @@ import (
 func TestConfigKeyspecToKey(t *testing.T) {
 
 	t.Run("valid", func(t *testing.T) {
-		expectValid := func(s string) []input.Key {
+		expectValid := func(s input.Keyspec) []input.Key {
 			keys, err := input.ConfigKeyspecToKeys(s)
 			if err != nil {
 				t.Error("unexpected error on valid spec:", err.Error())
@@ -84,7 +84,7 @@ func TestConfigKeyspecToKey(t *testing.T) {
 	})
 
 	t.Run("valid", func(t *testing.T) {
-		expectInvalid := func(s string) error {
+		expectInvalid := func(s input.Keyspec) error {
 			keys, err := input.ConfigKeyspecToKeys(s)
 			if err == nil {
 				t.Error("unexpectedly no err on invalid spec")
@@ -163,7 +163,7 @@ func TestChild(t *testing.T) {
 func TestConstructInputTree(t *testing.T) {
 
 	t.Run("empty map produces single-node tree", func(t *testing.T) {
-		emptyTree, err := input.ConstructInputTree(make(map[string]action.Action))
+		emptyTree, err := input.ConstructInputTree(make(map[input.Keyspec]action.Action))
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -178,7 +178,7 @@ func TestConstructInputTree(t *testing.T) {
 
 	t.Run("single input sequence", func(t *testing.T) {
 		shouldGetSetToTrue := false
-		tree, err := input.ConstructInputTree(map[string]action.Action{"xyz": &DummyAction{F: func() { shouldGetSetToTrue = true }}})
+		tree, err := input.ConstructInputTree(map[input.Keyspec]action.Action{"xyz": &DummyAction{F: func() { shouldGetSetToTrue = true }}})
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -216,7 +216,7 @@ func TestConstructInputTree(t *testing.T) {
 	t.Run("complex inputs", func(t *testing.T) {
 		xyzTrueable := false
 		ctrlaTrueable := false
-		tree, err := input.ConstructInputTree(map[string]action.Action{
+		tree, err := input.ConstructInputTree(map[input.Keyspec]action.Action{
 			"xyz":   &DummyAction{F: func() { xyzTrueable = true }},
 			"<c-a>": &DummyAction{F: func() { ctrlaTrueable = true }},
 		})
@@ -274,7 +274,7 @@ func TestConstructInputTree(t *testing.T) {
 	})
 
 	t.Run("invalid keyspec errors", func(t *testing.T) {
-		tree, err := input.ConstructInputTree(map[string]action.Action{"<asdf": &DummyAction{}})
+		tree, err := input.ConstructInputTree(map[input.Keyspec]action.Action{"<asdf": &DummyAction{}})
 		if err == nil {
 			t.Error("nil error despite invalid keyspec")
 		}
@@ -293,7 +293,7 @@ func TestEmptyTree(t *testing.T) {
 func TestGetHelp(t *testing.T) {
 	t.Run("Tree.GetHelp", func(t *testing.T) {
 		tree, err := input.ConstructInputTree(
-			map[string]action.Action{
+			map[input.Keyspec]action.Action{
 				"a":  &DummyAction{S: "A"},
 				"bc": &DummyAction{S: "BC"},
 			},

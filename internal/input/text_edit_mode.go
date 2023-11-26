@@ -1,3 +1,4 @@
+// TODO: this should be moved to 'control/editor' imo
 package input
 
 // TextEditMode enumerates the possible modes of modal text editing.

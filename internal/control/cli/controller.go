@@ -2,6 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"math"
+	"os"
+	"path"
 	"strconv"
 	"sync"
 	"time"
@@ -11,11 +14,13 @@ import (
 
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/control/action"
-	"github.com/ja-he/dayplan/internal/filehandling"
+	"github.com/ja-he/dayplan/internal/control/edit"
+	"github.com/ja-he/dayplan/internal/control/edit/editors"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
+	"github.com/ja-he/dayplan/internal/storage"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/tui"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -34,7 +39,7 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 		tmp := fh.Read(t.data.Categories)
 		return tmp
 	} else {
-		newHandler := filehandling.NewFileHandler(t.data.EnvData.BaseDirPath + "/days/" + date.ToString())
+		newHandler := storage.NewFileHandler(t.data.EnvData.BaseDirPath + "/days/" + date.ToString())
 		t.fhMutex.Lock()
 		t.FileHandlers[date] = newHandler
 		t.fhMutex.Unlock()
@@ -43,12 +48,13 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 	}
 }
 
+// Controller
 type Controller struct {
 	data     *control.ControlData
-	rootPane ui.Pane
+	rootPane *panes.RootPane
 
 	fhMutex          sync.RWMutex
-	FileHandlers     map[model.Date]*filehandling.FileHandler
+	FileHandlers     map[model.Date]*storage.FileHandler
 	controllerEvents chan ControllerEvent
 
 	// TODO: remove, obviously
@@ -67,6 +73,7 @@ type Controller struct {
 	syncer            tui.ScreenSynchronizer
 }
 
+// NewController
 func NewController(
 	date model.Date,
 	envData control.EnvData,
@@ -77,37 +84,106 @@ func NewController(
 ) *Controller {
 	controller := Controller{}
 
-	controller.data = control.NewControlData(categoryStyling)
+	inputConfig := input.InputConfig{
 
+		Editor: map[input.Keyspec]input.Actionspec{
+			"j":       "next-field",
+			"k":       "prev-field",
+			"i":       "enter-subeditor",
+			":w<CR>":  "write",
+			"<CR>":    "write-and-quit",
+			":wq<CR>": "write-and-quit",
+			":q!<CR>": "quit",
+			"<ESC>":   "quit",
+		},
+
+		StringEditor: input.ModedSpec{
+			Normal: map[input.Keyspec]input.Actionspec{
+				"h":       "move-cursor-rune-left",
+				"l":       "move-cursor-rune-right",
+				"<left>":  "move-cursor-rune-left",
+				"<right>": "move-cursor-rune-right",
+				"0":       "move-cursor-to-beginning",
+				"$":       "move-cursor-to-end",
+				"<ESC>":   "quit",
+				"D":       "delete-to-end",
+				"d$":      "delete-to-end",
+				"C":       "delete-to-end-and-insert",
+				"c$":      "delete-to-end-and-insert",
+				"x":       "delete-rune",
+				"s":       "delete-rune-and-insert",
+				"i":       "swap-mode-insert",
+			},
+			Insert: map[input.Keyspec]input.Actionspec{
+				"<left>":  "move-cursor-rune-left",
+				"<right>": "move-cursor-rune-right",
+				"<ESC>":   "swap-mode-normal",
+				"<c-bs>":  "backspace",
+				"<bs>":    "backspace",
+				"<c-u>":   "backspace-to-beginning",
+			},
+		},
+	}
+
+	categoryGetter := func(name string) model.Category {
+		cat, ok := categoryStyling.GetKnownCategoriesByName()[name]
+		if ok {
+			return *cat
+		}
+		return model.Category{
+			Name: name,
+		}
+	}
+
+	controller.data = control.NewControlData(categoryStyling)
+	backlogFilePath := path.Join(envData.BaseDirPath, "days", "backlog.yml") // TODO(ja_he): Migrate 'days' -> 'data', perhaps subdir 'days'
+	backlog, err := func() (*model.Backlog, error) {
+		backlogReader, err := os.Open(backlogFilePath)
+		if err != nil {
+			return &model.Backlog{}, err
+		}
+		defer backlogReader.Close()
+		return model.BacklogFromReader(backlogReader, categoryGetter)
+	}()
+	if err != nil {
+		tuiLogger.Error().Err(err).Str("file", backlogFilePath).Msg("could not read backlog")
+	} else {
+		tuiLogger.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
+	}
+	tuiLogger.Debug().Interface("backlog", backlog).Msg("backlog")
+
+	tasksWidth := 40
 	toolsWidth := 20
+	rightFlexWidth := toolsWidth
+
 	statusHeight := 2
 	weatherWidth := 20
 	timelineWidth := 10
 	editorWidth := 80
 	editorHeight := 20
 
-	scrollableZoomableInputMap := map[string]action.Action{
+	scrollableZoomableInputMap := map[input.Keyspec]action.Action{
 		"<c-u>": action.NewSimple(func() string { return "scoll up" }, func() { controller.ScrollUp(10) }),
 		"<c-d>": action.NewSimple(func() string { return "scroll down" }, func() { controller.ScrollDown(10) }),
 		"gg":    action.NewSimple(func() string { return "scroll to top" }, controller.ScrollTop),
 		"G":     action.NewSimple(func() string { return "scroll to bottom" }, controller.ScrollBottom),
 		"+": action.NewSimple(func() string { return "zoom in" }, func() {
-			if controller.data.ViewParams.NRowsPerHour*2 <= 12 {
-				controller.data.ViewParams.NRowsPerHour *= 2
-				controller.data.ViewParams.ScrollOffset *= 2
+			if controller.data.MainTimelineViewParams.NRowsPerHour*2 <= 12 {
+				controller.data.MainTimelineViewParams.NRowsPerHour *= 2
+				controller.data.MainTimelineViewParams.ScrollOffset *= 2
 			}
 		}),
 		"-": action.NewSimple(func() string { return "zoom out" }, func() {
-			if (controller.data.ViewParams.NRowsPerHour % 2) == 0 {
-				controller.data.ViewParams.NRowsPerHour /= 2
-				controller.data.ViewParams.ScrollOffset /= 2
+			if (controller.data.MainTimelineViewParams.NRowsPerHour % 2) == 0 {
+				controller.data.MainTimelineViewParams.NRowsPerHour /= 2
+				controller.data.MainTimelineViewParams.ScrollOffset /= 2
 			} else {
-				log.Warn().Msg(fmt.Sprintf("can't decrease resolution below %d", controller.data.ViewParams.NRowsPerHour))
+				log.Warn().Msg(fmt.Sprintf("can't decrease resolution below %d", controller.data.MainTimelineViewParams.NRowsPerHour))
 			}
 		}),
 	}
 
-	eventsViewBaseInputMap := map[string]action.Action{
+	eventsViewBaseInputMap := map[input.Keyspec]action.Action{
 		"w": action.NewSimple(func() string { return "write day to file" }, controller.writeModel),
 		"h": action.NewSimple(func() string { return "go to previous day" }, controller.goToPreviousDay),
 		"l": action.NewSimple(func() string { return "go to next day" }, controller.goToNextDay),
@@ -117,7 +193,7 @@ func NewController(
 	}
 
 	renderer := tui.NewTUIScreenHandler()
-	screenSize := renderer.GetScreenDimensions
+	screenSize := func() (w, h int) { _, _, w, h = renderer.Dimensions(); return }
 	screenDimensions := func() (x, y, w, h int) {
 		screenWidth, screenHeight := screenSize()
 		return 0, 0, screenWidth, screenHeight
@@ -130,18 +206,22 @@ func NewController(
 	}
 	helpDimensions := screenDimensions
 	editorDimensions := centeredFloat(editorWidth, editorHeight)
+	tasksDimensions := func() (x, y, w, h int) {
+		screenWidth, screenHeight := screenSize()
+		return screenWidth - rightFlexWidth, 0, tasksWidth, screenHeight - statusHeight
+	}
 	toolsDimensions := func() (x, y, w, h int) {
-		screenWidth, screeenHeight := screenSize()
-		return screenWidth - toolsWidth, 0, toolsWidth, screeenHeight - statusHeight
+		screenWidth, screenHeight := screenSize()
+		return screenWidth - toolsWidth, 0, toolsWidth, screenHeight - statusHeight
 	}
 	statusDimensions := func() (x, y, w, h int) {
-		screenWidth, screeenHeight := screenSize()
-		return 0, screeenHeight - statusHeight, screenWidth, statusHeight
+		screenWidth, screenHeight := screenSize()
+		return 0, screenHeight - statusHeight, screenWidth, statusHeight
 	}
 	dayViewMainPaneDimensions := screenDimensions
 	dayViewScrollablePaneDimensions := func() (x, y, w, h int) {
 		parentX, parentY, parentW, parentH := dayViewMainPaneDimensions()
-		return parentX, parentY, parentW - toolsWidth, parentH - statusHeight
+		return parentX, parentY, parentW - rightFlexWidth, parentH - statusHeight
 	}
 	weekViewMainPaneDimensions := screenDimensions
 	monthViewMainPaneDimensions := screenDimensions
@@ -180,7 +260,7 @@ func NewController(
 	}
 	weekdayPane := func(dayIndex int) *panes.EventsPane {
 		return panes.NewEventsPane(
-			tui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
+			ui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
 			weekdayDimensions(dayIndex),
 			stylesheet,
 			processors.NewModalInputProcessor(weekdayPaneInputTree),
@@ -188,7 +268,7 @@ func NewController(
 				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
 			},
 			categoryStyling.GetStyle,
-			&controller.data.ViewParams,
+			&controller.data.MainTimelineViewParams,
 			&controller.data.CursorPos,
 			0,
 			false,
@@ -217,7 +297,7 @@ func NewController(
 				return controller.data.CurrentDate.GetDayInMonth(dayIndex).Month == controller.data.CurrentDate.Month
 			},
 			panes.NewEventsPane(
-				tui.NewConstrainedRenderer(renderer, monthdayDimensions(dayIndex)),
+				ui.NewConstrainedRenderer(renderer, monthdayDimensions(dayIndex)),
 				monthdayDimensions(dayIndex),
 				stylesheet,
 				processors.NewModalInputProcessor(monthdayPaneInputTree),
@@ -225,7 +305,7 @@ func NewController(
 					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
 				},
 				categoryStyling.GetStyle,
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 				&controller.data.CursorPos,
 				0,
 				false,
@@ -249,7 +329,7 @@ func NewController(
 	}
 
 	statusPane := panes.NewStatusPane(
-		tui.NewConstrainedRenderer(renderer, statusDimensions),
+		ui.NewConstrainedRenderer(renderer, statusDimensions),
 		statusDimensions,
 		stylesheet,
 		&controller.data.CurrentDate,
@@ -308,11 +388,241 @@ func NewController(
 			}
 		},
 		func() int { return timelineWidth },
-		func() control.EventEditMode { return controller.data.EventEditMode },
+		func() edit.EventEditMode { return controller.data.EventEditMode },
 	)
 
+	var currentTask *model.Task
+	setCurrentTask := func(t *model.Task) { currentTask = t }
+	backlogViewParams := ui.BacklogViewParams{
+		NRowsPerHour: &controller.data.MainTimelineViewParams.NRowsPerHour,
+		ScrollOffset: 0,
+	}
+	var ensureBacklogTaskVisible func(t *model.Task)
+	var scrollBacklogTop func()
+	var scrollBacklogBottom func()
+	var backlogSetCurrentToTopmost func()
+	var backlogSetCurrentToBottommost func()
+	var getBacklogBottomScrollOffset func() int
+	var offsetCurrentTask func(tl []*model.Task, setToNext bool) bool
+	popAndScheduleCurrentTask := func(when *time.Time) {
+		// pass nil time to not schedule
+		if currentTask == nil {
+			return
+		}
+		scheduledTask := currentTask
+		prev, next, parentage, err := backlog.Pop(scheduledTask)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Interface("task", currentTask).
+				Interface("backlog", backlog).
+				Msg("could not find task")
+		} else {
+			// update current task
+			currentTask = func() *model.Task {
+				switch {
+				case next != nil:
+					return next
+				case prev != nil:
+					return prev
+				case len(parentage) > 0:
+					return parentage[0]
+				default:
+					return nil
+				}
+			}()
+			// schedule task, if time for that was given
+			if when != nil {
+				namePrefix := ""
+				for _, parent := range parentage {
+					namePrefix = parent.Name + ": " + namePrefix
+				}
+				newEvents := scheduledTask.ToEvent(*when, namePrefix)
+				for _, newEvent := range newEvents {
+					controller.data.GetCurrentDay().AddEvent(newEvent)
+				}
+			}
+		}
+	}
+	tasksInputTree, err := input.ConstructInputTree(
+		map[input.Keyspec]action.Action{
+			"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() {
+				backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - 10)
+				if backlogViewParams.GetScrollOffset() < 0 {
+					scrollBacklogTop()
+				}
+			}),
+			"<c-d>": action.NewSimple(func() string { return "scroll down" }, func() {
+				scrollTarget := backlogViewParams.GetScrollOffset() + 10
+				if scrollTarget > getBacklogBottomScrollOffset() {
+					scrollBacklogBottom()
+				} else {
+					backlogViewParams.SetScrollOffset(scrollTarget)
+				}
+			}),
+			"j": action.NewSimple(func() string { return "go down a task" }, func() {
+				if currentTask == nil {
+					if len(backlog.Tasks) > 0 {
+						currentTask = backlog.Tasks[0]
+					}
+					return
+				}
+
+				found := offsetCurrentTask(backlog.Tasks, true)
+				if !found {
+					setCurrentTask(nil)
+				}
+				ensureBacklogTaskVisible(currentTask)
+			}),
+			"k": action.NewSimple(func() string { return "go up a task" }, func() {
+				if currentTask == nil {
+					if len(backlog.Tasks) > 0 {
+						currentTask = backlog.Tasks[0]
+					}
+					return
+				}
+
+				found := offsetCurrentTask(backlog.Tasks, false)
+				if !found {
+					setCurrentTask(nil)
+				}
+				ensureBacklogTaskVisible(currentTask)
+			}),
+			"gg": action.NewSimple(func() string { return "scroll to top" }, func() {
+				backlogSetCurrentToTopmost()
+			}),
+			"G": action.NewSimple(func() string { return "scroll to bottom" }, func() {
+				backlogSetCurrentToBottommost()
+			}),
+			"sn": action.NewSimple(func() string { return "schedule now" }, func() {
+				when := time.Now()
+				popAndScheduleCurrentTask(&when)
+			}),
+			"d": action.NewSimple(func() string { return "delete task" }, func() {
+				popAndScheduleCurrentTask(nil)
+			}),
+			"l": action.NewSimple(func() string { return "step into subtasks" }, func() {
+				if currentTask == nil {
+					return
+				}
+				if len(currentTask.Subtasks) > 0 {
+					currentTask = currentTask.Subtasks[0]
+					ensureBacklogTaskVisible(currentTask)
+				} else {
+					log.Debug().Msg("current task has no subtasks, so remaining at it")
+				}
+			}),
+			"h": action.NewSimple(func() string { return "step out to parent task" }, func() {
+				var findParent func(searchedTask *model.Task, parent *model.Task, tasks []*model.Task) *model.Task
+				findParent = func(searchedTask *model.Task, parent *model.Task, parentsTasks []*model.Task) *model.Task {
+					for _, t := range parentsTasks {
+						if t == searchedTask {
+							return parent
+						}
+						maybeParent := findParent(searchedTask, t, t.Subtasks)
+						if maybeParent != nil {
+							return maybeParent
+						}
+					}
+					return nil
+				}
+				maybeParent := findParent(currentTask, nil, backlog.Tasks)
+				if maybeParent != nil {
+					setCurrentTask(maybeParent)
+					ensureBacklogTaskVisible(currentTask)
+				} else {
+					log.Debug().Msg("could not find parent, so not changing current task")
+				}
+			}),
+			"o": action.NewSimple(func() string { return "add a new task below the current one" }, func() {
+				if currentTask == nil {
+					log.Debug().Msgf("asked to add a task after to nil current task, adding as first")
+					newTask := backlog.AddLast()
+					newTask.Name = "(need to implement task editor)"
+					newTask.Category = controller.data.CurrentCategory
+					currentTask = newTask
+					return
+				}
+				newTask, parent, err := backlog.AddAfter(currentTask)
+				if err != nil {
+					log.Error().Err(err).Msgf("was unable to add a task after '%s'", currentTask.Name)
+					return
+				}
+				newTask.Name = "(need to implement task editor)"
+				if parent != nil {
+					newTask.Category = parent.Category
+				} else {
+					newTask.Category = controller.data.CurrentCategory
+				}
+			}),
+			"i": action.NewSimple(func() string { return "add a new subtask of the current task" }, func() {
+				if currentTask == nil {
+					log.Warn().Msgf("asked to add a subtask to nil current task")
+					return
+				}
+				currentTask.Subtasks = append(currentTask.Subtasks, &model.Task{
+					Name:     "(need to implement task editor)",
+					Category: currentTask.Category,
+				})
+			}),
+			"<cr>": action.NewSimple(func() string { return "begin editing of task" }, func() {
+				if controller.data.TaskEditor != nil {
+					log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
+				}
+				var err error
+				controller.data.TaskEditor, err = editors.ConstructEditor(currentTask, nil)
+				if err != nil {
+					log.Error().Err(err).Interface("current-task", currentTask).Msg("was not able to construct editor for current task")
+					return
+				}
+				taskEditorPane, err := controller.data.TaskEditor.GetPane(
+					ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
+						screenWidth, screenHeight := screenSize()
+						taskEditorBoxWidth := int(math.Min(80, float64(screenWidth)))
+						taskEditorBoxHeight := int(math.Min(20, float64(screenHeight)))
+						return (screenWidth / 2) - (taskEditorBoxWidth / 2), (screenHeight / 2) - (taskEditorBoxHeight / 2), taskEditorBoxWidth, taskEditorBoxHeight
+					}),
+					func() bool { return true },
+					inputConfig,
+					stylesheet,
+					renderer,
+				)
+				if err != nil {
+					log.Error().Err(err).Msgf("could not construct task editor pane")
+					controller.data.TaskEditor = nil
+					return
+				}
+				controller.rootPane.PushSubpane(taskEditorPane)
+				taskEditorDone := make(chan struct{})
+				controller.data.TaskEditor.AddQuitCallback(func() {
+					close(taskEditorDone)
+				})
+				go func() {
+					<-taskEditorDone
+					controller.controllerEvents <- ControllerEventTaskEditorExit
+				}()
+			}),
+			"w": action.NewSimple(func() string { return "store backlog to file" }, func() {
+				writer, err := os.OpenFile(backlogFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+				if err != nil {
+					log.Error().Err(err).Msgf("unable to write open backlog file '%s' for writing", backlogFilePath)
+					return
+				}
+				defer writer.Close()
+				err = backlog.Write(writer)
+				if err != nil {
+					log.Error().Err(err).Msg("unable to write backlog to writer")
+					return
+				}
+				log.Info().Msgf("wrote backlog to '%s' sucessfully", backlogFilePath)
+			}),
+		},
+	)
+	if err != nil {
+		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for tasks pane")
+	}
 	toolsInputTree, err := input.ConstructInputTree(
-		map[string]action.Action{
+		map[input.Keyspec]action.Action{
 			"j": action.NewSimple(func() string { return "switch to next category" }, func() {
 				for i, cat := range controller.data.Categories {
 					if cat == controller.data.CurrentCategory {
@@ -340,32 +650,33 @@ func NewController(
 	}
 
 	// TODO(ja-he): move elsewhere
-	ensureVisible := func(time model.Timestamp) {
-		topRowTime := controller.data.ViewParams.TimeAtY(0)
+	ensureEventsPaneTimestampVisible := func(time model.Timestamp) {
+		topRowTime := controller.data.MainTimelineViewParams.TimeAtY(0)
 		if topRowTime.IsAfter(time) {
-			controller.data.ViewParams.ScrollOffset += (controller.data.ViewParams.YForTime(time))
+			controller.data.MainTimelineViewParams.ScrollOffset += (controller.data.MainTimelineViewParams.YForTime(time))
 		}
 		_, _, _, maxY := dayViewEventsPaneDimensions()
-		bottomRowTime := controller.data.ViewParams.TimeAtY(maxY)
+		bottomRowTime := controller.data.MainTimelineViewParams.TimeAtY(maxY)
 		if time.IsAfter(bottomRowTime) {
-			controller.data.ViewParams.ScrollOffset += ((controller.data.ViewParams.YForTime(time)) - maxY)
+			controller.data.MainTimelineViewParams.ScrollOffset += ((controller.data.MainTimelineViewParams.YForTime(time)) - maxY)
 		}
 	}
 	var startMovePushing func()
+	var pushEditorAsRootSubpane func()
 	// TODO: directly?
-	eventsPaneDayInputExtension := map[string]action.Action{
+	eventsPaneDayInputExtension := map[input.Keyspec]action.Action{
 		"j": action.NewSimple(func() string { return "switch to next event" }, func() {
 			controller.data.GetCurrentDay().CurrentNext()
 			if controller.data.GetCurrentDay().Current != nil {
-				ensureVisible(controller.data.GetCurrentDay().Current.Start)
-				ensureVisible(controller.data.GetCurrentDay().Current.End)
+				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
+				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
 			}
 		}),
 		"k": action.NewSimple(func() string { return "switch to previous event" }, func() {
 			controller.data.GetCurrentDay().CurrentPrev()
 			if controller.data.GetCurrentDay().Current != nil {
-				ensureVisible(controller.data.GetCurrentDay().Current.End)
-				ensureVisible(controller.data.GetCurrentDay().Current.Start)
+				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
+				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
 			}
 		}),
 		"d": action.NewSimple(func() string { return "delete selected event" }, func() {
@@ -379,6 +690,7 @@ func NewController(
 			if event != nil {
 				controller.data.EventEditor.Activate(event)
 			}
+			pushEditorAsRootSubpane()
 		}),
 		"o": action.NewSimple(func() string { return "add event after selected" }, func() {
 			current := controller.data.GetCurrentDay().Current
@@ -387,7 +699,8 @@ func NewController(
 				Cat:  controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.Start = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.MinutesPerRow())
+				newEvent.Start = model.NewTimestampFromGotime(time.Now()).
+					Snap(int(controller.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
 			} else {
 				newEvent.Start = current.End
 			}
@@ -398,7 +711,7 @@ func NewController(
 				newEvent.End = newEvent.Start.OffsetMinutes(60)
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureVisible(newEvent.End)
+			ensureEventsPaneTimestampVisible(newEvent.End)
 		}),
 		"O": action.NewSimple(func() string { return "add event before selected" }, func() {
 			current := controller.data.GetCurrentDay().Current
@@ -407,7 +720,8 @@ func NewController(
 				Cat:  controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.End = model.NewTimestampFromGotime(time.Now()).Snap(controller.data.ViewParams.MinutesPerRow())
+				newEvent.End = model.NewTimestampFromGotime(time.Now()).
+					Snap(int(controller.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
 			} else {
 				newEvent.End = current.Start
 			}
@@ -418,7 +732,7 @@ func NewController(
 				newEvent.Start = newEvent.End.OffsetMinutes(-60)
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureVisible(newEvent.Start)
+			ensureEventsPaneTimestampVisible(newEvent.Start)
 		}),
 		"<c-o>": action.NewSimple(func() string { return "add event now" }, func() {
 			newEvent := &model.Event{
@@ -433,7 +747,7 @@ func NewController(
 				newEvent.End = newEvent.Start.OffsetMinutes(60)
 			}
 			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureVisible(newEvent.Start)
+			ensureEventsPaneTimestampVisible(newEvent.Start)
 		}),
 		"sn": action.NewSimple(func() string { return "split selected event now" }, func() {
 			current := controller.data.GetCurrentDay().Current
@@ -453,7 +767,7 @@ func NewController(
 		}),
 		"M": action.NewSimple(func() string { return "start move pushing" }, func() { startMovePushing() }),
 	}
-	eventsPaneDayInputMap := make(map[string]action.Action)
+	eventsPaneDayInputMap := make(map[input.Keyspec]action.Action)
 	for input, action := range eventsViewBaseInputMap {
 		eventsPaneDayInputMap[input] = action
 	}
@@ -465,8 +779,21 @@ func NewController(
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for day view pane's events subpane")
 	}
 
+	tasksVisible := false
+	toolsVisible := true
+	tasksPane := panes.NewBacklogPane(
+		ui.NewConstrainedRenderer(renderer, tasksDimensions),
+		tasksDimensions,
+		stylesheet,
+		processors.NewModalInputProcessor(tasksInputTree),
+		&backlogViewParams,
+		func() *model.Task { return currentTask },
+		backlog,
+		categoryStyling.GetStyle,
+		func() bool { return tasksVisible },
+	)
 	toolsPane := panes.NewToolsPane(
-		tui.NewConstrainedRenderer(renderer, toolsDimensions),
+		ui.NewConstrainedRenderer(renderer, toolsDimensions),
 		toolsDimensions,
 		stylesheet,
 		processors.NewModalInputProcessor(toolsInputTree),
@@ -475,15 +802,16 @@ func NewController(
 		2,
 		1,
 		0,
+		func() bool { return toolsVisible },
 	)
 	dayEventsPane := panes.NewEventsPane(
-		tui.NewConstrainedRenderer(renderer, dayViewEventsPaneDimensions),
+		ui.NewConstrainedRenderer(renderer, dayViewEventsPaneDimensions),
 		dayViewEventsPaneDimensions,
 		stylesheet,
 		processors.NewModalInputProcessor(dayViewEventsPaneInputTree),
 		controller.data.GetCurrentDay,
 		categoryStyling.GetStyle,
-		&controller.data.ViewParams,
+		&controller.data.MainTimelineViewParams,
 		&controller.data.CursorPos,
 		2,
 		true,
@@ -499,34 +827,34 @@ func NewController(
 		}
 
 		overlay, err := input.ConstructInputTree(
-			map[string]action.Action{
+			map[input.Keyspec]action.Action{
 				"n": action.NewSimple(func() string { return "move to now" }, func() { panic("TODO") }),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
 						controller.data.GetCurrentDay().Current,
-						controller.data.ViewParams.MinutesPerRow(),
-						controller.data.ViewParams.MinutesPerRow(),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 					)
 					if err != nil {
 						panic(err)
 					} else {
-						ensureVisible(controller.data.GetCurrentDay().Current.End)
+						ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
 					}
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
 						controller.data.GetCurrentDay().Current,
-						-controller.data.ViewParams.MinutesPerRow(),
-						controller.data.ViewParams.MinutesPerRow(),
+						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
 					)
 					if err != nil {
 						panic(err)
 					} else {
-						ensureVisible(controller.data.GetCurrentDay().Current.Start)
+						ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
 					}
 				}),
-				"M":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
-				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
+				"M":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
+				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				// TODO(ja-he): mode switching
 			},
 		)
@@ -534,7 +862,76 @@ func NewController(
 			panic(err.Error())
 		}
 		dayEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(overlay))
-		controller.data.EventEditMode = control.EventEditModeMove
+		controller.data.EventEditMode = edit.EventEditModeMove
+	}
+	ensureBacklogTaskVisible = func(t *model.Task) {
+		viewportLB, viewportUB := tasksPane.GetTaskVisibilityBounds()
+		taskLB, taskUB := tasksPane.GetTaskUIYBounds(t)
+		if taskLB < viewportLB {
+			backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - (viewportLB - taskLB))
+		} else if taskUB > viewportUB {
+			backlogViewParams.SetScrollOffset(backlogViewParams.GetScrollOffset() - (viewportUB - taskUB))
+		}
+	}
+	scrollBacklogTop = func() {
+		backlogViewParams.SetScrollOffset(0)
+	}
+	scrollBacklogBottom = func() {
+		backlogViewParams.SetScrollOffset(getBacklogBottomScrollOffset())
+	}
+	getBacklogBottomScrollOffset = func() int {
+		if len(backlog.Tasks) == 0 {
+			return 0
+		}
+		lastTask := backlog.Tasks[len(backlog.Tasks)-1]
+		currentScrollOffset := backlogViewParams.GetScrollOffset()
+		_, tUB := tasksPane.GetTaskUIYBounds(lastTask)
+		_, vUB := tasksPane.GetTaskVisibilityBounds()
+		desiredScrollDelta := vUB - tUB - 1
+		return currentScrollOffset - desiredScrollDelta
+	}
+	backlogSetCurrentToTopmost = func() {
+		if len(backlog.Tasks) == 0 {
+			return
+		}
+		currentTask = backlog.Tasks[0]
+		scrollBacklogTop()
+	}
+	backlogSetCurrentToBottommost = func() {
+		if len(backlog.Tasks) == 0 {
+			return
+		}
+		currentTask = backlog.Tasks[len(backlog.Tasks)-1]
+		scrollBacklogBottom()
+	}
+	offsetCurrentTask = func(tl []*model.Task, setToNext bool) bool {
+		if len(tl) == 0 {
+			return false
+		}
+
+		for i, t := range tl {
+			if currentTask == t {
+				if setToNext {
+					if i < len(tl)-1 {
+						setCurrentTask(tl[i+1])
+					} else {
+						log.Debug().Msg("not allowing selecting next task, as at last task in scope")
+					}
+				} else {
+					if i > 0 {
+						setCurrentTask(tl[i-1])
+					} else {
+						log.Debug().Msg("not allowing selecting previous task, as at first task in scope")
+					}
+				}
+				return true
+			}
+			if offsetCurrentTask(t.Subtasks, setToNext) {
+				return true
+			}
+		}
+
+		return false
 	}
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event move mode" }, func() {
@@ -543,33 +940,41 @@ func NewController(
 		}
 
 		eventMoveOverlay, err := input.ConstructInputTree(
-			map[string]action.Action{
+			map[input.Keyspec]action.Action{
 				"n": action.NewSimple(func() string { return "move to now" }, func() {
 					current := controller.data.GetCurrentDay().Current
 					newStart := *model.NewTimestampFromGotime(time.Now())
 					controller.data.GetCurrentDay().MoveSingleEventTo(current, newStart)
-					ensureVisible(current.Start)
-					ensureVisible(current.End)
+					ensureEventsPaneTimestampVisible(current.Start)
+					ensureEventsPaneTimestampVisible(current.End)
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(current, controller.data.ViewParams.MinutesPerRow(), controller.data.ViewParams.MinutesPerRow())
-					ensureVisible(current.End)
+					controller.data.GetCurrentDay().MoveSingleEventBy(
+						current,
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
+					ensureEventsPaneTimestampVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(current, -controller.data.ViewParams.MinutesPerRow(), controller.data.ViewParams.MinutesPerRow())
-					ensureVisible(current.Start)
+					controller.data.GetCurrentDay().MoveSingleEventBy(
+						current,
+						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
+					ensureEventsPaneTimestampVisible(current.Start)
 				}),
-				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
-				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
+				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
+				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 			},
 		)
 		if err != nil {
 			panic(err.Error())
 		}
 		dayEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(eventMoveOverlay))
-		controller.data.EventEditMode = control.EventEditModeMove
+		controller.data.EventEditMode = edit.EventEditModeMove
 	})}
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'r'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event resize mode" }, func() {
 		if controller.data.GetCurrentDay().Current == nil {
@@ -577,46 +982,58 @@ func NewController(
 		}
 
 		eventResizeOverlay, err := input.ConstructInputTree(
-			map[string]action.Action{
+			map[input.Keyspec]action.Action{
 				"n": action.NewSimple(func() string { return "resize to now" }, func() {
 					current := controller.data.GetCurrentDay().Current
 					newEnd := *model.NewTimestampFromGotime(time.Now())
 					controller.data.GetCurrentDay().ResizeTo(current, newEnd)
-					ensureVisible(newEnd)
+					ensureEventsPaneTimestampVisible(newEnd)
 				}),
 				"j": action.NewSimple(func() string { return "increase size (lengthen)" }, func() {
 					var err error
 					current := controller.data.GetCurrentDay().Current
-					err = controller.data.GetCurrentDay().ResizeBy(current, controller.data.ViewParams.MinutesPerRow())
+					err = controller.data.GetCurrentDay().ResizeBy(
+						current,
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to resize")
 					}
-					err = controller.data.GetCurrentDay().SnapEnd(current, controller.data.ViewParams.MinutesPerRow())
+					err = controller.data.GetCurrentDay().SnapEnd(
+						current,
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to snap")
 					}
-					ensureVisible(current.End)
+					ensureEventsPaneTimestampVisible(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "decrease size (shorten)" }, func() {
 					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().ResizeBy(current, -controller.data.ViewParams.MinutesPerRow())
-					controller.data.GetCurrentDay().SnapEnd(current, controller.data.ViewParams.MinutesPerRow())
-					ensureVisible(current.End)
+					controller.data.GetCurrentDay().ResizeBy(
+						current,
+						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
+					controller.data.GetCurrentDay().SnapEnd(
+						current,
+						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+					)
+					ensureEventsPaneTimestampVisible(current.End)
 				}),
-				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
-				"<esc>": action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = control.EventEditModeNormal }),
+				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
+				"<esc>": action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 			},
 		)
 		if err != nil {
 			stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for event pane's resize mode")
 		}
 		dayEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(eventResizeOverlay))
-		controller.data.EventEditMode = control.EventEditModeResize
+		controller.data.EventEditMode = edit.EventEditModeResize
 	})}
 
 	var helpContentRegister func()
 	rootPaneInputTree, err := input.ConstructInputTree(
-		map[string]action.Action{
+		map[input.Keyspec]action.Action{
 			"q": action.NewSimple(func() string { return "exit program (unsaved progress is lost)" }, func() { controller.controllerEvents <- ControllerEventExit }),
 			"P": action.NewSimple(func() string { return "show debug perf pane" }, func() { controller.data.ShowDebug = !controller.data.ShowDebug }),
 			"S": action.NewSimple(func() string { return "open summary" }, func() { controller.data.ShowSummary = true }),
@@ -630,11 +1047,37 @@ func NewController(
 	if err != nil {
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for root pane")
 	}
+	var ensureDayViewMainPaneFocusIsOnVisible func()
+	updateMainPaneRightFlexWidth := func() {
+		rightFlexWidth = 0
+		if tasksPane.IsVisible() {
+			rightFlexWidth += tasksWidth
+		}
+		if toolsPane.IsVisible() {
+			rightFlexWidth += toolsWidth
+		}
+	}
+	toggleToolsPane := func() {
+		toolsVisible = !toolsVisible
+		if !toolsVisible {
+			ensureDayViewMainPaneFocusIsOnVisible()
+		}
+		updateMainPaneRightFlexWidth()
+	}
+	toggleTasksPane := func() {
+		tasksVisible = !tasksVisible
+		if !tasksVisible {
+			ensureDayViewMainPaneFocusIsOnVisible()
+		}
+		updateMainPaneRightFlexWidth()
+	}
 
 	var dayViewFocusNext, dayViewFocusPrev func()
 	dayViewInputTree, err := input.ConstructInputTree(
-		map[string]action.Action{
+		map[input.Keyspec]action.Action{
 			"W":      action.NewSimple(func() string { return "update weather" }, controller.updateWeather),
+			"t":      action.NewSimple(func() string { return "toggle tools pane" }, toggleToolsPane),
+			"T":      action.NewSimple(func() string { return "toggle tasks pane" }, toggleTasksPane),
 			"<c-w>h": action.NewSimple(func() string { return "switch to previous pane" }, func() { dayViewFocusPrev() }),
 			"<c-w>l": action.NewSimple(func() string { return "switch to next pane" }, func() { dayViewFocusNext() }),
 		},
@@ -651,7 +1094,7 @@ func NewController(
 		[]ui.Pane{
 			dayEventsPane,
 			panes.NewTimelinePane(
-				tui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),
+				ui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),
 				dayViewTimelineDimensions,
 				stylesheet,
 				controller.data.GetCurrentSuntimes,
@@ -662,15 +1105,15 @@ func NewController(
 						return nil
 					}
 				},
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 			),
 			panes.NewWeatherPane(
-				tui.NewConstrainedRenderer(renderer, weatherDimensions),
+				ui.NewConstrainedRenderer(renderer, weatherDimensions),
 				weatherDimensions,
 				stylesheet,
 				&controller.data.CurrentDate,
 				&controller.data.Weather,
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 			),
 		},
 		[]ui.Pane{
@@ -703,16 +1146,19 @@ func NewController(
 	dayViewMainPane := panes.NewWrapperPane(
 		[]ui.Pane{
 			dayViewScrollablePane,
+			tasksPane,
 			toolsPane,
 			statusPane,
 		},
 		[]ui.Pane{
 			dayViewScrollablePane,
+			tasksPane,
 			toolsPane,
 		},
 		processors.NewModalInputProcessor(dayViewInputTree),
 	)
-	weekViewMainPaneInputTree, err := input.ConstructInputTree(map[string]action.Action{})
+	ensureDayViewMainPaneFocusIsOnVisible = dayViewMainPane.EnsureFocusIsOnVisible
+	weekViewMainPaneInputTree, err := input.ConstructInputTree(map[input.Keyspec]action.Action{})
 	if err != nil {
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for week view main pane")
 	}
@@ -720,12 +1166,12 @@ func NewController(
 		[]ui.Pane{
 			statusPane,
 			panes.NewTimelinePane(
-				tui.NewConstrainedRenderer(renderer, weekViewTimelineDimensions),
+				ui.NewConstrainedRenderer(renderer, weekViewTimelineDimensions),
 				weekViewTimelineDimensions,
 				stylesheet,
 				func() *model.SunTimes { return nil },
 				func() *model.Timestamp { return nil },
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 			),
 			weekViewEventsWrapper,
 		},
@@ -742,12 +1188,12 @@ func NewController(
 		[]ui.Pane{
 			statusPane,
 			panes.NewTimelinePane(
-				tui.NewConstrainedRenderer(renderer, monthViewTimelineDimensions),
+				ui.NewConstrainedRenderer(renderer, monthViewTimelineDimensions),
 				monthViewTimelineDimensions,
 				stylesheet,
 				func() *model.SunTimes { return nil },
 				func() *model.Timestamp { return nil },
-				&controller.data.ViewParams,
+				&controller.data.MainTimelineViewParams,
 			),
 			monthViewEventsWrapper,
 		},
@@ -759,7 +1205,7 @@ func NewController(
 	dayViewFocusNext = dayViewMainPane.FocusNext
 	dayViewFocusPrev = dayViewMainPane.FocusPrev
 
-	summaryPaneInputTree, err := input.ConstructInputTree(map[string]action.Action{
+	summaryPaneInputTree, err := input.ConstructInputTree(map[input.Keyspec]action.Action{
 		"S": action.NewSimple(func() string { return "close summary" }, func() { controller.data.ShowSummary = false }),
 		"h": action.NewSimple(func() string { return "switch to previous day/week/month" }, func() {
 			switch controller.data.ActiveView() {
@@ -792,23 +1238,26 @@ func NewController(
 
 	var editorStartInsertMode func()
 	var editorLeaveInsertMode func()
-	editorInsertMode := processors.NewTextInputProcessor( // TODO rename
-		map[input.Key]action.Action{
-			{Key: tcell.KeyESC}:        action.NewSimple(func() string { return "exit insert mode" }, func() { editorLeaveInsertMode() }),
-			{Key: tcell.KeyCtrlA}:      action.NewSimple(func() string { return "move cursor to beginning" }, controller.data.EventEditor.MoveCursorToBeginning),
-			{Key: tcell.KeyDelete}:     action.NewSimple(func() string { return "delete character" }, controller.data.EventEditor.DeleteRune),
-			{Key: tcell.KeyCtrlD}:      action.NewSimple(func() string { return "delete character" }, controller.data.EventEditor.DeleteRune),
-			{Key: tcell.KeyBackspace}:  action.NewSimple(func() string { return "backspace" }, controller.data.EventEditor.BackspaceRune),
-			{Key: tcell.KeyBackspace2}: action.NewSimple(func() string { return "backspace" }, controller.data.EventEditor.BackspaceRune),
-			{Key: tcell.KeyCtrlE}:      action.NewSimple(func() string { return "move cursor to end" }, controller.data.EventEditor.MoveCursorToEnd),
-			{Key: tcell.KeyCtrlU}:      action.NewSimple(func() string { return "backspace to beginning" }, controller.data.EventEditor.BackspaceToBeginning),
-			{Key: tcell.KeyLeft}:       action.NewSimple(func() string { return "move cursor left" }, controller.data.EventEditor.MoveCursorLeft),
-			{Key: tcell.KeyRight}:      action.NewSimple(func() string { return "move cursor right" }, controller.data.EventEditor.MoveCursorRight),
+	editorInsertMode, err := processors.NewTextInputProcessor( // TODO rename
+		map[input.Keyspec]action.Action{
+			"<ESC>":   action.NewSimple(func() string { return "exit insert mode" }, func() { editorLeaveInsertMode() }),
+			"<c-a>":   action.NewSimple(func() string { return "move cursor to beginning" }, controller.data.EventEditor.MoveCursorToBeginning),
+			"<del>":   action.NewSimple(func() string { return "delete character" }, controller.data.EventEditor.DeleteRune),
+			"<c-d>":   action.NewSimple(func() string { return "delete character" }, controller.data.EventEditor.DeleteRune),
+			"<c-bs>":  action.NewSimple(func() string { return "backspace" }, controller.data.EventEditor.BackspaceRune),
+			"<bs>":    action.NewSimple(func() string { return "backspace" }, controller.data.EventEditor.BackspaceRune),
+			"<c-e>":   action.NewSimple(func() string { return "move cursor to end" }, controller.data.EventEditor.MoveCursorToEnd),
+			"<c-u>":   action.NewSimple(func() string { return "backspace to beginning" }, controller.data.EventEditor.BackspaceToBeginning),
+			"<left>":  action.NewSimple(func() string { return "move cursor left" }, controller.data.EventEditor.MoveCursorLeft),
+			"<right>": action.NewSimple(func() string { return "move cursor right" }, controller.data.EventEditor.MoveCursorRight),
 		},
 		controller.data.EventEditor.AddRune,
 	)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("could not construct editor insert mode processor")
+	}
 	editorNormalModeTree, err := input.ConstructInputTree(
-		map[string]action.Action{
+		map[input.Keyspec]action.Action{
 			"<esc>": action.NewSimple(func() string { return "abord edit, discard changes" }, controller.abortEdit),
 			"<cr>":  action.NewSimple(func() string { return "finish edit, commit changes" }, controller.endEdit),
 			"i":     action.NewSimple(func() string { return "enter insert mode" }, func() { editorStartInsertMode() }),
@@ -843,7 +1292,7 @@ func NewController(
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for editor pane's normal mode")
 	}
 	helpPaneInputTree, err := input.ConstructInputTree(
-		map[string]action.Action{
+		map[input.Keyspec]action.Action{
 			"?": action.NewSimple(func() string { return "close help" }, func() {
 				controller.data.ShowHelp = false
 			}),
@@ -853,14 +1302,14 @@ func NewController(
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for help pane")
 	}
 	helpPane := panes.NewHelpPane(
-		tui.NewConstrainedRenderer(renderer, helpDimensions),
+		ui.NewConstrainedRenderer(renderer, helpDimensions),
 		helpDimensions,
 		stylesheet,
 		func() bool { return controller.data.ShowHelp },
 		processors.NewModalInputProcessor(helpPaneInputTree),
 	)
-	editorPane := panes.NewEditorPane(
-		tui.NewConstrainedRenderer(renderer, editorDimensions),
+	editorPane := panes.NewEventEditorPane(
+		ui.NewConstrainedRenderer(renderer, editorDimensions),
 		renderer,
 		editorDimensions,
 		stylesheet,
@@ -870,6 +1319,7 @@ func NewController(
 		func() int { return controller.data.EventEditor.CursorPos },
 		processors.NewModalInputProcessor(editorNormalModeTree),
 	)
+	pushEditorAsRootSubpane = func() { controller.rootPane.PushSubpane(editorPane) }
 	editorStartInsertMode = func() {
 		editorPane.ApplyModalOverlay(editorInsertMode)
 		controller.data.EventEditor.SetMode(input.TextEditModeInsert)
@@ -888,7 +1338,7 @@ func NewController(
 		monthViewMainPane,
 
 		panes.NewSummaryPane(
-			tui.NewConstrainedRenderer(renderer, screenDimensions),
+			ui.NewConstrainedRenderer(renderer, screenDimensions),
 			screenDimensions,
 			stylesheet,
 			func() bool { return controller.data.ShowSummary },
@@ -935,7 +1385,7 @@ func NewController(
 			processors.NewModalInputProcessor(summaryPaneInputTree),
 		),
 		panes.NewLogPane(
-			tui.NewConstrainedRenderer(renderer, screenDimensions),
+			ui.NewConstrainedRenderer(renderer, screenDimensions),
 			screenDimensions,
 			stylesheet,
 			func() bool { return controller.data.ShowLog },
@@ -943,10 +1393,9 @@ func NewController(
 			&potatolog.GlobalMemoryLogReaderWriter,
 		),
 		helpPane,
-		editorPane,
 
 		panes.NewPerfPane(
-			tui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) { return 2, 2, 50, 2 }),
+			ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) { return 2, 2, 50, 2 }),
 			func() (x, y, w, h int) { return 2, 2, 50, 2 },
 			func() bool { return controller.data.ShowDebug },
 			&controller.data.RenderTimes,
@@ -974,7 +1423,7 @@ func NewController(
 	}
 
 	controller.data.EventEditor.SetMode(input.TextEditModeNormal)
-	controller.data.EventEditMode = control.EventEditModeNormal
+	controller.data.EventEditMode = edit.EventEditModeNormal
 
 	coordinatesProvided := (envData.Latitude != "" && envData.Longitude != "")
 	owmApiKeyProvided := (envData.OwmApiKey != "")
@@ -1015,8 +1464,8 @@ func NewController(
 
 	controller.fhMutex.Lock()
 	defer controller.fhMutex.Unlock()
-	controller.FileHandlers = make(map[model.Date]*filehandling.FileHandler)
-	controller.FileHandlers[date] = filehandling.NewFileHandler(controller.data.EnvData.BaseDirPath + "/days/" + date.ToString())
+	controller.FileHandlers = make(map[model.Date]*storage.FileHandler)
+	controller.FileHandlers[date] = storage.NewFileHandler(controller.data.EnvData.BaseDirPath + "/days/" + date.ToString())
 
 	controller.data.CurrentDate = date
 	if controller.FileHandlers[date] == nil {
@@ -1032,21 +1481,21 @@ func NewController(
 
 	controller.timestampGuesser = func(cursorX, cursorY int) model.Timestamp {
 		_, yOffset, _, _ := dayViewEventsPaneDimensions()
-		return controller.data.ViewParams.TimeAtY(yOffset + cursorY)
+		return controller.data.MainTimelineViewParams.TimeAtY(yOffset + cursorY)
 	}
 
 	controller.initializedScreen = renderer
 	controller.syncer = renderer
 
-	controller.data.MouseEditState = control.MouseEditStateNone
+	controller.data.MouseEditState = edit.MouseEditStateNone
 
 	return &controller
 }
 
 func (t *Controller) ScrollUp(by int) {
 	eventviewTopRow := 0
-	if t.data.ViewParams.ScrollOffset-by >= eventviewTopRow {
-		t.data.ViewParams.ScrollOffset -= by
+	if t.data.MainTimelineViewParams.ScrollOffset-by >= eventviewTopRow {
+		t.data.MainTimelineViewParams.ScrollOffset -= by
 	} else {
 		t.ScrollTop()
 	}
@@ -1054,30 +1503,31 @@ func (t *Controller) ScrollUp(by int) {
 
 func (t *Controller) ScrollDown(by int) {
 	eventviewBottomRow := t.tmpStatusYOffsetGetter()
-	if t.data.ViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.data.ViewParams.NRowsPerHour) {
-		t.data.ViewParams.ScrollOffset += by
+	if t.data.MainTimelineViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.data.MainTimelineViewParams.NRowsPerHour) {
+		t.data.MainTimelineViewParams.ScrollOffset += by
 	} else {
 		t.ScrollBottom()
 	}
 }
 
 func (t *Controller) ScrollTop() {
-	t.data.ViewParams.ScrollOffset = 0
+	t.data.MainTimelineViewParams.ScrollOffset = 0
 }
 
 func (t *Controller) ScrollBottom() {
 	eventviewBottomRow := t.tmpStatusYOffsetGetter()
-	t.data.ViewParams.ScrollOffset = 24*t.data.ViewParams.NRowsPerHour - eventviewBottomRow
+	t.data.MainTimelineViewParams.ScrollOffset = 24*t.data.MainTimelineViewParams.NRowsPerHour - eventviewBottomRow
 }
 
 func (t *Controller) abortEdit() {
-	t.data.MouseEditState = control.MouseEditStateNone
+	t.data.MouseEditState = edit.MouseEditStateNone
 	t.data.MouseEditedEvent = nil
 	t.data.EventEditor.Active = false
+	t.rootPane.PopSubpane()
 }
 
 func (t *Controller) endEdit() {
-	t.data.MouseEditState = control.MouseEditStateNone
+	t.data.MouseEditState = edit.MouseEditStateNone
 	t.data.MouseEditedEvent = nil
 	if t.data.EventEditor.Active {
 		t.data.EventEditor.Active = false
@@ -1085,24 +1535,25 @@ func (t *Controller) endEdit() {
 		t.data.EventEditor.Original.Name = tmp.Name
 	}
 	t.data.GetCurrentDay().UpdateEventOrder()
+	t.rootPane.PopSubpane()
 }
 
-func (t *Controller) startMouseMove(eventsInfo ui.EventsPanePositionInfo) {
-	t.data.MouseEditState = control.MouseEditStateMoving
-	t.data.MouseEditedEvent = eventsInfo.Event()
-	t.data.CurrentMoveStartingOffsetMinutes = eventsInfo.Event().Start.DurationInMinutesUntil(eventsInfo.Time())
+func (t *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
+	t.data.MouseEditState = edit.MouseEditStateMoving
+	t.data.MouseEditedEvent = eventsInfo.Event
+	t.data.CurrentMoveStartingOffsetMinutes = eventsInfo.Event.Start.DurationInMinutesUntil(eventsInfo.Time)
 }
 
-func (t *Controller) startMouseResize(eventsInfo ui.EventsPanePositionInfo) {
-	t.data.MouseEditState = control.MouseEditStateResizing
-	t.data.MouseEditedEvent = eventsInfo.Event()
+func (t *Controller) startMouseResize(eventsInfo *ui.EventsPanePositionInfo) {
+	t.data.MouseEditState = edit.MouseEditStateResizing
+	t.data.MouseEditedEvent = eventsInfo.Event
 }
 
-func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
+func (t *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 	// find out cursor time
-	start := info.Time()
+	start := info.Time
 
-	log.Debug().Str("position-time", info.Time().ToString()).Msg("creation called")
+	log.Debug().Str("position-time", info.Time.ToString()).Msg("creation called")
 
 	// create event at time with cat etc.
 	e := model.Event{}
@@ -1116,7 +1567,7 @@ func (t *Controller) startMouseEventCreation(info ui.EventsPanePositionInfo) {
 		log.Error().Err(err).Interface("event", e).Msg("error occurred adding event")
 	} else {
 		t.data.MouseEditedEvent = &e
-		t.data.MouseEditState = control.MouseEditStateResizing
+		t.data.MouseEditState = edit.MouseEditStateResizing
 	}
 }
 
@@ -1226,11 +1677,10 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 
 	buttons := e.Buttons()
 
-	paneType := positionInfo.PaneType()
-	switch paneType {
-	case ui.StatusPaneType:
+	switch positionInfo := positionInfo.(type) {
+	case *ui.StatusPanePositionInfo:
 
-	case ui.WeatherPaneType:
+	case *ui.WeatherPanePositionInfo:
 		switch buttons {
 		case tcell.WheelUp:
 			t.ScrollUp(1)
@@ -1238,7 +1688,7 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			t.ScrollDown(1)
 		}
 
-	case ui.TimelinePaneType:
+	case *ui.TimelinePanePositionInfo:
 		switch buttons {
 		case tcell.WheelUp:
 			t.ScrollUp(1)
@@ -1246,24 +1696,24 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			t.ScrollDown(1)
 		}
 
-	case ui.EventsPaneType:
-		eventsInfo := positionInfo.GetExtraEventsInfo()
+	case *ui.EventsPanePositionInfo:
+		eventsInfo := positionInfo
 
 		// if button clicked, handle
 		switch buttons {
 		case tcell.Button3:
-			t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event())
+			t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event)
 		case tcell.Button2:
-			event := eventsInfo.Event()
-			if event != nil && eventsInfo.Time().IsAfter(event.Start) {
-				t.data.GetCurrentDay().SplitEvent(event, eventsInfo.Time())
+			event := eventsInfo.Event
+			if event != nil && eventsInfo.Time.IsAfter(event.Start) {
+				t.data.GetCurrentDay().SplitEvent(event, eventsInfo.Time)
 			}
 
 		case tcell.Button1:
 			// we've clicked while not editing
 			// now we need to check where the cursor is and either start event
 			// creation, resizing or moving
-			switch eventsInfo.EventBoxPart() {
+			switch eventsInfo.EventBoxPart {
 			case ui.EventBoxNowhere:
 				t.startMouseEventCreation(eventsInfo)
 			case ui.EventBoxBottomRight:
@@ -1271,7 +1721,7 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			case ui.EventBoxInterior:
 				t.startMouseMove(eventsInfo)
 			case ui.EventBoxTopEdge:
-				t.data.EventEditor.Activate(eventsInfo.Event())
+				t.data.EventEditor.Activate(eventsInfo.Event)
 			}
 
 		case tcell.WheelUp:
@@ -1282,11 +1732,11 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 
 		}
 
-	case ui.ToolsPaneType:
-		toolsInfo := positionInfo.GetExtraToolsInfo()
+	case *ui.ToolsPanePositionInfo:
+		toolsInfo := positionInfo
 		switch buttons {
 		case tcell.Button1:
-			cat := toolsInfo.Category()
+			cat := toolsInfo.Category
 			if cat != nil {
 				t.data.CurrentCategory = *cat
 			}
@@ -1305,7 +1755,7 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 		switch buttons {
 		case tcell.Button1:
 			cursorTime := t.timestampGuesser(x, y)
-			visualCursorTime := cursorTime.OffsetMinutes(t.data.ViewParams.MinutesPerRow())
+			visualCursorTime := cursorTime.OffsetMinutes(int(t.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
 			event := t.data.MouseEditedEvent
 
 			var err error
@@ -1358,6 +1808,7 @@ type ControllerEvent int
 const (
 	ControllerEventExit ControllerEvent = iota
 	ControllerEventRender
+	ControllerEventTaskEditorExit
 )
 
 // Empties all render events from the channel.
@@ -1381,6 +1832,7 @@ func emptyRenderEvents(c chan ControllerEvent) bool {
 	}
 }
 
+// Run
 func (t *Controller) Run() {
 	log.Info().Msg("dayplan TUI started")
 
@@ -1411,6 +1863,17 @@ func (t *Controller) Run() {
 
 					end := time.Now()
 					t.data.RenderTimes.Add(uint64(end.Sub(start).Microseconds()))
+
+				case ControllerEventTaskEditorExit:
+					if t.data.TaskEditor == nil {
+						log.Warn().Msgf("got task editor exit event, but no task editor active; likely logic error")
+					} else {
+						t.data.TaskEditor = nil
+						t.rootPane.PopSubpane()
+						log.Debug().Msgf("removed (presumed) task-editor subpane from root")
+						go func() { t.controllerEvents <- ControllerEventRender }()
+					}
+
 				case ControllerEventExit:
 					return
 				}
@@ -1440,7 +1903,7 @@ func (t *Controller) Run() {
 				switch e := ev.(type) {
 				case *tcell.EventKey:
 					t.data.MouseMode = false
-					t.data.MouseEditState = control.MouseEditStateNone
+					t.data.MouseEditState = edit.MouseEditStateNone
 
 					key := input.KeyFromTcellEvent(e)
 					inputApplied := t.rootPane.ProcessInput(key)
@@ -1456,11 +1919,11 @@ func (t *Controller) Run() {
 					t.updateCursorPos(x, y)
 
 					switch t.data.MouseEditState {
-					case control.MouseEditStateNone:
+					case edit.MouseEditStateNone:
 						t.handleMouseNoneEditEvent(e)
-					case control.MouseEditStateResizing:
+					case edit.MouseEditStateResizing:
 						t.handleMouseResizeEditEvent(ev)
-					case control.MouseEditStateMoving:
+					case edit.MouseEditStateMoving:
 						t.handleMouseMoveEditEvent(ev)
 					}
 

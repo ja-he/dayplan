@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
-	"github.com/rs/zerolog/log"
 )
 
 // An EventsPane displays a single days events.
@@ -18,13 +19,13 @@ import (
 // hide some details (e.g., for showing events as part of multiple EventPanes in
 // in the month view.
 type EventsPane struct {
-	Leaf
+	ui.LeafPane
 
 	day func() *model.Day
 
 	styleForCategory func(model.Category) (styling.DrawStyling, error)
 
-	viewParams *ui.ViewParams
+	viewParams ui.TimespanViewParams
 	cursor     *ui.MouseCursorPos
 
 	pad             int
@@ -43,31 +44,24 @@ type EventsPane struct {
 // height) for this pane.
 // GetPositionInfo returns information on a requested position in this pane.
 func (p *EventsPane) Dimensions() (x, y, w, h int) {
-	return p.dimensions()
+	return p.Dims()
 }
 
 // GetPositionInfo returns information on a requested position in this pane.
 // Importantly, when there is an event at the position, it will inform of that
 // in detail.
 func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
-	return ui.NewPositionInfo(
-		ui.EventsPaneType,
-		nil,
-		nil,
-		nil,
-		nil,
-		p.getEventForPos(x, y),
-	)
+	return p.getEventForPos(x, y)
 }
 
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
 	x, y, w, h := p.Dimensions()
-	style := p.stylesheet.Normal
+	style := p.Stylesheet.Normal
 	if p.HasFocus() {
-		style = p.stylesheet.NormalEmphasized
+		style = p.Stylesheet.NormalEmphasized
 	}
-	p.renderer.DrawBox(x, y, w, h, style)
+	p.Renderer.DrawBox(x, y, w, h, style)
 
 	day := p.day()
 
@@ -81,7 +75,7 @@ func (p *EventsPane) Draw() {
 		style, err := p.styleForCategory(e.Cat)
 		if err != nil {
 			log.Error().Err(err).Str("category-name", e.Cat.Name).Msg("an error occurred getting category style")
-			style = p.stylesheet.CategoryFallback
+			style = p.Stylesheet.CategoryFallback
 		}
 		if !p.isCurrentDay() {
 			style = style.DefaultDimmed()
@@ -95,7 +89,7 @@ func (p *EventsPane) Draw() {
 		} else {
 			timestampWidth = 0
 		}
-		var hovered ui.EventsPanePositionInfo
+		var hovered *ui.EventsPanePositionInfo
 		if p.mouseMode() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
@@ -111,10 +105,10 @@ func (p *EventsPane) Draw() {
 		namePadding := 1
 		nameWidth := pos.W - (2 * namePadding) - timestampWidth
 
-		if p.mouseMode() && hovered != nil && hovered.Event() == e && hovered.EventBoxPart() != ui.EventBoxNowhere {
+		if p.mouseMode() && hovered != nil && hovered.Event == e && hovered.EventBoxPart != ui.EventBoxNowhere {
 			selectionStyling := style.DefaultEmphasized()
 
-			switch hovered.EventBoxPart() {
+			switch hovered.EventBoxPart {
 
 			case ui.EventBoxBottomRight:
 				bottomStyling = selectionStyling.Bolded()
@@ -128,26 +122,26 @@ func (p *EventsPane) Draw() {
 				nameStyling = selectionStyling.Bolded()
 
 			default:
-				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart().ToString()))
+				panic(fmt.Sprint("don't know this hover state:", hovered.EventBoxPart.ToString()))
 			}
 		}
 
 		var topTimestampStyling = bodyStyling.NormalizeFromBG(0.4)
 		var botTimestampStyling = bottomStyling.NormalizeFromBG(0.4)
 
-		p.renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
+		p.Renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
 
 		if p.drawTimestamps {
-			p.renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, topTimestampStyling, e.Start.ToString())
+			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, topTimestampStyling, e.Start.ToString())
 		}
 
-		p.renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
+		p.Renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
 		if p.drawTimestamps {
-			p.renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, e.End.ToString())
+			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, e.End.ToString())
 		}
 
 		if p.drawNames {
-			p.renderer.DrawText(pos.X+1, pos.Y, nameWidth, 1, nameStyling, util.TruncateAt(e.Name, nameWidth))
+			p.Renderer.DrawText(pos.X+1, pos.Y, nameWidth, 1, nameStyling, util.TruncateAt(e.Name, nameWidth))
 		}
 		if p.drawCat && pos.H > 1 {
 			var catStyling = bodyStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
@@ -155,13 +149,13 @@ func (p *EventsPane) Draw() {
 				catStyling = bottomStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
 			}
 			catWidth := pos.W - 2 - 1
-			p.renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
+			p.Renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
 		}
 
 	}
 }
 
-func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
+func (p *EventsPane) getEventForPos(x, y int) *ui.EventsPanePositionInfo {
 	dimX, _, dimW, _ := p.Dimensions()
 
 	if x >= dimX &&
@@ -179,40 +173,20 @@ func (p *EventsPane) getEventForPos(x, y int) ui.EventsPanePositionInfo {
 				default:
 					hover = ui.EventBoxInterior
 				}
-				return &EventsPanePositionInfo{
-					event:        currentDay.Events[i],
-					eventBoxPart: hover,
-					time:         p.viewParams.TimeAtY(y),
+				return &ui.EventsPanePositionInfo{
+					Event:        currentDay.Events[i],
+					EventBoxPart: hover,
+					Time:         p.viewParams.TimeAtY(y),
 				}
 			}
 		}
 	}
-	return &EventsPanePositionInfo{
-		event:        nil,
-		eventBoxPart: ui.EventBoxNowhere,
-		time:         p.viewParams.TimeAtY(y),
+	return &ui.EventsPanePositionInfo{
+		Event:        nil,
+		EventBoxPart: ui.EventBoxNowhere,
+		Time:         p.viewParams.TimeAtY(y),
 	}
 }
-
-// EventsPanePositionInfo provides information on a position in an EventsPane,
-// implementing the ui.EventsPanePositionInfo interface.
-type EventsPanePositionInfo struct {
-	event        *model.Event
-	eventBoxPart ui.EventBoxPart
-	time         model.Timestamp
-}
-
-// Event returns the ID of the event at the position, 0 if no event at
-// position.
-func (i *EventsPanePositionInfo) Event() *model.Event { return i.event }
-
-// EventBoxPart returns the part of the event box that corresponds to the
-// position (which can be EventBoxNowhere, if no event at position).
-func (i *EventsPanePositionInfo) EventBoxPart() ui.EventBoxPart { return i.eventBoxPart }
-
-// Time returns the time that corresponds to the position (specifically the
-// y-value of the position).
-func (i *EventsPanePositionInfo) Time() model.Timestamp { return i.time }
 
 func (p *EventsPane) computeRects(day *model.Day, offsetX, offsetY, width, height int) map[*model.Event]util.Rect {
 	activeStack := make([]*model.Event, 0)
@@ -260,7 +234,7 @@ func NewEventsPane(
 	inputProcessor input.ModalInputProcessor,
 	day func() *model.Day,
 	styleForCategory func(model.Category) (styling.DrawStyling, error),
-	viewParams *ui.ViewParams,
+	viewParams ui.TimespanViewParams,
 	cursor *ui.MouseCursorPos,
 	pad int,
 	drawTimestamps bool,
@@ -271,14 +245,14 @@ func NewEventsPane(
 	mouseMode func() bool,
 ) *EventsPane {
 	return &EventsPane{
-		Leaf: Leaf{
-			Base: Base{
+		LeafPane: ui.LeafPane{
+			BasePane: ui.BasePane{
 				ID:             ui.GeneratePaneID(),
 				InputProcessor: inputProcessor,
 			},
-			renderer:   renderer,
-			dimensions: dimensions,
-			stylesheet: stylesheet,
+			Renderer:   renderer,
+			Dims:       dimensions,
+			Stylesheet: stylesheet,
 		},
 		day:              day,
 		styleForCategory: styleForCategory,

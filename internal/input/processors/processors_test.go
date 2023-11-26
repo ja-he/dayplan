@@ -184,12 +184,15 @@ func TestTextInputProcessor(t *testing.T) {
 		t.Run("runes", func(t *testing.T) {
 			r := rune(0)
 			callback := func(newRune rune) { r = newRune }
-			p := processors.NewTextInputProcessor(
-				map[input.Key]action.Action{
-					cY: &dummyAction{action: func() { t.Error("the cY callback was called, which it should not have been") }},
+			p, err := processors.NewTextInputProcessor(
+				map[input.Keyspec]action.Action{
+					"<c-y>": &dummyAction{action: func() { t.Error("the cY callback was called, which it should not have been") }},
 				},
 				callback,
 			)
+			if err != nil {
+				panic(err)
+			}
 
 			p.ProcessInput(x)
 			if r != 'x' {
@@ -208,13 +211,16 @@ func TestTextInputProcessor(t *testing.T) {
 		t.Run("specials", func(t *testing.T) {
 			cACalled := false
 			cBCalled := false
-			p := processors.NewTextInputProcessor(
-				map[input.Key]action.Action{
-					cA: &dummyAction{action: func() { cACalled = true }},
-					cB: &dummyAction{action: func() { cBCalled = true }},
+			p, err := processors.NewTextInputProcessor(
+				map[input.Keyspec]action.Action{
+					"<c-a>": &dummyAction{action: func() { cACalled = true }},
+					"<c-b>": &dummyAction{action: func() { cBCalled = true }},
 				},
 				func(rune) {},
 			)
+			if err != nil {
+				panic(err)
+			}
 
 			if !p.ProcessInput(cA) || !cACalled {
 				t.Error("action for <c-a> not done")
@@ -230,29 +236,38 @@ func TestTextInputProcessor(t *testing.T) {
 	})
 
 	t.Run("CapturesInput", func(t *testing.T) {
-		p := processors.NewTextInputProcessor(map[input.Key]action.Action{}, func(rune) {})
+		p, err := processors.NewTextInputProcessor(map[input.Keyspec]action.Action{}, func(rune) {})
+		if err != nil {
+			panic(err)
+		}
 		if !p.CapturesInput() {
 			t.Error("text input processor does not unconditionally capture input")
 		}
 	})
 
 	t.Run("GetHelp", func(t *testing.T) {
-		p := processors.NewTextInputProcessor(
-			map[input.Key]action.Action{
-				cA: &dummyAction{explanation: "Aaa"},
-				cB: &dummyAction{explanation: "Bbb"},
+		p, err := processors.NewTextInputProcessor(
+			map[input.Keyspec]action.Action{
+				"<c-a>": &dummyAction{explanation: "Aaa"},
+				"<c-b>": &dummyAction{explanation: "Bbb"},
 			},
 			func(rune) {},
 		)
+		if err != nil {
+			panic(err)
+		}
 		help := p.GetHelp()
 		if !(len(help) == 2 && help[input.ToConfigIdentifierString(cA)] == "Aaa" && help[input.ToConfigIdentifierString(cB)] == "Bbb") {
 			t.Error("help looks unexpected:", help)
 		}
 
-		p = processors.NewTextInputProcessor(
-			map[input.Key]action.Action{},
+		p, err = processors.NewTextInputProcessor(
+			map[input.Keyspec]action.Action{},
 			func(rune) {},
 		)
+		if err != nil {
+			panic(err)
+		}
 		if len(p.GetHelp()) != 0 {
 			t.Error("help on empty not empty")
 		}

@@ -1,6 +1,8 @@
 package processors
 
 import (
+	"fmt"
+
 	"github.com/gdamore/tcell/v2"
 
 	"github.com/ja-he/dayplan/internal/control/action"
@@ -57,11 +59,22 @@ func (p *TextInputProcessor) GetHelp() input.Help {
 
 // NewTextInputProcessor returns a pointer to a new NewTextInputProcessor.
 func NewTextInputProcessor(
-	normalModeMappings map[input.Key]action.Action,
+	normalModeMappings map[input.Keyspec]action.Action,
 	runeCallback func(r rune),
-) *TextInputProcessor {
-	return &TextInputProcessor{
-		mappings:     normalModeMappings,
-		runeCallback: runeCallback,
+) (*TextInputProcessor, error) {
+	mappings := map[input.Key]action.Action{}
+	for keyspec, action := range normalModeMappings {
+		keys, err := input.ConfigKeyspecToKeys(keyspec)
+		if err != nil {
+			return nil, fmt.Errorf("could not convert '%s' to keys (%s)", keyspec, err.Error())
+		}
+		if len(keys) != 1 {
+			return nil, fmt.Errorf("keyspec '%s' for text processor has not exactly one key (but %d)", keyspec, len(keys))
+		}
+		mappings[keys[0]] = action
 	}
+	return &TextInputProcessor{
+		mappings:     mappings,
+		runeCallback: runeCallback,
+	}, nil
 }
