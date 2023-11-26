@@ -59,23 +59,27 @@ func ConstructInputTree(
 ) (*Tree, error) {
 	root := NewNode()
 
-	for mapping, action := range spec {
-		sequence, err := ConfigKeyspecToKeys(mapping)
+	for keyspec, a := range spec {
+		keySequence, err := ConfigKeyspecToKeys(keyspec)
 		if err != nil {
 			return nil, fmt.Errorf("error converting config keyspec: '%s'", err.Error())
 		}
 
+		// we start at the root (no keys) and through the key sequence we traverse
+		// the tree, adding nodes as necessary
 		sequenceCurrent := root
-		for i, key := range sequence {
+		for i, key := range keySequence {
 			sequenceNext, ok := sequenceCurrent.Children[key]
 			if !ok {
-				if i == len(sequence)-1 {
-					sequenceNext = NewLeaf(action)
+				// if we're at the end of the key sequence, we need to add the action, else a new node representing the this key
+				if i == len(keySequence)-1 {
+					sequenceNext = NewLeaf(a)
 				} else {
 					sequenceNext = NewNode()
 				}
 				sequenceCurrent.Children[key] = sequenceNext
 			}
+			// now sequenceNext is guaranteed to be sequenceCurrent.Children[key]
 			sequenceCurrent = sequenceNext
 		}
 	}
