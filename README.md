@@ -131,6 +131,35 @@ $ dayplan summarize --from 2021-11-01 --til 2021-11-30 \
                     --category-filter work \
                     --human-readable
 ```
+
+### Getting a Timesheet (`timesheet`)
+
+This is similar but distinct from summaries.
+You might have to fill out a timesheet at some point, of a format like the following, but probably in a spreadsheet:
+
+| Date       | Start | Break Duration | End   |
+| ---        | ---   | ---            | ---   |
+| 2022-12-01 | 08:45 | 45min          | 16:30 |
+| 2022-12-02 | 08:52 | 1h             | 16:20 |
+| ...        | ...   | ...            | ...   |
+
+You can generate the data for this with dayplan using the (`timesheet`) subcommand:
+```
+$ dayplan timesheet --from "2022-12-01" \
+                    --til "2022-12-31" \
+                    --category "my-project" \
+                    --include-empty
+```
+This would give you roughly the output
+```
+2022-12-01,08:45,45min,16:30
+2022-12-02,08:52,1h,16:20
+...
+```
+which should already be sufficient for opening as / copy-pasting into a spreadsheet.
+
+Be sure to check out `dayplan timesheet --help` as well.
+
 ### Adding events via CLI (`add`)
 
 Besides being able to add events in the TUI mode, events can also be added via

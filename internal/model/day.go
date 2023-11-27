@@ -318,6 +318,37 @@ func (day *Day) SumUpByCategory() map[Category]int {
 	return result
 }
 
+// GetTimesheetEntry returns the TimesheetEntry for this day for a given
+// category (e.g. "work").
+func (day *Day) GetTimesheetEntry(matcher func(string) bool) TimesheetEntry {
+	result := TimesheetEntry{}
+	startFound := false
+	var lastEnd Timestamp
+
+	flattened := day.Clone()
+	flattened.Flatten()
+
+	for _, event := range flattened.Events {
+
+		if matcher(event.Cat.Name) {
+
+			if !startFound {
+				result.Start = event.Start
+				startFound = true
+			} else {
+				result.BreakDuration += lastEnd.DurationUntil(event.Start)
+			}
+			lastEnd = event.End
+
+		}
+
+	}
+
+	result.End = lastEnd
+
+	return result
+}
+
 // "Flattens" the events of a given day, i.E. ensures that no overlapping
 // events exist. It does this by e.g. trimming one of two overlapping events or
 // splitting a less prioritized event if it had a higher-priority event occur
