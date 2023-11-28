@@ -554,16 +554,19 @@ func NewController(
 				} else {
 					newTask.Category = controller.data.CurrentCategory
 				}
+				currentTask = newTask
 			}),
 			"i": action.NewSimple(func() string { return "add a new subtask of the current task" }, func() {
 				if currentTask == nil {
 					log.Warn().Msgf("asked to add a subtask to nil current task")
 					return
 				}
-				currentTask.Subtasks = append(currentTask.Subtasks, &model.Task{
+				newTask := &model.Task{
 					Name:     "(need to implement task editor)",
 					Category: currentTask.Category,
-				})
+				}
+				currentTask.Subtasks = append(currentTask.Subtasks, newTask)
+				currentTask = newTask
 			}),
 			"<cr>": action.NewSimple(func() string { return "begin editing of task" }, func() {
 				if controller.data.TaskEditor != nil {
