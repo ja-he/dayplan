@@ -310,10 +310,12 @@ func (e *StringEditor) createInputProcessor(cfg input.InputConfig) (input.ModalI
 	enterInsertMode = func() {
 		log.Debug().Msgf("entering insert mode")
 		p.ApplyModalOverlay(insertModeInputTree)
+		e.SetMode(input.TextEditModeInsert)
 	}
 	exitInsertMode = func() {
 		log.Debug().Msgf("entering normal mode")
 		p.PopModalOverlay()
+		e.SetMode(input.TextEditModeNormal)
 	}
 	log.Debug().Msgf("attached mode swapping functions")
 
