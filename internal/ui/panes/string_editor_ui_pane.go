@@ -28,12 +28,29 @@ func (p *StringEditorPane) Draw() {
 			baseBGStyle = baseBGStyle.DarkenedBG(10)
 		}
 
+		nameWidth := 8
+		modeWidth := 5
+		padding := 1
+
 		p.Renderer.DrawBox(x, y, w, h, baseBGStyle)
-		p.Renderer.DrawText(x+1, y, 10, h, baseBGStyle.Italicized(), p.view.GetName())
-		p.Renderer.DrawText(x+12, y, w-13, h, baseBGStyle.DarkenedBG(20), p.view.GetContent())
+		p.Renderer.DrawText(x+padding, y, nameWidth, h, baseBGStyle.Italicized(), p.view.GetName())
 
 		if p.view.IsActive() {
-			cursorX, cursorY := x+12+(p.view.GetCursorPos()), y
+			switch p.view.GetMode() {
+			case input.TextEditModeInsert:
+				p.Renderer.DrawText(x+padding+nameWidth+padding, y, modeWidth, h, baseBGStyle.DarkenedFG(30).Invert(), "(ins)")
+			case input.TextEditModeNormal:
+				p.Renderer.DrawText(x+padding+nameWidth+padding, y, modeWidth, h, baseBGStyle.DarkenedFG(30), "(nrm)")
+			default:
+				p.Renderer.DrawText(x+padding+nameWidth+padding, y, modeWidth, h, p.Stylesheet.CategoryFallback, "( ? )")
+			}
+		}
+
+		contentXOffset := padding + nameWidth + padding + modeWidth + padding
+		p.Renderer.DrawText(x+contentXOffset, y, w-contentXOffset+padding, h, baseBGStyle.DarkenedBG(20), p.view.GetContent())
+
+		if p.view.IsActive() {
+			cursorX, cursorY := x+contentXOffset+(p.view.GetCursorPos()), y
 			p.cursorController.ShowCursor(cursorX, cursorY)
 			log.Debug().Msgf("drawing cursor at %d, %d", cursorX, cursorY)
 		} else {
