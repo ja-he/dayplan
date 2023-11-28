@@ -444,6 +444,50 @@ func NewController(
 			}
 		}
 	}
+	createAndEnableTaskEditor := func(task *model.Task) {
+		if controller.data.TaskEditor != nil {
+			log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
+		}
+		var err error
+		taskEditor, err := editors.ConstructEditor(task, nil)
+		if err != nil {
+			log.Error().Err(err).Interface("task", task).Msg("was not able to construct editor for task")
+			return
+		}
+		var ok bool
+		controller.data.TaskEditor, ok = taskEditor.(*editors.Composite)
+		if !ok {
+			log.Error().Msgf("somehow, the editor is not a task editor but '%t'; this should never happen", taskEditor)
+			controller.data.TaskEditor = nil
+			return
+		}
+		taskEditorPane, err := controller.data.TaskEditor.GetPane(
+			ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
+				screenWidth, screenHeight := screenSize()
+				taskEditorBoxWidth := int(math.Min(80, float64(screenWidth)))
+				taskEditorBoxHeight := int(math.Min(20, float64(screenHeight)))
+				return (screenWidth / 2) - (taskEditorBoxWidth / 2), (screenHeight / 2) - (taskEditorBoxHeight / 2), taskEditorBoxWidth, taskEditorBoxHeight
+			}),
+			func() bool { return true },
+			inputConfig,
+			stylesheet,
+			renderer,
+		)
+		if err != nil {
+			log.Error().Err(err).Msgf("could not construct task editor pane")
+			controller.data.TaskEditor = nil
+			return
+		}
+		controller.rootPane.PushSubpane(taskEditorPane)
+		taskEditorDone := make(chan struct{})
+		controller.data.TaskEditor.AddQuitCallback(func() {
+			close(taskEditorDone)
+		})
+		go func() {
+			<-taskEditorDone
+			controller.controllerEvents <- ControllerEventTaskEditorExit
+		}()
+	}
 	tasksInputTree, err := input.ConstructInputTree(
 		map[input.Keyspec]action.Action{
 			"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() {
@@ -538,9 +582,10 @@ func NewController(
 				if currentTask == nil {
 					log.Debug().Msgf("asked to add a task after to nil current task, adding as first")
 					newTask := backlog.AddLast()
-					newTask.Name = "(need to implement task editor)"
+					newTask.Name = "" // user should be hinted to change this quite quickly, i.e. via immediate editor activation
 					newTask.Category = controller.data.CurrentCategory
 					currentTask = newTask
+					createAndEnableTaskEditor(currentTask)
 					return
 				}
 				newTask, parent, err := backlog.AddAfter(currentTask)
@@ -548,13 +593,14 @@ func NewController(
 					log.Error().Err(err).Msgf("was unable to add a task after '%s'", currentTask.Name)
 					return
 				}
-				newTask.Name = "(need to implement task editor)"
+				newTask.Name = "" // user should be hinted to change this quite quickly, i.e. via immediate editor activation
 				if parent != nil {
 					newTask.Category = parent.Category
 				} else {
 					newTask.Category = controller.data.CurrentCategory
 				}
 				currentTask = newTask
+				createAndEnableTaskEditor(currentTask)
 			}),
 			"i": action.NewSimple(func() string { return "add a new subtask of the current task" }, func() {
 				if currentTask == nil {
@@ -562,49 +608,14 @@ func NewController(
 					return
 				}
 				newTask := &model.Task{
-					Name:     "(need to implement task editor)",
+					Name:     "", // user should be hinted to change this quite quickly, i.e. via immediate editor activation
 					Category: currentTask.Category,
 				}
 				currentTask.Subtasks = append(currentTask.Subtasks, newTask)
 				currentTask = newTask
+				createAndEnableTaskEditor(currentTask)
 			}),
-			"<cr>": action.NewSimple(func() string { return "begin editing of task" }, func() {
-				if controller.data.TaskEditor != nil {
-					log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
-				}
-				var err error
-				controller.data.TaskEditor, err = editors.ConstructEditor(currentTask, nil)
-				if err != nil {
-					log.Error().Err(err).Interface("current-task", currentTask).Msg("was not able to construct editor for current task")
-					return
-				}
-				taskEditorPane, err := controller.data.TaskEditor.GetPane(
-					ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
-						screenWidth, screenHeight := screenSize()
-						taskEditorBoxWidth := int(math.Min(80, float64(screenWidth)))
-						taskEditorBoxHeight := int(math.Min(20, float64(screenHeight)))
-						return (screenWidth / 2) - (taskEditorBoxWidth / 2), (screenHeight / 2) - (taskEditorBoxHeight / 2), taskEditorBoxWidth, taskEditorBoxHeight
-					}),
-					func() bool { return true },
-					inputConfig,
-					stylesheet,
-					renderer,
-				)
-				if err != nil {
-					log.Error().Err(err).Msgf("could not construct task editor pane")
-					controller.data.TaskEditor = nil
-					return
-				}
-				controller.rootPane.PushSubpane(taskEditorPane)
-				taskEditorDone := make(chan struct{})
-				controller.data.TaskEditor.AddQuitCallback(func() {
-					close(taskEditorDone)
-				})
-				go func() {
-					<-taskEditorDone
-					controller.controllerEvents <- ControllerEventTaskEditorExit
-				}()
-			}),
+			"<cr>": action.NewSimple(func() string { return "begin editing of task" }, func() { createAndEnableTaskEditor(currentTask) }),
 			"w": action.NewSimple(func() string { return "store backlog to file" }, func() {
 				writer, err := os.OpenFile(backlogFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 				if err != nil {
