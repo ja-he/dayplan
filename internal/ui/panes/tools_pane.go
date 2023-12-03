@@ -81,6 +81,9 @@ func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rec
 	result := make(map[model.Category]util.Rect)
 
 	for _, styling := range p.categories.GetAll() {
+		if styling.Cat.Deprecated {
+			continue
+		}
 		box := util.Rect{
 			X: x + p.horizPadding,
 			Y: p.vertPadding + i + (i * p.gap),

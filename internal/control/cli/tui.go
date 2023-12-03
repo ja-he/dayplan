@@ -117,9 +117,10 @@ func (command *TuiCommand) Execute(args []string) error {
 		}
 
 		cat := model.Category{
-			Name:     category.Name,
-			Priority: category.Priority,
-			Goal:     goal,
+			Name:       category.Name,
+			Priority:   category.Priority,
+			Goal:       goal,
+			Deprecated: category.Deprecated,
 		}
 		style := styling.StyleFromHexSingle(category.Color, theme == config.Dark)
 		categoryStyling.Add(cat, style)

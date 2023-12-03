@@ -1,9 +1,10 @@
 package model
 
 type Category struct {
-	Name     string
-	Priority int
-	Goal     Goal
+	Name       string
+	Priority   int
+	Goal       Goal
+	Deprecated bool
 }
 
 type ByName []Category

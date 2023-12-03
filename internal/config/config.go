@@ -59,10 +59,11 @@ type FontStyle struct {
 // A Category as defined in a config file.
 // It combines the style definition with the name and priority definition.
 type Category struct {
-	Name     string `yaml:"name,omitempty"`
-	Color    string `yaml:"color,omitempty"`
-	Priority int    `yaml:"priority,omitempty"`
-	Goal     Goal   `yaml:"goal,omitempty"`
+	Name       string `yaml:"name,omitempty"`
+	Color      string `yaml:"color,omitempty"`
+	Priority   int    `yaml:"priority,omitempty"`
+	Goal       Goal   `yaml:"goal,omitempty"`
+	Deprecated bool   `yaml:"deprecated"`
 }
 
 // Goal is a time goal.

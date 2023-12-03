@@ -229,7 +229,12 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"eating", 0, nil}: 40,
+			{
+				Name:       "",
+				Priority:   0,
+				Goal:       nil,
+				Deprecated: false,
+			}: 40,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
@@ -245,7 +250,12 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("18:15|19:00|eating|Dinner", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"eating", 0, nil}: 125,
+			{
+				Name:       "",
+				Priority:   0,
+				Goal:       nil,
+				Deprecated: false,
+			}: 125,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
@@ -261,8 +271,18 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("18:15|19:00|cooking|Dinner", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"eating", 0, nil}:  80,
-			{"cooking", 0, nil}: 45,
+			{
+				Name:       "",
+				Priority:   0,
+				Goal:       nil,
+				Deprecated: false,
+			}: 80,
+			{
+				Name:       "",
+				Priority:   0,
+				Goal:       nil,
+				Deprecated: false,
+			}: 45,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
@@ -277,7 +297,12 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("01:30|02:30|a|A2", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"a", 0, nil}: 90,
+			{
+				Name:       "",
+				Priority:   0,
+				Goal:       nil,
+				Deprecated: false,
+			}: 90,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
@@ -292,7 +317,12 @@ func TestSumUpByCategory(t *testing.T) {
 			NewEvent("01:15|01:45|a|A subevent", defaultEmptyCategories),
 		}
 		expected := map[Category]int{
-			{"a", 0, nil}: 60,
+			{
+				Name:       "",
+				Priority:   0,
+				Goal:       nil,
+				Deprecated: false,
+			}: 60,
 		}
 		result := model.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
