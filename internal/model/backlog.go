@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 	"time"
 
@@ -91,7 +92,7 @@ func (b *Backlog) Write(w io.Writer) error {
 	return nil
 }
 
-// Read reads and deserializes a backlog from the io.Reader and returns the
+// BacklogFromReader reads and deserializes a backlog from the io.Reader and returns the
 // backlog.
 func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Backlog, error) {
 	data, err := io.ReadAll(r)
@@ -130,6 +131,9 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 			b.Tasks = append(b.Tasks, toTask(cat, task))
 		}
 	}
+
+	// sort to ensure more consistent ordering
+	sort.Sort(TasksByDeadline(b.Tasks))
 
 	return b, nil
 }
@@ -277,21 +281,23 @@ func (t *Task) getDurationNormalized() time.Duration {
 	}
 }
 
-// NOTE: technically this following code is unused, it may be useful at some point though
+// TasksByDeadline is a sort interface to stort tasks by their deadlines
+type TasksByDeadline []*Task
 
-type ByDeadline []*Task
+func (a TasksByDeadline) Len() int      { return len(a) }
+func (a TasksByDeadline) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
-func (a ByDeadline) Len() int      { return len(a) }
-func (a ByDeadline) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-
-func (a ByDeadline) Less(i, j int) bool {
+func (a TasksByDeadline) Less(i, j int) bool {
 	switch {
 
 	case a[i].Deadline == nil && a[j].Deadline == nil: // neither deadlines
-		if a[i].Category.Priority != a[i].Category.Priority {
+		if a[i].Category.Priority != a[j].Category.Priority {
 			return a[i].Category.Priority > a[j].Category.Priority
 		}
-		return true
+		if a[i].Category.Name != a[j].Category.Name {
+			return a[i].Category.Name < a[j].Category.Name
+		}
+		return a[i].Name < a[j].Name
 
 	case a[i].Deadline == nil && a[j].Deadline != nil: // only second deadline
 		return false
