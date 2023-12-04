@@ -481,7 +481,7 @@ func NewController(
 		controller.rootPane.PushSubpane(taskEditorPane)
 		taskEditorDone := make(chan struct{})
 		controller.data.TaskEditor.AddQuitCallback(func() {
-			close(taskEditorDone)
+			close(taskEditorDone) // TODO: this can CERTAINLY happen twice; prevent
 		})
 		go func() {
 			<-taskEditorDone
