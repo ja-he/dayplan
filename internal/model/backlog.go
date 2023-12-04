@@ -233,6 +233,38 @@ func (b *Backlog) AddAfter(anchorTask *Task) (newTask *Task, parent *Task, err e
 	return newTask, parent, nil
 }
 
+// AddBefore adds a new task before the given anchorTask.
+func (b *Backlog) AddBefore(anchorTask *Task) (newTask *Task, parent *Task, err error) {
+	_, _, parentage, index, err := b.Locate(anchorTask)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not locate anchor task (%s)", err.Error())
+	}
+	taskList := b.Tasks
+	if len(parentage) > 0 {
+		parent = parentage[0]
+		taskList = parent.Subtasks
+	}
+
+	// sanity check
+	{
+		if taskList[index] != anchorTask {
+			return nil, nil, fmt.Errorf("implementation error: task[%d].Name == '%s' != '%s", index, taskList[index].Name, anchorTask.Name)
+		}
+	}
+
+	newTask = new(Task)
+
+	// insert new task after given index
+	taskList = append(taskList[:index], append([]*Task{newTask}, taskList[index:]...)...)
+	if parent != nil {
+		parent.Subtasks = taskList
+	} else {
+		b.Tasks = taskList
+	}
+
+	return newTask, parent, nil
+}
+
 func (t *Task) toEvent(startTime time.Time, namePrefix string) Event {
 	return Event{
 		Start: *NewTimestampFromGotime(startTime),

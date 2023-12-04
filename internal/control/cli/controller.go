@@ -578,6 +578,30 @@ func NewController(
 					log.Debug().Msg("could not find parent, so not changing current task")
 				}
 			}),
+			"O": action.NewSimple(func() string { return "add a new task above the current one" }, func() {
+				if currentTask == nil {
+					log.Debug().Msgf("asked to add a task after to nil current task, adding as first")
+					newTask := backlog.AddLast()
+					newTask.Name = "" // user should be hinted to change this quite quickly, i.e. via immediate editor activation
+					newTask.Category = controller.data.CurrentCategory
+					currentTask = newTask
+					createAndEnableTaskEditor(currentTask)
+					return
+				}
+				newTask, parent, err := backlog.AddBefore(currentTask)
+				if err != nil {
+					log.Error().Err(err).Msgf("was unable to add a task after '%s'", currentTask.Name)
+					return
+				}
+				newTask.Name = "" // user should be hinted to change this quite quickly, i.e. via immediate editor activation
+				if parent != nil {
+					newTask.Category = parent.Category
+				} else {
+					newTask.Category = controller.data.CurrentCategory
+				}
+				currentTask = newTask
+				createAndEnableTaskEditor(currentTask)
+			}),
 			"o": action.NewSimple(func() string { return "add a new task below the current one" }, func() {
 				if currentTask == nil {
 					log.Debug().Msgf("asked to add a task after to nil current task, adding as first")
