@@ -230,7 +230,7 @@ func TestSumUpByCategory(t *testing.T) {
 		}
 		expected := map[Category]int{
 			{
-				Name:       "",
+				Name:       "eating",
 				Priority:   0,
 				Goal:       nil,
 				Deprecated: false,
@@ -251,7 +251,7 @@ func TestSumUpByCategory(t *testing.T) {
 		}
 		expected := map[Category]int{
 			{
-				Name:       "",
+				Name:       "eating",
 				Priority:   0,
 				Goal:       nil,
 				Deprecated: false,
@@ -272,13 +272,13 @@ func TestSumUpByCategory(t *testing.T) {
 		}
 		expected := map[Category]int{
 			{
-				Name:       "",
+				Name:       "eating",
 				Priority:   0,
 				Goal:       nil,
 				Deprecated: false,
 			}: 80,
 			{
-				Name:       "",
+				Name:       "cooking",
 				Priority:   0,
 				Goal:       nil,
 				Deprecated: false,
@@ -298,7 +298,7 @@ func TestSumUpByCategory(t *testing.T) {
 		}
 		expected := map[Category]int{
 			{
-				Name:       "",
+				Name:       "a",
 				Priority:   0,
 				Goal:       nil,
 				Deprecated: false,
@@ -318,7 +318,7 @@ func TestSumUpByCategory(t *testing.T) {
 		}
 		expected := map[Category]int{
 			{
-				Name:       "",
+				Name:       "a",
 				Priority:   0,
 				Goal:       nil,
 				Deprecated: false,
