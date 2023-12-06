@@ -664,9 +664,11 @@ func NewController(
 			"j": action.NewSimple(func() string { return "switch to next category" }, func() {
 				for i, cat := range controller.data.Categories {
 					if cat == controller.data.CurrentCategory {
-						if i+1 < len(controller.data.Categories) {
-							controller.data.CurrentCategory = controller.data.Categories[i+1]
-							return
+						for ii := i + 1; ii < len(controller.data.Categories); ii++ {
+							if !controller.data.Categories[ii].Deprecated {
+								controller.data.CurrentCategory = controller.data.Categories[ii]
+								return
+							}
 						}
 					}
 				}
@@ -674,9 +676,11 @@ func NewController(
 			"k": action.NewSimple(func() string { return "switch to previous category" }, func() {
 				for i, cat := range controller.data.Categories {
 					if cat == controller.data.CurrentCategory {
-						if i-1 >= 0 {
-							controller.data.CurrentCategory = controller.data.Categories[i-1]
-							return
+						for ii := i - 1; ii >= 0; ii-- {
+							if !controller.data.Categories[ii].Deprecated {
+								controller.data.CurrentCategory = controller.data.Categories[ii]
+								return
+							}
 						}
 					}
 				}
