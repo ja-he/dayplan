@@ -42,6 +42,7 @@ func (w *CursorWrangler) Put(l CursorLocation, requesterID string) {
 		log.Warn().Msgf("being asked to put cursor (at %s) while it is already placed by '%s' (at %s); will be overwritten", l.String(), *w.mostRecentRequester, w.desiredLocation.String())
 	}
 
+	log.Trace().Msgf("updating cursor location to %s (from %s)", l.String(), requesterID)
 	w.desiredLocation = &l
 	w.mostRecentRequester = &requesterID
 }
@@ -61,6 +62,7 @@ func (w *CursorWrangler) Delete(requesterID string) {
 		return
 	}
 
+	log.Trace().Msgf("deleting cursor (was at %s from %s)", w.desiredLocation.String(), requesterID)
 	w.desiredLocation = nil
 	w.mostRecentRequester = nil
 }
@@ -72,8 +74,10 @@ func (w *CursorWrangler) Enact() {
 	defer w.mtx.RUnlock()
 
 	if w.desiredLocation != nil {
+		log.Trace().Msgf("showing cursor at %s", w.desiredLocation.String())
 		w.cc.ShowCursor(*w.desiredLocation)
 	} else {
+		log.Trace().Msgf("hiding cursor")
 		w.cc.HideCursor()
 	}
 }

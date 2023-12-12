@@ -54,7 +54,6 @@ func (p *StringEditorPane) Draw() {
 		if p.view.IsActive() {
 			cursorX, cursorY := x+contentXOffset+(p.view.GetCursorPos()), y
 			p.cursorController.Put(ui.CursorLocation{X: cursorX, Y: cursorY}, p.idStr)
-			log.Debug().Msgf("drawing cursor at %d, %d", cursorX, cursorY)
 		} else {
 			p.cursorController.Delete(p.idStr)
 		}
