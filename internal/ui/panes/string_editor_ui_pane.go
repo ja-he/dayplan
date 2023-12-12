@@ -15,7 +15,9 @@ type StringEditorPane struct {
 
 	view views.StringEditorView
 
-	cursorController ui.TextCursorController
+	cursorController ui.CursorLocationRequestHandler
+
+	idStr string
 }
 
 // Draw draws the editor popup.
@@ -51,10 +53,10 @@ func (p *StringEditorPane) Draw() {
 
 		if p.view.IsActive() {
 			cursorX, cursorY := x+contentXOffset+(p.view.GetCursorPos()), y
-			p.cursorController.ShowCursor(cursorX, cursorY)
+			p.cursorController.Put(ui.CursorLocation{X: cursorX, Y: cursorY}, p.idStr)
 			log.Debug().Msgf("drawing cursor at %d, %d", cursorX, cursorY)
 		} else {
-			p.cursorController.HideCursor()
+			p.cursorController.Delete(p.idStr)
 		}
 
 		// TODO(ja-he): wrap at word boundary; or something...
@@ -63,7 +65,7 @@ func (p *StringEditorPane) Draw() {
 
 // Undraw ensures that the cursor is hidden.
 func (p *StringEditorPane) Undraw() {
-	p.cursorController.HideCursor()
+	p.cursorController.Delete(p.idStr)
 }
 
 // GetPositionInfo returns information on a requested position in this pane (nil, for now).
@@ -84,7 +86,7 @@ func NewStringEditorPane(
 	inputProcessor input.ModalInputProcessor,
 	view views.StringEditorView,
 	stylesheet styling.Stylesheet,
-	cursorController ui.TextCursorController,
+	cursorController ui.CursorLocationRequestHandler,
 ) *StringEditorPane {
 	return &StringEditorPane{
 		LeafPane: ui.LeafPane{
@@ -99,5 +101,6 @@ func NewStringEditorPane(
 		},
 		view:             view,
 		cursorController: cursorController,
+		idStr:            "string-editor-pane", // TODO: should be generated based on _something_
 	}
 }

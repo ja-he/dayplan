@@ -247,7 +247,7 @@ func (e *StringEditor) GetPane(
 	visible func() bool,
 	inputConfig input.InputConfig,
 	stylesheet styling.Stylesheet,
-	cursorController ui.TextCursorController,
+	cursorController ui.CursorLocationRequestHandler,
 ) (ui.Pane, error) {
 	inputProcessor, err := e.createInputProcessor(inputConfig)
 	if err != nil {

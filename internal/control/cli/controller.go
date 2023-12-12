@@ -400,6 +400,8 @@ func NewController(
 		func() edit.EventEditMode { return controller.data.EventEditMode },
 	)
 
+	cursorWrangler := ui.NewCursorWrangler(renderer)
+
 	var currentTask *model.Task
 	setCurrentTask := func(t *model.Task) { currentTask = t }
 	backlogViewParams := ui.BacklogViewParams{
@@ -480,7 +482,7 @@ func NewController(
 			func() bool { return true },
 			inputConfig,
 			stylesheet,
-			renderer,
+			cursorWrangler,
 		)
 		if err != nil {
 			log.Error().Err(err).Msgf("could not construct task editor pane")
@@ -1373,7 +1375,7 @@ func NewController(
 	)
 	editorPane := panes.NewEventEditorPane(
 		ui.NewConstrainedRenderer(renderer, editorDimensions),
-		renderer,
+		cursorWrangler,
 		editorDimensions,
 		stylesheet,
 		func() bool { return controller.data.EventEditor.Active },
@@ -1394,6 +1396,7 @@ func NewController(
 
 	rootPane := panes.NewRootPane(
 		renderer,
+		cursorWrangler,
 		screenDimensions,
 
 		dayViewMainPane,

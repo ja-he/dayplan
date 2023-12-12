@@ -5,6 +5,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/ja-he/dayplan/internal/styling"
+	"github.com/ja-he/dayplan/internal/ui"
 )
 
 // ScreenHandler allows rendering to a terminal (via tcell.Screen).
@@ -66,8 +67,8 @@ func (s *ScreenHandler) Dimensions() (x, y, w, h int) {
 }
 
 // ShowCursor sets the position of the text cursor.
-func (s *ScreenHandler) ShowCursor(x, y int) {
-	s.screen.ShowCursor(x, y)
+func (s *ScreenHandler) ShowCursor(loc ui.CursorLocation) {
+	s.screen.ShowCursor(loc.X, loc.Y)
 }
 
 // HideCursor hides the text cursor.

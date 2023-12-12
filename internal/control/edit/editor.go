@@ -30,6 +30,6 @@ type Editor interface {
 		visible func() bool,
 		inputConfig input.InputConfig,
 		stylesheet styling.Stylesheet,
-		cursorController ui.TextCursorController,
+		cursorController ui.CursorLocationRequestHandler,
 	) (ui.Pane, error)
 }

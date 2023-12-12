@@ -11,7 +11,7 @@ type EventEditorPane struct {
 	ui.LeafPane
 
 	renderer         ui.ConstrainedRenderer
-	cursorController ui.TextCursorController
+	cursorController ui.CursorLocationRequestHandler
 	dimensions       func() (x, y, w, h int)
 	stylesheet       styling.Stylesheet
 
@@ -23,7 +23,7 @@ type EventEditorPane struct {
 
 // Undraw ensures that the cursor is hidden.
 func (p *EventEditorPane) Undraw() {
-	p.cursorController.HideCursor()
+	p.cursorController.Delete("event-editor-pane")
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -42,7 +42,10 @@ func (p *EventEditorPane) Draw() {
 
 		p.renderer.DrawBox(x, y, w, h, p.stylesheet.Editor)
 		p.renderer.DrawText(x+1, y+1, w-2, h-2, p.stylesheet.Editor, p.name())
-		p.cursorController.ShowCursor(x+1+(p.cursorPos()%(w-2)), y+1+(p.cursorPos()/(w-2)))
+		p.cursorController.Put(ui.CursorLocation{
+			X: x + 1 + (p.cursorPos() % (w - 2)),
+			Y: y + 1 + (p.cursorPos() / (w - 2)),
+		}, "event-editor-pane")
 		// TODO(ja-he): wrap at word boundary
 
 		mode := p.getMode()
@@ -65,7 +68,7 @@ func (p *EventEditorPane) Draw() {
 // NewEventEditorPane constructs and returns a new EventEditorPane.
 func NewEventEditorPane(
 	renderer ui.ConstrainedRenderer,
-	cursorController ui.TextCursorController,
+	cursorController ui.CursorLocationRequestHandler,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
 	condition func() bool,
