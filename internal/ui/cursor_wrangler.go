@@ -22,6 +22,8 @@ type CursorWrangler struct {
 
 	desiredLocation     *CursorLocation
 	mostRecentRequester *string
+
+	enactedLocation *CursorLocation
 }
 
 // NewCursorWrangler creates a new CursorWrangler.
@@ -70,14 +72,20 @@ func (w *CursorWrangler) Delete(requesterID string) {
 // Enact enacts the current cursor location request via the underlying
 // cursor controller.
 func (w *CursorWrangler) Enact() {
-	w.mtx.RLock()
-	defer w.mtx.RUnlock()
+	w.mtx.Lock()
+	defer w.mtx.Unlock()
 
 	if w.desiredLocation != nil {
-		log.Trace().Msgf("showing cursor at %s", w.desiredLocation.String())
-		w.cc.ShowCursor(*w.desiredLocation)
+		if w.enactedLocation == nil || (*w.enactedLocation != *w.desiredLocation) {
+			log.Trace().Msgf("showing cursor at %s", w.desiredLocation.String())
+			w.cc.ShowCursor(*w.desiredLocation)
+			w.enactedLocation = w.desiredLocation
+		}
 	} else {
-		log.Trace().Msgf("hiding cursor")
-		w.cc.HideCursor()
+		if w.enactedLocation != nil {
+			log.Trace().Msgf("hiding cursor")
+			w.cc.HideCursor()
+			w.enactedLocation = nil
+		}
 	}
 }
