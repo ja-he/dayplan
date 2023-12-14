@@ -188,13 +188,13 @@ func (e *Composite) GetPane(
 ) (ui.Pane, error) {
 	subpanes := []ui.Pane{}
 
-	rollingOffsetX := 0
+	rollingOffsetY := 0
 	for _, subeditor := range e.fields {
-		log.Debug().Msgf("constructing subpane for subeditor '%s'", subeditor.GetName())
+		log.Debug().Msgf("constructing subpane of '%s' for subeditor '%s'", e.name, subeditor.GetName())
 
-		rollingOffsetX += 1 // padding
+		rollingOffsetY += 1 // padding
 
-		subeditorOffsetX := rollingOffsetX
+		subeditorOffsetY := rollingOffsetY
 
 		subeditorH := 0
 		// height is at least 1, plus 1 plus padding for any extra
@@ -204,25 +204,31 @@ func (e *Composite) GetPane(
 		}
 		subeditorH += 1
 
+		subRenderer := ui.NewConstrainedRenderer(renderer, func() (int, int, int, int) {
+			compositeX, compositeY, compositeW, _ := renderer.Dimensions()
+			subeditorX := (compositeX + 1)
+			subeditorY := (compositeY + subeditorOffsetY)
+			subeditorW := compositeW - 2
+			return subeditorX, subeditorY, subeditorW, subeditorH
+		})
 		subeditorPane, err := subeditor.GetPane(
-			ui.NewConstrainedRenderer(renderer, func() (int, int, int, int) {
-				compositeX, compositeY, compositeW, _ := renderer.Dimensions()
-				subeditorX := (compositeX + subeditorOffsetX)
-				subeditorY := compositeY + 1
-				subeditorW := compositeW - 2
-				return subeditorX, subeditorY, subeditorW, subeditorH
-			}),
+			subRenderer,
 			visible,
 			inputConfig,
 			stylesheet,
 			cursorController,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error constructing subpane for subeditor '%s' (%s)", subeditor.GetName(), err.Error())
+			return nil, fmt.Errorf("error constructing subpane of '%s' for subeditor '%s' (%s)", e.name, subeditor.GetName(), err.Error())
 		}
 		subpanes = append(subpanes, subeditorPane)
 
-		rollingOffsetX += subeditorH // adding space for subeditor (will be padded next)
+		rollingOffsetY += subeditorH // adding space for subeditor (will be padded next)
+
+		{
+			x, y, w, h := subRenderer.Dimensions()
+			log.Debug().Msgf("'%s'-pane has dims +%d+%d:%dx%d", subeditor.GetName(), x, y, w, h)
+		}
 	}
 	inputProcessor, err := e.createInputProcessor(inputConfig)
 	if err != nil {
