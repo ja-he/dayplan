@@ -48,7 +48,7 @@ func (e *Composite) EnterField() {
 }
 
 // ConstructEditor constructs a new editor...
-func ConstructEditor[T any](obj *T, extraSpec map[string]any) (edit.Editor, error) {
+func ConstructEditor[T any](name string, obj *T, extraSpec map[string]any) (edit.Editor, error) {
 	structPtr := reflect.ValueOf(obj)
 
 	if structPtr.Kind() != reflect.Ptr {
@@ -66,7 +66,7 @@ func ConstructEditor[T any](obj *T, extraSpec map[string]any) (edit.Editor, erro
 	e := &Composite{
 		fields:           nil,
 		activeFieldIndex: 0,
-		name:             "root",
+		name:             name,
 	}
 
 	// go through all tags

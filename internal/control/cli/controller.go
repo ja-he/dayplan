@@ -460,7 +460,7 @@ func NewController(
 			log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
 		}
 		var err error
-		taskEditor, err := editors.ConstructEditor(task, nil)
+		taskEditor, err := editors.ConstructEditor("root", task, nil)
 		if err != nil {
 			log.Error().Err(err).Interface("task", task).Msg("was not able to construct editor for task")
 			return
