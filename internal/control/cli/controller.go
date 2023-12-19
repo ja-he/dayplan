@@ -153,7 +153,16 @@ func NewController(
 	tuiLogger.Debug().Interface("backlog", backlog).Msg("backlog")
 
 	tasksWidth := 40
-	toolsWidth := 20
+	toolsWidth := func() int {
+		width := 20
+		for _, c := range categoryStyling.GetAll() {
+			requisiteWidth := len(c.Cat.Name) + 4
+			if requisiteWidth > width {
+				width = requisiteWidth
+			}
+		}
+		return width
+	}()
 	rightFlexWidth := toolsWidth
 
 	statusHeight := 2
