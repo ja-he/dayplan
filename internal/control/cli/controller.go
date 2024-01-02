@@ -1017,6 +1017,18 @@ func NewController(
 					)
 					ensureEventsPaneTimestampVisible(current.Start)
 				}),
+				"h": action.NewSimple(func() string { return "move to previous day" }, func() {
+					event := controller.data.GetCurrentDay().Current
+					controller.data.GetCurrentDay().RemoveEvent(event)
+					controller.goToPreviousDay()
+					controller.data.GetCurrentDay().AddEvent(event)
+				}),
+				"l": action.NewSimple(func() string { return "move to next day" }, func() {
+					event := controller.data.GetCurrentDay().Current
+					controller.data.GetCurrentDay().RemoveEvent(event)
+					controller.goToNextDay()
+					controller.data.GetCurrentDay().AddEvent(event)
+				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 			},
