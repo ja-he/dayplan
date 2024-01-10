@@ -6,7 +6,7 @@ import "github.com/ja-he/dayplan/internal/input"
 type StringEditorView interface {
 
 	// IsActive signals whether THIS is active. (SHOULD BE MOVED TO A MORE GENERIC INTERFACE)
-	IsActive() bool
+	IsActiveAndFocussed() (bool, bool)
 
 	// GetMode returns the current mode of the editor.
 	GetMode() input.TextEditMode

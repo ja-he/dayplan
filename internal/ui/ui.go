@@ -226,3 +226,23 @@ type CursorLocation struct {
 func (l CursorLocation) String() string {
 	return fmt.Sprintf("%d:%d", l.X, l.Y)
 }
+
+type BoxRepresentation[T any] struct {
+	X int
+	Y int
+	W int
+	H int
+
+	Represents T
+
+	Children []BoxRepresentation[T]
+}
+
+func (r *BoxRepresentation[T]) String() string {
+	str := fmt.Sprintf("+%d+%d %dx%d [ ", r.X, r.Y, r.W, r.H)
+	for _, child := range r.Children {
+		str += child.String()
+	}
+	str += "]"
+	return str
+}

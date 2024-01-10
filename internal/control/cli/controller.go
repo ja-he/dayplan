@@ -460,7 +460,7 @@ func NewController(
 			log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
 		}
 		var err error
-		taskEditor, err := editors.ConstructEditor("root", task, nil)
+		taskEditor, err := editors.ConstructEditor("root", task, nil, func() (bool, bool) { return true, true })
 		if err != nil {
 			log.Error().Err(err).Interface("task", task).Msg("was not able to construct editor for task")
 			return
@@ -489,6 +489,7 @@ func NewController(
 			controller.data.TaskEditor = nil
 			return
 		}
+		log.Info().Str("info", taskEditorPane.(*panes.CompositeEditorPane).GetDebugInfo()).Msg("here is the debug info for the task editor pane")
 		controller.rootPane.PushSubpane(taskEditorPane)
 		taskEditorDone := make(chan struct{})
 		controller.data.TaskEditor.AddQuitCallback(func() {

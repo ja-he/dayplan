@@ -10,7 +10,12 @@ import (
 
 // Editor is an interface for editing of objects (by the user).
 type Editor interface {
+	IsActiveAndFocussed() (bool, bool)
+
 	GetName() string
+
+	GetType() string
+	GetSummary() SummaryEntry
 
 	// Write the state of the editor.
 	Write()
@@ -21,9 +26,6 @@ type Editor interface {
 	// AddQuitCallback adds a callback that is called when the editor is quit.
 	AddQuitCallback(func())
 
-	// GetFieldCount returns the number of fields of the editor.
-	GetFieldCount() int
-
 	// GetPane returns a pane that represents this editor.
 	GetPane(
 		renderer ui.ConstrainedRenderer,
@@ -32,4 +34,9 @@ type Editor interface {
 		stylesheet styling.Stylesheet,
 		cursorController ui.CursorLocationRequestHandler,
 	) (ui.Pane, error)
+}
+
+type SummaryEntry struct {
+	Representation any
+	Represents     Editor
 }
