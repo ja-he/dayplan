@@ -144,6 +144,7 @@ func ConstructEditor[T any](name string, obj *T, extraSpec map[string]any, activ
 						if err != nil {
 							return nil, fmt.Errorf("unable to construct subeditor for field '%s' of type '%s' (%s)", field.Name, field.Type.String(), err.Error())
 						}
+						sube.AddQuitCallback(func() { e.inField = false })
 						log.Debug().Msgf("successfully constructed subeditor for field '%s' of type '%s'", field.Name, field.Type.String())
 						e.fields = append(e.fields, sube)
 					}
@@ -201,6 +202,8 @@ func (e *Composite) Quit() {
 	}
 	if e.quitCallback != nil {
 		e.quitCallback()
+	} else {
+		log.Warn().Msgf("have no quit callback for editor '%s'", e.GetName())
 	}
 }
 
