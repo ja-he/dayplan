@@ -1,10 +1,10 @@
 package model
 
 type Category struct {
-	Name       string
-	Priority   int
-	Goal       Goal
-	Deprecated bool
+	Name       string `dpedit:"name"`
+	Priority   int    `dpeditr:"priority"`
+	Goal       Goal   `dpedit:",ignore"`
+	Deprecated bool   `dpedit:",ignore"`
 }
 
 type ByName []Category

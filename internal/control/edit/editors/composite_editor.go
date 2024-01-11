@@ -11,6 +11,7 @@ import (
 	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
+	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/ui/panes"
@@ -22,15 +23,22 @@ type Composite struct {
 	activeFieldIndex int
 	inField          bool
 
+	activeAndFocussedFunc func() (bool, bool)
+
 	name         string
 	quitCallback func()
 }
 
 // SwitchToNextField switches to the next field (wrapping araound, if necessary)
 func (e *Composite) SwitchToNextField() {
+	nextIndex := (e.activeFieldIndex + 1) % len(e.fields)
+	log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[e.activeFieldIndex].GetName(), e.fields[nextIndex].GetName())
 	// TODO: should _somehow_ signal deactivate to active field
-	e.activeFieldIndex = (e.activeFieldIndex + 1) % len(e.fields)
+	e.activeFieldIndex = nextIndex
 }
+
+// GetType asserts that this is a composite editor.
+func (e *Composite) GetType() string { return "composite" }
 
 // SwitchToPrevField switches to the previous field (wrapping araound, if necessary)
 func (e *Composite) SwitchToPrevField() {
@@ -48,7 +56,7 @@ func (e *Composite) EnterField() {
 }
 
 // ConstructEditor constructs a new editor...
-func ConstructEditor[T any](obj *T, extraSpec map[string]any) (edit.Editor, error) {
+func ConstructEditor[T any](name string, obj *T, extraSpec map[string]any, activeAndFocussedFunc func() (bool, bool)) (edit.Editor, error) {
 	structPtr := reflect.ValueOf(obj)
 
 	if structPtr.Kind() != reflect.Ptr {
@@ -64,9 +72,10 @@ func ConstructEditor[T any](obj *T, extraSpec map[string]any) (edit.Editor, erro
 	}
 
 	e := &Composite{
-		fields:           nil,
-		activeFieldIndex: 0,
-		name:             "root",
+		fields:                nil,
+		activeFieldIndex:      0,
+		activeAndFocussedFunc: activeAndFocussedFunc,
+		name:                  name,
 	}
 
 	// go through all tags
@@ -95,16 +104,22 @@ func ConstructEditor[T any](obj *T, extraSpec map[string]any) (edit.Editor, erro
 			}
 
 			subeditorIndex := i
+			fieldActiveAndFocussed := func() (bool, bool) {
+				parentActive, parentFocussed := e.IsActiveAndFocussed()
+				selfActive := parentActive && parentFocussed && e.activeFieldIndex == subeditorIndex
+				return selfActive, selfActive && e.inField
+			}
+
 			// add the corresponding data to e (if not ignored)
 			if !editspec.Ignore {
 				switch field.Type.Kind() {
 				case reflect.String:
 					f := structValue.Field(i)
 					e.fields = append(e.fields, &StringEditor{
-						Name:      editspec.Name,
-						Content:   f.String(),
-						CursorPos: 0,
-						Active:    func() bool { return e.inField && e.activeFieldIndex == subeditorIndex },
+						Name:              editspec.Name,
+						Content:           f.String(),
+						CursorPos:         0,
+						ActiveAndFocussed: fieldActiveAndFocussed,
 						QuitCallback: func() {
 							if e.activeFieldIndex == subeditorIndex {
 								e.inField = false
@@ -114,8 +129,26 @@ func ConstructEditor[T any](obj *T, extraSpec map[string]any) (edit.Editor, erro
 						CommitFn: func(v string) { f.SetString(v) },
 					})
 				case reflect.Struct:
-					// TODO
-					log.Warn().Msgf("ignoring STRUCT '%s' tagged '%s' (ignore:%t) of type '%s'", field.Name, editspec.Name, editspec.Ignore, field.Type.String())
+
+					if editspec.Ignore {
+						log.Debug().Msgf("ignoring struct '%s' tagged '%s' (ignore:%t)", field.Name, editspec.Name, editspec.Ignore)
+					} else {
+						// construct the sub-editor for the struct
+						f := structValue.Field(i)
+						typedSubfield, ok := f.Addr().Interface().(*model.Category)
+						if !ok {
+							return nil, fmt.Errorf("unable to cast field '%s' of type '%s' to model.Category", field.Name, field.Type.String())
+						}
+						log.Debug().Msgf("constructing subeditor for field '%s' of type '%s'", field.Name, field.Type.String())
+						sube, err := ConstructEditor(field.Name, typedSubfield, nil, fieldActiveAndFocussed)
+						if err != nil {
+							return nil, fmt.Errorf("unable to construct subeditor for field '%s' of type '%s' (%s)", field.Name, field.Type.String(), err.Error())
+						}
+						sube.AddQuitCallback(func() { e.inField = false })
+						log.Debug().Msgf("successfully constructed subeditor for field '%s' of type '%s'", field.Name, field.Type.String())
+						e.fields = append(e.fields, sube)
+					}
+
 				case reflect.Ptr:
 					// TODO
 					log.Warn().Msgf("ignoring PTR    '%s' tagged '%s' (ignore:%t) of type '%s'", field.Name, editspec.Name, editspec.Ignore, field.Type.String())
@@ -126,6 +159,8 @@ func ConstructEditor[T any](obj *T, extraSpec map[string]any) (edit.Editor, erro
 		}
 
 	}
+
+	log.Debug().Msgf("have (sub?)editor with %d fields", len(e.fields))
 
 	return e, nil
 }
@@ -167,15 +202,9 @@ func (e *Composite) Quit() {
 	}
 	if e.quitCallback != nil {
 		e.quitCallback()
+	} else {
+		log.Warn().Msgf("have no quit callback for editor '%s'", e.GetName())
 	}
-}
-
-func (e *Composite) GetFieldCount() int {
-	count := 0
-	for _, subeditor := range e.fields {
-		count += subeditor.GetFieldCount()
-	}
-	return count
 }
 
 // GetPane constructs a pane for this composite editor (including all subeditors).
@@ -184,46 +213,35 @@ func (e *Composite) GetPane(
 	visible func() bool,
 	inputConfig input.InputConfig,
 	stylesheet styling.Stylesheet,
-	cursorController ui.TextCursorController,
+	cursorController ui.CursorLocationRequestHandler,
 ) (ui.Pane, error) {
 	subpanes := []ui.Pane{}
 
-	rollingOffsetX := 0
-	for _, subeditor := range e.fields {
-		log.Debug().Msgf("constructing subpane for subeditor '%s'", subeditor.GetName())
+	// TODO: this needs to compute an enriched version of the editor tree
+	editorSummary := e.GetSummary()
+	minX, minY, maxWidth, maxHeight := renderer.Dimensions()
+	uiBoxModel, err := translateToUIBoxModel(editorSummary, minX, minY, maxWidth, maxHeight)
+	if err != nil {
+		return nil, fmt.Errorf("error translating editor summary to UI box model (%s)", err.Error())
+	}
+	log.Debug().Msgf("have UI box model: %s", uiBoxModel.String())
 
-		rollingOffsetX += 1 // padding
-
-		subeditorOffsetX := rollingOffsetX
-
-		subeditorH := 0
-		// height is at least 1, plus 1 plus padding for any extra
-		for i := 0; i < subeditor.GetFieldCount()-1; i++ {
-			// TODO: this doesn't account for sub-subeditors with multiple fields
-			subeditorH += 2
-		}
-		subeditorH += 1
-
-		subeditorPane, err := subeditor.GetPane(
-			ui.NewConstrainedRenderer(renderer, func() (int, int, int, int) {
-				compositeX, compositeY, compositeW, _ := renderer.Dimensions()
-				subeditorX := (compositeX + subeditorOffsetX)
-				subeditorY := compositeY + 1
-				subeditorW := compositeW - 2
-				return subeditorX, subeditorY, subeditorW, subeditorH
-			}),
+	for _, child := range uiBoxModel.Children {
+		childX, childY, childW, childH := child.X, child.Y, child.W, child.H
+		subRenderer := ui.NewConstrainedRenderer(renderer, func() (int, int, int, int) { return childX, childY, childW, childH })
+		subeditorPane, err := child.Represents.GetPane(
+			subRenderer,
 			visible,
 			inputConfig,
 			stylesheet,
 			cursorController,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error constructing subpane for subeditor '%s' (%s)", subeditor.GetName(), err.Error())
+			return nil, fmt.Errorf("error constructing subpane of '%s' for subeditor '%s' (%s)", e.name, child.Represents.GetName(), err.Error())
 		}
 		subpanes = append(subpanes, subeditorPane)
-
-		rollingOffsetX += subeditorH // adding space for subeditor (will be padded next)
 	}
+
 	inputProcessor, err := e.createInputProcessor(inputConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not construct input processor (%s)", err.Error())
@@ -236,6 +254,7 @@ func (e *Composite) GetPane(
 		subpanes,
 		func() int { return e.activeFieldIndex },
 		func() bool { return e.inField },
+		e,
 	), nil
 }
 
@@ -261,4 +280,70 @@ func (e *Composite) createInputProcessor(cfg input.InputConfig) (input.ModalInpu
 	}
 
 	return processors.NewModalInputProcessor(inputTree), nil
+}
+
+func (e *Composite) IsActiveAndFocussed() (bool, bool) { return e.activeAndFocussedFunc() }
+
+func (e *Composite) GetSummary() edit.SummaryEntry {
+
+	result := edit.SummaryEntry{
+		Representation: []edit.SummaryEntry{},
+		Represents:     e,
+	}
+	for _, subeditor := range e.fields {
+		log.Debug().Msgf("constructing subpane of '%s' for subeditor '%s'", e.name, subeditor.GetName())
+		result.Representation = append(result.Representation.([]edit.SummaryEntry), subeditor.GetSummary())
+	}
+
+	return result
+}
+
+func translateToUIBoxModel(summary edit.SummaryEntry, minX, minY, maxWidth, maxHeight int) (ui.BoxRepresentation[edit.Editor], error) {
+
+	switch repr := summary.Representation.(type) {
+
+	// a slice indicates a composite
+	case []edit.SummaryEntry:
+		var children []ui.BoxRepresentation[edit.Editor]
+		computedHeight := 1
+		rollingY := minY + 1
+		for _, child := range repr {
+			childBoxRepresentation, err := translateToUIBoxModel(child, minX+1, rollingY, maxWidth-2, maxHeight-2)
+			if err != nil {
+				return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("error translating child '%s' (%s)", child.Represents.GetName(), err.Error())
+			}
+			rollingY += childBoxRepresentation.H + 1
+			children = append(children, childBoxRepresentation)
+			computedHeight += childBoxRepresentation.H + 1
+		}
+		return ui.BoxRepresentation[edit.Editor]{
+			X:          minX,
+			Y:          minY,
+			W:          maxWidth,
+			H:          computedHeight,
+			Represents: summary.Represents,
+			Children:   children,
+		}, nil
+
+	// a string indicates a leaf, i.e., a concrete editor rather than a composite
+	case string:
+		switch repr {
+		case "string":
+			return ui.BoxRepresentation[edit.Editor]{
+				X:          minX,
+				Y:          minY,
+				W:          maxWidth,
+				H:          1,
+				Represents: summary.Represents,
+				Children:   nil,
+			}, nil
+		default:
+			return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("unknown editor identification value '%s'", repr)
+		}
+
+	default:
+		return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("for editor '%s' have unknown type '%t'", summary.Represents.GetName(), summary.Representation)
+
+	}
+
 }

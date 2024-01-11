@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/control/edit/views"
@@ -15,7 +16,9 @@ type StringEditorPane struct {
 
 	view views.StringEditorView
 
-	cursorController ui.TextCursorController
+	cursorController ui.CursorLocationRequestHandler
+
+	idStr string
 }
 
 // Draw draws the editor popup.
@@ -24,8 +27,11 @@ func (p *StringEditorPane) Draw() {
 		x, y, w, h := p.Dims()
 
 		baseBGStyle := p.Stylesheet.Editor
-		if p.view.IsActive() {
+		active, focussed := p.view.IsActiveAndFocussed()
+		if active {
 			baseBGStyle = baseBGStyle.DarkenedBG(10)
+		} else if focussed {
+			baseBGStyle = baseBGStyle.DarkenedBG(20)
 		}
 
 		nameWidth := 8
@@ -35,7 +41,7 @@ func (p *StringEditorPane) Draw() {
 		p.Renderer.DrawBox(x, y, w, h, baseBGStyle)
 		p.Renderer.DrawText(x+padding, y, nameWidth, h, baseBGStyle.Italicized(), p.view.GetName())
 
-		if p.view.IsActive() {
+		if focussed {
 			switch p.view.GetMode() {
 			case input.TextEditModeInsert:
 				p.Renderer.DrawText(x+padding+nameWidth+padding, y, modeWidth, h, baseBGStyle.DarkenedFG(30).Invert(), "(ins)")
@@ -49,12 +55,11 @@ func (p *StringEditorPane) Draw() {
 		contentXOffset := padding + nameWidth + padding + modeWidth + padding
 		p.Renderer.DrawText(x+contentXOffset, y, w-contentXOffset+padding, h, baseBGStyle.DarkenedBG(20), p.view.GetContent())
 
-		if p.view.IsActive() {
+		if focussed {
 			cursorX, cursorY := x+contentXOffset+(p.view.GetCursorPos()), y
-			p.cursorController.ShowCursor(cursorX, cursorY)
-			log.Debug().Msgf("drawing cursor at %d, %d", cursorX, cursorY)
+			p.cursorController.Put(ui.CursorLocation{X: cursorX, Y: cursorY}, p.idStr)
 		} else {
-			p.cursorController.HideCursor()
+			p.cursorController.Delete(p.idStr)
 		}
 
 		// TODO(ja-he): wrap at word boundary; or something...
@@ -63,7 +68,7 @@ func (p *StringEditorPane) Draw() {
 
 // Undraw ensures that the cursor is hidden.
 func (p *StringEditorPane) Undraw() {
-	p.cursorController.HideCursor()
+	p.cursorController.Delete(p.idStr)
 }
 
 // GetPositionInfo returns information on a requested position in this pane (nil, for now).
@@ -71,7 +76,8 @@ func (p *StringEditorPane) GetPositionInfo(_, _ int) ui.PositionInfo { return ni
 
 // ProcessInput attempts to process the provided input.
 func (p *StringEditorPane) ProcessInput(k input.Key) bool {
-	if !p.view.IsActive() {
+	active, _ := p.view.IsActiveAndFocussed()
+	if !active {
 		log.Warn().Msgf("string editor pane asked to process input despite view reporting not active; likely logic error")
 	}
 	return p.LeafPane.ProcessInput(k)
@@ -84,7 +90,7 @@ func NewStringEditorPane(
 	inputProcessor input.ModalInputProcessor,
 	view views.StringEditorView,
 	stylesheet styling.Stylesheet,
-	cursorController ui.TextCursorController,
+	cursorController ui.CursorLocationRequestHandler,
 ) *StringEditorPane {
 	return &StringEditorPane{
 		LeafPane: ui.LeafPane{
@@ -99,5 +105,6 @@ func NewStringEditorPane(
 		},
 		view:             view,
 		cursorController: cursorController,
+		idStr:            "string-editor-pane-" + uuid.Must(uuid.NewRandom()).String(),
 	}
 }

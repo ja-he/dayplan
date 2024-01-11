@@ -13,7 +13,8 @@ import (
 type RootPane struct {
 	ID ui.PaneID
 
-	renderer ui.RenderOrchestratorControl
+	renderer       ui.RenderOrchestratorControl
+	cursorWrangler *ui.CursorWrangler
 
 	dimensions func() (x, y, w, h int)
 
@@ -103,6 +104,7 @@ func (p *RootPane) IsVisible() bool { return true }
 
 // Draw draws this pane.
 func (p *RootPane) Draw() {
+
 	p.preDrawStackMtx.Lock()
 	for _, f := range p.preDrawStack {
 		f()
@@ -125,6 +127,10 @@ func (p *RootPane) Draw() {
 	// }
 
 	p.performanceMetricsOverlay.Draw()
+
+	// After all drawing draw or hide the cursor, depending on what is requested
+	// during the draw of subpanes.
+	p.cursorWrangler.Enact()
 
 	p.renderer.Show()
 }
@@ -308,6 +314,7 @@ func (p *RootPane) PopSubpane() {
 // NewRootPane constructs and returns a new RootPane.
 func NewRootPane(
 	renderer ui.RenderOrchestratorControl,
+	cursorWrangler *ui.CursorWrangler,
 	dimensions func() (x, y, w, h int),
 	dayViewMainPane *Composite,
 	weekViewMainPane *Composite,
@@ -322,6 +329,7 @@ func NewRootPane(
 	rootPane := &RootPane{
 		ID:                        ui.GeneratePaneID(),
 		renderer:                  renderer,
+		cursorWrangler:            cursorWrangler,
 		dimensions:                dimensions,
 		dayViewMainPane:           dayViewMainPane,
 		weekViewMainPane:          weekViewMainPane,

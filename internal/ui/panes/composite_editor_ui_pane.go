@@ -1,9 +1,13 @@
 package panes
 
 import (
+	"fmt"
+	"math/rand"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ja-he/dayplan/internal/control/edit/views"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -16,7 +20,10 @@ type CompositeEditorPane struct {
 	getFocussedIndex func() int
 	isInField        func() bool
 
+	view     views.CompositeEditorView
 	subpanes []ui.Pane
+
+	bgoffs int
 
 	log zerolog.Logger
 }
@@ -27,7 +34,15 @@ func (p *CompositeEditorPane) Draw() {
 		x, y, w, h := p.Dims()
 
 		// draw background
-		p.Renderer.DrawBox(x, y, w, h, p.Stylesheet.Editor)
+		style := p.Stylesheet.Editor.DarkenedBG(p.bgoffs)
+		active, focussed := p.view.IsActiveAndFocussed()
+		if active {
+			style = style.DarkenedBG(20)
+		} else if focussed {
+			style = style.DarkenedBG(40)
+		}
+		p.Renderer.DrawBox(x, y, w, h, style)
+		p.Renderer.DrawText(x, y, w, 1, p.Stylesheet.Editor.DarkenedFG(20), p.view.GetName())
 
 		// draw all subpanes
 		for _, subpane := range p.subpanes {
@@ -91,6 +106,7 @@ func NewCompositeEditorPane(
 	subEditors []ui.Pane,
 	getFocussedIndex func() int,
 	isInField func() bool,
+	view views.CompositeEditorView,
 ) *CompositeEditorPane {
 	return &CompositeEditorPane{
 		LeafPane: ui.LeafPane{
@@ -107,6 +123,8 @@ func NewCompositeEditorPane(
 		getFocussedIndex: getFocussedIndex,
 		isInField:        isInField,
 		log:              log.With().Str("source", "composite-pane").Logger(),
+		bgoffs:           10 + rand.Intn(20),
+		view:             view,
 	}
 }
 
@@ -132,4 +150,22 @@ func (p *CompositeEditorPane) GetHelp() input.Help {
 		result[k] = v
 	}
 	return result
+}
+
+func (p *CompositeEditorPane) GetDebugInfo() string {
+	x, y, w, h := p.Dimensions()
+	info := fmt.Sprintf("[ +%d+%d:%dx%d ", x, y, w, h)
+	for _, subpane := range p.subpanes {
+		switch sp := subpane.(type) {
+		case *CompositeEditorPane:
+			info += sp.GetDebugInfo()
+		case *StringEditorPane:
+			x, y, w, h := sp.Dimensions()
+			info += fmt.Sprintf("( %d+%d:%dx%d )", x, y, w, h)
+		default:
+			info += fmt.Sprintf("<unhandled subpane type %T>", subpane)
+		}
+	}
+	info += "]"
+	return info
 }

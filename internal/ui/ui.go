@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/styling"
 )
@@ -213,5 +215,34 @@ type MouseCursorPos struct {
 // TextCursorController offers control of a text cursor, such as for a terminal.
 type TextCursorController interface {
 	HideCursor()
-	ShowCursor(x, y int)
+	ShowCursor(CursorLocation)
+}
+
+type CursorLocation struct {
+	X int
+	Y int
+}
+
+func (l CursorLocation) String() string {
+	return fmt.Sprintf("%d:%d", l.X, l.Y)
+}
+
+type BoxRepresentation[T any] struct {
+	X int
+	Y int
+	W int
+	H int
+
+	Represents T
+
+	Children []BoxRepresentation[T]
+}
+
+func (r *BoxRepresentation[T]) String() string {
+	str := fmt.Sprintf("+%d+%d %dx%d [ ", r.X, r.Y, r.W, r.H)
+	for _, child := range r.Children {
+		str += child.String()
+	}
+	str += "]"
+	return str
 }

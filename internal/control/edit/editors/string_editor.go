@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/ja-he/dayplan/internal/control/action"
+	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/ja-he/dayplan/internal/styling"
@@ -37,18 +38,21 @@ type StringEditorControl interface {
 type StringEditor struct {
 	Name string
 
-	Content   string
-	CursorPos int
-	Mode      input.TextEditMode
-	Active    func() bool
+	Content           string
+	CursorPos         int
+	Mode              input.TextEditMode
+	ActiveAndFocussed func() (bool, bool)
 
 	QuitCallback func()
 
 	CommitFn func(string)
 }
 
-// IsActive ...
-func (e StringEditor) IsActive() bool { return e.Active() }
+// GetType asserts that this is a string editor.
+func (e *StringEditor) GetType() string { return "string" }
+
+// IsActiveAndFocussed ...
+func (e StringEditor) IsActiveAndFocussed() (bool, bool) { return e.ActiveAndFocussed() }
 
 // GetName returns the name of the editor.
 func (e StringEditor) GetName() string { return e.Name }
@@ -247,7 +251,7 @@ func (e *StringEditor) GetPane(
 	visible func() bool,
 	inputConfig input.InputConfig,
 	stylesheet styling.Stylesheet,
-	cursorController ui.TextCursorController,
+	cursorController ui.CursorLocationRequestHandler,
 ) (ui.Pane, error) {
 	inputProcessor, err := e.createInputProcessor(inputConfig)
 	if err != nil {
@@ -320,4 +324,11 @@ func (e *StringEditor) createInputProcessor(cfg input.InputConfig) (input.ModalI
 	log.Debug().Msgf("attached mode swapping functions")
 
 	return p, nil
+}
+
+func (e *StringEditor) GetSummary() edit.SummaryEntry {
+	return edit.SummaryEntry{
+		Representation: "string",
+		Represents:     e,
+	}
 }
