@@ -19,17 +19,3 @@ type Editor interface {
 	// AddQuitCallback adds a callback that is called when the editor is quit.
 	AddQuitCallback(func())
 }
-
-// View is an interface for viewing of objects (by the user).
-type View interface {
-	IsActiveAndFocussed() (bool, bool)
-
-	GetName() string
-
-	// GetType reutrns the type of the view.
-	//
-	// Based on this information, a cast to a relevant type can be done.
-	// E.g., when GetType() returns "string", the view can be cast to a
-	// StringEditorView.
-	GetType() string
-}
