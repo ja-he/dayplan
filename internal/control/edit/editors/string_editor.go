@@ -5,12 +5,8 @@ import (
 	"strconv"
 
 	"github.com/ja-he/dayplan/internal/control/action"
-	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
-	"github.com/ja-he/dayplan/internal/styling"
-	"github.com/ja-he/dayplan/internal/ui"
-	"github.com/ja-he/dayplan/internal/ui/panes"
 	"github.com/rs/zerolog/log"
 )
 
@@ -245,30 +241,8 @@ func (e *StringEditor) AddQuitCallback(f func()) {
 	}
 }
 
-// GetPane returns a UI pane representing the editor.
-func (e *StringEditor) GetPane(
-	renderer ui.ConstrainedRenderer,
-	visible func() bool,
-	inputConfig input.InputConfig,
-	stylesheet styling.Stylesheet,
-	cursorController ui.CursorLocationRequestHandler,
-) (ui.Pane, error) {
-	inputProcessor, err := e.createInputProcessor(inputConfig)
-	if err != nil {
-		return nil, err
-	}
-	p := panes.NewStringEditorPane(
-		renderer,
-		visible,
-		inputProcessor,
-		e,
-		stylesheet,
-		cursorController,
-	)
-	return p, nil
-}
-
-func (e *StringEditor) createInputProcessor(cfg input.InputConfig) (input.ModalInputProcessor, error) {
+// CreateInputProcessor creates an input processor for the editor.
+func (e *StringEditor) CreateInputProcessor(cfg input.InputConfig) (input.ModalInputProcessor, error) {
 
 	var enterInsertMode func()
 	var exitInsertMode func()
@@ -324,11 +298,4 @@ func (e *StringEditor) createInputProcessor(cfg input.InputConfig) (input.ModalI
 	log.Debug().Msgf("attached mode swapping functions")
 
 	return p, nil
-}
-
-func (e *StringEditor) GetSummary() edit.SummaryEntry {
-	return edit.SummaryEntry{
-		Representation: "string",
-		Represents:     e,
-	}
 }

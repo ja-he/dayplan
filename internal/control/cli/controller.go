@@ -472,24 +472,26 @@ func NewController(
 			controller.data.TaskEditor = nil
 			return
 		}
-		taskEditorPane, err := controller.data.TaskEditor.GetPane(
-			ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
-				screenWidth, screenHeight := screenSize()
-				taskEditorBoxWidth := int(math.Min(80, float64(screenWidth)))
-				taskEditorBoxHeight := int(math.Min(20, float64(screenHeight)))
-				return (screenWidth / 2) - (taskEditorBoxWidth / 2), (screenHeight / 2) - (taskEditorBoxHeight / 2), taskEditorBoxWidth, taskEditorBoxHeight
-			}),
+
+		taskEditorRenderer := ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
+			screenWidth, screenHeight := screenSize()
+			taskEditorBoxWidth := int(math.Min(80, float64(screenWidth)))
+			taskEditorBoxHeight := int(math.Min(20, float64(screenHeight)))
+			return (screenWidth / 2) - (taskEditorBoxWidth / 2), (screenHeight / 2) - (taskEditorBoxHeight / 2), taskEditorBoxWidth, taskEditorBoxHeight
+		})
+
+		taskEditorPane, err := panes.NewCompositeEditorPane(
+			taskEditorRenderer,
+			cursorWrangler,
 			func() bool { return true },
 			inputConfig,
 			stylesheet,
-			cursorWrangler,
+			controller.data.TaskEditor,
 		)
 		if err != nil {
-			log.Error().Err(err).Msgf("could not construct task editor pane")
-			controller.data.TaskEditor = nil
-			return
+			log.Fatal().Err(err).Msg("could not construct task editor pane (this is likely a serious programming error / omission)")
 		}
-		log.Info().Str("info", taskEditorPane.(*panes.CompositeEditorPane).GetDebugInfo()).Msg("here is the debug info for the task editor pane")
+
 		controller.rootPane.PushSubpane(taskEditorPane)
 		taskEditorDone := make(chan struct{})
 		controller.data.TaskEditor.AddQuitCallback(func() {

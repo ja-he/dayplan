@@ -1,3 +1,4 @@
+// Package editors contains the editors for the different data types.
 package editors
 
 import (
@@ -12,9 +13,6 @@ import (
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/styling"
-	"github.com/ja-he/dayplan/internal/ui"
-	"github.com/ja-he/dayplan/internal/ui/panes"
 )
 
 // Composite implements Editor
@@ -207,58 +205,8 @@ func (e *Composite) Quit() {
 	}
 }
 
-// GetPane constructs a pane for this composite editor (including all subeditors).
-func (e *Composite) GetPane(
-	renderer ui.ConstrainedRenderer,
-	visible func() bool,
-	inputConfig input.InputConfig,
-	stylesheet styling.Stylesheet,
-	cursorController ui.CursorLocationRequestHandler,
-) (ui.Pane, error) {
-	subpanes := []ui.Pane{}
-
-	// TODO: this needs to compute an enriched version of the editor tree
-	editorSummary := e.GetSummary()
-	minX, minY, maxWidth, maxHeight := renderer.Dimensions()
-	uiBoxModel, err := translateToUIBoxModel(editorSummary, minX, minY, maxWidth, maxHeight)
-	if err != nil {
-		return nil, fmt.Errorf("error translating editor summary to UI box model (%s)", err.Error())
-	}
-	log.Debug().Msgf("have UI box model: %s", uiBoxModel.String())
-
-	for _, child := range uiBoxModel.Children {
-		childX, childY, childW, childH := child.X, child.Y, child.W, child.H
-		subRenderer := ui.NewConstrainedRenderer(renderer, func() (int, int, int, int) { return childX, childY, childW, childH })
-		subeditorPane, err := child.Represents.GetPane(
-			subRenderer,
-			visible,
-			inputConfig,
-			stylesheet,
-			cursorController,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error constructing subpane of '%s' for subeditor '%s' (%s)", e.name, child.Represents.GetName(), err.Error())
-		}
-		subpanes = append(subpanes, subeditorPane)
-	}
-
-	inputProcessor, err := e.createInputProcessor(inputConfig)
-	if err != nil {
-		return nil, fmt.Errorf("could not construct input processor (%s)", err.Error())
-	}
-	return panes.NewCompositeEditorPane(
-		renderer,
-		visible,
-		inputProcessor,
-		stylesheet,
-		subpanes,
-		func() int { return e.activeFieldIndex },
-		func() bool { return e.inField },
-		e,
-	), nil
-}
-
-func (e *Composite) createInputProcessor(cfg input.InputConfig) (input.ModalInputProcessor, error) {
+// CreateInputProcessor creates an input processor for the editor.
+func (e *Composite) CreateInputProcessor(cfg input.InputConfig) (input.ModalInputProcessor, error) {
 	actionspecToFunc := map[input.Actionspec]func(){
 		"next-field":      e.SwitchToNextField,
 		"prev-field":      e.SwitchToPrevField,
@@ -282,68 +230,12 @@ func (e *Composite) createInputProcessor(cfg input.InputConfig) (input.ModalInpu
 	return processors.NewModalInputProcessor(inputTree), nil
 }
 
+func (e *Composite) GetActiveFieldIndex() int { return e.activeFieldIndex }
+func (e *Composite) IsInField() bool          { return e.inField }
+
 func (e *Composite) IsActiveAndFocussed() (bool, bool) { return e.activeAndFocussedFunc() }
 
-func (e *Composite) GetSummary() edit.SummaryEntry {
-
-	result := edit.SummaryEntry{
-		Representation: []edit.SummaryEntry{},
-		Represents:     e,
-	}
-	for _, subeditor := range e.fields {
-		log.Debug().Msgf("constructing subpane of '%s' for subeditor '%s'", e.name, subeditor.GetName())
-		result.Representation = append(result.Representation.([]edit.SummaryEntry), subeditor.GetSummary())
-	}
-
-	return result
-}
-
-func translateToUIBoxModel(summary edit.SummaryEntry, minX, minY, maxWidth, maxHeight int) (ui.BoxRepresentation[edit.Editor], error) {
-
-	switch repr := summary.Representation.(type) {
-
-	// a slice indicates a composite
-	case []edit.SummaryEntry:
-		var children []ui.BoxRepresentation[edit.Editor]
-		computedHeight := 1
-		rollingY := minY + 1
-		for _, child := range repr {
-			childBoxRepresentation, err := translateToUIBoxModel(child, minX+1, rollingY, maxWidth-2, maxHeight-2)
-			if err != nil {
-				return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("error translating child '%s' (%s)", child.Represents.GetName(), err.Error())
-			}
-			rollingY += childBoxRepresentation.H + 1
-			children = append(children, childBoxRepresentation)
-			computedHeight += childBoxRepresentation.H + 1
-		}
-		return ui.BoxRepresentation[edit.Editor]{
-			X:          minX,
-			Y:          minY,
-			W:          maxWidth,
-			H:          computedHeight,
-			Represents: summary.Represents,
-			Children:   children,
-		}, nil
-
-	// a string indicates a leaf, i.e., a concrete editor rather than a composite
-	case string:
-		switch repr {
-		case "string":
-			return ui.BoxRepresentation[edit.Editor]{
-				X:          minX,
-				Y:          minY,
-				W:          maxWidth,
-				H:          1,
-				Represents: summary.Represents,
-				Children:   nil,
-			}, nil
-		default:
-			return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("unknown editor identification value '%s'", repr)
-		}
-
-	default:
-		return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("for editor '%s' have unknown type '%t'", summary.Represents.GetName(), summary.Representation)
-
-	}
-
+// GetFields returns the subeditors of this composite editor.
+func (e *Composite) GetFields() []edit.Editor {
+	return e.fields
 }

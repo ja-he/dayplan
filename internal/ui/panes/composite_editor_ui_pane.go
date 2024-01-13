@@ -7,7 +7,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/ja-he/dayplan/internal/control/edit/views"
+	"github.com/ja-he/dayplan/internal/control/edit"
+	"github.com/ja-he/dayplan/internal/control/edit/editors"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -20,7 +21,7 @@ type CompositeEditorPane struct {
 	getFocussedIndex func() int
 	isInField        func() bool
 
-	view     views.CompositeEditorView
+	e        *editors.Composite
 	subpanes []ui.Pane
 
 	bgoffs int
@@ -35,14 +36,14 @@ func (p *CompositeEditorPane) Draw() {
 
 		// draw background
 		style := p.Stylesheet.Editor.DarkenedBG(p.bgoffs)
-		active, focussed := p.view.IsActiveAndFocussed()
+		active, focussed := p.e.IsActiveAndFocussed()
 		if active {
 			style = style.DarkenedBG(20)
 		} else if focussed {
 			style = style.DarkenedBG(40)
 		}
 		p.Renderer.DrawBox(x, y, w, h, style)
-		p.Renderer.DrawText(x, y, w, 1, p.Stylesheet.Editor.DarkenedFG(20), p.view.GetName())
+		p.Renderer.DrawText(x, y, w, 1, p.Stylesheet.Editor.DarkenedFG(20), p.e.GetName())
 
 		// draw all subpanes
 		for _, subpane := range p.subpanes {
@@ -100,14 +101,46 @@ func (p *CompositeEditorPane) GetPositionInfo(_, _ int) ui.PositionInfo { return
 // NewCompositeEditorPane creates a new CompositeEditorPane.
 func NewCompositeEditorPane(
 	renderer ui.ConstrainedRenderer,
+	cursorController ui.CursorLocationRequestHandler,
 	visible func() bool,
-	inputProcessor input.ModalInputProcessor,
+	inputConfig input.InputConfig,
 	stylesheet styling.Stylesheet,
-	subEditors []ui.Pane,
-	getFocussedIndex func() int,
-	isInField func() bool,
-	view views.CompositeEditorView,
-) *CompositeEditorPane {
+	e *editors.Composite,
+) (*CompositeEditorPane, error) {
+
+	subpanes := []ui.Pane{}
+
+	minX, minY, maxWidth, maxHeight := renderer.Dimensions()
+	uiBoxModel, err := translateEditorsCompositeToTUI(e, minX, minY, maxWidth, maxHeight)
+	if err != nil {
+		return nil, fmt.Errorf("error translating editor summary to UI box model (%s)", err.Error())
+	}
+	log.Debug().Msgf("have UI box model: %s", uiBoxModel.String())
+
+	for _, child := range uiBoxModel.Children {
+		childX, childY, childW, childH := child.X, child.Y, child.W, child.H
+		subRenderer := ui.NewConstrainedRenderer(renderer, func() (int, int, int, int) { return childX, childY, childW, childH })
+		var subeditorPane ui.Pane
+		var err error
+		switch child := child.Represents.(type) {
+		case *editors.StringEditor:
+			subeditorPane, err = NewStringEditorPane(subRenderer, cursorController, visible, stylesheet, inputConfig, child)
+		case *editors.Composite:
+			subeditorPane, err = NewCompositeEditorPane(subRenderer, cursorController, visible, inputConfig, stylesheet, child)
+		default:
+			err = fmt.Errorf("unhandled subeditor type '%T' (forgot to handle case)", child)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error constructing subpane of '%s' for subeditor '%s' (%s)", e.GetName(), child.Represents.GetName(), err.Error())
+		}
+		subpanes = append(subpanes, subeditorPane)
+	}
+
+	inputProcessor, err := e.CreateInputProcessor(inputConfig)
+	if err != nil {
+		return nil, fmt.Errorf("could not construct input processor (%s)", err.Error())
+	}
+
 	return &CompositeEditorPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
@@ -119,13 +152,13 @@ func NewCompositeEditorPane(
 			Dims:       renderer.Dimensions,
 			Stylesheet: stylesheet,
 		},
-		subpanes:         subEditors,
-		getFocussedIndex: getFocussedIndex,
-		isInField:        isInField,
+		subpanes:         subpanes,
+		getFocussedIndex: e.GetActiveFieldIndex,
+		isInField:        e.IsInField,
 		log:              log.With().Str("source", "composite-pane").Logger(),
 		bgoffs:           10 + rand.Intn(20),
-		view:             view,
-	}
+		e:                e,
+	}, nil
 }
 
 // GetHelp returns the input help map for this composite pane.
@@ -152,20 +185,51 @@ func (p *CompositeEditorPane) GetHelp() input.Help {
 	return result
 }
 
-func (p *CompositeEditorPane) GetDebugInfo() string {
-	x, y, w, h := p.Dimensions()
-	info := fmt.Sprintf("[ +%d+%d:%dx%d ", x, y, w, h)
-	for _, subpane := range p.subpanes {
-		switch sp := subpane.(type) {
-		case *CompositeEditorPane:
-			info += sp.GetDebugInfo()
-		case *StringEditorPane:
-			x, y, w, h := sp.Dimensions()
-			info += fmt.Sprintf("( %d+%d:%dx%d )", x, y, w, h)
-		default:
-			info += fmt.Sprintf("<unhandled subpane type %T>", subpane)
-		}
+func translateEditorsEditorToTUI(e edit.Editor, minX, minY, maxWidth, maxHeight int) (ui.BoxRepresentation[edit.Editor], error) {
+
+	switch e := e.(type) {
+
+	case *editors.Composite:
+		return translateEditorsCompositeToTUI(e, minX, minY, maxWidth, maxHeight)
+
+	case *editors.StringEditor:
+		return ui.BoxRepresentation[edit.Editor]{
+			X:          minX,
+			Y:          minY,
+			W:          maxWidth,
+			H:          1,
+			Represents: e,
+			Children:   nil,
+		}, nil
+
+	default:
+		return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("unhandled editor type '%T' (forgot to handle case)", e)
+
 	}
-	info += "]"
-	return info
+
+}
+
+func translateEditorsCompositeToTUI(e *editors.Composite, minX, minY, maxWidth, maxHeight int) (ui.BoxRepresentation[edit.Editor], error) {
+
+	var children []ui.BoxRepresentation[edit.Editor]
+	computedHeight := 1
+	rollingY := minY + 1
+	for _, child := range e.GetFields() {
+		childBoxRepresentation, err := translateEditorsEditorToTUI(child, minX+1, rollingY, maxWidth-2, maxHeight-2)
+		if err != nil {
+			return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("error translating child '%s' (%s)", child.GetName(), err.Error())
+		}
+		rollingY += childBoxRepresentation.H + 1
+		children = append(children, childBoxRepresentation)
+		computedHeight += childBoxRepresentation.H + 1
+	}
+	return ui.BoxRepresentation[edit.Editor]{
+		X:          minX,
+		Y:          minY,
+		W:          maxWidth,
+		H:          computedHeight,
+		Represents: e,
+		Children:   children,
+	}, nil
+
 }
