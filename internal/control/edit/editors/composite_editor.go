@@ -133,7 +133,7 @@ func ConstructEditor[T any](name string, obj *T, extraSpec map[string]any, activ
 					} else {
 						// construct the sub-editor for the struct
 						f := structValue.Field(i)
-						typedSubfield, ok := f.Addr().Interface().(*model.Category)
+						typedSubfield, ok := f.Addr().Interface().(*model.Category) // TODO: no clue what i was smoking here...
 						if !ok {
 							return nil, fmt.Errorf("unable to cast field '%s' of type '%s' to model.Category", field.Name, field.Type.String())
 						}

@@ -6,9 +6,10 @@ import (
 )
 
 type Event struct {
-	Start, End Timestamp
-	Name       string
-	Cat        Category
+	Start Timestamp `dpedit:",ignore"`
+	End   Timestamp `dpedit:",ignore"`
+	Name  string    `dpedit:"name"`
+	Cat   Category  `dpedit:"category"`
 }
 
 func (e *Event) Duration() int {
