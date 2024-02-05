@@ -711,7 +711,6 @@ func NewController(
 		}
 	}
 	var startMovePushing func()
-	var pushEditorAsRootSubpane func()
 	// TODO: directly?
 	eventsPaneDayInputExtension := map[input.Keyspec]action.Action{
 		"j": action.NewSimple(func() string { return "switch to next event" }, func() {
@@ -748,7 +747,25 @@ func NewController(
 				}
 				controller.data.EventEditor = newEventEditor
 			}
-			pushEditorAsRootSubpane()
+
+			eventEditorRenderer := ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
+				screenWidth, screenHeight := screenSize()
+				editorBoxWidth := int(math.Min(float64(editorHeight), float64(screenWidth)))
+				editorBoxHeight := int(math.Min(float64(editorWidth), float64(screenHeight)))
+				return (screenWidth / 2) - (editorBoxWidth / 2), (screenHeight / 2) - (editorBoxHeight / 2), editorBoxWidth, editorBoxHeight
+			})
+			eventEditorPane, err := panes.NewCompositeEditorPane(
+				eventEditorRenderer,
+				cursorWrangler,
+				func() bool { return true },
+				inputConfig,
+				stylesheet,
+				controller.data.TaskEditor,
+			)
+			if err != nil {
+				log.Fatal().Err(err).Msg("could not construct event editor pane (this is likely a serious programming error / omission)")
+			}
+			controller.rootPane.PushSubpane(eventEditorPane)
 		}),
 		"o": action.NewSimple(func() string { return "add event after selected" }, func() {
 			current := controller.data.GetCurrentDay().Current
