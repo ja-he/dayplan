@@ -767,7 +767,16 @@ func NewController(
 			if err != nil {
 				log.Fatal().Err(err).Msg("could not construct event editor pane (this is likely a serious programming error / omission)")
 			}
+
 			controller.rootPane.PushSubpane(eventEditorPane)
+			eventEditorDone := make(chan struct{})
+			controller.data.EventEditor.AddQuitCallback(func() {
+				close(eventEditorDone) // TODO: this can CERTAINLY happen twice; prevent
+			})
+			go func() {
+				<-eventEditorDone
+				controller.controllerEvents <- ControllerEventEventEditorExit
+			}()
 		}),
 		"o": action.NewSimple(func() string { return "add event after selected" }, func() {
 			current := controller.data.GetCurrentDay().Current
@@ -1734,23 +1743,7 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			case ui.EventBoxInterior:
 				t.startMouseMove(eventsInfo)
 			case ui.EventBoxTopEdge:
-				if t.data.EventEditor != nil {
-					log.Warn().Msgf("was about to construct new event editor but still have old one")
-					return
-				}
-
-				newEventEditor, err := editors.ConstructEditor("event", eventsInfo.Event, nil, func() (bool, bool) { return true, true })
-				if err != nil {
-					log.Warn().Err(err).Msgf("unable to construct event editor")
-					return
-				}
-				var ok bool
-				t.data.EventEditor, ok = newEventEditor.(*editors.Composite)
-				if !ok {
-					log.Error().Msgf("something went _really_ wrong and the editor constructed for the event is _not_ a composite editor but a %T", newEventEditor)
-					t.data.EventEditor = nil
-					return
-				}
+				log.Info().Msgf("would construct editor here, once the programmer has figured out how to do so correctly")
 			}
 
 		case tcell.WheelUp:
@@ -1838,6 +1831,7 @@ const (
 	ControllerEventExit ControllerEvent = iota
 	ControllerEventRender
 	ControllerEventTaskEditorExit
+	ControllerEventEventEditorExit
 )
 
 // Empties all render events from the channel.
@@ -1903,8 +1897,21 @@ func (t *Controller) Run() {
 						go func() { t.controllerEvents <- ControllerEventRender }()
 					}
 
+				case ControllerEventEventEditorExit:
+					if t.data.EventEditor == nil {
+						log.Warn().Msgf("got event editor exit event, but no event editor active; likely logic error")
+					} else {
+						t.data.EventEditor = nil
+						t.rootPane.PopSubpane()
+						log.Debug().Msgf("removed (presumed) event-editor subpane from root")
+						go func() { t.controllerEvents <- ControllerEventRender }()
+					}
+
 				case ControllerEventExit:
 					return
+
+				default:
+					log.Error().Interface("event", controllerEvent).Msgf("unhandled controller event")
 				}
 			}
 		}
