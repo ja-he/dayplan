@@ -207,14 +207,7 @@ func NewController(
 		screenWidth, screenHeight := screenSize()
 		return 0, 0, screenWidth, screenHeight
 	}
-	centeredFloat := func(floatWidth, floatHeight int) func() (x, y, w, h int) {
-		return func() (x, y, w, h int) {
-			screenWidth, screenHeight := screenSize()
-			return (screenWidth / 2) - (floatWidth / 2), (screenHeight / 2) - (floatHeight / 2), floatWidth, floatHeight
-		}
-	}
 	helpDimensions := screenDimensions
-	editorDimensions := centeredFloat(editorWidth, editorHeight)
 	tasksDimensions := func() (x, y, w, h int) {
 		screenWidth, screenHeight := screenSize()
 		return screenWidth - rightFlexWidth, 0, tasksWidth, screenHeight - statusHeight
@@ -475,8 +468,8 @@ func NewController(
 
 		taskEditorRenderer := ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
 			screenWidth, screenHeight := screenSize()
-			taskEditorBoxWidth := int(math.Min(80, float64(screenWidth)))
-			taskEditorBoxHeight := int(math.Min(20, float64(screenHeight)))
+			taskEditorBoxWidth := int(math.Min(float64(editorHeight), float64(screenWidth)))
+			taskEditorBoxHeight := int(math.Min(float64(editorWidth), float64(screenHeight)))
 			return (screenWidth / 2) - (taskEditorBoxWidth / 2), (screenHeight / 2) - (taskEditorBoxHeight / 2), taskEditorBoxWidth, taskEditorBoxHeight
 		})
 
@@ -744,7 +737,16 @@ func NewController(
 		"<cr>": action.NewSimple(func() string { return "open the event editor" }, func() {
 			event := controller.data.GetCurrentDay().Current
 			if event != nil {
-				controller.data.EventEditor.Activate(event)
+				if controller.data.EventEditor != nil {
+					log.Warn().Msgf("was about to construct new event editor but still have old one")
+					return
+				}
+				newEventEditor, err := editors.ConstructEditor("event", event, nil, func() (bool, bool) { return true, true })
+				if err != nil {
+					log.Warn().Err(err).Msgf("unable to construct event editor")
+					return
+				}
+				controller.data.EventEditor = newEventEditor
 			}
 			pushEditorAsRootSubpane()
 		}),
@@ -1304,61 +1306,6 @@ func NewController(
 		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for summary pane")
 	}
 
-	var editorStartInsertMode func()
-	var editorLeaveInsertMode func()
-	editorInsertMode, err := processors.NewTextInputProcessor( // TODO rename
-		map[input.Keyspec]action.Action{
-			"<ESC>":   action.NewSimple(func() string { return "exit insert mode" }, func() { editorLeaveInsertMode() }),
-			"<c-a>":   action.NewSimple(func() string { return "move cursor to beginning" }, controller.data.EventEditor.MoveCursorToBeginning),
-			"<del>":   action.NewSimple(func() string { return "delete character" }, controller.data.EventEditor.DeleteRune),
-			"<c-d>":   action.NewSimple(func() string { return "delete character" }, controller.data.EventEditor.DeleteRune),
-			"<c-bs>":  action.NewSimple(func() string { return "backspace" }, controller.data.EventEditor.BackspaceRune),
-			"<bs>":    action.NewSimple(func() string { return "backspace" }, controller.data.EventEditor.BackspaceRune),
-			"<c-e>":   action.NewSimple(func() string { return "move cursor to end" }, controller.data.EventEditor.MoveCursorToEnd),
-			"<c-u>":   action.NewSimple(func() string { return "backspace to beginning" }, controller.data.EventEditor.BackspaceToBeginning),
-			"<left>":  action.NewSimple(func() string { return "move cursor left" }, controller.data.EventEditor.MoveCursorLeft),
-			"<right>": action.NewSimple(func() string { return "move cursor right" }, controller.data.EventEditor.MoveCursorRight),
-		},
-		controller.data.EventEditor.AddRune,
-	)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("could not construct editor insert mode processor")
-	}
-	editorNormalModeTree, err := input.ConstructInputTree(
-		map[input.Keyspec]action.Action{
-			"<esc>": action.NewSimple(func() string { return "abord edit, discard changes" }, controller.abortEdit),
-			"<cr>":  action.NewSimple(func() string { return "finish edit, commit changes" }, controller.endEdit),
-			"i":     action.NewSimple(func() string { return "enter insert mode" }, func() { editorStartInsertMode() }),
-			"a": action.NewSimple(func() string { return "enter insert mode (after character)" }, func() {
-				controller.data.EventEditor.MoveCursorRightA()
-				editorStartInsertMode()
-			}),
-			"A": action.NewSimple(func() string { return "enter insert mode (at end)" }, func() {
-				controller.data.EventEditor.MoveCursorPastEnd()
-				editorStartInsertMode()
-			}),
-			"0": action.NewSimple(func() string { return "move cursor to beginning" }, controller.data.EventEditor.MoveCursorToBeginning),
-			"$": action.NewSimple(func() string { return "move cursor to end" }, controller.data.EventEditor.MoveCursorToEnd),
-			"h": action.NewSimple(func() string { return "move cursor left" }, controller.data.EventEditor.MoveCursorLeft),
-			"l": action.NewSimple(func() string { return "move cursor right" }, controller.data.EventEditor.MoveCursorRight),
-			"w": action.NewSimple(func() string { return "move cursor to next word beginning" }, controller.data.EventEditor.MoveCursorNextWordBeginning),
-			"b": action.NewSimple(func() string { return "move cursor to previous word beginning" }, controller.data.EventEditor.MoveCursorPrevWordBeginning),
-			"e": action.NewSimple(func() string { return "move cursor to next word end" }, controller.data.EventEditor.MoveCursorNextWordEnd),
-			"x": action.NewSimple(func() string { return "delete character" }, controller.data.EventEditor.DeleteRune),
-			"C": action.NewSimple(func() string { return "delete to end" }, func() {
-				controller.data.EventEditor.DeleteToEnd()
-				editorStartInsertMode()
-			}),
-			"dd": action.NewSimple(func() string { return "clear text content" }, func() { controller.data.EventEditor.Clear() }),
-			"cc": action.NewSimple(func() string { return "clear text content, enter insert" }, func() {
-				controller.data.EventEditor.Clear()
-				editorStartInsertMode()
-			}),
-		},
-	)
-	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for editor pane's normal mode")
-	}
 	helpPaneInputTree, err := input.ConstructInputTree(
 		map[input.Keyspec]action.Action{
 			"?": action.NewSimple(func() string { return "close help" }, func() {
@@ -1376,26 +1323,6 @@ func NewController(
 		func() bool { return controller.data.ShowHelp },
 		processors.NewModalInputProcessor(helpPaneInputTree),
 	)
-	editorPane := panes.NewEventEditorPane(
-		ui.NewConstrainedRenderer(renderer, editorDimensions),
-		cursorWrangler,
-		editorDimensions,
-		stylesheet,
-		func() bool { return controller.data.EventEditor.Active },
-		func() string { return controller.data.EventEditor.TmpEventInfo.Name },
-		controller.data.EventEditor.GetMode,
-		func() int { return controller.data.EventEditor.CursorPos },
-		processors.NewModalInputProcessor(editorNormalModeTree),
-	)
-	pushEditorAsRootSubpane = func() { controller.rootPane.PushSubpane(editorPane) }
-	editorStartInsertMode = func() {
-		editorPane.ApplyModalOverlay(editorInsertMode)
-		controller.data.EventEditor.SetMode(input.TextEditModeInsert)
-	}
-	editorLeaveInsertMode = func() {
-		editorPane.PopModalOverlay()
-		controller.data.EventEditor.SetMode(input.TextEditModeNormal)
-	}
 
 	rootPane := panes.NewRootPane(
 		renderer,
@@ -1491,7 +1418,6 @@ func NewController(
 		helpPane.Content = rootPane.GetHelp()
 	}
 
-	controller.data.EventEditor.SetMode(input.TextEditModeNormal)
 	controller.data.EventEditMode = edit.EventEditModeNormal
 
 	coordinatesProvided := (envData.Latitude != "" && envData.Longitude != "")
@@ -1591,18 +1517,17 @@ func (t *Controller) ScrollBottom() {
 func (t *Controller) abortEdit() {
 	t.data.MouseEditState = edit.MouseEditStateNone
 	t.data.MouseEditedEvent = nil
-	t.data.EventEditor.Active = false
+	t.data.EventEditor.Quit()
+	t.data.EventEditor = nil
 	t.rootPane.PopSubpane()
 }
 
 func (t *Controller) endEdit() {
 	t.data.MouseEditState = edit.MouseEditStateNone
 	t.data.MouseEditedEvent = nil
-	if t.data.EventEditor.Active {
-		t.data.EventEditor.Active = false
-		tmp := t.data.EventEditor.TmpEventInfo
-		t.data.EventEditor.Original.Name = tmp.Name
-	}
+	t.data.EventEditor.Write()
+	t.data.EventEditor.Quit()
+	t.data.EventEditor = nil
 	t.data.GetCurrentDay().UpdateEventOrder()
 	t.rootPane.PopSubpane()
 }
@@ -1790,7 +1715,17 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			case ui.EventBoxInterior:
 				t.startMouseMove(eventsInfo)
 			case ui.EventBoxTopEdge:
-				t.data.EventEditor.Activate(eventsInfo.Event)
+				if t.data.EventEditor != nil {
+					log.Warn().Msgf("was about to construct new event editor but still have old one")
+					return
+				}
+
+				newEventEditor, err := editors.ConstructEditor("event", eventsInfo.Event, nil, func() (bool, bool) { return true, true })
+				if err != nil {
+					log.Warn().Err(err).Msgf("unable to construct event editor")
+					return
+				}
+				t.data.EventEditor = newEventEditor
 			}
 
 		case tcell.WheelUp:
