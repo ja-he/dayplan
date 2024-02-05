@@ -82,7 +82,7 @@ type ControlData struct {
 	CurrentDate model.Date
 	Weather     weather.Handler
 
-	EventEditor edit.Editor
+	EventEditor *editors.Composite
 	TaskEditor  *editors.Composite
 
 	ShowLog     bool

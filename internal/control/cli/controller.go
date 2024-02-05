@@ -220,6 +220,12 @@ func NewController(
 		screenWidth, screenHeight := screenSize()
 		return 0, screenHeight - statusHeight, screenWidth, statusHeight
 	}
+	editorDimensions := func() (x, y, w, h int) {
+		screenWidth, screenHeight := screenSize()
+		taskEditorBoxWidth := int(math.Min(float64(editorWidth), float64(screenWidth)))
+		taskEditorBoxHeight := int(math.Min(float64(editorHeight), float64(screenHeight)))
+		return (screenWidth / 2) - (taskEditorBoxWidth / 2), (screenHeight / 2) - (taskEditorBoxHeight / 2), taskEditorBoxWidth, taskEditorBoxHeight
+	}
 	dayViewMainPaneDimensions := screenDimensions
 	dayViewScrollablePaneDimensions := func() (x, y, w, h int) {
 		parentX, parentY, parentW, parentH := dayViewMainPaneDimensions()
@@ -466,12 +472,7 @@ func NewController(
 			return
 		}
 
-		taskEditorRenderer := ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
-			screenWidth, screenHeight := screenSize()
-			taskEditorBoxWidth := int(math.Min(float64(editorHeight), float64(screenWidth)))
-			taskEditorBoxHeight := int(math.Min(float64(editorWidth), float64(screenHeight)))
-			return (screenWidth / 2) - (taskEditorBoxWidth / 2), (screenHeight / 2) - (taskEditorBoxHeight / 2), taskEditorBoxWidth, taskEditorBoxHeight
-		})
+		taskEditorRenderer := ui.NewConstrainedRenderer(renderer, editorDimensions)
 
 		taskEditorPane, err := panes.NewCompositeEditorPane(
 			taskEditorRenderer,
@@ -745,22 +746,23 @@ func NewController(
 					log.Warn().Err(err).Msgf("unable to construct event editor")
 					return
 				}
-				controller.data.EventEditor = newEventEditor
+				var ok bool
+				controller.data.EventEditor, ok = newEventEditor.(*editors.Composite)
+				if !ok {
+					log.Error().Msgf("something went _really_ wrong and the editor constructed for the event is _not_ a composite editor but a %T", newEventEditor)
+					controller.data.EventEditor = nil
+					return
+				}
 			}
 
-			eventEditorRenderer := ui.NewConstrainedRenderer(renderer, func() (x, y, w, h int) {
-				screenWidth, screenHeight := screenSize()
-				editorBoxWidth := int(math.Min(float64(editorHeight), float64(screenWidth)))
-				editorBoxHeight := int(math.Min(float64(editorWidth), float64(screenHeight)))
-				return (screenWidth / 2) - (editorBoxWidth / 2), (screenHeight / 2) - (editorBoxHeight / 2), editorBoxWidth, editorBoxHeight
-			})
+			eventEditorRenderer := ui.NewConstrainedRenderer(renderer, editorDimensions)
 			eventEditorPane, err := panes.NewCompositeEditorPane(
 				eventEditorRenderer,
 				cursorWrangler,
 				func() bool { return true },
 				inputConfig,
 				stylesheet,
-				controller.data.TaskEditor,
+				controller.data.EventEditor,
 			)
 			if err != nil {
 				log.Fatal().Err(err).Msg("could not construct event editor pane (this is likely a serious programming error / omission)")
@@ -1742,7 +1744,13 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 					log.Warn().Err(err).Msgf("unable to construct event editor")
 					return
 				}
-				t.data.EventEditor = newEventEditor
+				var ok bool
+				t.data.EventEditor, ok = newEventEditor.(*editors.Composite)
+				if !ok {
+					log.Error().Msgf("something went _really_ wrong and the editor constructed for the event is _not_ a composite editor but a %T", newEventEditor)
+					t.data.EventEditor = nil
+					return
+				}
 			}
 
 		case tcell.WheelUp:
