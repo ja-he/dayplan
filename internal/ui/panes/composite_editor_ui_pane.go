@@ -12,6 +12,7 @@ import (
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
+	"github.com/ja-he/dayplan/internal/util"
 )
 
 // CompositeEditorPane visualizes a composite editor.
@@ -43,7 +44,10 @@ func (p *CompositeEditorPane) Draw() {
 			style = style.DarkenedBG(40)
 		}
 		p.Renderer.DrawBox(x, y, w, h, style)
-		p.Renderer.DrawText(x, y, w, 1, p.Stylesheet.Editor.DarkenedFG(20), p.e.GetName())
+		p.Renderer.DrawText(x+1, y, w-2, 1, style.DarkenedFG(20), util.TruncateAt(p.e.GetName(), w-2))
+		if active {
+			p.Renderer.DrawText(x, y, 1, 1, style.DarkenedFG(40).Bolded(), ">")
+		}
 
 		// draw all subpanes
 		for _, subpane := range p.subpanes {

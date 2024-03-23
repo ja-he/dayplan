@@ -42,6 +42,9 @@ func (p *StringEditorPane) Draw() {
 
 		p.Renderer.DrawBox(x, y, w, h, baseBGStyle)
 		p.Renderer.DrawText(x+padding, y, nameWidth, h, baseBGStyle.Italicized(), p.e.GetName())
+		if active {
+			p.Renderer.DrawText(x, y, 1, 1, baseBGStyle.DarkenedFG(20).Bolded(), ">")
+		}
 
 		if focussed {
 			switch p.e.GetMode() {
