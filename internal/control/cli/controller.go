@@ -1545,19 +1545,23 @@ func (t *Controller) ScrollBottom() {
 func (t *Controller) abortEdit() {
 	t.data.MouseEditState = edit.MouseEditStateNone
 	t.data.MouseEditedEvent = nil
-	t.data.EventEditor.Quit()
-	t.data.EventEditor = nil
+	if t.data.EventEditor != nil {
+		t.data.EventEditor.Quit()
+		t.data.EventEditor = nil
+	}
 	t.rootPane.PopSubpane()
 }
 
 func (t *Controller) endEdit() {
 	t.data.MouseEditState = edit.MouseEditStateNone
 	t.data.MouseEditedEvent = nil
-	t.data.EventEditor.Write()
-	t.data.EventEditor.Quit()
-	t.data.EventEditor = nil
+	if t.data.EventEditor != nil {
+		t.data.EventEditor.Write()
+		t.data.EventEditor.Quit()
+		t.data.EventEditor = nil
+	}
 	t.data.GetCurrentDay().UpdateEventOrder()
-	t.rootPane.PopSubpane()
+	t.rootPane.PopSubpane() // TODO: this will need to be re-done conceptually
 }
 
 func (t *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
