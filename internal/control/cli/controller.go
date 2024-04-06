@@ -736,23 +736,26 @@ func NewController(
 		}),
 		"<cr>": action.NewSimple(func() string { return "open the event editor" }, func() {
 			event := controller.data.GetCurrentDay().Current
-			if event != nil {
-				if controller.data.EventEditor != nil {
-					log.Warn().Msgf("was about to construct new event editor but still have old one")
-					return
-				}
-				newEventEditor, err := editors.ConstructEditor("event", event, nil, func() (bool, bool) { return true, true })
-				if err != nil {
-					log.Warn().Err(err).Msgf("unable to construct event editor")
-					return
-				}
-				var ok bool
-				controller.data.EventEditor, ok = newEventEditor.(*editors.Composite)
-				if !ok {
-					log.Error().Msgf("something went _really_ wrong and the editor constructed for the event is _not_ a composite editor but a %T", newEventEditor)
-					controller.data.EventEditor = nil
-					return
-				}
+			if event == nil {
+				log.Warn().Msgf("ignoring event editing request since no current event selected")
+				return
+			}
+
+			if controller.data.EventEditor != nil {
+				log.Warn().Msgf("was about to construct new event editor but still have old one")
+				return
+			}
+			newEventEditor, err := editors.ConstructEditor("event", event, nil, func() (bool, bool) { return true, true })
+			if err != nil {
+				log.Warn().Err(err).Msgf("unable to construct event editor")
+				return
+			}
+			var ok bool
+			controller.data.EventEditor, ok = newEventEditor.(*editors.Composite)
+			if !ok {
+				log.Error().Msgf("something went _really_ wrong and the editor constructed for the event is _not_ a composite editor but a %T", newEventEditor)
+				controller.data.EventEditor = nil
+				return
 			}
 
 			eventEditorRenderer := ui.NewConstrainedRenderer(renderer, editorDimensions)
