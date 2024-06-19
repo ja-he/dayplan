@@ -2,7 +2,6 @@ package panes
 
 import (
 	"fmt"
-	"math/rand"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -19,13 +18,11 @@ import (
 type CompositeEditorPane struct {
 	ui.LeafPane
 
-	getFocussedIndex func() int
-	isInField        func() bool
+	getFocussedEditorID func() editors.EditorID
+	isInField           func() bool
 
 	e        *editors.Composite
-	subpanes []ui.Pane
-
-	bgoffs int
+	subpanes map[editors.EditorID]ui.Pane
 
 	log zerolog.Logger
 }
@@ -36,18 +33,22 @@ func (p *CompositeEditorPane) Draw() {
 		x, y, w, h := p.Dims()
 
 		// draw background
-		style := p.Stylesheet.Editor.DarkenedBG(p.bgoffs)
-		active, focussed := p.e.IsActiveAndFocussed()
-		if active {
-			style = style.DarkenedBG(20)
-		} else if focussed {
-			style = style.DarkenedBG(40)
+		style := p.Stylesheet.Editor
+		status := p.e.GetStatus()
+		c := '?'
+		switch status {
+		case edit.EditorDescendantActive:
+			c = '.'
+		case edit.EditorFocussed:
+			c = '*'
+		case edit.EditorInactive:
+			c = ' '
+		case edit.EditorSelected:
+			c = '>'
 		}
 		p.Renderer.DrawBox(x, y, w, h, style)
-		p.Renderer.DrawText(x+1, y, w-2, 1, style.DarkenedFG(20), util.TruncateAt(p.e.GetName(), w-2))
-		if active {
-			p.Renderer.DrawText(x, y, 1, 1, style.DarkenedFG(40).Bolded(), ">")
-		}
+		p.Renderer.DrawText(x+1, y, w-2, 1, style, util.TruncateAt(p.e.GetName(), w-2))
+		p.Renderer.DrawText(x, y, 1, 1, style.Bolded(), string(c))
 
 		// draw all subpanes
 		for _, subpane := range p.subpanes {
@@ -77,12 +78,13 @@ func (p *CompositeEditorPane) ProcessInput(key input.Key) bool {
 	}
 
 	if p.isInField() {
-		focussedIndex := p.getFocussedIndex()
-		if focussedIndex < 0 || focussedIndex >= len(p.subpanes) {
-			p.log.Error().Msgf("comp: somehow, focussed index for composite editor is out of bounds; %d < 0 || %d >= %d", focussedIndex, focussedIndex, len(p.subpanes))
+		editorID := p.getFocussedEditorID()
+		focussedSubpane, ok := p.subpanes[editorID]
+		if !ok {
+			p.log.Error().Msgf("comp: somehow, have an invalid focussed pane '%s' not in (%v)", editorID, p.subpanes)
 			return false
 		}
-		processedBySubpane := p.subpanes[focussedIndex].ProcessInput(key)
+		processedBySubpane := focussedSubpane.ProcessInput(key)
 		if processedBySubpane {
 			return true
 		}
@@ -112,7 +114,7 @@ func NewCompositeEditorPane(
 	e *editors.Composite,
 ) (*CompositeEditorPane, error) {
 
-	subpanes := []ui.Pane{}
+	subpanes := map[editors.EditorID]ui.Pane{}
 
 	minX, minY, maxWidth, maxHeight := renderer.Dimensions()
 	uiBoxModel, err := translateEditorsCompositeToTUI(e, minX, minY, maxWidth, maxHeight)
@@ -137,7 +139,7 @@ func NewCompositeEditorPane(
 		if err != nil {
 			return nil, fmt.Errorf("error constructing subpane of '%s' for subeditor '%s' (%s)", e.GetName(), child.Represents.GetName(), err.Error())
 		}
-		subpanes = append(subpanes, subeditorPane)
+		subpanes[child.Represents.GetName()] = subeditorPane
 	}
 
 	inputProcessor, err := e.CreateInputProcessor(inputConfig)
@@ -156,12 +158,11 @@ func NewCompositeEditorPane(
 			Dims:       renderer.Dimensions,
 			Stylesheet: stylesheet,
 		},
-		subpanes:         subpanes,
-		getFocussedIndex: e.GetActiveFieldIndex,
-		isInField:        e.IsInField,
-		log:              log.With().Str("source", "composite-pane").Logger(),
-		bgoffs:           10 + rand.Intn(20),
-		e:                e,
+		subpanes:            subpanes,
+		getFocussedEditorID: e.GetActiveFieldID,
+		isInField:           e.IsInField,
+		log:                 log.With().Str("source", "composite-pane").Logger(),
+		e:                   e,
 	}, nil
 }
 
@@ -175,7 +176,7 @@ func (p *CompositeEditorPane) GetHelp() input.Help {
 	}()
 	activeFieldHelp := func() input.Help {
 		if p.isInField() {
-			return p.subpanes[p.getFocussedIndex()].GetHelp()
+			return p.subpanes[p.getFocussedEditorID()].GetHelp()
 		}
 		return input.Help{}
 	}()

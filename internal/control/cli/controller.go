@@ -459,7 +459,7 @@ func NewController(
 			log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
 		}
 		var err error
-		taskEditor, err := editors.ConstructEditor("root", task, nil, func() (bool, bool) { return true, true })
+		taskEditor, err := editors.ConstructEditor("root", task, nil, nil)
 		if err != nil {
 			log.Error().Err(err).Interface("task", task).Msg("was not able to construct editor for task")
 			return
@@ -745,7 +745,7 @@ func NewController(
 				log.Warn().Msgf("was about to construct new event editor but still have old one")
 				return
 			}
-			newEventEditor, err := editors.ConstructEditor("event", event, nil, func() (bool, bool) { return true, true })
+			newEventEditor, err := editors.ConstructEditor("event", event, nil, nil)
 			if err != nil {
 				log.Warn().Err(err).Msgf("unable to construct event editor")
 				return

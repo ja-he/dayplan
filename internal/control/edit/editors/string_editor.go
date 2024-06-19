@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/ja-he/dayplan/internal/control/action"
+	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/rs/zerolog/log"
@@ -34,10 +35,12 @@ type StringEditorControl interface {
 type StringEditor struct {
 	Name string
 
-	Content           string
-	CursorPos         int
-	Mode              input.TextEditMode
-	ActiveAndFocussed func() (bool, bool)
+	Content   string
+	CursorPos int
+	Mode      input.TextEditMode
+	StatusFn  func() edit.EditorStatus
+
+	parent *Composite
 
 	QuitCallback func()
 
@@ -47,8 +50,29 @@ type StringEditor struct {
 // GetType asserts that this is a string editor.
 func (e *StringEditor) GetType() string { return "string" }
 
-// IsActiveAndFocussed ...
-func (e StringEditor) IsActiveAndFocussed() (bool, bool) { return e.ActiveAndFocussed() }
+// GetStatus ...
+func (e StringEditor) GetStatus() edit.EditorStatus {
+	if e.parent == nil {
+		return edit.EditorFocussed
+	}
+
+	parentEditorStatus := e.parent.GetStatus()
+	switch parentEditorStatus {
+	case edit.EditorInactive, edit.EditorSelected:
+		return edit.EditorInactive
+	case edit.EditorDescendantActive, edit.EditorFocussed:
+		if e.parent.activeFieldID == e.Name {
+			if e.parent.inField {
+				return edit.EditorFocussed
+			}
+			return edit.EditorSelected
+		}
+		return edit.EditorInactive
+	default:
+		log.Error().Msgf("invalid edit state found (%s) likely logic error", parentEditorStatus)
+		return edit.EditorInactive
+	}
+}
 
 // GetName returns the name of the editor.
 func (e StringEditor) GetName() string { return e.Name }
