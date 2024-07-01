@@ -42,7 +42,6 @@ func (e *Composite) getCurrentFieldIndex() int {
 
 // SwitchToNextField switches to the next field (wrapping araound, if necessary)
 func (e *Composite) SwitchToNextField() {
-	log.Trace().Interface("fieldOrder", e.fieldOrder).Msgf("switching to next field")
 	prevID := e.activeFieldID
 	indexOfCurrent := e.getCurrentFieldIndex()
 	nextIndex := (indexOfCurrent + 1) % len(e.fieldOrder)

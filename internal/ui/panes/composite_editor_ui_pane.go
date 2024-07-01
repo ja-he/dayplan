@@ -44,7 +44,7 @@ func (p *CompositeEditorPane) Draw() {
 		for i, id := range fieldOrderSlice {
 			subpane, ok := p.subpanes[id]
 			if !ok {
-				log.Warn().Msgf("comp: subpane '%s' (%d of %d) not found in subpanes (%v)", id, i, len(fieldOrderSlice), p.subpanes)
+				p.log.Warn().Msgf("subpane '%s' (%d of %d) not found in subpanes (%v)", id, i, len(fieldOrderSlice), p.subpanes)
 			} else {
 				subpane.Draw()
 			}
@@ -95,7 +95,7 @@ func (p *CompositeEditorPane) Undraw() {
 func (p *CompositeEditorPane) ProcessInput(key input.Key) bool {
 	if p.InputProcessor != nil && p.InputProcessor.CapturesInput() {
 		if p.isInField() {
-			p.log.Warn().Msgf("comp: somehow, comosite editor is capturing input despite being in field; likely logic error")
+			p.log.Warn().Msg("somehow, comosite editor is capturing input despite being in field; likely logic error")
 		}
 		return p.InputProcessor.ProcessInput(key)
 	}
@@ -104,23 +104,26 @@ func (p *CompositeEditorPane) ProcessInput(key input.Key) bool {
 		editorID := p.getFocussedEditorID()
 		focussedSubpane, ok := p.subpanes[editorID]
 		if !ok {
-			p.log.Error().Msgf("comp: somehow, have an invalid focussed pane '%s' not in (%v)", editorID, p.subpanes)
+			p.log.Error().Msgf("somehow, have an invalid focussed pane '%s' not in (%v)", editorID, p.subpanes)
 			return false
 		}
 		processedBySubpane := focussedSubpane.ProcessInput(key)
 		if processedBySubpane {
 			return true
 		}
-		p.log.Warn().Msgf("comp: input '%s' was not processed by active subeditor pane; will not be processed", key.ToDebugString())
+		p.log.Warn().
+			Str("key", key.ToDebugString()).
+			Str("active-subeditor", fmt.Sprint(focussedSubpane.Identify())).
+			Msg("input was not processed by active subeditor pane; will not be processed")
 		return false
 	}
 
 	if p.InputProcessor == nil {
-		p.log.Warn().Msg("comp: input processor is nil; will not process input")
+		p.log.Warn().Msg("input processor is nil; will not process input")
 		return false
 	}
 
-	p.log.Trace().Msgf("comp: processing input '%s' self", key.ToDebugString())
+	p.log.Trace().Str("key", key.ToDebugString()).Msg("processing input self")
 	return p.InputProcessor.ProcessInput(key)
 }
 
