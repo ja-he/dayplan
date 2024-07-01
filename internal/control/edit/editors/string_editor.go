@@ -283,6 +283,7 @@ func (e *StringEditor) CreateInputProcessor(cfg input.InputConfig) (input.ModalI
 		"quit":                               e.Quit,
 		"backspace":                          e.BackspaceRune,
 		"backspace-to-beginning":             e.BackspaceToBeginning,
+		"backspace-to-beginning-and-insert":  func() { e.BackspaceToBeginning(); enterInsertMode() },
 		"delete-rune":                        e.DeleteRune,
 		"delete-rune-and-insert":             func() { e.DeleteRune(); enterInsertMode() },
 		"delete-to-end":                      e.DeleteToEnd,
