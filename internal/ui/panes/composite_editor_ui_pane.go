@@ -33,22 +33,11 @@ func (p *CompositeEditorPane) Draw() {
 		x, y, w, h := p.Dims()
 
 		// draw background
-		style := p.Stylesheet.Editor
-		status := p.e.GetStatus()
-		c := '?'
-		switch status {
-		case edit.EditorDescendantActive:
-			c = '.'
-		case edit.EditorFocussed:
-			c = '*'
-		case edit.EditorInactive:
-			c = ' '
-		case edit.EditorSelected:
-			c = '>'
-		}
+		style := getAlteredStyleForEditorStatus(p.Stylesheet.Editor, p.e.GetStatus())
+
 		p.Renderer.DrawBox(x, y, w, h, style)
 		p.Renderer.DrawText(x+1, y, w-2, 1, style, util.TruncateAt(p.e.GetName(), w-2))
-		p.Renderer.DrawText(x, y, 1, 1, style.Bolded(), string(c))
+		p.Renderer.DrawText(x, y, 1, 1, style.Bolded(), string(getRuneForEditorStatus(p.e.GetStatus())))
 
 		// draw all subpanes
 		for _, subpane := range p.subpanes {
@@ -56,6 +45,34 @@ func (p *CompositeEditorPane) Draw() {
 		}
 
 	}
+}
+
+func getRuneForEditorStatus(status edit.EditorStatus) rune {
+	switch status {
+	case edit.EditorDescendantActive:
+		return '.'
+	case edit.EditorFocussed:
+		return '*'
+	case edit.EditorInactive:
+		return ' '
+	case edit.EditorSelected:
+		return '>'
+	}
+	return '?'
+}
+
+func getAlteredStyleForEditorStatus(baseStyle styling.DrawStyling, status edit.EditorStatus) styling.DrawStyling {
+	switch status {
+	case edit.EditorInactive:
+		return baseStyle.LightenedBG(10)
+	case edit.EditorSelected:
+		return baseStyle
+	case edit.EditorDescendantActive:
+		return baseStyle.DarkenedBG(10)
+	case edit.EditorFocussed:
+		return baseStyle.DarkenedBG(20).Bolded()
+	}
+	return baseStyle
 }
 
 // Undraw ensures that the cursor is hidden.

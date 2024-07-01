@@ -29,22 +29,11 @@ func (p *StringEditorPane) Draw() {
 	if p.IsVisible() {
 		x, y, w, h := p.Dims()
 
-		baseStyle := p.Stylesheet.Editor
+		status := p.e.GetStatus()
+		baseStyle := getAlteredStyleForEditorStatus(p.Stylesheet.Editor, status)
 		boxStyle := baseStyle
 		fieldStyle := baseStyle
 		labelStyle := baseStyle
-		status := p.e.GetStatus()
-		c := '?'
-		switch status {
-		case edit.EditorDescendantActive:
-			c = '.'
-		case edit.EditorFocussed:
-			c = '*'
-		case edit.EditorInactive:
-			c = ' '
-		case edit.EditorSelected:
-			c = '>'
-		}
 
 		nameWidth := 8
 		modeWidth := 5
@@ -52,7 +41,7 @@ func (p *StringEditorPane) Draw() {
 
 		p.Renderer.DrawBox(x, y, w, h, boxStyle)
 		p.Renderer.DrawText(x+padding, y, nameWidth, h, labelStyle, p.e.GetName())
-		p.Renderer.DrawText(x, y, 1, 1, boxStyle.Bolded(), string(c))
+		p.Renderer.DrawText(x, y, 1, 1, boxStyle.Bolded(), string(getRuneForEditorStatus(status)))
 
 		if status == edit.EditorFocussed {
 			switch p.e.GetMode() {
