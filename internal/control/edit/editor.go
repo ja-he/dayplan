@@ -9,7 +9,7 @@ type Editor interface {
 	// selected and focussed.
 	GetStatus() EditorStatus
 
-	GetName() string
+	GetID() string
 
 	GetType() string
 

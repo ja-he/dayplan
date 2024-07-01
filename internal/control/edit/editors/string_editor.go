@@ -33,7 +33,7 @@ type StringEditorControl interface {
 
 // StringEditor ...
 type StringEditor struct {
-	Name string
+	ID string
 
 	Content   string
 	CursorPos int
@@ -61,7 +61,7 @@ func (e StringEditor) GetStatus() edit.EditorStatus {
 	case edit.EditorInactive, edit.EditorSelected:
 		return edit.EditorInactive
 	case edit.EditorDescendantActive, edit.EditorFocussed:
-		if e.parent.activeFieldID == e.Name {
+		if e.parent.activeFieldID == e.ID {
 			if e.parent.inField {
 				return edit.EditorFocussed
 			}
@@ -74,8 +74,8 @@ func (e StringEditor) GetStatus() edit.EditorStatus {
 	}
 }
 
-// GetName returns the name of the editor.
-func (e StringEditor) GetName() string { return e.Name }
+// GetID returns the ID of the editor.
+func (e StringEditor) GetID() string { return e.ID }
 
 // GetContent returns the current (edited) contents.
 func (e StringEditor) GetContent() string { return e.Content }

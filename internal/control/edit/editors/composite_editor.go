@@ -47,7 +47,7 @@ func (e *Composite) SwitchToNextField() {
 	indexOfCurrent := e.getCurrentFieldIndex()
 	nextIndex := (indexOfCurrent + 1) % len(e.fieldOrder)
 	nextID := e.fieldOrder[nextIndex]
-	log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[prevID].GetName(), e.fields[nextID].GetName())
+	log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[prevID].GetID(), e.fields[nextID].GetID())
 	// TODO: should _somehow_ signal deactivate to active field (or perhaps not, not necessary in the current design imo)
 	e.activeFieldID = e.fieldOrder[nextIndex]
 }
@@ -60,7 +60,7 @@ func (e *Composite) SwitchToPrevField() {
 	prevID := e.activeFieldID
 	indexOfCurrent := e.getCurrentFieldIndex()
 	nextIndex := (indexOfCurrent - 1 + len(e.fieldOrder)) % len(e.fieldOrder)
-	log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[prevID].GetName(), e.fields[e.fieldOrder[nextIndex]].GetName())
+	log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[prevID].GetID(), e.fields[e.fieldOrder[nextIndex]].GetID())
 	e.activeFieldID = e.fieldOrder[nextIndex]
 }
 
@@ -135,7 +135,7 @@ func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor 
 				case reflect.String:
 					f := structValue.Field(i)
 					constructedCompositeEditor.fields[editspec.ID] = &StringEditor{
-						Name:      editspec.ID,
+						ID:        editspec.ID,
 						Content:   f.String(),
 						CursorPos: 0,
 						QuitCallback: func() {
@@ -240,8 +240,8 @@ type dpedit struct {
 	Subedit bool
 }
 
-// GetName returns the name of the editor.
-func (e *Composite) GetName() string { return e.id }
+// GetID returns the ID of the editor.
+func (e *Composite) GetID() string { return e.id }
 
 // Write writes the content of the editor back to the underlying data structure
 // by calling the write functions of all subeditors.
@@ -272,7 +272,7 @@ func (e *Composite) Quit() {
 	if e.quitCallback != nil {
 		e.quitCallback()
 	} else {
-		log.Warn().Msgf("have no quit callback for editor '%s'", e.GetName())
+		log.Warn().Msgf("have no quit callback for editor '%s'", e.GetID())
 	}
 }
 

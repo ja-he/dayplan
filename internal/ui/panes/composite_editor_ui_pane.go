@@ -36,7 +36,7 @@ func (p *CompositeEditorPane) Draw() {
 		style := getAlteredStyleForEditorStatus(p.Stylesheet.Editor, p.e.GetStatus())
 
 		p.Renderer.DrawBox(x, y, w, h, style)
-		p.Renderer.DrawText(x+1, y, w-2, 1, style, util.TruncateAt(p.e.GetName(), w-2))
+		p.Renderer.DrawText(x+1, y, w-2, 1, style, util.TruncateAt(p.e.GetID(), w-2))
 		p.Renderer.DrawText(x, y, 1, 1, style.Bolded(), string(getRuneForEditorStatus(p.e.GetStatus())))
 
 		// draw all subpanes
@@ -154,9 +154,9 @@ func NewCompositeEditorPane(
 			err = fmt.Errorf("unhandled subeditor type '%T' (forgot to handle case)", child)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("error constructing subpane of '%s' for subeditor '%s' (%s)", e.GetName(), child.Represents.GetName(), err.Error())
+			return nil, fmt.Errorf("error constructing subpane of '%s' for subeditor '%s' (%s)", e.GetID(), child.Represents.GetID(), err.Error())
 		}
-		subpanes[child.Represents.GetName()] = subeditorPane
+		subpanes[child.Represents.GetID()] = subeditorPane
 	}
 
 	inputProcessor, err := e.CreateInputProcessor(inputConfig)
@@ -239,7 +239,7 @@ func translateEditorsCompositeToTUI(e *editors.Composite, minX, minY, maxWidth, 
 	for _, child := range e.GetFields() {
 		childBoxRepresentation, err := translateEditorsEditorToTUI(child, minX+1, rollingY, maxWidth-2, maxHeight-2)
 		if err != nil {
-			return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("error translating child '%s' (%s)", child.GetName(), err.Error())
+			return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("error translating child '%s' (%s)", child.GetID(), err.Error())
 		}
 		rollingY += childBoxRepresentation.H + 1
 		children = append(children, childBoxRepresentation)

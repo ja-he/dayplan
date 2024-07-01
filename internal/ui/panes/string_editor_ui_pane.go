@@ -40,7 +40,7 @@ func (p *StringEditorPane) Draw() {
 		padding := 1
 
 		p.Renderer.DrawBox(x, y, w, h, boxStyle)
-		p.Renderer.DrawText(x+padding, y, nameWidth, h, labelStyle, p.e.GetName())
+		p.Renderer.DrawText(x+padding, y, nameWidth, h, labelStyle, p.e.GetID())
 		p.Renderer.DrawText(x, y, 1, 1, boxStyle.Bolded(), string(getRuneForEditorStatus(status)))
 
 		if status == edit.EditorFocussed {
