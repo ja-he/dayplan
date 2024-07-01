@@ -156,7 +156,6 @@ func NewController(
 	} else {
 		tuiLogger.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
 	}
-	tuiLogger.Debug().Interface("backlog", backlog).Msg("backlog")
 
 	tasksWidth := 40
 	toolsWidth := func() int {

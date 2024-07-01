@@ -109,7 +109,6 @@ func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor 
 			editspec := dpedit{
 				ID: parts[0],
 			}
-			log.Trace().Interface("dpedit", editspec).Msgf("have editspec")
 			if len(parts) == 2 {
 				switch parts[1] {
 				case "ignore":
