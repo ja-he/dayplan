@@ -8,9 +8,6 @@ import (
 	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/input/processors"
-	"github.com/ja-he/dayplan/internal/styling"
-	"github.com/ja-he/dayplan/internal/ui"
-	"github.com/ja-he/dayplan/internal/ui/panes"
 	"github.com/rs/zerolog/log"
 )
 
@@ -27,21 +24,22 @@ type StringEditorControl interface {
 	MoveCursorPastEnd()
 	MoveCursorLeft()
 	MoveCursorRight()
-	MoveCursorRightA()
-	MoveCursorNextWordBeginning()
-	MoveCursorPrevWordBeginning()
-	MoveCursorNextWordEnd()
+	MoveCursorToNextWordBeginning()
+	MoveCursorToPrevWordBeginning()
+	MoveCursorToNextWordEnd()
 	AddRune(newRune rune)
 }
 
 // StringEditor ...
 type StringEditor struct {
-	Name string
+	ID string
 
-	Content           string
-	CursorPos         int
-	Mode              input.TextEditMode
-	ActiveAndFocussed func() (bool, bool)
+	Content   string
+	CursorPos int
+	Mode      input.TextEditMode
+	StatusFn  func() edit.EditorStatus
+
+	parent *Composite
 
 	QuitCallback func()
 
@@ -51,11 +49,32 @@ type StringEditor struct {
 // GetType asserts that this is a string editor.
 func (e *StringEditor) GetType() string { return "string" }
 
-// IsActiveAndFocussed ...
-func (e StringEditor) IsActiveAndFocussed() (bool, bool) { return e.ActiveAndFocussed() }
+// GetStatus ...
+func (e StringEditor) GetStatus() edit.EditorStatus {
+	if e.parent == nil {
+		return edit.EditorFocussed
+	}
 
-// GetName returns the name of the editor.
-func (e StringEditor) GetName() string { return e.Name }
+	parentEditorStatus := e.parent.GetStatus()
+	switch parentEditorStatus {
+	case edit.EditorInactive, edit.EditorSelected:
+		return edit.EditorInactive
+	case edit.EditorDescendantActive, edit.EditorFocussed:
+		if e.parent.activeFieldID == e.ID {
+			if e.parent.inField {
+				return edit.EditorFocussed
+			}
+			return edit.EditorSelected
+		}
+		return edit.EditorInactive
+	default:
+		log.Error().Msgf("invalid edit state found (%s) likely logic error", parentEditorStatus)
+		return edit.EditorInactive
+	}
+}
+
+// GetID returns the ID of the editor.
+func (e StringEditor) GetID() string { return e.ID }
 
 // GetContent returns the current (edited) contents.
 func (e StringEditor) GetContent() string { return e.Content }
@@ -136,14 +155,15 @@ func (e *StringEditor) MoveCursorLeft() {
 // MoveCursorRight moves the cursor one rune to the right.
 func (e *StringEditor) MoveCursorRight() {
 	nameLen := len([]rune(e.Content))
-	if e.CursorPos+1 < nameLen {
+	allow := (e.Mode == input.TextEditModeInsert && e.CursorPos+1 <= nameLen) || (e.Mode == input.TextEditModeNormal && e.CursorPos+1 < nameLen)
+	if allow {
 		e.CursorPos++
 	}
 }
 
-// MoveCursorNextWordBeginning moves the cursor one rune to the right, or to
+// MoveCursorToNextWordBeginning moves the cursor one rune to the right, or to
 // the end of the string if already at the end.
-func (e *StringEditor) MoveCursorNextWordBeginning() {
+func (e *StringEditor) MoveCursorToNextWordBeginning() {
 	if len([]rune(e.Content)) == 0 {
 		e.CursorPos = 0
 		return
@@ -165,9 +185,9 @@ func (e *StringEditor) MoveCursorNextWordBeginning() {
 	}
 }
 
-// MoveCursorPrevWordBeginning moves the cursor one rune to the left, or to the
+// MoveCursorToPrevWordBeginning moves the cursor one rune to the left, or to the
 // beginning of the string if already at the beginning.
-func (e *StringEditor) MoveCursorPrevWordBeginning() {
+func (e *StringEditor) MoveCursorToPrevWordBeginning() {
 	nameBeforeCursor := []rune(e.Content)[:e.CursorPos]
 	if len(nameBeforeCursor) == 0 {
 		return
@@ -182,8 +202,8 @@ func (e *StringEditor) MoveCursorPrevWordBeginning() {
 	e.CursorPos = i
 }
 
-// MoveCursorNextWordEnd moves the cursor to the end of the next word.
-func (e *StringEditor) MoveCursorNextWordEnd() {
+// MoveCursorToNextWordEnd moves the cursor to the end of the next word.
+func (e *StringEditor) MoveCursorToNextWordEnd() {
 	nameAfterCursor := []rune(e.Content)[e.CursorPos:]
 	if len(nameAfterCursor) == 0 {
 		return
@@ -245,49 +265,32 @@ func (e *StringEditor) AddQuitCallback(f func()) {
 	}
 }
 
-// GetPane returns a UI pane representing the editor.
-func (e *StringEditor) GetPane(
-	renderer ui.ConstrainedRenderer,
-	visible func() bool,
-	inputConfig input.InputConfig,
-	stylesheet styling.Stylesheet,
-	cursorController ui.CursorLocationRequestHandler,
-) (ui.Pane, error) {
-	inputProcessor, err := e.createInputProcessor(inputConfig)
-	if err != nil {
-		return nil, err
-	}
-	p := panes.NewStringEditorPane(
-		renderer,
-		visible,
-		inputProcessor,
-		e,
-		stylesheet,
-		cursorController,
-	)
-	return p, nil
-}
-
-func (e *StringEditor) createInputProcessor(cfg input.InputConfig) (input.ModalInputProcessor, error) {
+// CreateInputProcessor creates an input processor for the editor.
+func (e *StringEditor) CreateInputProcessor(cfg input.InputConfig) (input.ModalInputProcessor, error) {
 
 	var enterInsertMode func()
 	var exitInsertMode func()
 
 	actionspecToFunc := map[input.Actionspec]func(){
-		"move-cursor-rune-left":    e.MoveCursorLeft,
-		"move-cursor-rune-right":   e.MoveCursorRight,
-		"move-cursor-to-beginning": e.MoveCursorToBeginning,
-		"move-cursor-to-end":       e.MoveCursorToEnd,
-		"write":                    e.Write,
-		"quit":                     e.Quit,
-		"backspace":                e.BackspaceRune,
-		"backspace-to-beginning":   e.BackspaceToBeginning,
-		"delete-rune":              e.DeleteRune,
-		"delete-rune-and-insert":   func() { e.DeleteRune(); enterInsertMode() },
-		"delete-to-end":            e.DeleteToEnd,
-		"delete-to-end-and-insert": func() { e.DeleteToEnd(); enterInsertMode() },
-		"swap-mode-insert":         func() { enterInsertMode() },
-		"swap-mode-normal":         func() { exitInsertMode() },
+		"move-cursor-rune-left":              e.MoveCursorLeft,
+		"move-cursor-rune-right":             e.MoveCursorRight,
+		"move-cursor-to-beginning":           e.MoveCursorToBeginning,
+		"move-cursor-to-end":                 e.MoveCursorToEnd,
+		"move-cursor-to-next-word-beginning": e.MoveCursorToNextWordBeginning,
+		"move-cursor-to-prev-word-beginning": e.MoveCursorToPrevWordBeginning,
+		"move-cursor-to-next-word-end":       e.MoveCursorToNextWordEnd,
+		"write":                              e.Write,
+		"quit":                               e.Quit,
+		"backspace":                          e.BackspaceRune,
+		"backspace-to-beginning":             e.BackspaceToBeginning,
+		"backspace-to-beginning-and-insert":  func() { e.BackspaceToBeginning(); enterInsertMode() },
+		"delete-rune":                        e.DeleteRune,
+		"delete-rune-and-insert":             func() { e.DeleteRune(); enterInsertMode() },
+		"delete-to-end":                      e.DeleteToEnd,
+		"delete-to-end-and-insert":           func() { e.DeleteToEnd(); enterInsertMode() },
+		"swap-mode-insert":                   func() { enterInsertMode() },
+		"swap-mode-insert-append":            func() { enterInsertMode(); e.MoveCursorRight() },
+		"swap-mode-normal":                   func() { exitInsertMode(); e.MoveCursorLeft() },
 	}
 
 	normalModeMappings := map[input.Keyspec]action.Action{}
@@ -324,11 +327,4 @@ func (e *StringEditor) createInputProcessor(cfg input.InputConfig) (input.ModalI
 	log.Debug().Msgf("attached mode swapping functions")
 
 	return p, nil
-}
-
-func (e *StringEditor) GetSummary() edit.SummaryEntry {
-	return edit.SummaryEntry{
-		Representation: "string",
-		Represents:     e,
-	}
 }
