@@ -245,7 +245,16 @@ func translateEditorsCompositeToTUI(e *editors.Composite, minX, minY, maxWidth, 
 	var children []ui.BoxRepresentation[edit.Editor]
 	computedHeight := 1
 	rollingY := minY + 1
-	for _, child := range e.GetFields() {
+	for _, childID := range e.GetFieldOrder() {
+		child, ok := e.GetFields()[childID]
+		if !ok {
+			log.Warn().
+				Str("id", childID).
+				Int("num-fields-per-order", len(e.GetFieldOrder())).
+				Int("num-fields-per-map", len(e.GetFields())).
+				Msg("found composite editor inconsistency: field-ID in order but not in map of fields")
+			continue
+		}
 		childBoxRepresentation, err := translateEditorsEditorToTUI(child, minX+1, rollingY, maxWidth-2, maxHeight-2)
 		if err != nil {
 			return ui.BoxRepresentation[edit.Editor]{}, fmt.Errorf("error translating child '%s' (%s)", child.GetID(), err.Error())
