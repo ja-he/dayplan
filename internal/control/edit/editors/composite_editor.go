@@ -243,6 +243,9 @@ type dpedit struct {
 // GetID returns the ID of the editor.
 func (e *Composite) GetID() string { return e.id }
 
+// GetFieldOrder returns the order of the fields.
+func (e *Composite) GetFieldOrder() []EditorID { return e.fieldOrder }
+
 // Write writes the content of the editor back to the underlying data structure
 // by calling the write functions of all subeditors.
 func (e *Composite) Write() {

@@ -40,8 +40,14 @@ func (p *CompositeEditorPane) Draw() {
 		p.Renderer.DrawText(x, y, 1, 1, style.Bolded(), string(getRuneForEditorStatus(p.e.GetStatus())))
 
 		// draw all subpanes
-		for _, subpane := range p.subpanes {
-			subpane.Draw()
+		fieldOrderSlice := p.e.GetFieldOrder()
+		for i, id := range fieldOrderSlice {
+			subpane, ok := p.subpanes[id]
+			if !ok {
+				log.Warn().Msgf("comp: subpane '%s' (%d of %d) not found in subpanes (%v)", id, i, len(fieldOrderSlice), p.subpanes)
+			} else {
+				subpane.Draw()
+			}
 		}
 
 	}
