@@ -25,9 +25,9 @@ type StringEditorControl interface {
 	MoveCursorLeft()
 	MoveCursorRight()
 	MoveCursorRightA()
-	MoveCursorNextWordBeginning()
-	MoveCursorPrevWordBeginning()
-	MoveCursorNextWordEnd()
+	MoveCursorToNextWordBeginning()
+	MoveCursorToPrevWordBeginning()
+	MoveCursorToNextWordEnd()
 	AddRune(newRune rune)
 }
 
@@ -161,9 +161,9 @@ func (e *StringEditor) MoveCursorRight() {
 	}
 }
 
-// MoveCursorNextWordBeginning moves the cursor one rune to the right, or to
+// MoveCursorToNextWordBeginning moves the cursor one rune to the right, or to
 // the end of the string if already at the end.
-func (e *StringEditor) MoveCursorNextWordBeginning() {
+func (e *StringEditor) MoveCursorToNextWordBeginning() {
 	if len([]rune(e.Content)) == 0 {
 		e.CursorPos = 0
 		return
@@ -185,9 +185,9 @@ func (e *StringEditor) MoveCursorNextWordBeginning() {
 	}
 }
 
-// MoveCursorPrevWordBeginning moves the cursor one rune to the left, or to the
+// MoveCursorToPrevWordBeginning moves the cursor one rune to the left, or to the
 // beginning of the string if already at the beginning.
-func (e *StringEditor) MoveCursorPrevWordBeginning() {
+func (e *StringEditor) MoveCursorToPrevWordBeginning() {
 	nameBeforeCursor := []rune(e.Content)[:e.CursorPos]
 	if len(nameBeforeCursor) == 0 {
 		return
@@ -202,8 +202,8 @@ func (e *StringEditor) MoveCursorPrevWordBeginning() {
 	e.CursorPos = i
 }
 
-// MoveCursorNextWordEnd moves the cursor to the end of the next word.
-func (e *StringEditor) MoveCursorNextWordEnd() {
+// MoveCursorToNextWordEnd moves the cursor to the end of the next word.
+func (e *StringEditor) MoveCursorToNextWordEnd() {
 	nameAfterCursor := []rune(e.Content)[e.CursorPos:]
 	if len(nameAfterCursor) == 0 {
 		return
@@ -272,20 +272,23 @@ func (e *StringEditor) CreateInputProcessor(cfg input.InputConfig) (input.ModalI
 	var exitInsertMode func()
 
 	actionspecToFunc := map[input.Actionspec]func(){
-		"move-cursor-rune-left":    e.MoveCursorLeft,
-		"move-cursor-rune-right":   e.MoveCursorRight,
-		"move-cursor-to-beginning": e.MoveCursorToBeginning,
-		"move-cursor-to-end":       e.MoveCursorToEnd,
-		"write":                    e.Write,
-		"quit":                     e.Quit,
-		"backspace":                e.BackspaceRune,
-		"backspace-to-beginning":   e.BackspaceToBeginning,
-		"delete-rune":              e.DeleteRune,
-		"delete-rune-and-insert":   func() { e.DeleteRune(); enterInsertMode() },
-		"delete-to-end":            e.DeleteToEnd,
-		"delete-to-end-and-insert": func() { e.DeleteToEnd(); enterInsertMode() },
-		"swap-mode-insert":         func() { enterInsertMode() },
-		"swap-mode-normal":         func() { exitInsertMode() },
+		"move-cursor-rune-left":              e.MoveCursorLeft,
+		"move-cursor-rune-right":             e.MoveCursorRight,
+		"move-cursor-to-beginning":           e.MoveCursorToBeginning,
+		"move-cursor-to-end":                 e.MoveCursorToEnd,
+		"move-cursor-to-next-word-beginning": e.MoveCursorToNextWordBeginning,
+		"move-cursor-to-prev-word-beginning": e.MoveCursorToPrevWordBeginning,
+		"move-cursor-to-next-word-end":       e.MoveCursorToNextWordEnd,
+		"write":                              e.Write,
+		"quit":                               e.Quit,
+		"backspace":                          e.BackspaceRune,
+		"backspace-to-beginning":             e.BackspaceToBeginning,
+		"delete-rune":                        e.DeleteRune,
+		"delete-rune-and-insert":             func() { e.DeleteRune(); enterInsertMode() },
+		"delete-to-end":                      e.DeleteToEnd,
+		"delete-to-end-and-insert":           func() { e.DeleteToEnd(); enterInsertMode() },
+		"swap-mode-insert":                   func() { enterInsertMode() },
+		"swap-mode-normal":                   func() { exitInsertMode() },
 	}
 
 	normalModeMappings := map[input.Keyspec]action.Action{}
