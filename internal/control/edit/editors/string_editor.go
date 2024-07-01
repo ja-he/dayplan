@@ -24,7 +24,6 @@ type StringEditorControl interface {
 	MoveCursorPastEnd()
 	MoveCursorLeft()
 	MoveCursorRight()
-	MoveCursorRightA()
 	MoveCursorToNextWordBeginning()
 	MoveCursorToPrevWordBeginning()
 	MoveCursorToNextWordEnd()
@@ -156,7 +155,8 @@ func (e *StringEditor) MoveCursorLeft() {
 // MoveCursorRight moves the cursor one rune to the right.
 func (e *StringEditor) MoveCursorRight() {
 	nameLen := len([]rune(e.Content))
-	if e.CursorPos+1 < nameLen {
+	allow := (e.Mode == input.TextEditModeInsert && e.CursorPos+1 <= nameLen) || (e.Mode == input.TextEditModeNormal && e.CursorPos+1 < nameLen)
+	if allow {
 		e.CursorPos++
 	}
 }
@@ -288,7 +288,8 @@ func (e *StringEditor) CreateInputProcessor(cfg input.InputConfig) (input.ModalI
 		"delete-to-end":                      e.DeleteToEnd,
 		"delete-to-end-and-insert":           func() { e.DeleteToEnd(); enterInsertMode() },
 		"swap-mode-insert":                   func() { enterInsertMode() },
-		"swap-mode-normal":                   func() { exitInsertMode() },
+		"swap-mode-insert-append":            func() { enterInsertMode(); e.MoveCursorRight() },
+		"swap-mode-normal":                   func() { exitInsertMode(); e.MoveCursorLeft() },
 	}
 
 	normalModeMappings := map[input.Keyspec]action.Action{}

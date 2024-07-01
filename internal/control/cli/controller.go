@@ -116,6 +116,7 @@ func NewController(
 				"x":       "delete-rune",
 				"s":       "delete-rune-and-insert",
 				"i":       "swap-mode-insert",
+				"a":       "swap-mode-insert-append",
 			},
 			Insert: map[input.Keyspec]input.Actionspec{
 				"<left>":  "move-cursor-rune-left",
