@@ -82,7 +82,7 @@ func (b *Backlog) Write(w io.Writer) error {
 
 	data, err := yaml.Marshal(toBeWritten)
 	if err != nil {
-		return fmt.Errorf("unabel to marshal backlog (%s)", err.Error())
+		return fmt.Errorf("unable to marshal backlog (%s)", err.Error())
 	}
 	_, err = w.Write(data)
 	if err != nil {

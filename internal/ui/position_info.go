@@ -7,7 +7,7 @@ import (
 // PositionInfo describes a position in the user interface.
 //
 // Retrievers should initially check for the type of pane they are receiving
-// information on and can then retreive the relevant additional information from
+// information on and can then retrieve the relevant additional information from
 // whatever they got.
 type PositionInfo interface{}
 

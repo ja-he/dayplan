@@ -8,7 +8,8 @@ import (
 	"github.com/ja-he/dayplan/internal/ui"
 )
 
-// HelpPane conditionally be hidden or display a set of keyboad shortcuts.
+// A HelpPane is a pane that displays a help popup.
+// For example, it could display a list of key mappings and their actions.
 type HelpPane struct {
 	ui.LeafPane
 

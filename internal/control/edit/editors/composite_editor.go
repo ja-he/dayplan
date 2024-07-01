@@ -309,8 +309,6 @@ func (e *Composite) GetActiveFieldID() EditorID { return e.activeFieldID }
 func (e *Composite) IsInField() bool { return e.inField }
 
 // GetFields returns the subeditors of this composite editor.
-//
-// TOOD: should this exist / be public (what is it good for)?
 func (e *Composite) GetFields() map[EditorID]edit.Editor {
 	return e.fields
 }

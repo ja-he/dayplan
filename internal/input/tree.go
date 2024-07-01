@@ -44,7 +44,7 @@ func (t *Tree) ProcessInput(k Key) (applied bool) {
 
 // CapturesInput returns whether this processor "captures" input, i.E. whether
 // it ought to take priority in processing over other processors.
-// This is useful, e.g., for prioritizing processors whith partial input
+// This is useful, e.g., for prioritizing processors with partial input
 // sequences or for such overlays, that are to take complete priority by
 // completely gobbling all input.
 func (t *Tree) CapturesInput() bool {

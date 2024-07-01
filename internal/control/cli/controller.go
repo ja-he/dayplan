@@ -177,7 +177,7 @@ func NewController(
 	editorHeight := 20
 
 	scrollableZoomableInputMap := map[input.Keyspec]action.Action{
-		"<c-u>": action.NewSimple(func() string { return "scoll up" }, func() { controller.ScrollUp(10) }),
+		"<c-u>": action.NewSimple(func() string { return "scroll up" }, func() { controller.ScrollUp(10) }),
 		"<c-d>": action.NewSimple(func() string { return "scroll down" }, func() { controller.ScrollDown(10) }),
 		"gg":    action.NewSimple(func() string { return "scroll to top" }, controller.ScrollTop),
 		"G":     action.NewSimple(func() string { return "scroll to bottom" }, controller.ScrollBottom),
@@ -665,7 +665,7 @@ func NewController(
 					log.Error().Err(err).Msg("unable to write backlog to writer")
 					return
 				}
-				log.Info().Msgf("wrote backlog to '%s' sucessfully", backlogFilePath)
+				log.Info().Msgf("wrote backlog to '%s' successfully", backlogFilePath)
 			}),
 		},
 	)

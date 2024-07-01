@@ -9,7 +9,7 @@ import (
 	"github.com/ja-he/dayplan/internal/util"
 )
 
-// Composite is a generic wrapper pane whithout any rendering logic of its
+// Composite is a generic wrapper pane without any rendering logic of its
 // own.
 type Composite struct {
 	ui.BasePane
