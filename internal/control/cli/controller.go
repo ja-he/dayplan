@@ -115,6 +115,7 @@ func NewController(
 				"C":       "delete-to-end-and-insert",
 				"c$":      "delete-to-end-and-insert",
 				"c0":      "backspace-to-beginning-and-insert",
+				"S":       "delete-everything-and-insert",
 				"x":       "delete-rune",
 				"s":       "delete-rune-and-insert",
 				"i":       "swap-mode-insert",

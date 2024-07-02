@@ -118,6 +118,12 @@ func (e *StringEditor) BackspaceToBeginning() {
 	e.CursorPos = 0
 }
 
+// DeleteEverything deletes all runes in the editor.
+func (e *StringEditor) DeleteEverything() {
+	e.Content = ""
+	e.CursorPos = 0
+}
+
 // DeleteToEnd deletes all runes after the cursor position.
 func (e *StringEditor) DeleteToEnd() {
 	nameBeforeCursor := []rune(e.Content)[:e.CursorPos]
@@ -283,6 +289,8 @@ func (e *StringEditor) CreateInputProcessor(cfg input.InputConfig) (input.ModalI
 		"quit":                               e.Quit,
 		"backspace":                          e.BackspaceRune,
 		"backspace-to-beginning":             e.BackspaceToBeginning,
+		"delete-everything":                  e.DeleteEverything,
+		"delete-everything-and-insert":       func() { e.DeleteEverything(); enterInsertMode() },
 		"backspace-to-beginning-and-insert":  func() { e.BackspaceToBeginning(); enterInsertMode() },
 		"delete-rune":                        e.DeleteRune,
 		"delete-rune-and-insert":             func() { e.DeleteRune(); enterInsertMode() },
