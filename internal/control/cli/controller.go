@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/control"
@@ -31,7 +30,7 @@ import (
 )
 
 // TODO: this absolutely does not belong here
-func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
+func (t *Controller) getDayFromFileHandler(date model.Date) *model.Day {
 	t.fhMutex.RLock()
 	fh, ok := t.FileHandlers[date]
 	t.fhMutex.RUnlock()
@@ -48,7 +47,7 @@ func (t *Controller) GetDayFromFileHandler(date model.Date) *model.Day {
 	}
 }
 
-// Controller
+// Controller is the struct for the TUI controller.
 type Controller struct {
 	data     *control.ControlData
 	rootPane *panes.RootPane
@@ -73,15 +72,13 @@ type Controller struct {
 	syncer            tui.ScreenSynchronizer
 }
 
-// NewController
+// NewController creates a new Controller.
 func NewController(
 	date model.Date,
 	envData control.EnvData,
 	categoryStyling styling.CategoryStyling,
 	stylesheet styling.Stylesheet,
-	stderrLogger zerolog.Logger,
-	tuiLogger zerolog.Logger,
-) *Controller {
+) (*Controller, error) {
 	controller := Controller{}
 
 	inputConfig := input.InputConfig{
@@ -153,10 +150,11 @@ func NewController(
 		return model.BacklogFromReader(backlogReader, categoryGetter)
 	}()
 	if err != nil {
-		tuiLogger.Error().Err(err).Str("file", backlogFilePath).Msg("could not read backlog")
+		return nil, fmt.Errorf("could not read backlog at '%s' (%w)", backlogFilePath, err)
 	} else {
-		tuiLogger.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
+		log.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
 	}
+	log.Info().Msg("just testing because this should be just dandy")
 
 	tasksWidth := 40
 	toolsWidth := func() int {
@@ -270,7 +268,7 @@ func NewController(
 	}
 	weekdayPaneInputTree, err := input.ConstructInputTree(eventsViewBaseInputMap)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("could not construct weekday pane input tree")
+		return nil, fmt.Errorf("could not construct weekday pane input tree (%w)", err)
 	}
 	weekdayPane := func(dayIndex int) *panes.EventsPane {
 		return panes.NewEventsPane(
@@ -303,7 +301,7 @@ func NewController(
 	}
 	monthdayPaneInputTree, err := input.ConstructInputTree(eventsViewBaseInputMap)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("could not construct monthday pane input tree")
+		return nil, fmt.Errorf("could not construct monthday pane input tree (%w)", err)
 	}
 	monthdayPane := func(dayIndex int) ui.Pane {
 		return panes.NewMaybePane(
@@ -671,7 +669,7 @@ func NewController(
 		},
 	)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for tasks pane")
+		return nil, fmt.Errorf("failed to construct input tree for tasks pane (%w)", err)
 	}
 	toolsInputTree, err := input.ConstructInputTree(
 		map[input.Keyspec]action.Action{
@@ -702,7 +700,7 @@ func NewController(
 		},
 	)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for tools pane")
+		return nil, fmt.Errorf("failed to construct input tree for tools pane (%w)", err)
 	}
 
 	// TODO(ja-he): move elsewhere
@@ -871,7 +869,7 @@ func NewController(
 	}
 	dayViewEventsPaneInputTree, err := input.ConstructInputTree(eventsPaneDayInputMap)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for day view pane's events subpane")
+		return nil, fmt.Errorf("failed to construct input tree for day view pane's events subpane (%w)", err)
 	}
 
 	tasksVisible := false
@@ -1132,7 +1130,8 @@ func NewController(
 			},
 		)
 		if err != nil {
-			stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for event pane's resize mode")
+			log.Error().Err(err).Msg("failed to construct input tree for event pane's resize mode (this should really never happen)")
+			return
 		}
 		dayEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(eventResizeOverlay))
 		controller.data.EventEditMode = edit.EventEditModeResize
@@ -1152,7 +1151,7 @@ func NewController(
 		},
 	)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for root pane")
+		return nil, fmt.Errorf("failed to construct input tree for root pane (%w)", err)
 	}
 	var ensureDayViewMainPaneFocusIsOnVisible func()
 	updateMainPaneRightFlexWidth := func() {
@@ -1190,12 +1189,12 @@ func NewController(
 		},
 	)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for day view pane")
+		return nil, fmt.Errorf("failed to construct input tree for day view pane (%w)", err)
 	}
 
 	dayViewScrollablePaneInputTree, err := input.ConstructInputTree(scrollableZoomableInputMap)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for day view scrollable pane")
+		return nil, fmt.Errorf("failed to construct input tree for day view scrollable pane (%w)", err)
 	}
 	dayViewScrollablePane := panes.NewWrapperPane(
 		[]ui.Pane{
@@ -1233,7 +1232,7 @@ func NewController(
 	multidayViewEventsWrapperInputMap["l"] = action.NewSimple(func() string { return "go to next day" }, controller.goToNextDay)
 	weekViewEventsWrapperInputTree, err := input.ConstructInputTree(multidayViewEventsWrapperInputMap)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for multi-day wrapper pane")
+		return nil, fmt.Errorf("failed to construct input tree for multi-day wrapper pane (%w)", err)
 	}
 	weekViewEventsWrapper := panes.NewWrapperPane(
 		weekViewEventsPanes,
@@ -1242,7 +1241,7 @@ func NewController(
 	)
 	monthViewEventsWrapperInputTree, err := input.ConstructInputTree(multidayViewEventsWrapperInputMap)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for month view wrapper pane")
+		return nil, fmt.Errorf("failed to construct input tree for month view wrapper pane (%w)", err)
 	}
 	monthViewEventsWrapper := panes.NewWrapperPane(
 		monthViewEventsPanes,
@@ -1267,7 +1266,7 @@ func NewController(
 	ensureDayViewMainPaneFocusIsOnVisible = dayViewMainPane.EnsureFocusIsOnVisible
 	weekViewMainPaneInputTree, err := input.ConstructInputTree(map[input.Keyspec]action.Action{})
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for week view main pane")
+		return nil, fmt.Errorf("failed to construct input tree for week view main pane (%w)", err)
 	}
 	weekViewMainPane := panes.NewWrapperPane(
 		[]ui.Pane{
@@ -1289,7 +1288,7 @@ func NewController(
 	)
 	monthViewMainPaneInputTree, err := input.ConstructInputTree(scrollableZoomableInputMap)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for month view main pane")
+		return nil, fmt.Errorf("failed to construct input tree for month view main pane (%w)", err)
 	}
 	monthViewMainPane := panes.NewWrapperPane(
 		[]ui.Pane{
@@ -1340,7 +1339,7 @@ func NewController(
 		}),
 	})
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for summary pane")
+		return nil, fmt.Errorf("failed to construct input tree for summary pane (%w)", err)
 	}
 
 	helpPaneInputTree, err := input.ConstructInputTree(
@@ -1351,7 +1350,7 @@ func NewController(
 		},
 	)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("failed to construct input tree for help pane")
+		return nil, fmt.Errorf("failed to construct input tree for help pane (%w)", err)
 	}
 	helpPane := panes.NewHelpPane(
 		ui.NewConstrainedRenderer(renderer, helpDimensions),
@@ -1521,7 +1520,7 @@ func NewController(
 
 	controller.data.MouseEditState = edit.MouseEditStateNone
 
-	return &controller
+	return &controller, nil
 }
 
 func (t *Controller) ScrollUp(by int) {
@@ -1628,7 +1627,7 @@ func (t *Controller) goToNextDay() {
 func (t *Controller) loadDay(date model.Date) {
 	if !t.data.Days.HasDay(date) {
 		// load file
-		newDay := t.GetDayFromFileHandler(date)
+		newDay := t.getDayFromFileHandler(date)
 		if newDay == nil {
 			panic("newDay nil?!")
 		}

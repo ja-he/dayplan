@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -16,24 +17,23 @@ import (
 	"github.com/ja-he/dayplan/internal/styling"
 )
 
-type TuiCommand struct {
+// TUICommand is the struct for the TUI command.
+type TUICommand struct {
 	Day           string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
 	Theme         string `short:"t" long:"theme" choice:"light" choice:"dark" description:"Select a 'dark' or a 'light' default theme (note: only sets defaults, which are individually overridden by settings in config.yaml"`
 	LogOutputFile string `short:"l" long:"log-output-file" description:"specify a log output file (otherwise logs dropped)"`
 	LogPretty     bool   `short:"p" long:"log-pretty" description:"prettify logs to file"`
 }
 
-func (command *TuiCommand) Execute(args []string) error {
-	// set up stderr logger until TUI set up
-	stderrLogger := log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-
+// Execute runs the TUI command.
+func (command *TUICommand) Execute(_ []string) error {
 	// create TUI logger
 	var logWriter io.Writer
 	if command.LogOutputFile != "" {
 		var fileLogger io.Writer
 		file, err := os.OpenFile(command.LogOutputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			stderrLogger.Fatal().Err(err).Str("file", command.LogOutputFile).Msg("could not open file for logging")
+			return fmt.Errorf("could not open file '%s' for logging (%w)", command.LogOutputFile, err)
 		}
 		if command.LogPretty {
 			fileLogger = zerolog.ConsoleWriter{Out: file}
@@ -45,10 +45,6 @@ func (command *TuiCommand) Execute(args []string) error {
 		logWriter = &potatolog.GlobalMemoryLogReaderWriter
 	}
 	tuiLogger := zerolog.New(logWriter).With().Timestamp().Caller().Logger()
-
-	// temporarily log to both (in case the TUI doesn't get set we want the info
-	// on the stderr logger, otherwise the TUI logger is relevant)
-	log.Logger = log.Output(zerolog.MultiLevelWriter(stderrLogger, tuiLogger))
 
 	var theme config.ColorschemeType
 	switch command.Theme {
@@ -79,7 +75,7 @@ func (command *TuiCommand) Execute(args []string) error {
 	} else {
 		initialDay, err = model.FromString(command.Day)
 		if err != nil {
-			stderrLogger.Fatal().Err(err).Msg("could not parse given date") // TODO
+			return fmt.Errorf("could not parse given date (%w)", err)
 		}
 	}
 
@@ -96,12 +92,11 @@ func (command *TuiCommand) Execute(args []string) error {
 	}
 	configData, err := config.ParseConfigAugmentDefaults(theme, yamlData)
 	if err != nil {
-		stderrLogger.Fatal().Err(err).Msg("can't parse config data")
+		return fmt.Errorf("can't parse config data (%w)", err)
 	}
 
 	// get categories from config
-	var categoryStyling styling.CategoryStyling
-	categoryStyling = *styling.EmptyCategoryStyling()
+	categoryStyling := *styling.EmptyCategoryStyling()
 	for _, category := range configData.Categories {
 
 		var goal model.Goal
@@ -128,11 +123,64 @@ func (command *TuiCommand) Execute(args []string) error {
 
 	stylesheet := styling.NewStylesheetFromConfig(configData.Stylesheet)
 
-	controller := NewController(initialDay, envData, categoryStyling, *stylesheet, stderrLogger, tuiLogger)
-
 	// now that the screen is initialized, we'll always want the TUI logger, so
 	// we're making it the global logger
+	previouslySetLogger := log.Logger
 	log.Logger = tuiLogger
+	log.Debug().Msg("set up logging to only TUI")
+
+	controller, err := NewController(initialDay, envData, categoryStyling, *stylesheet)
+	if err != nil {
+		log.Logger = previouslySetLogger
+		log.Error().Err(err).Msgf("something went wrong setting up the TUI, will check unpublished logs and return error")
+
+		// The TUI was perhaps not set up and we have to assume that the logs have not been written anywhere.
+		// To inform the user, we'll print the logs to stderr.
+		unpublishedLog := potatolog.GlobalMemoryLogReaderWriter.Get()
+		log.Warn().Msgf("have %d unpublished log entries which will be published now", len(unpublishedLog))
+		for _, entry := range unpublishedLog {
+			catchupLogger := log.Logger.With().Str("source", "catchup").Logger()
+
+			e := func() *zerolog.Event {
+				switch entry["level"] {
+				case "trace":
+					return catchupLogger.Trace()
+				case "debug":
+					return catchupLogger.Debug()
+				case "info":
+					return catchupLogger.Info()
+				case "warn":
+					return catchupLogger.Warn()
+				case "error":
+					return catchupLogger.Error()
+				}
+				return catchupLogger.Error()
+			}()
+
+			getEntryAsString := func(id string) string {
+				untyped, ok := entry[id]
+				if !ok {
+					return "<noentry>"
+				}
+				if str, ok := untyped.(string); ok {
+					return str
+				}
+				return fmt.Sprintf("<nonstring>: %v", untyped)
+			}
+			msg := getEntryAsString("message")
+			caller := getEntryAsString("caller")
+			timestamp := getEntryAsString("time")
+			e = e.Str("true-caller", caller).Str("true-timestamp", timestamp)
+			for k, v := range entry {
+				if k == "message" || k == "caller" || k == "timestamp" {
+					continue
+				}
+				e = e.Interface(k, v)
+			}
+			e.Msg(msg)
+		}
+		return fmt.Errorf("could not set up TUI (%w)", err)
+	}
 
 	controller.Run()
 	return nil
