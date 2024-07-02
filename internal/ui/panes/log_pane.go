@@ -1,6 +1,7 @@
 package panes
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/ja-he/dayplan/internal/potatolog"
@@ -59,17 +60,17 @@ func (p *LogPane) Draw() {
 					}
 					return p.Stylesheet.LogDefault
 				}(),
-				util.PadCenter(entry["level"], levelLen),
+				util.PadCenter(fmt.Sprint(entry["level"]), levelLen),
 			)
 			x = extraDataIndentWidth
 
-			p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogDefault, entry["message"])
-			x += len(entry["message"]) + 1
+			p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogDefault, fmt.Sprint(entry["message"]))
+			x += len(fmt.Sprint(entry["message"])) + 1
 
-			p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogEntryLocation, entry["caller"])
-			x += len(entry["caller"]) + 1
+			p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogEntryLocation, fmt.Sprint(entry["caller"]))
+			x += len(fmt.Sprint(entry["caller"])) + 1
 
-			timeStr := entry["time"]
+			timeStr := fmt.Sprint(entry["time"])
 			p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogEntryTime, timeStr)
 
 			x = extraDataIndentWidth
@@ -85,7 +86,7 @@ func (p *LogPane) Draw() {
 			for _, k := range keys {
 				if k != "caller" && k != "message" && k != "time" && k != "level" {
 					p.Renderer.DrawText(x, y+row, w, 1, p.Stylesheet.LogEntryTime, k)
-					p.Renderer.DrawText(x+len(k)+2, y+row, w, 1, p.Stylesheet.LogEntryLocation, entry[k])
+					p.Renderer.DrawText(x+len(k)+2, y+row, w, 1, p.Stylesheet.LogEntryLocation, fmt.Sprint(entry[k]))
 					row++
 				}
 			}

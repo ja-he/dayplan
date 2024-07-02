@@ -7,7 +7,7 @@ import (
 )
 
 // LogEntry is a single log entry.
-type LogEntry = map[string]string
+type LogEntry = map[string]any
 
 // GlobalMemoryLogReaderWriter is a global MemoryLogReaderWriter.
 var GlobalMemoryLogReaderWriter = MemoryLogReaderWriter{
