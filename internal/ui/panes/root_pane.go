@@ -68,14 +68,6 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	// append day, week, or month pane
 	active = append(active, p.focussedViewPane)
 
-	// TODO: this change breaks the cursor hiding, as that is done in the draw
-	//       call when !condition. it should be done differently anyways though,
-	//       imo.
-	if p.log.IsVisible() {
-		active = append(active, p.log)
-	} else {
-		inactive = append(inactive, p.log)
-	}
 	if p.summary.IsVisible() {
 		active = append(active, p.summary)
 	} else {
@@ -88,6 +80,12 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 		} else {
 			inactive = append(inactive, p.subpanes[i])
 		}
+	}
+
+	if p.log.IsVisible() {
+		active = append(active, p.log)
+	} else {
+		inactive = append(inactive, p.log)
 	}
 
 	// TODO: help should probably be a subpane? for now, always on top.
