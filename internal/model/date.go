@@ -9,24 +9,28 @@ import (
 	"github.com/nathan-osman/go-sunrise"
 )
 
+// Date	represents a date, i.e. a year, month and day.
 type Date struct {
 	Year  int
 	Month int
 	Day   int
 }
 
-type DayAndTime struct {
+// DateAndTime represents a date and a time, a datetime.
+type DateAndTime struct {
 	Date      Date
 	Timestamp Timestamp
 }
 
-func FromTime(t time.Time) *DayAndTime {
-	return &DayAndTime{
+// FromTime creates a DateAndTime from a time.Time.
+func FromTime(t time.Time) *DateAndTime {
+	return &DateAndTime{
 		Date:      Date{Year: t.Year(), Month: int(t.Month()), Day: t.Day()},
 		Timestamp: Timestamp{Hour: t.Hour(), Minute: t.Minute()},
 	}
 }
 
+// Prev returns the previous date.
 func (d Date) Prev() Date {
 	if d.Day == 1 {
 		if d.Month == 1 {
@@ -47,6 +51,7 @@ func (d Date) Prev() Date {
 	return d
 }
 
+// Next returns the next date.
 func (d Date) Next() Date {
 	if d == d.GetLastOfMonth() {
 		d.Day = 1
@@ -62,6 +67,7 @@ func (d Date) Next() Date {
 	return d
 }
 
+// Backward returns a date that is `by`-many days before the receiver.
 func (d Date) Backward(by int) Date {
 	for i := 0; i < by; i++ {
 		d = d.Prev()
@@ -69,6 +75,7 @@ func (d Date) Backward(by int) Date {
 	return d
 }
 
+// Forward returns a date that is `by`-many days after the receiver.
 func (d Date) Forward(by int) Date {
 	for i := 0; i < by; i++ {
 		d = d.Next()
@@ -76,10 +83,13 @@ func (d Date) Forward(by int) Date {
 	return d
 }
 
+// ToString returns the date as a string in the format "YYYY-MM-DD".
 func (d Date) ToString() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
+// Valid returns whether the date is valid.
+// A date such as the 31st of February is invalid, for example.
 func (d Date) Valid() bool {
 	// verify month
 	if d.Month < 1 ||
@@ -95,6 +105,7 @@ func (d Date) Valid() bool {
 	return true
 }
 
+// FromString creates a date from a string in the format "YYYY-MM-DD".
 func FromString(s string) (Date, error) {
 	var result Date
 	var err error
@@ -104,7 +115,7 @@ func FromString(s string) (Date, error) {
 
 	var tmp Date
 	if len(parsed) < 1 || len(parsed[0]) < 3 {
-		return result, fmt.Errorf("Not enough int matches in day string '%s'", s)
+		return result, fmt.Errorf("not enough int matches in day string '%s'", s)
 	}
 
 	year, errY := strconv.ParseInt(parsed[0][1], 10, 32)
@@ -116,9 +127,9 @@ func FromString(s string) (Date, error) {
 	case errY != nil:
 	case errM != nil:
 	case errD != nil:
-		err = fmt.Errorf("Could not convert string '%s' (assuming YYYY-MM-DD format) to integers", s)
+		err = fmt.Errorf("could not convert string '%s' (assuming YYYY-MM-DD format) to integers", s)
 	case !tmp.Valid():
-		err = fmt.Errorf("Day %s (from string '%s') not valid!", tmp.ToString(), s)
+		err = fmt.Errorf("day %s (from string '%s') not valid", tmp.ToString(), s)
 	default:
 		result.Day = int(day)
 		result.Month = int(month)
@@ -152,53 +163,53 @@ func (d Date) getFirstOfMonth() Date {
 	}
 }
 
-// Whether a date A is after a date B.
-func (a Date) IsAfter(b Date) bool {
+// IsAfter returns whether a date A is after a date B.
+func (d Date) IsAfter(other Date) bool {
 	switch {
-	case a.Year < b.Year:
+	case d.Year < other.Year:
 		return false
-	case a.Year == b.Year:
+	case d.Year == other.Year:
 		{
 			switch {
-			case a.Month < b.Month:
+			case d.Month < other.Month:
 				return false
-			case a.Month == b.Month:
+			case d.Month == other.Month:
 				{
 					switch {
-					case a.Day < b.Day:
+					case d.Day < other.Day:
 						return false
-					case a.Day == b.Day:
-						{
-						}
-					case a.Day > b.Day:
+					case d.Day == other.Day:
+						return false
+					case d.Day > other.Day:
 						return true
 					}
 				}
-			case a.Month > b.Month:
+			case d.Month > other.Month:
 				return true
 			}
 		}
-	case a.Year > b.Year:
+	case d.Year > other.Year:
 		return true
 	}
 	return false
 }
 
-// Whether a date A is before a date B.
-func (a Date) IsBefore(b Date) bool {
-	return b.IsAfter(a) && a != b
+// IsBefore returns whether a date A is before a date B.
+func (d Date) IsBefore(other Date) bool {
+	return other.IsAfter(d) && d != other
 }
 
-// Returns the number of days from a date A until a date B is reached.
+// DaysUntil returns the number of days from a date A until a date B is
+// reached.
 // (e.g. from 2021-12-14 until 2021-12-19 -> 5 days)
-// expects b not to be before a
-func (a Date) DaysUntil(b Date) int {
-	if a.IsAfter(b) {
+// expects `other` not to be before `d`
+func (d Date) DaysUntil(other Date) int {
+	if d.IsAfter(other) {
 		panic("DaysUntil arg error: a after b")
 	}
 
 	counter := 0
-	for i := a; i != b; i = i.Next() {
+	for i := d; i != other; i = i.Next() {
 		counter++
 	}
 
@@ -223,13 +234,14 @@ func (d Date) isLeapYear() bool {
 	return d.Year%4 == 0 && (!(d.Year%100 == 0) || d.Year%400 == 0)
 }
 
+// Is returns whether the receiver is the same date as the given time.
 func (d Date) Is(t time.Time) bool {
 	tYear, tMonth, tDay := t.Date()
 	return tYear == d.Year && int(tMonth) == d.Month && tDay == d.Day
 }
 
-// TODO: rename WeekBounds or similar
-func (d Date) Week() (monday Date, sunday Date) {
+// WeekBounds returns the monday and sunday of the week the receiver is in.
+func (d Date) WeekBounds() (monday Date, sunday Date) {
 	for d.ToWeekday() != time.Monday {
 		d = d.Prev()
 	}
@@ -241,7 +253,7 @@ func (d Date) Week() (monday Date, sunday Date) {
 //
 // Index here means that 0 is Monday, 6 is Sunday.
 func (d Date) GetDayInWeek(index int) Date {
-	start, _ := d.Week()
+	start, _ := d.WeekBounds()
 	return start.Forward(index)
 }
 
@@ -253,6 +265,7 @@ func (d Date) GetDayInMonth(index int) Date {
 	return start.Forward(index)
 }
 
+// MonthBounds returns the first and last date of the month the receiver is in.
 func (d Date) MonthBounds() (first Date, last Date) {
 	first = d.getFirstOfMonth()
 	last = d.GetLastOfMonth()
@@ -260,6 +273,7 @@ func (d Date) MonthBounds() (first Date, last Date) {
 	return first, last
 }
 
+// ToString returns the weekday as a string.
 func ToString(w time.Weekday) string {
 	switch w {
 	case time.Sunday:
@@ -281,20 +295,25 @@ func ToString(w time.Weekday) string {
 	}
 }
 
+// ToWeekday returns the weekday of the receiver.
 func (d Date) ToWeekday() time.Weekday {
 	t := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.UTC)
 	return t.Weekday()
 }
 
+// ToGotime returns the date as a time.Time with the time set to midnight.
 func (d Date) ToGotime() time.Time {
 	result := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.Now().Location())
 	return result
 }
 
+// SunTimes represents the sunrise and sunset times of a date.
 type SunTimes struct {
 	Rise, Set Timestamp
 }
 
+// GetSunTimes returns the sunrise and sunset times for the receiver-date at
+// the given location.
 // Warning: slow (TODO)
 func (d Date) GetSunTimes(latitude, longitude float64) SunTimes {
 

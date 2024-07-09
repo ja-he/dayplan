@@ -9,10 +9,6 @@ const (
 	MouseEditStateResizing
 )
 
-func (s MouseEditState) toString() string {
-	return "TODO"
-}
-
 type EventEditMode = int
 
 const (

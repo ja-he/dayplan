@@ -39,7 +39,7 @@ func (p *WeatherPane) Draw() {
 			break
 		}
 
-		index := model.DayAndTime{
+		index := model.DateAndTime{
 			Date:      *p.currentDate,
 			Timestamp: timestamp,
 		}

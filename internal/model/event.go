@@ -148,11 +148,6 @@ func (event *Event) CanBeResizedBy(delta int) bool {
 	}
 }
 
-func (e *Event) Snap(minuteResolution int) {
-	e.Start.Snap(minuteResolution)
-	e.End.Snap(minuteResolution)
-}
-
 // Whether one event A contains another B, i.E.
 // - B's start is _not before_ A's start and
 // - B's end is _not after_ A's end

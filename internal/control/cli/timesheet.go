@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -58,7 +57,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	}
 
 	// read config from file (for the category priorities)
-	yamlData, err := ioutil.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
+	yamlData, err := os.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
 	if err != nil {
 		panic(fmt.Sprintf("can't read config file: '%s'", err))
 	}

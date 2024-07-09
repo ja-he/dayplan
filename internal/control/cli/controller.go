@@ -30,19 +30,19 @@ import (
 )
 
 // TODO: this absolutely does not belong here
-func (t *Controller) getDayFromFileHandler(date model.Date) *model.Day {
-	t.fhMutex.RLock()
-	fh, ok := t.FileHandlers[date]
-	t.fhMutex.RUnlock()
+func (c *Controller) getDayFromFileHandler(date model.Date) *model.Day {
+	c.fhMutex.RLock()
+	fh, ok := c.FileHandlers[date]
+	c.fhMutex.RUnlock()
 	if ok {
-		tmp := fh.Read(t.data.Categories)
+		tmp := fh.Read(c.data.Categories)
 		return tmp
 	} else {
-		newHandler := storage.NewFileHandler(t.data.EnvData.BaseDirPath + "/days/" + date.ToString())
-		t.fhMutex.Lock()
-		t.FileHandlers[date] = newHandler
-		t.fhMutex.Unlock()
-		tmp := newHandler.Read(t.data.Categories)
+		newHandler := storage.NewFileHandler(c.data.EnvData.BaseDirPath + "/days/" + date.ToString())
+		c.fhMutex.Lock()
+		c.FileHandlers[date] = newHandler
+		c.fhMutex.Unlock()
+		tmp := newHandler.Read(c.data.Categories)
 		return tmp
 	}
 }
@@ -54,7 +54,7 @@ type Controller struct {
 
 	fhMutex          sync.RWMutex
 	FileHandlers     map[model.Date]*storage.FileHandler
-	controllerEvents chan ControllerEvent
+	controllerEvents chan controllerEvent
 
 	// TODO: remove, obviously
 	tmpStatusYOffsetGetter func() int
@@ -497,7 +497,7 @@ func NewController(
 		})
 		go func() {
 			<-taskEditorDone
-			controller.controllerEvents <- ControllerEventTaskEditorExit
+			controller.controllerEvents <- controllerEventTaskEditorExit
 		}()
 	}
 	tasksInputTree, err := input.ConstructInputTree(
@@ -782,7 +782,7 @@ func NewController(
 			})
 			go func() {
 				<-eventEditorDone
-				controller.controllerEvents <- ControllerEventEventEditorExit
+				controller.controllerEvents <- controllerEventEventEditorExit
 			}()
 		}),
 		"o": action.NewSimple(func() string { return "add event after selected" }, func() {
@@ -930,9 +930,8 @@ func NewController(
 					)
 					if err != nil {
 						panic(err)
-					} else {
-						ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
 					}
+					ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
@@ -942,9 +941,8 @@ func NewController(
 					)
 					if err != nil {
 						panic(err)
-					} else {
-						ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
 					}
+					ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
 				}),
 				"M":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
@@ -1140,7 +1138,7 @@ func NewController(
 	var helpContentRegister func()
 	rootPaneInputTree, err := input.ConstructInputTree(
 		map[input.Keyspec]action.Action{
-			"q": action.NewSimple(func() string { return "exit program (unsaved progress is lost)" }, func() { controller.controllerEvents <- ControllerEventExit }),
+			"q": action.NewSimple(func() string { return "exit program (unsaved progress is lost)" }, func() { controller.controllerEvents <- controllerEventExit }),
 			"P": action.NewSimple(func() string { return "show debug perf pane" }, func() { controller.data.ShowDebug = !controller.data.ShowDebug }),
 			"S": action.NewSimple(func() string { return "open summary" }, func() { controller.data.ShowSummary = true }),
 			"E": action.NewSimple(func() string { return "toggle log" }, func() { controller.data.ShowLog = !controller.data.ShowLog }),
@@ -1380,7 +1378,7 @@ func NewController(
 				case ui.ViewDay:
 					dateString = controller.data.CurrentDate.ToString()
 				case ui.ViewWeek:
-					start, end := controller.data.CurrentDate.Week()
+					start, end := controller.data.CurrentDate.WeekBounds()
 					dateString = fmt.Sprintf("week %s..%s", start.ToString(), end.ToString())
 				case ui.ViewMonth:
 					dateString = fmt.Sprintf("%s %d", controller.data.CurrentDate.ToGotime().Month().String(), controller.data.CurrentDate.Year)
@@ -1395,7 +1393,7 @@ func NewController(
 					return result
 				case ui.ViewWeek:
 					result := make([]*model.Day, 7)
-					start, end := controller.data.CurrentDate.Week()
+					start, end := controller.data.CurrentDate.WeekBounds()
 					for current, i := start, 0; current != end.Next(); current = current.Next() {
 						result[i] = controller.data.Days.GetDay(current)
 						i++
@@ -1457,13 +1455,13 @@ func NewController(
 	controller.data.EventEditMode = edit.EventEditModeNormal
 
 	coordinatesProvided := (envData.Latitude != "" && envData.Longitude != "")
-	owmApiKeyProvided := (envData.OwmApiKey != "")
+	owmAPIKeyProvided := (envData.OWMAPIKey != "")
 
 	// intialize weather handler if geographic location and api key provided
-	if coordinatesProvided && owmApiKeyProvided {
-		controller.data.Weather = *weather.NewHandler(envData.Latitude, envData.Longitude, envData.OwmApiKey)
+	if coordinatesProvided && owmAPIKeyProvided {
+		controller.data.Weather = *weather.NewHandler(envData.Latitude, envData.Longitude, envData.OWMAPIKey)
 	} else {
-		if !owmApiKeyProvided {
+		if !owmAPIKeyProvided {
 			log.Error().Msg("no OWM API key provided -> no weather data")
 		}
 		if !coordinatesProvided {
@@ -1523,67 +1521,61 @@ func NewController(
 	return &controller, nil
 }
 
-func (t *Controller) ScrollUp(by int) {
+// ScrollUp scrolls the main timeline view up by the given number of rows.
+func (c *Controller) ScrollUp(by int) {
 	eventviewTopRow := 0
-	if t.data.MainTimelineViewParams.ScrollOffset-by >= eventviewTopRow {
-		t.data.MainTimelineViewParams.ScrollOffset -= by
+	if c.data.MainTimelineViewParams.ScrollOffset-by >= eventviewTopRow {
+		c.data.MainTimelineViewParams.ScrollOffset -= by
 	} else {
-		t.ScrollTop()
+		c.ScrollTop()
 	}
 }
 
-func (t *Controller) ScrollDown(by int) {
-	eventviewBottomRow := t.tmpStatusYOffsetGetter()
-	if t.data.MainTimelineViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * t.data.MainTimelineViewParams.NRowsPerHour) {
-		t.data.MainTimelineViewParams.ScrollOffset += by
+// ScrollDown scrolls the main timeline view down by the given number of rows.
+func (c *Controller) ScrollDown(by int) {
+	eventviewBottomRow := c.tmpStatusYOffsetGetter()
+	if c.data.MainTimelineViewParams.ScrollOffset+by+eventviewBottomRow <= (24 * c.data.MainTimelineViewParams.NRowsPerHour) {
+		c.data.MainTimelineViewParams.ScrollOffset += by
 	} else {
-		t.ScrollBottom()
+		c.ScrollBottom()
 	}
 }
 
-func (t *Controller) ScrollTop() {
-	t.data.MainTimelineViewParams.ScrollOffset = 0
+// ScrollTop scrolls the main timeline view to the top.
+func (c *Controller) ScrollTop() {
+	c.data.MainTimelineViewParams.ScrollOffset = 0
 }
 
-func (t *Controller) ScrollBottom() {
-	eventviewBottomRow := t.tmpStatusYOffsetGetter()
-	t.data.MainTimelineViewParams.ScrollOffset = 24*t.data.MainTimelineViewParams.NRowsPerHour - eventviewBottomRow
+// ScrollBottom scrolls the main timeline view to the bottom.
+func (c *Controller) ScrollBottom() {
+	eventviewBottomRow := c.tmpStatusYOffsetGetter()
+	c.data.MainTimelineViewParams.ScrollOffset = 24*c.data.MainTimelineViewParams.NRowsPerHour - eventviewBottomRow
 }
 
-func (t *Controller) abortEdit() {
-	t.data.MouseEditState = edit.MouseEditStateNone
-	t.data.MouseEditedEvent = nil
-	if t.data.EventEditor != nil {
-		t.data.EventEditor.Quit()
-		t.data.EventEditor = nil
+func (c *Controller) endEdit() {
+	c.data.MouseEditState = edit.MouseEditStateNone
+	c.data.MouseEditedEvent = nil
+	if c.data.EventEditor != nil {
+		c.data.EventEditor.Write()
+		c.data.EventEditor.Quit()
+		c.data.EventEditor = nil
 	}
-	t.rootPane.PopSubpane()
+	c.data.GetCurrentDay().UpdateEventOrder()
+	c.rootPane.PopSubpane() // TODO: this will need to be re-done conceptually
 }
 
-func (t *Controller) endEdit() {
-	t.data.MouseEditState = edit.MouseEditStateNone
-	t.data.MouseEditedEvent = nil
-	if t.data.EventEditor != nil {
-		t.data.EventEditor.Write()
-		t.data.EventEditor.Quit()
-		t.data.EventEditor = nil
-	}
-	t.data.GetCurrentDay().UpdateEventOrder()
-	t.rootPane.PopSubpane() // TODO: this will need to be re-done conceptually
+func (c *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
+	c.data.MouseEditState = edit.MouseEditStateMoving
+	c.data.MouseEditedEvent = eventsInfo.Event
+	c.data.CurrentMoveStartingOffsetMinutes = eventsInfo.Event.Start.DurationInMinutesUntil(eventsInfo.Time)
 }
 
-func (t *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
-	t.data.MouseEditState = edit.MouseEditStateMoving
-	t.data.MouseEditedEvent = eventsInfo.Event
-	t.data.CurrentMoveStartingOffsetMinutes = eventsInfo.Event.Start.DurationInMinutesUntil(eventsInfo.Time)
+func (c *Controller) startMouseResize(eventsInfo *ui.EventsPanePositionInfo) {
+	c.data.MouseEditState = edit.MouseEditStateResizing
+	c.data.MouseEditedEvent = eventsInfo.Event
 }
 
-func (t *Controller) startMouseResize(eventsInfo *ui.EventsPanePositionInfo) {
-	t.data.MouseEditState = edit.MouseEditStateResizing
-	t.data.MouseEditedEvent = eventsInfo.Event
-}
-
-func (t *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
+func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 	// find out cursor time
 	start := info.Time
 
@@ -1591,52 +1583,52 @@ func (t *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 
 	// create event at time with cat etc.
 	e := model.Event{}
-	e.Cat = t.data.CurrentCategory
+	e.Cat = c.data.CurrentCategory
 	e.Name = ""
 	e.Start = start
 	e.End = start.OffsetMinutes(+10)
 
-	err := t.data.GetCurrentDay().AddEvent(&e)
+	err := c.data.GetCurrentDay().AddEvent(&e)
 	if err != nil {
 		log.Error().Err(err).Interface("event", e).Msg("error occurred adding event")
 	} else {
-		t.data.MouseEditedEvent = &e
-		t.data.MouseEditState = edit.MouseEditStateResizing
+		c.data.MouseEditedEvent = &e
+		c.data.MouseEditState = edit.MouseEditStateResizing
 	}
 }
 
-func (t *Controller) goToDay(newDate model.Date) {
+func (c *Controller) goToDay(newDate model.Date) {
 	log.Debug().Str("new-date", newDate.ToString()).Msg("going to new date")
 
-	t.data.CurrentDate = newDate
-	t.loadDaysForView(t.data.ActiveView())
+	c.data.CurrentDate = newDate
+	c.loadDaysForView(c.data.ActiveView())
 }
 
-func (t *Controller) goToPreviousDay() {
-	prevDay := t.data.CurrentDate.Prev()
-	t.goToDay(prevDay)
+func (c *Controller) goToPreviousDay() {
+	prevDay := c.data.CurrentDate.Prev()
+	c.goToDay(prevDay)
 }
 
-func (t *Controller) goToNextDay() {
-	nextDay := t.data.CurrentDate.Next()
-	t.goToDay(nextDay)
+func (c *Controller) goToNextDay() {
+	nextDay := c.data.CurrentDate.Next()
+	c.goToDay(nextDay)
 }
 
 // Loads the requested date's day from its file handler, if it has
 // not already been loaded.
-func (t *Controller) loadDay(date model.Date) {
-	if !t.data.Days.HasDay(date) {
+func (c *Controller) loadDay(date model.Date) {
+	if !c.data.Days.HasDay(date) {
 		// load file
-		newDay := t.getDayFromFileHandler(date)
+		newDay := c.getDayFromFileHandler(date)
 		if newDay == nil {
 			panic("newDay nil?!")
 		}
 
 		var suntimes model.SunTimes
-		coordinatesProvided := (t.data.EnvData.Latitude != "" && t.data.EnvData.Longitude != "")
+		coordinatesProvided := (c.data.EnvData.Latitude != "" && c.data.EnvData.Longitude != "")
 		if coordinatesProvided {
-			latF, parseErrLat := strconv.ParseFloat(t.data.EnvData.Latitude, 64)
-			lonF, parseErrLon := strconv.ParseFloat(t.data.EnvData.Longitude, 64)
+			latF, parseErrLat := strconv.ParseFloat(c.data.EnvData.Latitude, 64)
+			lonF, parseErrLon := strconv.ParseFloat(c.data.EnvData.Longitude, 64)
 			if parseErrLon != nil || parseErrLat != nil {
 				log.Error().
 					Interface("lon-parse-error", parseErrLon).
@@ -1647,7 +1639,7 @@ func (t *Controller) loadDay(date model.Date) {
 			}
 		}
 
-		t.data.Days.AddDay(date, newDay, &suntimes)
+		c.data.Days.AddDay(date, newDay, &suntimes)
 	}
 }
 
@@ -1656,27 +1648,27 @@ func (t *Controller) loadDay(date model.Date) {
 // first to last day of the month.
 // Warning: does not guarantee days will be loaded (non-nil) after
 // this returns.
-func (t *Controller) loadDaysForView(view ui.ActiveView) {
+func (c *Controller) loadDaysForView(view ui.ActiveView) {
 	switch view {
 	case ui.ViewDay:
-		t.loadDay(t.data.CurrentDate)
+		c.loadDay(c.data.CurrentDate)
 	case ui.ViewWeek:
 		{
-			monday, sunday := t.data.CurrentDate.Week()
+			monday, sunday := c.data.CurrentDate.WeekBounds()
 			for current := monday; current != sunday.Next(); current = current.Next() {
 				go func(d model.Date) {
-					t.loadDay(d)
-					t.controllerEvents <- ControllerEventRender
+					c.loadDay(d)
+					c.controllerEvents <- controllerEventRender
 				}(current)
 			}
 		}
 	case ui.ViewMonth:
 		{
-			first, last := t.data.CurrentDate.MonthBounds()
+			first, last := c.data.CurrentDate.MonthBounds()
 			for current := first; current != last.Next(); current = current.Next() {
 				go func(d model.Date) {
-					t.loadDay(d)
-					t.controllerEvents <- ControllerEventRender
+					c.loadDay(d)
+					c.controllerEvents <- controllerEventRender
 				}(current)
 			}
 		}
@@ -1685,26 +1677,26 @@ func (t *Controller) loadDaysForView(view ui.ActiveView) {
 	}
 }
 
-func (t *Controller) writeModel() {
+func (c *Controller) writeModel() {
 	go func() {
-		t.fhMutex.RLock()
-		t.FileHandlers[t.data.CurrentDate].Write(t.data.GetCurrentDay())
-		t.fhMutex.RUnlock()
+		c.fhMutex.RLock()
+		c.FileHandlers[c.data.CurrentDate].Write(c.data.GetCurrentDay())
+		c.fhMutex.RUnlock()
 	}()
 }
 
-func (t *Controller) updateCursorPos(x, y int) {
-	t.data.CursorPos.X, t.data.CursorPos.Y = x, y
+func (c *Controller) updateCursorPos(x, y int) {
+	c.data.CursorPos.X, c.data.CursorPos.Y = x, y
 }
 
-func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
-	t.data.MouseMode = true
+func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
+	c.data.MouseMode = true
 
 	// get new position
 	x, y := e.Position()
-	t.updateCursorPos(x, y)
+	c.updateCursorPos(x, y)
 
-	positionInfo := t.rootPane.GetPositionInfo(x, y)
+	positionInfo := c.rootPane.GetPositionInfo(x, y)
 	if positionInfo == nil {
 		return
 	}
@@ -1717,17 +1709,17 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 	case *ui.WeatherPanePositionInfo:
 		switch buttons {
 		case tcell.WheelUp:
-			t.ScrollUp(1)
+			c.ScrollUp(1)
 		case tcell.WheelDown:
-			t.ScrollDown(1)
+			c.ScrollDown(1)
 		}
 
 	case *ui.TimelinePanePositionInfo:
 		switch buttons {
 		case tcell.WheelUp:
-			t.ScrollUp(1)
+			c.ScrollUp(1)
 		case tcell.WheelDown:
-			t.ScrollDown(1)
+			c.ScrollDown(1)
 		}
 
 	case *ui.EventsPanePositionInfo:
@@ -1736,11 +1728,11 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 		// if button clicked, handle
 		switch buttons {
 		case tcell.Button3:
-			t.data.GetCurrentDay().RemoveEvent(eventsInfo.Event)
+			c.data.GetCurrentDay().RemoveEvent(eventsInfo.Event)
 		case tcell.Button2:
 			event := eventsInfo.Event
 			if event != nil && eventsInfo.Time.IsAfter(event.Start) {
-				t.data.GetCurrentDay().SplitEvent(event, eventsInfo.Time)
+				c.data.GetCurrentDay().SplitEvent(event, eventsInfo.Time)
 			}
 
 		case tcell.Button1:
@@ -1749,20 +1741,20 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			// creation, resizing or moving
 			switch eventsInfo.EventBoxPart {
 			case ui.EventBoxNowhere:
-				t.startMouseEventCreation(eventsInfo)
+				c.startMouseEventCreation(eventsInfo)
 			case ui.EventBoxBottomRight:
-				t.startMouseResize(eventsInfo)
+				c.startMouseResize(eventsInfo)
 			case ui.EventBoxInterior:
-				t.startMouseMove(eventsInfo)
+				c.startMouseMove(eventsInfo)
 			case ui.EventBoxTopEdge:
 				log.Info().Msgf("would construct editor here, once the programmer has figured out how to do so correctly")
 			}
 
 		case tcell.WheelUp:
-			t.ScrollUp(1)
+			c.ScrollUp(1)
 
 		case tcell.WheelDown:
-			t.ScrollDown(1)
+			c.ScrollDown(1)
 
 		}
 
@@ -1772,14 +1764,14 @@ func (t *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 		case tcell.Button1:
 			cat := toolsInfo.Category
 			if cat != nil {
-				t.data.CurrentCategory = *cat
+				c.data.CurrentCategory = *cat
 			}
 		}
 
 	}
 }
 
-func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
+func (c *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		x, y := e.Position()
@@ -1788,25 +1780,25 @@ func (t *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 
 		switch buttons {
 		case tcell.Button1:
-			cursorTime := t.timestampGuesser(x, y)
-			visualCursorTime := cursorTime.OffsetMinutes(int(t.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
-			event := t.data.MouseEditedEvent
+			cursorTime := c.timestampGuesser(x, y)
+			visualCursorTime := cursorTime.OffsetMinutes(int(c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
+			event := c.data.MouseEditedEvent
 
 			var err error
-			err = t.data.GetCurrentDay().ResizeTo(event, visualCursorTime)
+			err = c.data.GetCurrentDay().ResizeTo(event, visualCursorTime)
 			if err != nil {
 				log.Warn().Err(err).Msg("unable to resize")
 			}
 
 		case tcell.ButtonNone:
-			t.endEdit()
+			c.endEdit()
 		}
 
-		t.updateCursorPos(x, y)
+		c.updateCursorPos(x, y)
 	}
 }
 
-func (t *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
+func (c *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		x, y := e.Position()
@@ -1815,13 +1807,13 @@ func (t *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 
 		switch buttons {
 		case tcell.Button1:
-			cursorTime := t.timestampGuesser(x, y)
-			t.data.GetCurrentDay().MoveSingleEventTo(t.data.MouseEditedEvent, cursorTime.OffsetMinutes(-t.data.CurrentMoveStartingOffsetMinutes))
+			cursorTime := c.timestampGuesser(x, y)
+			c.data.GetCurrentDay().MoveSingleEventTo(c.data.MouseEditedEvent, cursorTime.OffsetMinutes(-c.data.CurrentMoveStartingOffsetMinutes))
 		case tcell.ButtonNone:
-			t.endEdit()
+			c.endEdit()
 		}
 
-		t.updateCursorPos(x, y)
+		c.updateCursorPos(x, y)
 	}
 }
 
@@ -1833,32 +1825,32 @@ func (c *Controller) updateWeather() {
 		} else {
 			log.Debug().Msg("successfully retrieved weather data")
 		}
-		c.controllerEvents <- ControllerEventRender
+		c.controllerEvents <- controllerEventRender
 	}()
 }
 
-type ControllerEvent int
+type controllerEvent int
 
 const (
-	ControllerEventExit ControllerEvent = iota
-	ControllerEventRender
-	ControllerEventTaskEditorExit
-	ControllerEventEventEditorExit
+	controllerEventExit controllerEvent = iota
+	controllerEventRender
+	controllerEventTaskEditorExit
+	controllerEventEventEditorExit
 )
 
 // Empties all render events from the channel.
 // Returns true, if an exit event was encountered so the caller
 // knows to exit.
-func emptyRenderEvents(c chan ControllerEvent) bool {
+func emptyRenderEvents(c chan controllerEvent) bool {
 	for {
 		select {
 		case bufferedEvent := <-c:
 			switch bufferedEvent {
-			case ControllerEventRender:
+			case controllerEventRender:
 				{
 					// dump extra render events
 				}
-			case ControllerEventExit:
+			case controllerEventExit:
 				return true
 			}
 		default:
@@ -1867,64 +1859,60 @@ func emptyRenderEvents(c chan ControllerEvent) bool {
 	}
 }
 
-// Run
-func (t *Controller) Run() {
+// Run ...
+func (c *Controller) Run() {
 	log.Info().Msg("dayplan TUI started")
 
-	t.controllerEvents = make(chan ControllerEvent, 32)
+	c.controllerEvents = make(chan controllerEvent, 32)
 	var wg sync.WaitGroup
 
 	// Run the main render loop, that renders or exits when prompted accordingly
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer t.initializedScreen.Fini()
-		for {
+		defer c.initializedScreen.Fini()
+		for controllerEvent := range c.controllerEvents {
+			switch controllerEvent {
+			case controllerEventRender:
+				start := time.Now()
 
-			select {
-			case controllerEvent := <-t.controllerEvents:
-				switch controllerEvent {
-				case ControllerEventRender:
-					start := time.Now()
-
-					// empty all further render events before rendering
-					exitEventEncounteredOnEmpty := emptyRenderEvents(t.controllerEvents)
-					// exit if an exit event was coming up
-					if exitEventEncounteredOnEmpty {
-						return
-					}
-					// render
-					t.rootPane.Draw()
-
-					end := time.Now()
-					t.data.RenderTimes.Add(uint64(end.Sub(start).Microseconds()))
-
-				case ControllerEventTaskEditorExit:
-					if t.data.TaskEditor == nil {
-						log.Warn().Msgf("got task editor exit event, but no task editor active; likely logic error")
-					} else {
-						t.data.TaskEditor = nil
-						t.rootPane.PopSubpane()
-						log.Debug().Msgf("removed (presumed) task-editor subpane from root")
-						go func() { t.controllerEvents <- ControllerEventRender }()
-					}
-
-				case ControllerEventEventEditorExit:
-					if t.data.EventEditor == nil {
-						log.Warn().Msgf("got event editor exit event, but no event editor active; likely logic error")
-					} else {
-						t.data.EventEditor = nil
-						t.rootPane.PopSubpane()
-						log.Debug().Msgf("removed (presumed) event-editor subpane from root")
-						go func() { t.controllerEvents <- ControllerEventRender }()
-					}
-
-				case ControllerEventExit:
+				// empty all further render events before rendering
+				exitEventEncounteredOnEmpty := emptyRenderEvents(c.controllerEvents)
+				// exit if an exit event was coming up
+				if exitEventEncounteredOnEmpty {
 					return
-
-				default:
-					log.Error().Interface("event", controllerEvent).Msgf("unhandled controller event")
 				}
+				// render
+				c.rootPane.Draw()
+
+				end := time.Now()
+				c.data.RenderTimes.Add(uint64(end.Sub(start).Microseconds()))
+
+			case controllerEventTaskEditorExit:
+				if c.data.TaskEditor == nil {
+					log.Warn().Msgf("got task editor exit event, but no task editor active; likely logic error")
+				} else {
+					c.data.TaskEditor = nil
+					c.rootPane.PopSubpane()
+					log.Debug().Msgf("removed (presumed) task-editor subpane from root")
+					go func() { c.controllerEvents <- controllerEventRender }()
+				}
+
+			case controllerEventEventEditorExit:
+				if c.data.EventEditor == nil {
+					log.Warn().Msgf("got event editor exit event, but no event editor active; likely logic error")
+				} else {
+					c.data.EventEditor = nil
+					c.rootPane.PopSubpane()
+					log.Debug().Msgf("removed (presumed) event-editor subpane from root")
+					go func() { c.controllerEvents <- controllerEventRender }()
+				}
+
+			case controllerEventExit:
+				return
+
+			default:
+				log.Error().Interface("event", controllerEvent).Msgf("unhandled controller event")
 			}
 		}
 	}()
@@ -1935,7 +1923,7 @@ func (t *Controller) Run() {
 			now := time.Now()
 			next := now.Round(1 * time.Minute).Add(1 * time.Minute)
 			time.Sleep(time.Until(next))
-			t.controllerEvents <- ControllerEventRender
+			c.controllerEvents <- controllerEventRender
 		}
 	}()
 
@@ -1943,48 +1931,48 @@ func (t *Controller) Run() {
 	// for a redraw (or program exit) after each event.
 	go func() {
 		for {
-			ev := t.screenEvents.PollEvent()
+			ev := c.screenEvents.PollEvent()
 
 			start := time.Now()
 
 			{
 				switch e := ev.(type) {
 				case *tcell.EventKey:
-					t.data.MouseMode = false
-					t.data.MouseEditState = edit.MouseEditStateNone
+					c.data.MouseMode = false
+					c.data.MouseEditState = edit.MouseEditStateNone
 
 					key := input.KeyFromTcellEvent(e)
-					inputApplied := t.rootPane.ProcessInput(key)
+					inputApplied := c.rootPane.ProcessInput(key)
 					if !inputApplied {
 						log.Warn().Str("key", key.ToDebugString()).Msg("could not apply key input")
 					}
 
 				case *tcell.EventMouse:
-					t.data.MouseMode = true
+					c.data.MouseMode = true
 
 					// get new position
 					x, y := e.Position()
-					t.updateCursorPos(x, y)
+					c.updateCursorPos(x, y)
 
-					switch t.data.MouseEditState {
+					switch c.data.MouseEditState {
 					case edit.MouseEditStateNone:
-						t.handleMouseNoneEditEvent(e)
+						c.handleMouseNoneEditEvent(e)
 					case edit.MouseEditStateResizing:
-						t.handleMouseResizeEditEvent(ev)
+						c.handleMouseResizeEditEvent(ev)
 					case edit.MouseEditStateMoving:
-						t.handleMouseMoveEditEvent(ev)
+						c.handleMouseMoveEditEvent(ev)
 					}
 
 				case *tcell.EventResize:
-					t.syncer.NeedsSync()
+					c.syncer.NeedsSync()
 
 				}
 			}
 
 			end := time.Now()
-			t.data.EventProcessingTimes.Add(uint64(end.Sub(start).Microseconds()))
+			c.data.EventProcessingTimes.Add(uint64(end.Sub(start).Microseconds()))
 
-			t.controllerEvents <- ControllerEventRender
+			c.controllerEvents <- controllerEventRender
 		}
 	}()
 

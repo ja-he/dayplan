@@ -12,14 +12,15 @@ import (
 	"github.com/ja-he/dayplan/internal/weather"
 )
 
+// EnvData represents the environment data.
 type EnvData struct {
 	BaseDirPath string
-	OwmApiKey   string
+	OWMAPIKey   string
 	Latitude    string
 	Longitude   string
 }
 
-// For a given active view, returns the 'previous', i.E. 'stepping
+// PrevView returns the 'previous' view for a given active view, i.E. 'stepping
 // out' from an inner view to an outer one.
 // E.g.: Day -> Week -> Month
 func PrevView(current ui.ActiveView) ui.ActiveView {
@@ -35,7 +36,7 @@ func PrevView(current ui.ActiveView) ui.ActiveView {
 	}
 }
 
-// For a given active view, returns the 'next', i.E. 'stepping into'
+// Next view, for a given active view, returns the 'next', i.E. 'stepping into'
 // from an outer view to an inner one.
 // E.g.: Month -> Week -> Day
 func NextView(current ui.ActiveView) ui.ActiveView {
@@ -51,20 +52,8 @@ func NextView(current ui.ActiveView) ui.ActiveView {
 	}
 }
 
-// Returns the active view name as a string.
-func toString(av ui.ActiveView) string {
-	switch av {
-	case ui.ViewDay:
-		return "ui.ViewDay"
-	case ui.ViewWeek:
-		return "ui.ViewWeek"
-	case ui.ViewMonth:
-		return "ui.ViewMonth"
-	default:
-		return "unknown"
-	}
-}
-
+// DayWithInfo represents a day with additional information, such as sunrise /
+// sunset times.
 type DayWithInfo struct {
 	Day      *model.Day
 	SunTimes *model.SunTimes

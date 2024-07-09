@@ -79,7 +79,7 @@ func (command *TUICommand) Execute(_ []string) error {
 		}
 	}
 
-	envData.OwmApiKey = os.Getenv("OWM_API_KEY")
+	envData.OWMAPIKey = os.Getenv("OWM_API_KEY")
 
 	envData.Latitude = os.Getenv("LATITUDE")
 	envData.Longitude = os.Getenv("LONGITUDE")

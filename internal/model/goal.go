@@ -47,10 +47,16 @@ func NewRangedGoalFromConfig(cfg []config.RangedGoal) (*RangedGoal, error) {
 
 	for i := range cfg {
 		start, err := FromString(cfg[i].Start)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing start date of range no. %d: %w", i, err)
+		}
 		end, err := FromString(cfg[i].End)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing start date of range no. %d: %w", i, err)
+		}
 		duration, err := time.ParseDuration(cfg[i].Time)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error parsing duration of range no. %d: %w", i, err)
 		} else {
 			for j := 0; j < i; j++ {
 				if !((start.IsBefore(result.Entries[j].Start) && end.IsBefore(result.Entries[j].Start)) || (start.IsAfter(result.Entries[j].End) && end.IsAfter(result.Entries[j].End))) {

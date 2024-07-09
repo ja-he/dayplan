@@ -100,7 +100,6 @@ func (day *Day) CurrentPrev() {
 	if len(day.Events) > 0 {
 		day.Current = day.Events[0]
 	}
-	return
 }
 
 func (day *Day) CurrentNext() {
@@ -117,7 +116,6 @@ func (day *Day) CurrentNext() {
 	if len(day.Events) > 0 {
 		day.Current = day.Events[0]
 	}
-	return
 }
 
 func (day *Day) UpdateEventOrder() {
