@@ -19,7 +19,7 @@ import (
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/storage/providers"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/tui"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -38,7 +38,7 @@ func (c *Controller) getDayFromFileHandler(date model.Date) *model.Day {
 		tmp := fh.Read(c.data.Categories)
 		return tmp
 	} else {
-		newHandler := storage.NewFileHandler(c.data.EnvData.BaseDirPath + "/days/" + date.ToString())
+		newHandler := providers.NewFileHandler(c.data.EnvData.BaseDirPath + "/days/" + date.ToString())
 		c.fhMutex.Lock()
 		c.FileHandlers[date] = newHandler
 		c.fhMutex.Unlock()
@@ -53,7 +53,7 @@ type Controller struct {
 	rootPane *panes.RootPane
 
 	fhMutex          sync.RWMutex
-	FileHandlers     map[model.Date]*storage.FileHandler
+	FileHandlers     map[model.Date]*providers.FileHandler
 	controllerEvents chan controllerEvent
 
 	// TODO: remove, obviously
@@ -1493,8 +1493,8 @@ func NewController(
 
 	controller.fhMutex.Lock()
 	defer controller.fhMutex.Unlock()
-	controller.FileHandlers = make(map[model.Date]*storage.FileHandler)
-	controller.FileHandlers[date] = storage.NewFileHandler(controller.data.EnvData.BaseDirPath + "/days/" + date.ToString())
+	controller.FileHandlers = make(map[model.Date]*providers.FileHandler)
+	controller.FileHandlers[date] = providers.NewFileHandler(controller.data.EnvData.BaseDirPath + "/days/" + date.ToString())
 
 	controller.data.CurrentDate = date
 	if controller.FileHandlers[date] == nil {

@@ -10,7 +10,7 @@ import (
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/storage/providers"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/util"
 )
@@ -94,7 +94,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 	// TODO: can probably make this mostly async?
 	days := make([]model.Day, 0)
 	for currentDate != finalDate.Next() {
-		fh := storage.NewFileHandler(envData.BaseDirPath + "/days/" + currentDate.ToString())
+		fh := providers.NewFileHandler(envData.BaseDirPath + "/days/" + currentDate.ToString())
 		categories := make([]model.Category, 0)
 		for _, cat := range styledCategories.GetAll() {
 			categories = append(categories, cat.Cat)
