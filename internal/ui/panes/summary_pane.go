@@ -2,12 +2,14 @@ package panes
 
 import (
 	"sort"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
+	"github.com/rs/zerolog/log"
 )
 
 // SummaryPane shows a summary of the set of days it is provided.
@@ -17,7 +19,7 @@ type SummaryPane struct {
 	ui.LeafPane
 
 	titleString func() string
-	days        func() []*model.Day
+	events      func() ([]*model.Event, error)
 
 	categories *styling.CategoryStyling
 }
@@ -46,20 +48,17 @@ func (p *SummaryPane) Draw() {
 		p.Renderer.DrawBox(x, y, w, 1, p.Stylesheet.SummaryTitleBox)
 		p.Renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.Stylesheet.SummaryTitleBox, title)
 
-		summary := make(map[model.Category]int)
-
-		days := p.days()
-		for i := range days {
-			if days[i] == nil {
-				return
-			}
-			tmpSummary := days[i].SumUpByCategory()
-			for k, v := range tmpSummary {
-				summary[k] += v
-			}
+		events, err := p.events()
+		if err != nil {
+			log.Error().Err(err).Msg("error getting events for summary pane")
+			return
 		}
+		el := model.EventList{
+			Events: events,
+		}
+		summary := el.SumUpByCategory()
 
-		maxDuration := 0
+		maxDuration := time.Duration(0)
 		categories := make([]model.Category, len(summary))
 		{ // get sorted keys to have deterministic order
 			i := 0
@@ -85,7 +84,7 @@ func (p *SummaryPane) Draw() {
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
 			p.Renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
 			p.Renderer.DrawText(x, y+row, catLen, 1, p.Stylesheet.SummaryDefault, util.TruncateAt(category.Name, catLen))
-			p.Renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+util.DurationToString(duration)+")")
+			p.Renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+duration.String()+")")
 			row++
 		}
 	}
@@ -103,7 +102,7 @@ func NewSummaryPane(
 	stylesheet styling.Stylesheet,
 	condition func() bool,
 	titleString func() string,
-	days func() []*model.Day,
+	events func() ([]*model.Event, error),
 	categories *styling.CategoryStyling,
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
@@ -119,7 +118,7 @@ func NewSummaryPane(
 			Stylesheet: stylesheet,
 		},
 		titleString: titleString,
-		days:        days,
+		events:      events,
 		categories:  categories,
 	}
 }

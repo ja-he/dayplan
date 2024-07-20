@@ -267,14 +267,10 @@ func (b *Backlog) AddBefore(anchorTask *Task) (newTask *Task, parent *Task, err 
 
 func (t *Task) toEvent(startTime time.Time, namePrefix string) Event {
 	return Event{
-		Start: *NewTimestampFromGotime(startTime),
-		End: *NewTimestampFromGotime(
-			func() time.Time {
-				return startTime.Add(t.getDurationNormalized())
-			}(),
-		),
-		Name: namePrefix + t.Name,
-		Cat:  t.Category,
+		Start: startTime,
+		End:   startTime.Add(t.getDurationNormalized()),
+		Name:  namePrefix + t.Name,
+		Cat:   t.Category,
 	}
 }
 

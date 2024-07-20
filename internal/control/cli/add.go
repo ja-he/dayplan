@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/storage"
 )
 
 // AddCommand contains flags for the `summarize` command line command, for
@@ -17,9 +18,8 @@ type AddCommand struct {
 	Category string `short:"c" long:"category" description:"the category of the added event(s)" value-name:"<category>" required:"true"`
 	Name     string `short:"n" long:"name" description:"the name of the added event(s)" value-name:"<name>" required:"true"`
 
-	Date  string `short:"d" long:"date" description:"the date of the (first) event" value-name:"<yyyy-mm-dd>" required:"true"`
-	Start string `short:"s" long:"start" description:"the time at which the event begins" value-name:"<HH:MM>" required:"true"`
-	End   string `short:"e" long:"end" description:"the time at which the event ends" value-name:"<HH:MM>" required:"true"`
+	Start string `short:"s" long:"start" description:"the time at which the event begins" value-name:"<TIME>" required:"true"`
+	End   string `short:"e" long:"end" description:"the time at which the event ends" value-name:"<TIME>" required:"true"`
 
 	RepeatInterval string `short:"r" long:"repeat-interval" description:"the repeat interval; if omitted, no repetition is assumed; requires end (til) date to be specified" choice:"daily" choice:"weekly" choice:"monthly"`
 	RepeatTil      string `short:"t" long:"repeat-til" description:"the date until which to repeat the event; requires repeat inteval to be specified" value-name:"<yyyy-mm-dd>"`
@@ -63,98 +63,84 @@ func (command *AddCommand) Execute(args []string) error {
 		fmt.Fprintf(os.Stderr, "WARNING: category '%s' not found in config data\n", command.Category)
 	}
 
-	// verify date and time
-	date, err := model.FromString(command.Date)
+	// verify times
+	layout := "2006-01-02 15:04:05"
+	start, err := time.Parse(layout, command.Start)
 	if err != nil {
-		panic(fmt.Sprintf("ERROR: %s", err.Error()))
+		return fmt.Errorf("could not parse start time '%s' (%w)", command.Start, err)
 	}
-	start := *model.NewTimestamp(command.Start)
-	end := *model.NewTimestamp(command.End)
-	if !end.IsAfter(start) {
-		panic(fmt.Sprintf("ERROR: end time %s is not after start time %s", end.ToString(), start.ToString()))
+	end, err := time.Parse(layout, command.End)
+	if err != nil {
+		return fmt.Errorf("could not parse end time '%s' (%w)", command.End, err)
+	}
+	if !end.After(start) {
+		panic(fmt.Sprintf("ERROR: end time %s is not after start time %s", end.String(), start.String()))
 	}
 
-	var repeatTilDate model.Date
+	var repeatTilTime time.Time
 	if command.RepeatInterval != "" && command.RepeatTil == "" || command.RepeatInterval == "" && command.RepeatTil != "" {
 		panic("ERROR: either both repeat interval and 'til' date need to be specified, or neither")
 	} else if command.RepeatTil != "" {
-		repeatTilDate, err = model.FromString(command.RepeatTil)
+		repeatTilTime, err = time.Parse(layout, command.RepeatTil)
 		if err != nil {
-			panic(fmt.Sprintf("ERROR: %s", err.Error()))
+			return fmt.Errorf("could not parse repeat-til time '%s' (%w)", command.RepeatTil, err)
 		}
-		if !repeatTilDate.IsAfter(date) {
-			panic("ERROR: repetition end ('til') date needs to be AFTER start date")
+		if !repeatTilTime.After(start) || !repeatTilTime.After(end) {
+			return fmt.Errorf("repeat-til time '%s' is not after start time '%s' and end time '%s'", repeatTilTime.String(), start.String(), end.String())
 		}
 	}
 
-	type fileAndDay struct {
-		file *providers.FileHandler
-		data *model.Day
-		date model.Date
-	}
-	toWrite := []fileAndDay{}
+	panic("TODO: need to implement provider setup i suppose")
+	var provider storage.DataProvider
 
-	startDayFile := providers.NewFileHandler(envData.BaseDirPath + "/days/" + date.ToString())
-	startDay := startDayFile.Read([]model.Category{}) // we don't need the categories for this
-	err = startDay.AddEvent(
-		&model.Event{
-			Start: start,
-			End:   end,
-			Name:  command.Name,
-			Cat:   model.Category{Name: command.Category},
-		},
-	)
-	if err != nil {
-		panic(fmt.Sprintf("ERROR: %s", err.Error()))
-	}
-	toWrite = append(toWrite, fileAndDay{startDayFile, startDay, date})
+	var events []model.Event
+	events = append(events, model.Event{
+		Start: start,
+		End:   end,
+		Name:  command.Name,
+		Cat:   model.Category{Name: command.Category},
+	})
 
 	if command.RepeatInterval != "" {
-		var dateIncrementer func(model.Date) model.Date
+		var increment func(time.Time) time.Time
 
 		switch command.RepeatInterval {
 		case "daily":
-			dateIncrementer = func(current model.Date) model.Date { return current.Next() }
+			increment = func(t time.Time) time.Time { return t.AddDate(0, 0, 1) }
 		case "weekly":
-			dateIncrementer = func(current model.Date) model.Date { return current.Forward(7) }
+			increment = func(t time.Time) time.Time { return t.AddDate(0, 0, 7) }
 		case "monthly":
-			dateIncrementer = func(current model.Date) model.Date {
-				result := current.GetLastOfMonth().Next()
-				result.Day = current.Day
-				return result
-			}
+			increment = func(t time.Time) time.Time { return t.AddDate(0, 1, 0) }
 		default:
 			panic(fmt.Sprintf("ERROR: unknown repeat interval '%s'", command.RepeatInterval))
 		}
 
 		// we already did the first date
-		current := dateIncrementer(date)
+		currentStart := increment(start)
+		currentEnd := increment(end)
 
-		for !current.IsAfter(repeatTilDate) {
-			currentDayFile := providers.NewFileHandler(envData.BaseDirPath + "/days/" + current.ToString())
-			currentDay := currentDayFile.Read([]model.Category{}) // we don't need the categories for this
-			err = currentDay.AddEvent(
-				&model.Event{
-					Start: start,
-					End:   end,
-					Name:  command.Name,
-					Cat:   model.Category{Name: command.Category},
-				},
-			)
-			if err != nil {
-				panic(fmt.Sprintf("ERROR: %s", err.Error()))
+		for !currentStart.After(repeatTilTime) {
+			event := model.Event{
+				Start: currentStart,
+				End:   currentEnd,
+				Name:  command.Name,
+				Cat:   model.Category{Name: command.Category},
 			}
-			toWrite = append(toWrite, fileAndDay{currentDayFile, currentDay, current})
+			events = append(events, event)
 
-			current = dateIncrementer(current)
+			currentStart = increment(currentStart)
+			currentEnd = increment(currentEnd)
 		}
 	}
 
 	// write at the end, so we don't add partial data if we panicked somewhere
 	fmt.Println("writing to:")
-	for _, writable := range toWrite {
-		fmt.Printf(" + %s (%s)\n", writable.date.ToString(), writable.date.ToWeekday().String())
-		writable.file.Write(writable.data)
+	for _, event := range events {
+		fmt.Printf(" + %s\n", event.String())
+		err := provider.AddEvent(event)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: could not add event to provider (%s)\n", err.Error())
+		}
 	}
 
 	os.Exit(0)

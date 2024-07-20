@@ -16,7 +16,7 @@ import (
 type TimelinePane struct {
 	ui.LeafPane
 
-	suntimes    func() *model.SunTimes
+	suntimes    func() model.SunTimes
 	currentTime func() *model.Timestamp
 
 	viewParams ui.TimespanViewParams
@@ -57,7 +57,7 @@ func (p *TimelinePane) Draw() {
 		timeText := timestampLPad + timestampString + timestampRPad
 
 		var styling styling.DrawStyling
-		if suntimes != nil && (!(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set))) {
+		if !(timestamp.IsAfter(suntimes.Rise)) || (timestamp.IsAfter(suntimes.Set)) {
 			styling = p.Stylesheet.TimelineNight
 		} else {
 			styling = p.Stylesheet.TimelineDay
@@ -95,7 +95,7 @@ func NewTimelinePane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
-	suntimes func() *model.SunTimes,
+	suntimes func() model.SunTimes,
 	currentTime func() *model.Timestamp,
 	viewParams ui.TimespanViewParams,
 ) *TimelinePane {

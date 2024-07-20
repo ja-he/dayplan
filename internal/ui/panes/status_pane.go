@@ -41,7 +41,7 @@ func (p *StatusPane) Draw() {
 	// date box background
 	p.Renderer.DrawBox(0, y, dateWidth, h, bgStyleEmph)
 	// date string
-	p.Renderer.DrawText(0, y, dateWidth, 1, dateStyle, p.currentDate.ToString())
+	p.Renderer.DrawText(0, y, dateWidth, 1, dateStyle, p.currentDate.String())
 	// weekday string
 	p.Renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(p.currentDate.ToWeekday().String(), dateWidth))
 

@@ -14,7 +14,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -24,7 +24,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -34,7 +34,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -44,7 +44,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -54,7 +54,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -64,7 +64,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -74,7 +74,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -84,7 +84,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -94,7 +94,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -104,7 +104,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -114,7 +114,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 	{
@@ -124,7 +124,7 @@ func TestValid(t *testing.T) {
 
 		if date.Valid() != expect {
 			log.Fatalf("Date validation testcase '%s' (date %s) failed, should be %t but isn't",
-				testcase, date.ToString(), expect)
+				testcase, date.String(), expect)
 		}
 	}
 }
@@ -135,7 +135,7 @@ func TestToWeekday(t *testing.T) {
 		expected := time.Friday
 		result := date.ToWeekday()
 		if result != expected {
-			log.Fatalf("%s should be weekday %s not %s", date.ToString(), ToString(expected), ToString(result))
+			log.Fatalf("%s should be weekday %s not %s", date.String(), expected.String(), result.String())
 		}
 	}
 }
@@ -146,7 +146,7 @@ func TestWeek(t *testing.T) {
 		expStart, expEnd := Date{2021, 11, 8}, Date{2021, 11, 14}
 		resStart, resEnd := date.WeekBounds()
 		if resStart != expStart || resEnd != expEnd {
-			log.Fatalf("%s is bounded by (%s,%s) not (%s,%s)", date.ToString(), expStart.ToString(), expEnd.ToString(), resStart.ToString(), resEnd.ToString())
+			log.Fatalf("%s is bounded by (%s,%s) not (%s,%s)", date.String(), expStart.String(), expEnd.String(), resStart.String(), resEnd.String())
 		}
 	}
 }
@@ -164,7 +164,7 @@ func TestMonthBounds(t *testing.T) {
 		expStart, expEnd := Date{2021, 11, 1}, Date{2021, 11, 30}
 		resStart, resEnd := date.MonthBounds()
 		if resStart != expStart || resEnd != expEnd {
-			log.Fatalf("[testcase '%s' failed]: %s is bounded by (%s,%s) not (%s,%s)", testcase, date.ToString(), expStart.ToString(), expEnd.ToString(), resStart.ToString(), resEnd.ToString())
+			log.Fatalf("[testcase '%s' failed]: %s is bounded by (%s,%s) not (%s,%s)", testcase, date.String(), expStart.String(), expEnd.String(), resStart.String(), resEnd.String())
 		}
 	}
 	{
@@ -179,7 +179,7 @@ func TestMonthBounds(t *testing.T) {
 		expStart, expEnd := Date{2021, 12, 1}, Date{2021, 12, 31}
 		resStart, resEnd := date.MonthBounds()
 		if resStart != expStart || resEnd != expEnd {
-			log.Fatalf("[testcase '%s' failed]: %s is bounded by (%s,%s) not (%s,%s)", testcase, date.ToString(), expStart.ToString(), expEnd.ToString(), resStart.ToString(), resEnd.ToString())
+			log.Fatalf("[testcase '%s' failed]: %s is bounded by (%s,%s) not (%s,%s)", testcase, date.String(), expStart.String(), expEnd.String(), resStart.String(), resEnd.String())
 		}
 	}
 	{
@@ -194,7 +194,7 @@ func TestMonthBounds(t *testing.T) {
 		expStart, expEnd := Date{2021, 2, 1}, Date{2021, 2, 28}
 		resStart, resEnd := date.MonthBounds()
 		if resStart != expStart || resEnd != expEnd {
-			log.Fatalf("[testcase '%s' failed]: %s is bounded by (%s,%s) not (%s,%s)", testcase, date.ToString(), expStart.ToString(), expEnd.ToString(), resStart.ToString(), resEnd.ToString())
+			log.Fatalf("[testcase '%s' failed]: %s is bounded by (%s,%s) not (%s,%s)", testcase, date.String(), expStart.String(), expEnd.String(), resStart.String(), resEnd.String())
 		}
 	}
 	{
@@ -209,7 +209,7 @@ func TestMonthBounds(t *testing.T) {
 		expStart, expEnd := Date{2004, 2, 1}, Date{2004, 2, 29}
 		resStart, resEnd := date.MonthBounds()
 		if resStart != expStart || resEnd != expEnd {
-			log.Fatalf("[testcase '%s' failed]: %s is bounded by (%s,%s) not (%s,%s)", testcase, date.ToString(), expStart.ToString(), expEnd.ToString(), resStart.ToString(), resEnd.ToString())
+			log.Fatalf("[testcase '%s' failed]: %s is bounded by (%s,%s) not (%s,%s)", testcase, date.String(), expStart.String(), expEnd.String(), resStart.String(), resEnd.String())
 		}
 	}
 }
@@ -347,7 +347,7 @@ func TestGetDayInWeek(t *testing.T) {
 
 		if result != expected {
 			log.Fatalf("testcase '%s' for `GetDayInWeek` failed: expected %s, got %s",
-				testcase, expected.ToString(), result.ToString())
+				testcase, expected.String(), result.String())
 		}
 	}
 
@@ -364,7 +364,7 @@ func TestGetDayInMonth(t *testing.T) {
 
 		if result != expected {
 			log.Fatalf("testcase '%s' for `GetDayInMonth` failed: expected %s, got %s",
-				testcase, expected.ToString(), result.ToString())
+				testcase, expected.String(), result.String())
 		}
 	}
 }

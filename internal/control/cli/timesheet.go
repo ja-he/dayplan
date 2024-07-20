@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -100,12 +101,12 @@ func (command *TimesheetCommand) Execute(args []string) error {
 
 	type dateAndDay struct {
 		model.Date
-		model.Day
+		model.EventList
 	}
 
 	data := make([]dateAndDay, 0)
 	for currentDate != finalDate.Next() {
-		fh := providers.NewFileHandler(envData.BaseDirPath + "/days/" + currentDate.ToString())
+		fh := providers.NewFileHandler(path.Join(envData.BaseDirPath+"days"), currentDate)
 		categories := make([]model.Category, 0)
 		for _, cat := range styledCategories.GetAll() {
 			categories = append(categories, cat.Cat)
@@ -148,7 +149,10 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	}()
 
 	for _, dataEntry := range data {
-		timesheetEntry := dataEntry.Day.GetTimesheetEntry(matcher)
+		timesheetEntry, err := dataEntry.EventList.GetTimesheetEntry(matcher)
+		if err != nil {
+			return fmt.Errorf("error while getting timesheet entry: %s", err)
+		}
 
 		if !command.IncludeEmpty && timesheetEntry.IsEmpty() {
 			continue
@@ -187,7 +191,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 			strings.Join(
 				[]string{
 					maybeEnquote(dataEntry.Date.ToGotime().Format(command.DateFormat)),
-					asCSVString(timesheetEntry, maybeEnquote, stringifyTimestamp, stringifyDuration, command.FieldSeparator),
+					asCSVString(*timesheetEntry, maybeEnquote, stringifyTimestamp, stringifyDuration, command.FieldSeparator),
 				},
 				command.FieldSeparator,
 			),

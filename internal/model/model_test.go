@@ -1,4 +1,4 @@
-package model
+package model_test
 
 import (
 	"fmt"
@@ -6,7 +6,12 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/ja-he/dayplan/internal/model"
 )
+
+var baseDate = time.Date(2022, 11, 13, 0, 0, 0, 0, time.UTC)
 
 func TestStartsDuring(t *testing.T) {
 	{
@@ -18,8 +23,8 @@ func TestStartsDuring(t *testing.T) {
 		// +---|   |
 		//     +---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("06:00|07:30|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(6 * time.Hour), End: baseDate.Add(7*time.Hour + 30*time.Minute)}
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -31,8 +36,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts after"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("06:40|07:30|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(6*time.Hour + 40*time.Minute), End: baseDate.Add(7*time.Hour + 30*time.Minute)}
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -44,8 +49,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts at the same time"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("05:50|07:30|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(7*time.Hour + 30*time.Minute)}
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -57,8 +62,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts flush"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("06:30|07:30|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(6*time.Hour + 30*time.Minute), End: baseDate.Add(7*time.Hour + 30*time.Minute)}
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -70,8 +75,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts during (contained, should not matter)"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("05:55|06:20|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(5*time.Hour + 55*time.Minute), End: baseDate.Add(6*time.Hour + 20*time.Minute)}
 
 		expected := true
 		result := b.StartsDuring(a)
@@ -83,8 +88,8 @@ func TestStartsDuring(t *testing.T) {
 	{
 		testcase := "starts before"
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("04:50|07:30|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(4*time.Hour + 50*time.Minute), End: baseDate.Add(7*time.Hour + 30*time.Minute)}
 
 		expected := false
 		result := b.StartsDuring(a)
@@ -106,8 +111,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   +---+
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("05:55|06:20|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(5*time.Hour + 55*time.Minute), End: baseDate.Add(6*time.Hour + 20*time.Minute)}
 
 		expected := true
 		result := b.IsContainedIn(a)
@@ -130,8 +135,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |     |
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("06:40|07:30|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(6*time.Hour + 40*time.Minute), End: baseDate.Add(7*time.Hour + 30*time.Minute)}
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -152,8 +157,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |     |
 		// +-----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("06:30|07:30|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(6*time.Hour + 30*time.Minute), End: baseDate.Add(7*time.Hour + 30*time.Minute)}
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -171,8 +176,8 @@ func TestIsContainedIn(t *testing.T) {
 		// +---|   |
 		//     +---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("05:55|06:40|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(5*time.Hour + 55*time.Minute), End: baseDate.Add(6*time.Hour + 40*time.Minute)}
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -190,8 +195,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   +---+
 		// +----+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("05:55|06:40|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(5*time.Hour + 55*time.Minute), End: baseDate.Add(6*time.Hour + 40*time.Minute)}
 
 		expected := false
 		result := b.IsContainedIn(a)
@@ -208,8 +213,8 @@ func TestIsContainedIn(t *testing.T) {
 		// |   |   |
 		// +---+---+
 
-		a := NewEvent("05:50|06:30|eating|Breakfast", make([]Category, 0))
-		b := NewEvent("05:50|06:30|work|Get Started", make([]Category, 0))
+		a := &model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
+		b := &model.Event{Name: "Get Started", Cat: model.Category{Name: "work"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)}
 
 		expected := true
 		result := b.IsContainedIn(a)
@@ -221,14 +226,13 @@ func TestIsContainedIn(t *testing.T) {
 }
 
 func TestSumUpByCategory(t *testing.T) {
-	defaultEmptyCategories := make([]Category, 0)
 	{
 		testcase := "single event"
-		model := NewDay()
-		model.Events = []*Event{
-			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
+		eventList := model.EventList{}
+		eventList.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
 		}
-		expected := map[Category]int{
+		expected := map[model.Category]int{
 			{
 				Name:       "eating",
 				Priority:   0,
@@ -236,20 +240,20 @@ func TestSumUpByCategory(t *testing.T) {
 				Deprecated: false,
 			}: 40,
 		}
-		result := model.SumUpByCategory()
+		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
 			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
 	}
 	{
 		testcase := "multiple events of same category"
-		model := NewDay()
-		model.Events = []*Event{
-			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
-			NewEvent("11:30|12:10|eating|Lunch", defaultEmptyCategories),
-			NewEvent("18:15|19:00|eating|Dinner", defaultEmptyCategories),
+		eventList := model.EventList{}
+		eventList.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(11*time.Hour + 30*time.Minute), End: baseDate.Add(12*time.Hour + 10*time.Minute)},
+			&model.Event{Name: "Dinner", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(18*time.Hour + 15*time.Minute), End: baseDate.Add(19 * time.Hour)},
 		}
-		expected := map[Category]int{
+		expected := map[model.Category]int{
 			{
 				Name:       "eating",
 				Priority:   0,
@@ -257,20 +261,20 @@ func TestSumUpByCategory(t *testing.T) {
 				Deprecated: false,
 			}: 125,
 		}
-		result := model.SumUpByCategory()
+		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
 			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
 	}
 	{
 		testcase := "multiple events of different categories"
-		model := NewDay()
-		model.Events = []*Event{
-			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
-			NewEvent("11:30|12:10|eating|Lunch", defaultEmptyCategories),
-			NewEvent("18:15|19:00|cooking|Dinner", defaultEmptyCategories),
+		eventList := model.EventList{}
+		eventList.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(11*time.Hour + 30*time.Minute), End: baseDate.Add(12*time.Hour + 10*time.Minute)},
+			&model.Event{Name: "Dinner", Cat: model.Category{Name: "cooking"}, Start: baseDate.Add(18*time.Hour + 15*time.Minute), End: baseDate.Add(19 * time.Hour)},
 		}
-		expected := map[Category]int{
+		expected := map[model.Category]int{
 			{
 				Name:       "eating",
 				Priority:   0,
@@ -284,19 +288,19 @@ func TestSumUpByCategory(t *testing.T) {
 				Deprecated: false,
 			}: 45,
 		}
-		result := model.SumUpByCategory()
+		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
 			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
 	}
 	{
 		testcase := "events that overlap partially"
-		model := NewDay()
-		model.Events = []*Event{
-			NewEvent("01:00|02:00|a|A1", defaultEmptyCategories),
-			NewEvent("01:30|02:30|a|A2", defaultEmptyCategories),
+		eventList := model.EventList{}
+		eventList.Events = []*model.Event{
+			&model.Event{Name: "A1", Cat: model.Category{Name: "a"}, Start: baseDate.Add(1 * time.Hour), End: baseDate.Add(2 * time.Hour)},
+			&model.Event{Name: "A2", Cat: model.Category{Name: "a"}, Start: baseDate.Add(1*time.Hour + 30*time.Minute), End: baseDate.Add(2*time.Hour + 30*time.Minute)},
 		}
-		expected := map[Category]int{
+		expected := map[model.Category]int{
 			{
 				Name:       "a",
 				Priority:   0,
@@ -304,19 +308,19 @@ func TestSumUpByCategory(t *testing.T) {
 				Deprecated: false,
 			}: 90,
 		}
-		result := model.SumUpByCategory()
+		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
 			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
 	}
 	{
 		testcase := "one event that contains another"
-		model := NewDay()
-		model.Events = []*Event{
-			NewEvent("01:00|02:00|a|A main", defaultEmptyCategories),
-			NewEvent("01:15|01:45|a|A subevent", defaultEmptyCategories),
+		eventList := model.EventList{}
+		eventList.Events = []*model.Event{
+			&model.Event{Name: "A main", Cat: model.Category{Name: "a"}, Start: baseDate.Add(1 * time.Hour), End: baseDate.Add(2 * time.Hour)},
+			&model.Event{Name: "A subevent", Cat: model.Category{Name: "a"}, Start: baseDate.Add(1*time.Hour + 15*time.Minute), End: baseDate.Add(1*time.Hour + 45*time.Minute)},
 		}
-		expected := map[Category]int{
+		expected := map[model.Category]int{
 			{
 				Name:       "a",
 				Priority:   0,
@@ -324,7 +328,7 @@ func TestSumUpByCategory(t *testing.T) {
 				Deprecated: false,
 			}: 60,
 		}
-		result := model.SumUpByCategory()
+		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
 			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
@@ -332,12 +336,11 @@ func TestSumUpByCategory(t *testing.T) {
 }
 
 func TestFlatten(t *testing.T) {
-	defaultEmptyCategories := make([]Category, 0)
 	{
 		testcase := "single event"
-		day := *NewDay()
-		day.Events = []*Event{
-			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
+		day := &model.EventList{}
+		day.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
 		}
 		dayExpected := day
 		day.Flatten()
@@ -347,10 +350,10 @@ func TestFlatten(t *testing.T) {
 	}
 	{
 		testcase := "doubled event"
-		day := *NewDay()
-		day.Events = []*Event{
-			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
-			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
+		day := &model.EventList{}
+		day.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
 		}
 		dayExpected := day
 		day.Flatten()
@@ -363,220 +366,187 @@ func TestFlatten(t *testing.T) {
 	}
 	{
 		testcase := "overlapping events of same cat"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("05:50|06:30|eating|Breakfast", defaultEmptyCategories),
-			NewEvent("06:00|07:00|eating|Other", defaultEmptyCategories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
+			&model.Event{Name: "Other", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(6 * time.Hour), End: baseDate.Add(7 * time.Hour)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("05:50|07:00|eating|Breakfast", defaultEmptyCategories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(7 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
+		if !eventsEqualExceptingIDs(input, expected) {
 			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
 		testcase := "contained event of same cat"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("05:50|07:00|eating|Breakfast", defaultEmptyCategories),
-			NewEvent("06:00|06:30|eating|Other", defaultEmptyCategories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(7 * time.Hour)},
+			&model.Event{Name: "Other", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(6 * time.Hour), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("05:50|07:00|eating|Breakfast", defaultEmptyCategories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(7 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
+		if !eventsEqualExceptingIDs(input, expected) {
 			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
-		categories := make([]Category, 0)
-		categories = append(categories, Category{Name: "eating", Priority: 0})
-		categories = append(categories, Category{Name: "work", Priority: 20})
-
 		testcase := "overlap with higher priority (low then high)"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("05:50|06:30|eating|Breakfast", categories),
-			NewEvent("06:00|08:00|work|Work", categories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
+			&model.Event{Name: "Work", Cat: model.Category{Name: "work"}, Start: baseDate.Add(6 * time.Hour), End: baseDate.Add(8 * time.Hour)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("05:50|06:00|eating|Breakfast", categories),
-			NewEvent("06:00|08:00|work|Work", categories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6 * time.Hour)},
+			&model.Event{Name: "Work", Cat: model.Category{Name: "work"}, Start: baseDate.Add(6 * time.Hour), End: baseDate.Add(8 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
+		if !eventsEqualExceptingIDs(input, expected) {
 			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
-		categories := make([]Category, 0)
-		categories = append(categories, Category{Name: "eating", Priority: 0})
-		categories = append(categories, Category{Name: "work", Priority: 20})
-
 		testcase := "overlap with higher priority (high then low)"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("09:00|12:00|work|Work", categories),
-			NewEvent("11:30|12:30|eating|Lunch", categories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Work", Cat: model.Category{Name: "work"}, Start: baseDate.Add(9 * time.Hour), End: baseDate.Add(12 * time.Hour)},
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(11*time.Hour + 30*time.Minute), End: baseDate.Add(12*time.Hour + 30*time.Minute)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("09:00|12:00|work|Work", categories),
-			NewEvent("12:00|12:30|eating|Lunch", categories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Work", Cat: model.Category{Name: "work"}, Start: baseDate.Add(9 * time.Hour), End: baseDate.Add(12 * time.Hour)},
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 30*time.Minute)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
+		if !eventsEqualExceptingIDs(input, expected) {
 			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
-		categories := make([]Category, 0)
-		categories = append(categories, Category{Name: "eating", Priority: 0})
-		categories = append(categories, Category{Name: "work", Priority: 20})
-
 		testcase := "low prio contained in higher prio"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("09:00|14:00|work|Work", categories),
-			NewEvent("12:00|12:30|eating|Lunch", categories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Work", Cat: model.Category{Name: "work"}, Start: baseDate.Add(9 * time.Hour), End: baseDate.Add(14 * time.Hour)},
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 30*time.Minute)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("09:00|14:00|work|Work", categories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Work", Cat: model.Category{Name: "work"}, Start: baseDate.Add(9 * time.Hour), End: baseDate.Add(14 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected.ToSlice(), input.ToSlice())
+		if !eventsEqualExceptingIDs(input, expected) {
+			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
-		categories := make([]Category, 0)
-		categories = append(categories, Category{Name: "eating", Priority: 0})
-		categories = append(categories, Category{Name: "work", Priority: 20})
-
 		testcase := "high prio contained in lower prio"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("12:00|13:00|eating|Lunch", categories),
-			NewEvent("12:25|12:35|work|Check that one Email quickly", categories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(13 * time.Hour)},
+			&model.Event{Name: "Check that one Email quickly", Cat: model.Category{Name: "work"}, Start: baseDate.Add(12*time.Hour + 25*time.Minute), End: baseDate.Add(12*time.Hour + 35*time.Minute)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("12:00|12:25|eating|Lunch", categories),
-			NewEvent("12:25|12:35|work|Check that one Email quickly", categories),
-			NewEvent("12:35|13:00|eating|Lunch", categories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 25*time.Minute)},
+			&model.Event{Name: "Check that one Email quickly", Cat: model.Category{Name: "work"}, Start: baseDate.Add(12*time.Hour + 25*time.Minute), End: baseDate.Add(12*time.Hour + 35*time.Minute)},
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12*time.Hour + 35*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected.ToSlice(), input.ToSlice())
+		if !eventsEqualExceptingIDs(input, expected) {
+			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
-		categories := make([]Category, 0)
-		categories = append(categories, Category{Name: "eating", Priority: 0})
-		categories = append(categories, Category{Name: "work", Priority: 20})
-
 		testcase := "high prio contained in lower prio such that lower former becomes zero-length"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("12:00|13:00|eating|Lunch", categories),
-			NewEvent("12:00|12:10|work|Get suckered into checking that thing real quick", categories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(13 * time.Hour)},
+			&model.Event{Name: "Get suckered into checking that thing real quick", Cat: model.Category{Name: "work"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 10*time.Minute)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("12:00|12:10|work|Get suckered into checking that thing real quick", categories),
-			NewEvent("12:10|13:00|eating|Lunch", categories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Get suckered into checking that thing real quick", Cat: model.Category{Name: "work"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 10*time.Minute)},
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12*time.Hour + 10*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
+		if !eventsEqualExceptingIDs(input, expected) {
 			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
-		categories := make([]Category, 0)
-		categories = append(categories, Category{Name: "eating", Priority: 0})
-		categories = append(categories, Category{Name: "work", Priority: 20})
-
 		testcase := "high prio contained in lower prio such that lower latter becomes zero-length"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("12:00|13:00|eating|Lunch", categories),
-			NewEvent("12:40|13:00|work|Reply to that one email even though it could wait 15 minutes", categories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(13 * time.Hour)},
+			&model.Event{Name: "Reply to that one email even though it could wait 15 minutes", Cat: model.Category{Name: "work"}, Start: baseDate.Add(12*time.Hour + 40*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("12:00|12:40|eating|Lunch", categories),
-			NewEvent("12:40|13:00|work|Reply to that one email even though it could wait 15 minutes", categories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 40*time.Minute)},
+			&model.Event{Name: "Reply to that one email even though it could wait 15 minutes", Cat: model.Category{Name: "work"}, Start: baseDate.Add(12*time.Hour + 40*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
+		if !eventsEqualExceptingIDs(input, expected) {
 			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
-		categories := make([]Category, 0)
-		categories = append(categories, Category{Name: "a", Priority: 0})
-		categories = append(categories, Category{Name: "b", Priority: 1})
-		categories = append(categories, Category{Name: "c", Priority: 2})
-
 		testcase := "high prio contained in lower prio such that lower former becomes zero-length, but sort is needed"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("12:00|13:00|a|A", categories),
-			NewEvent("12:00|12:20|b|B", categories),
-			NewEvent("12:10|12:30|c|C", categories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "A", Cat: model.Category{Name: "a"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(13 * time.Hour)},
+			&model.Event{Name: "B", Cat: model.Category{Name: "b"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 20*time.Minute)},
+			&model.Event{Name: "C", Cat: model.Category{Name: "c"}, Start: baseDate.Add(12*time.Hour + 10*time.Minute), End: baseDate.Add(12*time.Hour + 30*time.Minute)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("12:00|12:10|b|B", categories),
-			NewEvent("12:10|12:30|c|C", categories),
-			NewEvent("12:30|13:00|a|A", categories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "B", Cat: model.Category{Name: "b"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 10*time.Minute)},
+			&model.Event{Name: "C", Cat: model.Category{Name: "c"}, Start: baseDate.Add(12*time.Hour + 10*time.Minute), End: baseDate.Add(12*time.Hour + 30*time.Minute)},
+			&model.Event{Name: "A", Cat: model.Category{Name: "a"}, Start: baseDate.Add(12*time.Hour + 30*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
+		if !eventsEqualExceptingIDs(input, expected) {
 			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
-		categories := make([]Category, 0)
-		categories = append(categories, Category{Name: "eating", Priority: 0})
-		categories = append(categories, Category{Name: "work", Priority: 20})
-
 		testcase := "high prio starting right at start of lower prio such that lower becomes zero-length"
-		input := *NewDay()
-		input.Events = []*Event{
-			NewEvent("12:00|13:00|eating|Lunch", categories),
-			NewEvent("12:00|15:00|work|Work through lunch break and beyond", categories),
+		input := &model.EventList{}
+		input.Events = []*model.Event{
+			&model.Event{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(13 * time.Hour)},
+			&model.Event{Name: "Work through lunch break and beyond", Cat: model.Category{Name: "work"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(15 * time.Hour)},
 		}
-		expected := *NewDay()
-		expected.Events = []*Event{
-			NewEvent("12:00|15:00|work|Work through lunch break and beyond", categories),
+		expected := &model.EventList{}
+		expected.Events = []*model.Event{
+			&model.Event{Name: "Work through lunch break and beyond", Cat: model.Category{Name: "work"}, Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(15 * time.Hour)},
 		}
 
 		input.Flatten()
-		if !eventsEqualExceptingIDs(&input, &expected) {
+		if !eventsEqualExceptingIDs(input, expected) {
 			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 }
 
 // comparison helper
-func eventsEqualExceptingIDs(a, b *Day) bool {
+func eventsEqualExceptingIDs(a, b *model.EventList) bool {
 	if len(a.Events) != len(b.Events) {
 		fmt.Fprintln(os.Stderr, "lengths different:", len(a.Events), len(b.Events))
 		return false
