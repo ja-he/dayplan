@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/storage/providers"
 	"github.com/ja-he/dayplan/internal/styling"
-	"github.com/ja-he/dayplan/internal/util"
 )
 
 // Flags for the `summarize` command line command, for `go-flags` to parse
@@ -92,9 +92,9 @@ func (command *SummarizeCommand) Execute(args []string) error {
 	}
 
 	// TODO: can probably make this mostly async?
-	days := make([]model.Day, 0)
+	days := make([]model.EventList, 0)
 	for currentDate != finalDate.Next() {
-		fh := providers.NewFileHandler(envData.BaseDirPath + "/days/" + currentDate.ToString())
+		fh := providers.NewFileHandler(path.Join(envData.BaseDirPath, "days"), currentDate)
 		categories := make([]model.Category, 0)
 		for _, cat := range styledCategories.GetAll() {
 			categories = append(categories, cat.Cat)
@@ -109,7 +109,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		return ok
 	}
 
-	totalSummary := make(map[model.Category]int)
+	totalSummary := make(map[model.Category]time.Duration)
 	for _, day := range days {
 		daySummary := day.SumUpByCategory()
 		for category, duration := range daySummary {
@@ -135,7 +135,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 
 		var durationStr string
 		if Opts.SummarizeCommand.HumanReadable {
-			durationStr = fmt.Sprint(util.DurationToString(duration))
+			durationStr = fmt.Sprint(duration.String())
 		} else {
 			durationStr = fmt.Sprint(duration, " min")
 		}

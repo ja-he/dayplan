@@ -19,7 +19,7 @@ import (
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/storage"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/tui"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -29,31 +29,14 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// TODO: this absolutely does not belong here
-func (c *Controller) getDayFromFileHandler(date model.Date) *model.Day {
-	c.fhMutex.RLock()
-	fh, ok := c.FileHandlers[date]
-	c.fhMutex.RUnlock()
-	if ok {
-		tmp := fh.Read(c.data.Categories)
-		return tmp
-	} else {
-		newHandler := providers.NewFileHandler(c.data.EnvData.BaseDirPath + "/days/" + date.ToString())
-		c.fhMutex.Lock()
-		c.FileHandlers[date] = newHandler
-		c.fhMutex.Unlock()
-		tmp := newHandler.Read(c.data.Categories)
-		return tmp
-	}
-}
-
 // Controller is the struct for the TUI controller.
 type Controller struct {
 	data     *control.ControlData
 	rootPane *panes.RootPane
 
-	fhMutex          sync.RWMutex
-	FileHandlers     map[model.Date]*providers.FileHandler
+	dataProvider     storage.DataProvider
+	suntimesProvider storage.SunTimesProvider
+
 	controllerEvents chan controllerEvent
 
 	// TODO: remove, obviously
@@ -70,6 +53,9 @@ type Controller struct {
 	screenEvents      tui.EventPollable
 	initializedScreen tui.InitializedScreen
 	syncer            tui.ScreenSynchronizer
+
+	// TODO: try to get rid of this
+	ensureEventsPaneTimestampWithinVisibleScroll func(time.Time)
 }
 
 // NewController creates a new Controller.
@@ -151,10 +137,9 @@ func NewController(
 	}()
 	if err != nil {
 		return nil, fmt.Errorf("could not read backlog at '%s' (%w)", backlogFilePath, err)
-	} else {
-		log.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
 	}
-	log.Info().Msg("just testing because this should be just dandy")
+
+	log.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
 
 	tasksWidth := 40
 	toolsWidth := func() int {
@@ -197,11 +182,21 @@ func NewController(
 	}
 
 	eventsViewBaseInputMap := map[input.Keyspec]action.Action{
-		"w": action.NewSimple(func() string { return "write day to file" }, controller.writeModel),
+		"w": action.NewSimple(func() string { return "write day to file" }, func() {
+			err := controller.dataProvider.CommitState()
+			if err != nil {
+				log.Error().Err(err).Msg("could not write / commit")
+			}
+		}),
 		"h": action.NewSimple(func() string { return "go to previous day" }, controller.goToPreviousDay),
 		"l": action.NewSimple(func() string { return "go to next day" }, controller.goToNextDay),
-		"c": action.NewSimple(func() string { return "clear day's events" }, func() {
-			controller.data.Days.AddDay(controller.data.CurrentDate, model.NewDay(), controller.data.GetCurrentSuntimes())
+		"0D": action.NewSimple(func() string { return "clear day's events" }, func() {
+			events, err := controller.getCurrentDayEvents()
+			if err != nil {
+				log.Error().Err(err).Msg("could not get events for current day")
+				return
+			}
+			controller.dataProvider.RemoveEvents(events)
 		}),
 	}
 
@@ -276,8 +271,15 @@ func NewController(
 			weekdayDimensions(dayIndex),
 			stylesheet,
 			processors.NewModalInputProcessor(weekdayPaneInputTree),
-			func() *model.Day {
-				return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInWeek(dayIndex))
+			func() (model.Date, *model.EventList, error) {
+				startOfDay := controller.data.CurrentDate.GetDayInWeek(dayIndex).ToGotime()
+				endOfDay := startOfDay.Add(24 * time.Hour)
+				events, err := controller.dataProvider.GetEventsCoveringTimerange(startOfDay, endOfDay)
+				if err != nil {
+					log.Warn().Err(err).Time("start-of-day", startOfDay).Time("end-of-day", endOfDay).Msg("could not get events for day")
+					return model.Date{}, nil, fmt.Errorf("could not get events for day %d of this week (%w)", dayIndex, err)
+				}
+				return model.DateFromGotime(startOfDay), &model.EventList{Events: events}, nil
 			},
 			categoryStyling.GetStyle,
 			&controller.data.MainTimelineViewParams,
@@ -313,8 +315,15 @@ func NewController(
 				monthdayDimensions(dayIndex),
 				stylesheet,
 				processors.NewModalInputProcessor(monthdayPaneInputTree),
-				func() *model.Day {
-					return controller.data.Days.GetDay(controller.data.CurrentDate.GetDayInMonth(dayIndex))
+				func() (model.Date, *model.EventList, error) {
+					startOfDay := controller.data.CurrentDate.GetDayInMonth(dayIndex).ToGotime()
+					endOfDay := startOfDay.Add(24 * time.Hour)
+					events, err := controller.dataProvider.GetEventsCoveringTimerange(startOfDay, endOfDay)
+					if err != nil {
+						log.Warn().Err(err).Time("start-of-day", startOfDay).Time("end-of-day", endOfDay).Msg("could not get events for day")
+						return model.Date{}, nil, fmt.Errorf("could not get events for day %d of month (%w)", dayIndex, err)
+					}
+					return model.DateFromGotime(startOfDay), &model.EventList{Events: events}, nil
 				},
 				categoryStyling.GetStyle,
 				&controller.data.MainTimelineViewParams,
@@ -453,7 +462,7 @@ func NewController(
 				}
 				newEvents := scheduledTask.ToEvent(*when, namePrefix)
 				for _, newEvent := range newEvents {
-					controller.data.GetCurrentDay().AddEvent(newEvent)
+					controller.dataProvider.AddEvent(*newEvent)
 				}
 			}
 		}
@@ -704,42 +713,31 @@ func NewController(
 	}
 
 	// TODO(ja-he): move elsewhere
-	ensureEventsPaneTimestampVisible := func(time model.Timestamp) {
+	controller.ensureEventsPaneTimestampWithinVisibleScroll = func(t time.Time) {
+		ts := *model.NewTimestampFromGotime(t)
 		topRowTime := controller.data.MainTimelineViewParams.TimeAtY(0)
-		if topRowTime.IsAfter(time) {
-			controller.data.MainTimelineViewParams.ScrollOffset += (controller.data.MainTimelineViewParams.YForTime(time))
+		if topRowTime.IsAfter(ts) {
+			controller.data.MainTimelineViewParams.ScrollOffset += (controller.data.MainTimelineViewParams.YForTime(ts))
 		}
 		_, _, _, maxY := dayViewEventsPaneDimensions()
 		bottomRowTime := controller.data.MainTimelineViewParams.TimeAtY(maxY)
-		if time.IsAfter(bottomRowTime) {
-			controller.data.MainTimelineViewParams.ScrollOffset += ((controller.data.MainTimelineViewParams.YForTime(time)) - maxY)
+		if ts.IsAfter(bottomRowTime) {
+			controller.data.MainTimelineViewParams.ScrollOffset += ((controller.data.MainTimelineViewParams.YForTime(ts)) - maxY)
 		}
 	}
 	var startMovePushing func()
 	// TODO: directly?
 	eventsPaneDayInputExtension := map[input.Keyspec]action.Action{
-		"j": action.NewSimple(func() string { return "switch to next event" }, func() {
-			controller.data.GetCurrentDay().CurrentNext()
-			if controller.data.GetCurrentDay().Current != nil {
-				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
-				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
-			}
-		}),
-		"k": action.NewSimple(func() string { return "switch to previous event" }, func() {
-			controller.data.GetCurrentDay().CurrentPrev()
-			if controller.data.GetCurrentDay().Current != nil {
-				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
-				ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
-			}
-		}),
+		"j": action.NewSimple(func() string { return "switch to next event" }, controller.switchToNextEventInDay),
+		"k": action.NewSimple(func() string { return "switch to previous event" }, controller.switchToPreviousEventInDay),
 		"d": action.NewSimple(func() string { return "delete selected event" }, func() {
-			event := controller.data.GetCurrentDay().Current
+			event := controller.data.CurrentEvent
 			if event != nil {
-				controller.data.GetCurrentDay().RemoveEvent(event)
+				controller.dataProvider.RemoveEvent(event)
 			}
 		}),
 		"<cr>": action.NewSimple(func() string { return "open the event editor" }, func() {
-			event := controller.data.GetCurrentDay().Current
+			event := controller.data.CurrentEvent
 			if event == nil {
 				log.Warn().Msgf("ignoring event editing request since no current event selected")
 				return
@@ -786,77 +784,92 @@ func NewController(
 			}()
 		}),
 		"o": action.NewSimple(func() string { return "add event after selected" }, func() {
-			current := controller.data.GetCurrentDay().Current
+			current := controller.data.CurrentEvent
 			newEvent := &model.Event{
 				Name: "",
 				Cat:  controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.Start = model.NewTimestampFromGotime(time.Now()).
-					Snap(int(controller.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
+				newEvent.Start = time.Now()
 			} else {
 				newEvent.Start = current.End
 			}
-			eventAfter := controller.data.GetCurrentDay().GetNextEventAfter(newEvent.Start)
-			if eventAfter != nil && newEvent.Start.DurationInMinutesUntil(eventAfter.Start) < 60 {
+			eventAfter, err := controller.dataProvider.GetEventAfter(newEvent.Start)
+			if err != nil {
+				log.Warn().Err(err).Msg("could not get event after")
+			}
+			if eventAfter != nil && eventAfter.Start.Sub(newEvent.Start).Minutes() < 60 {
 				newEvent.End = eventAfter.Start
 			} else {
-				newEvent.End = newEvent.Start.OffsetMinutes(60)
+				newEvent.End = newEvent.Start.Add(60 * time.Minute)
 			}
-			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureEventsPaneTimestampVisible(newEvent.End)
+			controller.dataProvider.AddEvent(*newEvent)
+			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.End)
 		}),
 		"O": action.NewSimple(func() string { return "add event before selected" }, func() {
-			current := controller.data.GetCurrentDay().Current
+			current := controller.data.CurrentEvent
 			newEvent := &model.Event{
 				Name: "",
 				Cat:  controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.End = model.NewTimestampFromGotime(time.Now()).
-					Snap(int(controller.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
+				newEvent.End = time.Now()
 			} else {
 				newEvent.End = current.Start
 			}
-			eventBefore := controller.data.GetCurrentDay().GetPrevEventBefore(newEvent.End)
-			if eventBefore != nil && eventBefore.End.DurationInMinutesUntil(newEvent.End) < 60 {
+			eventBefore, err := controller.dataProvider.GetEventBefore(newEvent.End)
+			if err != nil {
+				log.Warn().Err(err).Msgf("could not get event before %s from data provider", newEvent.End.String())
+				return
+			}
+			if eventBefore != nil && newEvent.End.Sub(eventBefore.End).Minutes() < 60 {
 				newEvent.Start = eventBefore.End
 			} else {
-				newEvent.Start = newEvent.End.OffsetMinutes(-60)
+				newEvent.Start = newEvent.End.Add(-60 * time.Minute)
 			}
-			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureEventsPaneTimestampVisible(newEvent.Start)
+			controller.dataProvider.AddEvent(*newEvent)
+			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.Start)
 		}),
 		"<c-o>": action.NewSimple(func() string { return "add event now" }, func() {
 			newEvent := &model.Event{
 				Name: "",
 				Cat:  controller.data.CurrentCategory,
 			}
-			newEvent.Start = *model.NewTimestampFromGotime(time.Now())
-			eventAfter := controller.data.GetCurrentDay().GetNextEventAfter(newEvent.Start)
-			if eventAfter != nil && newEvent.Start.DurationInMinutesUntil(eventAfter.Start) < 60 {
+			newEvent.Start = time.Now()
+			eventAfter, err := controller.dataProvider.GetEventAfter(newEvent.Start)
+			if err != nil {
+				log.Warn().Err(err).Msgf("could not get event after %s", newEvent.Start.String())
+				return
+			}
+			if eventAfter != nil && eventAfter.Start.Sub(newEvent.Start).Minutes() < 60 {
 				newEvent.End = eventAfter.Start
 			} else {
-				newEvent.End = newEvent.Start.OffsetMinutes(60)
+				newEvent.End = newEvent.Start.Add(60 * time.Minute)
 			}
-			controller.data.GetCurrentDay().AddEvent(newEvent)
-			ensureEventsPaneTimestampVisible(newEvent.Start)
+			controller.dataProvider.AddEvent(*newEvent)
+			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.Start)
 		}),
 		"sn": action.NewSimple(func() string { return "split selected event now" }, func() {
-			current := controller.data.GetCurrentDay().Current
+			current := controller.data.CurrentEvent
 			if current == nil {
 				return
 			}
-			now := model.NewTimestampFromGotime(time.Now())
-			controller.data.GetCurrentDay().SplitEvent(current, *now)
+			now := time.Now()
+			if err := controller.dataProvider.SplitEvent(current, now); err != nil {
+				log.Warn().Err(err).Msgf("could not split event at %s", now.String())
+				return
+			}
 		}),
 		"sc": action.NewSimple(func() string { return "split selected event at its center" }, func() {
-			current := controller.data.GetCurrentDay().Current
+			current := controller.data.CurrentEvent
 			if current == nil {
 				return
 			}
-			center := current.Start.OffsetMinutes(current.Start.DurationInMinutesUntil(current.End) / 2)
-			controller.data.GetCurrentDay().SplitEvent(current, center)
+			center := current.Start.Add(current.End.Sub(current.Start) / 2)
+			if err := controller.dataProvider.SplitEvent(current, center); err != nil {
+				log.Warn().Err(err).Msgf("could not split event at %s", center.String())
+				return
+			}
 		}),
 		"M": action.NewSimple(func() string { return "start move pushing" }, func() { startMovePushing() }),
 	}
@@ -902,7 +915,16 @@ func NewController(
 		dayViewEventsPaneDimensions,
 		stylesheet,
 		processors.NewModalInputProcessor(dayViewEventsPaneInputTree),
-		controller.data.GetCurrentDay,
+		func() (model.Date, *model.EventList, error) {
+			d := controller.data.CurrentDate
+			startOfDay := d.ToGotime()
+			endOfDay := startOfDay.Add(24 * time.Hour)
+			l, err := controller.dataProvider.GetEventsCoveringTimerange(startOfDay, endOfDay)
+			if err != nil {
+				return model.Date{}, nil, fmt.Errorf("could not get events for day (%w)", err)
+			}
+			return d, &model.EventList{Events: l}, nil
+		},
 		categoryStyling.GetStyle,
 		&controller.data.MainTimelineViewParams,
 		&controller.data.CursorPos,
@@ -911,11 +933,11 @@ func NewController(
 		true,
 		true,
 		func() bool { return true },
-		func() *model.Event { return controller.data.GetCurrentDay().Current },
+		func() *model.Event { return controller.data.CurrentEvent },
 		func() bool { return controller.data.MouseMode },
 	)
 	startMovePushing = func() {
-		if controller.data.GetCurrentDay().Current == nil {
+		if controller.data.CurrentEvent == nil {
 			return
 		}
 
@@ -923,26 +945,14 @@ func NewController(
 			map[input.Keyspec]action.Action{
 				"n": action.NewSimple(func() string { return "move to now" }, func() { panic("TODO") }),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
-					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
-						controller.data.GetCurrentDay().Current,
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
-					)
-					if err != nil {
-						panic(err)
+					if err := controller.moveEventsForwardPushing(); err != nil {
+						log.Error().Err(err).Msg("could not move events")
 					}
-					ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
-					err := controller.data.GetCurrentDay().MoveEventsPushingBy(
-						controller.data.GetCurrentDay().Current,
-						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
-					)
-					if err != nil {
-						panic(err)
+					if err := controller.moveEventsBackwardPushing(); err != nil {
+						log.Error().Err(err).Msg("could not move events")
 					}
-					ensureEventsPaneTimestampVisible(controller.data.GetCurrentDay().Current.Start)
 				}),
 				"M":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
@@ -1026,48 +1036,43 @@ func NewController(
 	}
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event move mode" }, func() {
-		if controller.data.GetCurrentDay().Current == nil {
+		if controller.data.CurrentEvent == nil {
 			return
 		}
 
 		eventMoveOverlay, err := input.ConstructInputTree(
 			map[input.Keyspec]action.Action{
 				"n": action.NewSimple(func() string { return "move to now" }, func() {
-					current := controller.data.GetCurrentDay().Current
-					newStart := *model.NewTimestampFromGotime(time.Now())
-					controller.data.GetCurrentDay().MoveSingleEventTo(current, newStart)
-					ensureEventsPaneTimestampVisible(current.Start)
-					ensureEventsPaneTimestampVisible(current.End)
+					current := controller.data.CurrentEvent
+					newStart := time.Now()
+					newEnd := current.End.Add(newStart.Sub(current.Start))
+					controller.dataProvider.SetEventTimes(current, newStart, newEnd)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.Start)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.End)
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
-					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(
-						current,
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
-					)
-					ensureEventsPaneTimestampVisible(current.End)
+					current := controller.data.CurrentEvent
+					controller.dataProvider.SnapEventTimes(current, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					controller.dataProvider.OffsetEventTimes(current, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
-					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().MoveSingleEventBy(
-						current,
-						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
-					)
-					ensureEventsPaneTimestampVisible(current.Start)
+					current := controller.data.CurrentEvent
+					controller.dataProvider.SnapEventTimes(current, -controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					controller.dataProvider.OffsetEventTimes(current, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.Start)
 				}),
 				"h": action.NewSimple(func() string { return "move to previous day" }, func() {
-					event := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().RemoveEvent(event)
+					event := controller.data.CurrentEvent
+					controller.dataProvider.RemoveEvent(event)
 					controller.goToPreviousDay()
-					controller.data.GetCurrentDay().AddEvent(event)
+					controller.dataProvider.AddEvent(*event)
 				}),
 				"l": action.NewSimple(func() string { return "move to next day" }, func() {
-					event := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().RemoveEvent(event)
+					event := controller.data.CurrentEvent
+					controller.dataProvider.RemoveEvent(event)
 					controller.goToNextDay()
-					controller.data.GetCurrentDay().AddEvent(event)
+					controller.dataProvider.AddEvent(*event)
 				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
@@ -1080,48 +1085,48 @@ func NewController(
 		controller.data.EventEditMode = edit.EventEditModeMove
 	})}
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'r'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event resize mode" }, func() {
-		if controller.data.GetCurrentDay().Current == nil {
+		if controller.data.CurrentEvent == nil {
 			return
 		}
 
 		eventResizeOverlay, err := input.ConstructInputTree(
 			map[input.Keyspec]action.Action{
 				"n": action.NewSimple(func() string { return "resize to now" }, func() {
-					current := controller.data.GetCurrentDay().Current
-					newEnd := *model.NewTimestampFromGotime(time.Now())
-					controller.data.GetCurrentDay().ResizeTo(current, newEnd)
-					ensureEventsPaneTimestampVisible(newEnd)
+					current := controller.data.CurrentEvent
+					newEnd := time.Now()
+					controller.dataProvider.SetEventEnd(current, newEnd)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(newEnd)
 				}),
 				"j": action.NewSimple(func() string { return "increase size (lengthen)" }, func() {
 					var err error
-					current := controller.data.GetCurrentDay().Current
-					err = controller.data.GetCurrentDay().ResizeBy(
+					current := controller.data.CurrentEvent
+					err = controller.dataProvider.OffsetEventEnd(
 						current,
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to resize")
 					}
-					err = controller.data.GetCurrentDay().SnapEnd(
+					err = controller.dataProvider.SnapEventEnd(
 						current,
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to snap")
 					}
-					ensureEventsPaneTimestampVisible(current.End)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.End)
 				}),
 				"k": action.NewSimple(func() string { return "decrease size (shorten)" }, func() {
-					current := controller.data.GetCurrentDay().Current
-					controller.data.GetCurrentDay().ResizeBy(
+					current := controller.data.CurrentEvent
+					controller.dataProvider.OffsetEventEnd(
 						current,
-						-int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						-controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
-					controller.data.GetCurrentDay().SnapEnd(
+					controller.dataProvider.SnapEventEnd(
 						current,
-						int(controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute),
+						controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
-					ensureEventsPaneTimestampVisible(current.End)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.End)
 				}),
 				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
@@ -1201,13 +1206,13 @@ func NewController(
 				ui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),
 				dayViewTimelineDimensions,
 				stylesheet,
-				controller.data.GetCurrentSuntimes,
+				func() model.SunTimes { return controller.suntimesProvider.GetSuntimes(controller.data.CurrentDate) },
 				func() *model.Timestamp {
-					if controller.data.CurrentDate.Is(time.Now()) {
-						return model.NewTimestampFromGotime(time.Now())
-					} else {
-						return nil
+					now := time.Now()
+					if controller.data.CurrentDate.Is(now) {
+						return model.NewTimestampFromGotime(now)
 					}
+					return nil
 				},
 				&controller.data.MainTimelineViewParams,
 			),
@@ -1273,7 +1278,9 @@ func NewController(
 				ui.NewConstrainedRenderer(renderer, weekViewTimelineDimensions),
 				weekViewTimelineDimensions,
 				stylesheet,
-				func() *model.SunTimes { return nil },
+				func() model.SunTimes {
+					return controller.suntimesProvider.GetSuntimes(controller.data.CurrentDate.GetDayInWeek(0))
+				},
 				func() *model.Timestamp { return nil },
 				&controller.data.MainTimelineViewParams,
 			),
@@ -1295,7 +1302,9 @@ func NewController(
 				ui.NewConstrainedRenderer(renderer, monthViewTimelineDimensions),
 				monthViewTimelineDimensions,
 				stylesheet,
-				func() *model.SunTimes { return nil },
+				func() model.SunTimes {
+					return controller.suntimesProvider.GetSuntimes(controller.data.CurrentDate.GetDayInMonth(0))
+				},
 				func() *model.Timestamp { return nil },
 				&controller.data.MainTimelineViewParams,
 			),
@@ -1376,41 +1385,16 @@ func NewController(
 				dateString := ""
 				switch controller.data.ActiveView() {
 				case ui.ViewDay:
-					dateString = controller.data.CurrentDate.ToString()
+					dateString = controller.data.CurrentDate.String()
 				case ui.ViewWeek:
 					start, end := controller.data.CurrentDate.WeekBounds()
-					dateString = fmt.Sprintf("week %s..%s", start.ToString(), end.ToString())
+					dateString = fmt.Sprintf("week %s..%s", start.String(), end.String())
 				case ui.ViewMonth:
 					dateString = fmt.Sprintf("%s %d", controller.data.CurrentDate.ToGotime().Month().String(), controller.data.CurrentDate.Year)
 				}
 				return fmt.Sprintf("SUMMARY (%s)", dateString)
 			},
-			func() []*model.Day {
-				switch controller.data.ActiveView() {
-				case ui.ViewDay:
-					result := make([]*model.Day, 1)
-					result[0] = controller.data.Days.GetDay(controller.data.CurrentDate)
-					return result
-				case ui.ViewWeek:
-					result := make([]*model.Day, 7)
-					start, end := controller.data.CurrentDate.WeekBounds()
-					for current, i := start, 0; current != end.Next(); current = current.Next() {
-						result[i] = controller.data.Days.GetDay(current)
-						i++
-					}
-					return result
-				case ui.ViewMonth:
-					start, end := controller.data.CurrentDate.MonthBounds()
-					result := make([]*model.Day, end.Day)
-					for current, i := start, 0; current != end.Next(); current = current.Next() {
-						result[i] = controller.data.Days.GetDay(current)
-						i++
-					}
-					return result
-				default:
-					panic("unknown view in summary data gathering")
-				}
-			},
+			controller.getCurrentViewEvents,
 			&categoryStyling,
 			processors.NewModalInputProcessor(summaryPaneInputTree),
 		),
@@ -1438,13 +1422,11 @@ func NewController(
 	rootPaneInputTree.Root.Children[input.Key{Key: tcell.KeyESC}] = &input.Node{
 		Action: action.NewSimple(func() string { return "view up" }, func() {
 			rootPane.ViewUp()
-			controller.loadDaysForView(controller.data.ActiveView())
 		}),
 	}
 	rootPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'i'}] = &input.Node{
 		Action: action.NewSimple(func() string { return "view down" }, func() {
 			rootPane.ViewDown()
-			controller.loadDaysForView(controller.data.ActiveView())
 		}),
 	}
 
@@ -1469,21 +1451,23 @@ func NewController(
 		}
 	}
 
-	// process latitude longitude
-	// TODO
-	var suntimes model.SunTimes
+	// TODO/NOTE:
+	//   imo here it emerges that the ENV should be verified in the beginning of
+	//   the program and that perhaps even the suntimes provicer should be passed
+	//   pre-inited to the controller setup
 	if !coordinatesProvided {
 		log.Error().Msg("could not fetch lat-&longitude -> no sunrise/-set times known")
 	} else {
-		latF, parseErrLat := strconv.ParseFloat(envData.Latitude, 64)
-		lonF, parseErrLon := strconv.ParseFloat(envData.Longitude, 64)
+		_, parseErrLat := strconv.ParseFloat(envData.Latitude, 64)
+		_, parseErrLon := strconv.ParseFloat(envData.Longitude, 64)
 		if parseErrLon != nil || parseErrLat != nil {
 			log.Error().
 				Interface("lon-parse-error", parseErrLon).
 				Interface("lat-parse-error", parseErrLat).
 				Msg("could not parse longitude/latitude")
+			controller.suntimesProvider = nil
 		} else {
-			suntimes = date.GetSunTimes(latF, lonF)
+			panic("TODO: make a suntimes provider with the lat/lon parsed above")
 		}
 	}
 
@@ -1491,22 +1475,8 @@ func NewController(
 	controller.data.EnvData = envData
 	controller.screenEvents = renderer.GetEventPollable()
 
-	controller.fhMutex.Lock()
-	defer controller.fhMutex.Unlock()
-	controller.FileHandlers = make(map[model.Date]*providers.FileHandler)
-	controller.FileHandlers[date] = providers.NewFileHandler(controller.data.EnvData.BaseDirPath + "/days/" + date.ToString())
-
-	controller.data.CurrentDate = date
-	if controller.FileHandlers[date] == nil {
-		controller.data.Days.AddDay(date, &model.Day{}, &suntimes)
-	} else {
-		controller.data.Days.AddDay(date, controller.FileHandlers[date].Read(controller.data.Categories), &suntimes)
-	}
-
 	controller.rootPane = rootPane
 	controller.data.CurrentCategory.Name = "default"
-
-	controller.loadDaysForView(controller.data.ActiveView())
 
 	controller.timestampGuesser = func(cursorX, cursorY int) model.Timestamp {
 		_, yOffset, _, _ := dayViewEventsPaneDimensions()
@@ -1560,14 +1530,13 @@ func (c *Controller) endEdit() {
 		c.data.EventEditor.Quit()
 		c.data.EventEditor = nil
 	}
-	c.data.GetCurrentDay().UpdateEventOrder()
 	c.rootPane.PopSubpane() // TODO: this will need to be re-done conceptually
 }
 
 func (c *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
 	c.data.MouseEditState = edit.MouseEditStateMoving
 	c.data.MouseEditedEvent = eventsInfo.Event
-	c.data.CurrentMoveStartingOffsetMinutes = eventsInfo.Event.Start.DurationInMinutesUntil(eventsInfo.Time)
+	c.data.CurrentMoveStartingOffset = eventsInfo.Time.Sub(eventsInfo.Event.Start)
 }
 
 func (c *Controller) startMouseResize(eventsInfo *ui.EventsPanePositionInfo) {
@@ -1575,20 +1544,37 @@ func (c *Controller) startMouseResize(eventsInfo *ui.EventsPanePositionInfo) {
 	c.data.MouseEditedEvent = eventsInfo.Event
 }
 
-func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
-	// find out cursor time
-	start := info.Time
+func (c *Controller) getDateAtCursor() model.Date {
+	var dateAtCursor model.Date
+	av := c.data.ActiveView()
+	switch av {
+	case ui.ViewDay:
+		dateAtCursor = c.data.CurrentDate
+	case ui.ViewWeek:
+		dateAtCursor = c.data.CurrentDate.GetDayInWeek(0)
+	case ui.ViewMonth:
+		dateAtCursor = c.data.CurrentDate.GetDayInMonth(0)
+	default:
+		log.Fatal().Int("view", int(av)).Msg("unknown view encountered")
+	}
+	return dateAtCursor
+}
 
-	log.Debug().Str("position-time", info.Time.ToString()).Msg("creation called")
+func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
+	timeAtCursor := info.Time
+
+	eventStartTime := timeAtCursor
+
+	log.Debug().Str("position-time", info.Time.String()).Msg("creation called")
 
 	// create event at time with cat etc.
 	e := model.Event{}
 	e.Cat = c.data.CurrentCategory
 	e.Name = ""
-	e.Start = start
-	e.End = start.OffsetMinutes(+10)
+	e.Start = eventStartTime
+	e.End = eventStartTime.Add(c.data.MainTimelineViewParams.DurationOfHeight(1))
 
-	err := c.data.GetCurrentDay().AddEvent(&e)
+	err := c.dataProvider.AddEvent(e)
 	if err != nil {
 		log.Error().Err(err).Interface("event", e).Msg("error occurred adding event")
 	} else {
@@ -1598,10 +1584,8 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 }
 
 func (c *Controller) goToDay(newDate model.Date) {
-	log.Debug().Str("new-date", newDate.ToString()).Msg("going to new date")
-
+	log.Debug().Str("new-date", newDate.String()).Msg("going to new date")
 	c.data.CurrentDate = newDate
-	c.loadDaysForView(c.data.ActiveView())
 }
 
 func (c *Controller) goToPreviousDay() {
@@ -1612,77 +1596,6 @@ func (c *Controller) goToPreviousDay() {
 func (c *Controller) goToNextDay() {
 	nextDay := c.data.CurrentDate.Next()
 	c.goToDay(nextDay)
-}
-
-// Loads the requested date's day from its file handler, if it has
-// not already been loaded.
-func (c *Controller) loadDay(date model.Date) {
-	if !c.data.Days.HasDay(date) {
-		// load file
-		newDay := c.getDayFromFileHandler(date)
-		if newDay == nil {
-			panic("newDay nil?!")
-		}
-
-		var suntimes model.SunTimes
-		coordinatesProvided := (c.data.EnvData.Latitude != "" && c.data.EnvData.Longitude != "")
-		if coordinatesProvided {
-			latF, parseErrLat := strconv.ParseFloat(c.data.EnvData.Latitude, 64)
-			lonF, parseErrLon := strconv.ParseFloat(c.data.EnvData.Longitude, 64)
-			if parseErrLon != nil || parseErrLat != nil {
-				log.Error().
-					Interface("lon-parse-error", parseErrLon).
-					Interface("lat-parse-error", parseErrLat).
-					Msg("could not parse longitude/latitude")
-			} else {
-				suntimes = date.GetSunTimes(latF, lonF)
-			}
-		}
-
-		c.data.Days.AddDay(date, newDay, &suntimes)
-	}
-}
-
-// Starts Loads for all days visible in the view.
-// E.g. for ui.ViewMonth it would start the load for all days from
-// first to last day of the month.
-// Warning: does not guarantee days will be loaded (non-nil) after
-// this returns.
-func (c *Controller) loadDaysForView(view ui.ActiveView) {
-	switch view {
-	case ui.ViewDay:
-		c.loadDay(c.data.CurrentDate)
-	case ui.ViewWeek:
-		{
-			monday, sunday := c.data.CurrentDate.WeekBounds()
-			for current := monday; current != sunday.Next(); current = current.Next() {
-				go func(d model.Date) {
-					c.loadDay(d)
-					c.controllerEvents <- controllerEventRender
-				}(current)
-			}
-		}
-	case ui.ViewMonth:
-		{
-			first, last := c.data.CurrentDate.MonthBounds()
-			for current := first; current != last.Next(); current = current.Next() {
-				go func(d model.Date) {
-					c.loadDay(d)
-					c.controllerEvents <- controllerEventRender
-				}(current)
-			}
-		}
-	default:
-		panic("unknown ActiveView")
-	}
-}
-
-func (c *Controller) writeModel() {
-	go func() {
-		c.fhMutex.RLock()
-		c.FileHandlers[c.data.CurrentDate].Write(c.data.GetCurrentDay())
-		c.fhMutex.RUnlock()
-	}()
 }
 
 func (c *Controller) updateCursorPos(x, y int) {
@@ -1728,11 +1641,11 @@ func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 		// if button clicked, handle
 		switch buttons {
 		case tcell.Button3:
-			c.data.GetCurrentDay().RemoveEvent(eventsInfo.Event)
+			c.dataProvider.RemoveEvent(eventsInfo.Event)
 		case tcell.Button2:
 			event := eventsInfo.Event
-			if event != nil && eventsInfo.Time.IsAfter(event.Start) {
-				c.data.GetCurrentDay().SplitEvent(event, eventsInfo.Time)
+			if event != nil && eventsInfo.Time.After(event.Start) {
+				c.dataProvider.SplitEvent(event, eventsInfo.Time)
 			}
 
 		case tcell.Button1:
@@ -1780,12 +1693,13 @@ func (c *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 
 		switch buttons {
 		case tcell.Button1:
-			cursorTime := c.timestampGuesser(x, y)
-			visualCursorTime := cursorTime.OffsetMinutes(int(c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute))
+			cursorDate := c.getDateAtCursor()
+			cursorTime := model.DateAndTimestampToGotime(cursorDate, c.timestampGuesser(x, y))
+			visualCursorTime := cursorTime.Add(c.data.MainTimelineViewParams.DurationOfHeight(1))
 			event := c.data.MouseEditedEvent
 
 			var err error
-			err = c.data.GetCurrentDay().ResizeTo(event, visualCursorTime)
+			err = c.dataProvider.SetEventEnd(event, visualCursorTime)
 			if err != nil {
 				log.Warn().Err(err).Msg("unable to resize")
 			}
@@ -1807,8 +1721,11 @@ func (c *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 
 		switch buttons {
 		case tcell.Button1:
-			cursorTime := c.timestampGuesser(x, y)
-			c.data.GetCurrentDay().MoveSingleEventTo(c.data.MouseEditedEvent, cursorTime.OffsetMinutes(-c.data.CurrentMoveStartingOffsetMinutes))
+			cursorDate := c.getDateAtCursor()
+			cursorTimestamp := c.timestampGuesser(x, y)
+			cursorTime := model.DateAndTimestampToGotime(cursorDate, cursorTimestamp)
+			newStartOfEvent := cursorTime.Add(-c.data.CurrentMoveStartingOffset)
+			c.dataProvider.OffsetEventTimes(c.data.MouseEditedEvent, newStartOfEvent.Sub(c.data.MouseEditedEvent.Start))
 		case tcell.ButtonNone:
 			c.endEdit()
 		}
@@ -1977,4 +1894,84 @@ func (c *Controller) Run() {
 	}()
 
 	wg.Wait()
+}
+
+func (c *Controller) getCurrentViewEvents() ([]*model.Event, error) {
+	av := c.data.ActiveView()
+	switch av {
+	case ui.ViewDay:
+		return c.getCurrentDayEvents()
+	case ui.ViewWeek:
+		return c.getCurrentWeekEvents()
+	case ui.ViewMonth:
+		return c.getCurrentMonthEvents()
+	default:
+		return nil, fmt.Errorf("unknown view (%d) in summary data gathering", av)
+	}
+}
+
+func (c *Controller) getCurrentDayEvents() ([]*model.Event, error) {
+	startTime := c.data.CurrentDate.ToGotime()
+	endTime := startTime.Add(24 * time.Hour)
+	events, err := c.dataProvider.GetEventsCoveringTimerange(startTime, endTime)
+	if err != nil {
+		return nil, fmt.Errorf("could not get events for current day (%w)", err)
+	}
+	return events, nil
+}
+
+func (c *Controller) getCurrentWeekEvents() ([]*model.Event, error) {
+	startTime := c.data.CurrentDate.ToGotime()
+	endTime := startTime.Add(7 * 24 * time.Hour)
+	events, err := c.dataProvider.GetEventsCoveringTimerange(startTime, endTime)
+	if err != nil {
+		return nil, fmt.Errorf("could not get events for current week (%w)", err)
+	}
+	return events, nil
+}
+
+func (c *Controller) getCurrentMonthEvents() ([]*model.Event, error) {
+	startTime := c.data.CurrentDate.ToGotime()
+	endTime := startTime.AddDate(0, 1, 0)
+	events, err := c.dataProvider.GetEventsCoveringTimerange(startTime, endTime)
+	if err != nil {
+		return nil, fmt.Errorf("could not get events for current month (%w)", err)
+	}
+	return events, nil
+}
+
+func (c *Controller) switchToNextEventInDay() {
+	if c.data.CurrentEvent != nil {
+		c.ensureEventsPaneTimestampWithinVisibleScroll(c.data.CurrentEvent.Start)
+		c.ensureEventsPaneTimestampWithinVisibleScroll(c.data.CurrentEvent.End)
+	}
+}
+
+func (c *Controller) switchToPreviousEventInDay() {
+	if c.data.CurrentEvent != nil {
+		c.ensureEventsPaneTimestampWithinVisibleScroll(c.data.CurrentEvent.Start)
+		c.ensureEventsPaneTimestampWithinVisibleScroll(c.data.CurrentEvent.End)
+	}
+}
+
+func (c *Controller) moveEventsForwardPushing() error {
+	pushDuration := c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute
+	pushResolution := c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute
+	return c.moveEventsPushingBy(pushDuration, pushResolution)
+}
+
+func (c *Controller) moveEventsBackwardPushing() error {
+	pushDuration := -c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute
+	pushResolution := c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute
+	return c.moveEventsPushingBy(pushDuration, pushResolution)
+}
+
+// moves events pushing other events
+//
+// d this is how "far" everything gets pushed.
+//
+// m is basically the "modulus", i.e. if something needs to get snapped to the
+// grid of visible resolution, this is that, not sure yet if needed really.
+func (c *Controller) moveEventsPushingBy(d, m time.Duration) error {
+	return fmt.Errorf("unimplemented (this should push for %s (with res %s))", d, m)
 }

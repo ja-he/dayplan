@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"github.com/ja-he/dayplan/internal/model"
 )
 
@@ -38,5 +40,5 @@ type StatusPanePositionInfo struct{}
 type EventsPanePositionInfo struct {
 	Event        *model.Event
 	EventBoxPart EventBoxPart
-	Time         model.Timestamp
+	Time         time.Time
 }

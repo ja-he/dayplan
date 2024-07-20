@@ -1,7 +1,7 @@
 package control
 
 import (
-	"sync"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/control/edit/editors"
@@ -55,7 +55,7 @@ func NextView(current ui.ActiveView) ui.ActiveView {
 // DayWithInfo represents a day with additional information, such as sunrise /
 // sunset times.
 type DayWithInfo struct {
-	Day      *model.Day
+	Day      *model.EventList
 	SunTimes *model.SunTimes
 }
 
@@ -67,9 +67,9 @@ type ControlData struct {
 
 	EnvData EnvData
 
-	Days        DaysData
-	CurrentDate model.Date
-	Weather     weather.Handler
+	CurrentDate  model.Date
+	CurrentEvent *model.Event
+	Weather      weather.Handler
 
 	EventEditor *editors.Composite
 	TaskEditor  *editors.Composite
@@ -89,23 +89,15 @@ type ControlData struct {
 	MouseMode     bool
 	EventEditMode edit.EventEditMode
 
-	MouseEditState                   edit.MouseEditState
-	MouseEditedEvent                 *model.Event
-	CurrentMoveStartingOffsetMinutes int
-}
-
-type DaysData struct {
-	daysMutex sync.RWMutex
-	days      map[model.Date]DayWithInfo
+	MouseEditState            edit.MouseEditState
+	MouseEditedEvent          *model.Event
+	CurrentMoveStartingOffset time.Duration
 }
 
 func NewControlData(cs styling.CategoryStyling) *ControlData {
 	var t ControlData
 
-	t.Days = DaysData{
-		days: make(map[model.Date]DayWithInfo),
-	}
-
+	// TODO: categories go to the provider as well i guess
 	t.Categories = make([]model.Category, 0)
 	for _, style := range cs.GetAll() {
 		t.Categories = append(t.Categories, style.Cat)
@@ -115,44 +107,4 @@ func NewControlData(cs styling.CategoryStyling) *ControlData {
 	t.MainTimelineViewParams.ScrollOffset = 8 * t.MainTimelineViewParams.NRowsPerHour
 
 	return &t
-}
-
-func (d *DaysData) HasDay(date model.Date) bool {
-	d.daysMutex.RLock()
-	defer d.daysMutex.RUnlock()
-	_, ok := d.days[date]
-	return ok
-}
-
-func (t *ControlData) GetCurrentDay() *model.Day {
-	return t.Days.GetDay(t.CurrentDate)
-}
-
-// Get the suntimes of the current date of the model.
-func (t *ControlData) GetCurrentSuntimes() *model.SunTimes {
-	return t.Days.GetSuntimes(t.CurrentDate)
-}
-
-// Get the suntimes of the provided date of the model.
-func (d *DaysData) GetSuntimes(date model.Date) *model.SunTimes {
-	d.daysMutex.RLock()
-	defer d.daysMutex.RUnlock()
-	return d.days[date].SunTimes
-}
-
-// Get the day of the provided date of the model.
-func (d *DaysData) GetDay(date model.Date) *model.Day {
-	d.daysMutex.RLock()
-	defer d.daysMutex.RUnlock()
-	return d.days[date].Day
-}
-
-func (d *DaysData) AddDay(date model.Date, day *model.Day, suntimes *model.SunTimes) {
-	if day == nil {
-		panic("will not add a nil model")
-	}
-
-	d.daysMutex.Lock()
-	defer d.daysMutex.Unlock()
-	d.days[date] = DayWithInfo{day, suntimes}
 }

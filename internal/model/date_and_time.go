@@ -83,8 +83,8 @@ func (d Date) Forward(by int) Date {
 	return d
 }
 
-// ToString returns the date as a string in the format "YYYY-MM-DD".
-func (d Date) ToString() string {
+// String returns the date as a string in the format "YYYY-MM-DD".
+func (d Date) String() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
@@ -129,7 +129,7 @@ func FromString(s string) (Date, error) {
 	case errD != nil:
 		err = fmt.Errorf("could not convert string '%s' (assuming YYYY-MM-DD format) to integers", s)
 	case !tmp.Valid():
-		err = fmt.Errorf("day %s (from string '%s') not valid", tmp.ToString(), s)
+		err = fmt.Errorf("day %s (from string '%s') not valid", tmp.String(), s)
 	default:
 		result.Day = int(day)
 		result.Month = int(month)
@@ -273,28 +273,6 @@ func (d Date) MonthBounds() (first Date, last Date) {
 	return first, last
 }
 
-// ToString returns the weekday as a string.
-func ToString(w time.Weekday) string {
-	switch w {
-	case time.Sunday:
-		return "Sunday"
-	case time.Monday:
-		return "Monday"
-	case time.Tuesday:
-		return "Tuesday"
-	case time.Wednesday:
-		return "Wednesday"
-	case time.Thursday:
-		return "Thursday"
-	case time.Friday:
-		return "Friday"
-	case time.Saturday:
-		return "Saturday"
-	default:
-		return fmt.Sprintf("unknown: %d", int(w))
-	}
-}
-
 // ToWeekday returns the weekday of the receiver.
 func (d Date) ToWeekday() time.Weekday {
 	t := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.UTC)
@@ -342,6 +320,7 @@ func NewTimestamp(s string) *Timestamp {
 	return &Timestamp{h, m}
 }
 
+// TODO: make stringer
 func (a Timestamp) ToString() string {
 	hPrefix := ""
 	mPrefix := ""
@@ -466,4 +445,12 @@ func (t Timestamp) toGotime() time.Time {
 // given timestamp.
 func DateAndTimestampToGotime(date Date, ts Timestamp) time.Time {
 	return time.Date(date.Year, time.Month(date.Month), date.Day, ts.Hour, ts.Minute, 0, 0, time.UTC)
+}
+
+func DateFromGotime(t time.Time) Date {
+	return Date{
+		Year:  t.Year(),
+		Month: int(t.Month()),
+		Day:   t.Day(),
+	}
 }
