@@ -51,5 +51,5 @@ type DataProvider interface {
 
 // SunTimesProvider
 type SunTimesProvider interface {
-	GetSuntimes(model.Date) model.SunTimes
+	Get(model.Date) model.SunTimes
 }
