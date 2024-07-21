@@ -1206,7 +1206,7 @@ func NewController(
 				ui.NewConstrainedRenderer(renderer, dayViewTimelineDimensions),
 				dayViewTimelineDimensions,
 				stylesheet,
-				func() model.SunTimes { return controller.suntimesProvider.GetSuntimes(controller.data.CurrentDate) },
+				func() model.SunTimes { return controller.suntimesProvider.Get(controller.data.CurrentDate) },
 				func() *model.Timestamp {
 					now := time.Now()
 					if controller.data.CurrentDate.Is(now) {
@@ -1279,7 +1279,7 @@ func NewController(
 				weekViewTimelineDimensions,
 				stylesheet,
 				func() model.SunTimes {
-					return controller.suntimesProvider.GetSuntimes(controller.data.CurrentDate.GetDayInWeek(0))
+					return controller.suntimesProvider.Get(controller.data.CurrentDate.GetDayInWeek(0))
 				},
 				func() *model.Timestamp { return nil },
 				&controller.data.MainTimelineViewParams,
@@ -1303,7 +1303,7 @@ func NewController(
 				monthViewTimelineDimensions,
 				stylesheet,
 				func() model.SunTimes {
-					return controller.suntimesProvider.GetSuntimes(controller.data.CurrentDate.GetDayInMonth(0))
+					return controller.suntimesProvider.Get(controller.data.CurrentDate.GetDayInMonth(0))
 				},
 				func() *model.Timestamp { return nil },
 				&controller.data.MainTimelineViewParams,
@@ -1458,8 +1458,8 @@ func NewController(
 	if !coordinatesProvided {
 		log.Error().Msg("could not fetch lat-&longitude -> no sunrise/-set times known")
 	} else {
-		_, parseErrLat := strconv.ParseFloat(envData.Latitude, 64)
-		_, parseErrLon := strconv.ParseFloat(envData.Longitude, 64)
+		lat, parseErrLat := strconv.ParseFloat(envData.Latitude, 64)
+		lon, parseErrLon := strconv.ParseFloat(envData.Longitude, 64)
 		if parseErrLon != nil || parseErrLat != nil {
 			log.Error().
 				Interface("lon-parse-error", parseErrLon).
@@ -1467,7 +1467,10 @@ func NewController(
 				Msg("could not parse longitude/latitude")
 			controller.suntimesProvider = nil
 		} else {
-			panic("TODO: make a suntimes provider with the lat/lon parsed above")
+			controller.suntimesProvider = &model.SuntimesProvider{
+				Latitude:  lat,
+				Longitude: lon,
+			}
 		}
 	}
 
