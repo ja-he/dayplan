@@ -20,6 +20,7 @@ import (
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
 	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/storage/providers"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/tui"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -66,6 +67,31 @@ func NewController(
 	stylesheet styling.Stylesheet,
 ) (*Controller, error) {
 	controller := Controller{}
+
+	categoryGetter := func(name string) model.Category {
+		cat, ok := categoryStyling.GetKnownCategoriesByName()[name]
+		if ok {
+			return *cat
+		}
+		return model.Category{
+			Name: name,
+		}
+	}
+
+	controller.data = control.NewControlData(categoryStyling)
+
+	{
+		var dp storage.DataProvider
+		var err error
+		dp, err = providers.NewFilesDataProvider(
+			path.Join(envData.BaseDirPath, "days"),
+			controller.data.Categories,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("cannot initialize data provider (%w)", err)
+		}
+		controller.dataProvider = dp
+	}
 
 	inputConfig := input.InputConfig{
 
@@ -115,17 +141,6 @@ func NewController(
 		},
 	}
 
-	categoryGetter := func(name string) model.Category {
-		cat, ok := categoryStyling.GetKnownCategoriesByName()[name]
-		if ok {
-			return *cat
-		}
-		return model.Category{
-			Name: name,
-		}
-	}
-
-	controller.data = control.NewControlData(categoryStyling)
 	backlogFilePath := path.Join(envData.BaseDirPath, "days", "backlog.yml") // TODO(ja_he): Migrate 'days' -> 'data', perhaps subdir 'days'
 	backlog, err := func() (*model.Backlog, error) {
 		backlogReader, err := os.Open(backlogFilePath)
