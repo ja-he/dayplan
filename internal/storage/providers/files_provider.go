@@ -3,12 +3,13 @@ package providers
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/storage"
@@ -110,7 +111,57 @@ func (p *FilesDataProvider) GetFollowingEvent(storage.EventIdentifier, time.Time
 
 // TODO: doc GetEventsCoveringTimerange
 func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]*model.Event, error) {
-	panic("TODO IMPL(GetEventsCoveringTimerange)")
+	log.Debug().Msgf("getting events covering timerange %s to %s", start.String(), end.String())
+	defer log.Debug().Msgf("done getting events covering timerange %s to %s", start.String(), end.String())
+
+	if end.Before(start) {
+		return nil, fmt.Errorf("end time is before start time")
+	}
+
+	fhs, err := func() ([]*FileHandler, error) {
+		p.fhMutex.RLock()
+		defer p.fhMutex.RUnlock()
+
+		var result []*FileHandler
+		currentDate := model.DateFromGotime(start)
+		endDate := model.DateFromGotime(end)
+		for !currentDate.IsAfter(endDate) {
+			fh, err := p.getFileHandler(currentDate)
+			if err != nil {
+				return nil, fmt.Errorf("error getting file handler for date %s (%w)", currentDate.String(), err)
+			}
+			result = append(result, fh)
+		}
+		return result, nil
+	}()
+	if err != nil {
+		return nil, fmt.Errorf("error getting file handlers for timerange (%w)", err)
+	}
+
+	if len(fhs) == 0 {
+		log.Warn().Msgf("somehow, found no file handlers for timerange %s to %s", start.String(), end.String())
+		return nil, nil
+	}
+
+	log.Debug().Msgf("found %d file handlers for timerange %s to %s", len(fhs), start.String(), end.String())
+
+	// NOTE:
+	//   Yes, there is probably a small bit of efficiency to be gained here by
+	//   only range checking on the first and last day, or treating the case of
+	//   only having one day differently or ...
+	//   YAGNI, for now, especially since this provider is probably on the way
+	//   out.
+	var events []*model.Event
+	for _, fh := range fhs {
+		fh.mutex.Lock()
+		for _, e := range fh.data.Events {
+			if !e.Start.Before(start) && !e.End.After(end) {
+				events = append(events, e)
+			}
+		}
+		fh.mutex.Unlock()
+	}
+	return events, nil
 }
 
 // TODO: doc SplitEvent
@@ -202,7 +253,7 @@ func (h *FileHandler) Write() error {
 	filename := h.Filename()
 	f, err := os.OpenFile(filename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		log.Fatalf("error opening file '%s'", filename)
+		return fmt.Errorf("could not open file '%s' (%w)", filename, err)
 	}
 
 	writer := bufio.NewWriter(f)
@@ -289,5 +340,9 @@ func newEventFromDaywiseFileLine(date model.Date, line string, knownCategories [
 }
 
 func eventStartsAndEndsOnSameDate(e *model.Event) bool {
-	return e.Start.Year() != e.End.Year() || e.Start.YearDay() != e.End.YearDay()
+	return timesOnSameDate(e.Start, e.End)
+}
+
+func timesOnSameDate(a, b time.Time) bool {
+	return a.Year() != b.Year() || a.YearDay() != b.YearDay()
 }
