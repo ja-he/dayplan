@@ -3,6 +3,9 @@ package panes
 import (
 	"sync"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
@@ -24,10 +27,10 @@ type RootPane struct {
 	weekViewMainPane  ui.Pane
 	monthViewMainPane ui.Pane
 
-	summary ui.Pane
-	log     ui.Pane
+	summaryPane ui.Pane
+	logPane     ui.Pane
 
-	help ui.Pane
+	helpPane ui.Pane
 
 	subpanesMtx sync.Mutex
 	subpanes    []ui.Pane
@@ -38,6 +41,8 @@ type RootPane struct {
 
 	preDrawStackMtx sync.Mutex
 	preDrawStack    []func()
+
+	log zerolog.Logger
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -68,10 +73,10 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	// append day, week, or month pane
 	active = append(active, p.focussedViewPane)
 
-	if p.summary.IsVisible() {
-		active = append(active, p.summary)
+	if p.summaryPane.IsVisible() {
+		active = append(active, p.summaryPane)
 	} else {
-		inactive = append(inactive, p.summary)
+		inactive = append(inactive, p.summaryPane)
 	}
 
 	for i := range p.subpanes {
@@ -82,17 +87,17 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 		}
 	}
 
-	if p.log.IsVisible() {
-		active = append(active, p.log)
+	if p.logPane.IsVisible() {
+		active = append(active, p.logPane)
 	} else {
-		inactive = append(inactive, p.log)
+		inactive = append(inactive, p.logPane)
 	}
 
 	// TODO: help should probably be a subpane? for now, always on top.
-	if p.help.IsVisible() {
-		active = append(active, p.help)
+	if p.helpPane.IsVisible() {
+		active = append(active, p.helpPane)
 	} else {
-		inactive = append(inactive, p.help)
+		inactive = append(inactive, p.helpPane)
 	}
 
 	return active, inactive
@@ -118,7 +123,9 @@ func (p *RootPane) Draw() {
 	// FIXME: probably simplify this
 	active, _ := p.getCurrentlyActivePanesInOrder()
 	for _, pane := range active {
+		p.log.Trace().Msgf("drawing %d...", pane.Identify())
 		pane.Draw()
+		p.log.Trace().Msgf("drew %d.", pane.Identify())
 	}
 	// for _, pane := range _ {
 	// 	pane.Undraw()
@@ -234,12 +241,12 @@ func (p *RootPane) FocusNext() {}
 
 func (p *RootPane) focussedPane() ui.Pane {
 	switch {
-	case p.help.IsVisible():
-		return p.help
-	case p.summary.IsVisible():
-		return p.summary
-	case p.log.IsVisible():
-		return p.log
+	case p.helpPane.IsVisible():
+		return p.helpPane
+	case p.summaryPane.IsVisible():
+		return p.summaryPane
+	case p.logPane.IsVisible():
+		return p.logPane
 	default:
 		for i := range p.subpanes {
 			if p.subpanes[i].IsVisible() {
@@ -317,9 +324,9 @@ func NewRootPane(
 	dayViewMainPane *Composite,
 	weekViewMainPane *Composite,
 	monthViewMainPane *Composite,
-	summary ui.Pane,
-	log ui.Pane,
-	help ui.Pane,
+	summaryPane ui.Pane,
+	logPane ui.Pane,
+	helpPane ui.Pane,
 	performanceMetricsOverlay ui.Pane,
 	inputProcessor input.ModalInputProcessor,
 	focussedPane ui.Pane,
@@ -332,20 +339,23 @@ func NewRootPane(
 		dayViewMainPane:           dayViewMainPane,
 		weekViewMainPane:          weekViewMainPane,
 		monthViewMainPane:         monthViewMainPane,
-		summary:                   summary,
-		log:                       log,
-		help:                      help,
+		summaryPane:               summaryPane,
+		logPane:                   logPane,
+		helpPane:                  helpPane,
 		performanceMetricsOverlay: performanceMetricsOverlay,
 		inputProcessor:            inputProcessor,
 		focussedViewPane:          focussedPane,
+		log:                       log.With().Str("component", "root-pane").Logger(),
 	}
+	defer rootPane.log.Trace().Msgf("created root pane with id '%d'", rootPane.Identify())
+
 	dayViewMainPane.SetParent(rootPane)
 	weekViewMainPane.SetParent(rootPane)
 	monthViewMainPane.SetParent(rootPane)
 
-	summary.SetParent(rootPane)
-	help.SetParent(rootPane)
-	log.SetParent(rootPane)
+	summaryPane.SetParent(rootPane)
+	helpPane.SetParent(rootPane)
+	logPane.SetParent(rootPane)
 
 	return rootPane
 }

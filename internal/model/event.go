@@ -7,7 +7,7 @@ import (
 // ...
 type Event struct {
 	Name  string    `dpedit:"name"`
-	Cat   Category  `dpedit:"category"`
+	Cat   Category  `dpedit:"category"` // TODO: change to just category name
 	Start time.Time `dpedit:",ignore"`
 	End   time.Time `dpedit:",ignore"`
 }
