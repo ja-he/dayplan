@@ -92,7 +92,7 @@ func (p *EventsPane) Draw() {
 
 		style, err := p.styleForCategory(e.Cat)
 		if err != nil {
-			p.log.Error().Err(err).Str("category-name", e.Cat.Name).Msg("an error occurred getting category style")
+			p.log.Error().Err(err).Str("category-name", string(e.Cat.Name)).Msg("an error occurred getting category style")
 			style = p.Stylesheet.CategoryFallback
 		}
 		if !p.isCurrentDay() {
@@ -167,7 +167,7 @@ func (p *EventsPane) Draw() {
 				catStyling = bottomStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
 			}
 			catWidth := pos.W - 2 - 1
-			p.Renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(e.Cat.Name, catWidth))
+			p.Renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(string(e.Cat.Name), catWidth))
 		}
 
 	}

@@ -65,7 +65,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		}
 
 		cat := model.Category{
-			Name:     category.Name,
+			Name:     model.CategoryName(category.Name),
 			Priority: category.Priority,
 			Goal:     goal,
 		}
@@ -78,10 +78,10 @@ func (command *SummarizeCommand) Execute(args []string) error {
 	}
 
 	filterCategories := len(Opts.SummarizeCommand.CategoryFilterString) > 0
-	includeCategoriesByName := make(map[string]struct{})
+	includeCategoriesByName := make(map[model.CategoryName]struct{})
 	if filterCategories {
 		for _, name := range strings.Split(Opts.SummarizeCommand.CategoryFilterString, ",") {
-			includeCategoriesByName[name] = struct{}{}
+			includeCategoriesByName[model.CategoryName(name)] = struct{}{}
 		}
 	}
 
@@ -92,7 +92,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		return fmt.Errorf("can't create file data provider (%w)", err)
 	}
 
-	categoryIncluded := func(categoryName string) bool {
+	categoryIncluded := func(categoryName model.CategoryName) bool {
 		_, ok := includeCategoriesByName[categoryName]
 		return ok
 	}

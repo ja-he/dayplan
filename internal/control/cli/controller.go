@@ -74,7 +74,7 @@ func NewController(
 	}
 	defer controller.goToDay(date)
 
-	categoryGetter := func(name string) model.Category {
+	categoryGetter := func(name model.CategoryName) model.Category {
 		cat, ok := categoryStyling.GetKnownCategoriesByName()[name]
 		if ok {
 			return *cat

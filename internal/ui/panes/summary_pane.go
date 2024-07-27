@@ -9,6 +9,7 @@ import (
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -22,6 +23,8 @@ type SummaryPane struct {
 	events      func() ([]*model.Event, error)
 
 	categories *styling.CategoryStyling
+
+	log zerolog.Logger
 }
 
 // EnsureHidden informs the pane that it is not being shown so that it can take
@@ -57,13 +60,18 @@ func (p *SummaryPane) Draw() {
 			Events: events,
 		}
 		summary := el.SumUpByCategory()
+		categoriesByName := p.categories.GetKnownCategoriesByName()
 
 		maxDuration := time.Duration(0)
 		categories := make([]model.Category, len(summary))
 		{ // get sorted keys to have deterministic order
 			i := 0
-			for category, duration := range summary {
-				categories[i] = category
+			for categoryName, duration := range summary {
+				c, ok := categoriesByName[categoryName]
+				if !ok {
+					p.log.Warn().Str("category", string(categoryName)).Msg("unknown category")
+				}
+				categories[i] = *c
 				if duration > maxDuration {
 					maxDuration = duration
 				}
@@ -73,7 +81,7 @@ func (p *SummaryPane) Draw() {
 		}
 		row := 2
 		for _, category := range categories {
-			duration := summary[category]
+			duration := summary[category.Name]
 			style, err := p.categories.GetStyle(category)
 			if err != nil {
 				style = p.Stylesheet.CategoryFallback
@@ -83,7 +91,7 @@ func (p *SummaryPane) Draw() {
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
 			p.Renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
-			p.Renderer.DrawText(x, y+row, catLen, 1, p.Stylesheet.SummaryDefault, util.TruncateAt(category.Name, catLen))
+			p.Renderer.DrawText(x, y+row, catLen, 1, p.Stylesheet.SummaryDefault, util.TruncateAt(string(category.Name), catLen))
 			p.Renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+duration.String()+")")
 			row++
 		}
@@ -120,5 +128,6 @@ func NewSummaryPane(
 		titleString: titleString,
 		events:      events,
 		categories:  categories,
+		log:         log.With().Str("component", "summary-pane").Logger(),
 	}
 }

@@ -44,8 +44,8 @@ func (t Task) toBaseTask() BaseTask {
 			log.Warn().
 				Str("subtask", subtask.Name).
 				Str("parent-task", t.Name).
-				Str("subtask-category", subtask.Category.Name).
-				Str("parent-task-category", t.Category.Name).
+				Str("subtask-category", string(subtask.Category.Name)).
+				Str("parent-task-category", string(t.Category.Name)).
 				Msg("subtask has different category from parent, which will be lost")
 		}
 		result.Subtasks = append(result.Subtasks, subtask.toBaseTask())
@@ -55,7 +55,7 @@ func (t Task) toBaseTask() BaseTask {
 
 // BacklogStored.
 type BacklogStored struct {
-	TasksByCategory map[string][]BaseTask `yaml:",inline"`
+	TasksByCategory map[CategoryName][]BaseTask `yaml:",inline"`
 }
 
 // BaseTask.
@@ -70,7 +70,7 @@ type BaseTask struct {
 func (b *Backlog) Write(w io.Writer) error {
 
 	toBeWritten := BacklogStored{
-		TasksByCategory: map[string][]BaseTask{},
+		TasksByCategory: map[CategoryName][]BaseTask{},
 	}
 	for _, task := range b.Tasks {
 		categoryName := task.Category.Name
@@ -94,7 +94,7 @@ func (b *Backlog) Write(w io.Writer) error {
 
 // BacklogFromReader reads and deserializes a backlog from the io.Reader and returns the
 // backlog.
-func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Backlog, error) {
+func BacklogFromReader(r io.Reader, categoryGetter func(CategoryName) Category) (*Backlog, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return &Backlog{}, fmt.Errorf("unable to read from reader (%s)", err.Error())
@@ -107,8 +107,8 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 	}
 	log.Debug().Int("N-Cats", len(stored.TasksByCategory)).Msg("read storeds")
 
-	var mapSubtasks func(cat string, tasks []BaseTask) []*Task
-	toTask := func(cat string, b BaseTask) *Task {
+	var mapSubtasks func(cat CategoryName, tasks []BaseTask) []*Task
+	toTask := func(cat CategoryName, b BaseTask) *Task {
 		return &Task{
 			Name:     b.Name,
 			Category: categoryGetter(cat),
@@ -117,7 +117,7 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 			Subtasks: mapSubtasks(cat, b.Subtasks),
 		}
 	}
-	mapSubtasks = func(cat string, tasks []BaseTask) []*Task {
+	mapSubtasks = func(cat CategoryName, tasks []BaseTask) []*Task {
 		result := []*Task{}
 		for _, t := range tasks {
 			result = append(result, toTask(cat, t))

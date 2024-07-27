@@ -30,10 +30,10 @@ func (e *Event) Clone() Event {
 func (e *Event) String() string {
 	start := e.Start.String()
 	end := e.End.String()
-	cat := e.Cat.Name
-	name := e.Name
+	catName := e.Cat.Name
+	eventName := e.Name
 
-	return (start + "|" + end + "|" + cat + "|" + name)
+	return (start + "|" + end + "|" + string(catName) + "|" + eventName)
 }
 
 // ...
