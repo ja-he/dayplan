@@ -267,7 +267,7 @@ func (p *FilesDataProvider) CommitState() error {
 }
 
 // TODO: doc SumUpTimespanByCategory
-func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Time) map[string]time.Duration {
+func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Time) map[model.CategoryName]time.Duration {
 	p.log.Fatal().Msg("TODO IMPL(SumUpTimespanByCategory)")
 	return nil
 }

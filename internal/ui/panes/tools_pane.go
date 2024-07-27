@@ -70,7 +70,7 @@ func (p *ToolsPane) Draw() {
 		}
 
 		p.Renderer.DrawBox(box.X, box.Y, box.W, box.H, styling)
-		p.Renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(cat.Name, textLen))
+		p.Renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(string(cat.Name), textLen))
 	}
 	p.lastBoxesDrawn = boxes
 }

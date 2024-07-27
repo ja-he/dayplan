@@ -52,15 +52,16 @@ func (command *AddCommand) Execute(args []string) error {
 	if strings.ContainsRune(command.Category, '|') {
 		panic("ERROR: category name cannot contain '|'")
 	}
+	categoryName := model.CategoryName(command.Category)
 	found := false
-	for _, category := range configData.Categories {
-		if category.Name == command.Category {
+	for _, categoryFromConfig := range configData.Categories {
+		if categoryFromConfig.Name == string(categoryName) {
 			found = true
 			break
 		}
 	}
 	if !found {
-		fmt.Fprintf(os.Stderr, "WARNING: category '%s' not found in config data\n", command.Category)
+		fmt.Fprintf(os.Stderr, "WARNING: category '%s' not found in config data\n", categoryName)
 	}
 
 	// verify times
@@ -98,7 +99,7 @@ func (command *AddCommand) Execute(args []string) error {
 		Start: start,
 		End:   end,
 		Name:  command.Name,
-		Cat:   model.Category{Name: command.Category},
+		Cat:   model.Category{Name: categoryName},
 	})
 
 	if command.RepeatInterval != "" {
@@ -124,7 +125,7 @@ func (command *AddCommand) Execute(args []string) error {
 				Start: currentStart,
 				End:   currentEnd,
 				Name:  command.Name,
-				Cat:   model.Category{Name: command.Category},
+				Cat:   model.Category{Name: categoryName},
 			}
 			events = append(events, event)
 

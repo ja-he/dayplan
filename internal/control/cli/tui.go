@@ -112,7 +112,7 @@ func (command *TUICommand) Execute(_ []string) error {
 		}
 
 		cat := model.Category{
-			Name:       category.Name,
+			Name:       model.CategoryName(category.Name),
 			Priority:   category.Priority,
 			Goal:       goal,
 			Deprecated: category.Deprecated,

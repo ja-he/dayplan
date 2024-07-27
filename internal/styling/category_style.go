@@ -27,8 +27,8 @@ type CategoryStyling struct {
 // GetKnownCategoriesByName returns a mapping of category names to the fully
 // parameterized categories (i.E. including priority), provided they exist.
 // Allows ensuring that category data stays consistent across the program.
-func (cs *CategoryStyling) GetKnownCategoriesByName() map[string]*model.Category {
-	result := make(map[string]*model.Category)
+func (cs *CategoryStyling) GetKnownCategoriesByName() map[model.CategoryName]*model.Category {
+	result := make(map[model.CategoryName]*model.Category)
 
 	for i := range cs.styles {
 		cat := &cs.styles[i].Cat

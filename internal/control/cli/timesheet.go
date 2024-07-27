@@ -80,7 +80,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		}
 
 		cat := model.Category{
-			Name:     category.Name,
+			Name:     model.CategoryName(category.Name),
 			Priority: category.Priority,
 			Goal:     goal,
 		}
@@ -133,11 +133,11 @@ func (command *TimesheetCommand) Execute(args []string) error {
 			return fmt.Errorf("category exclude filter regex is invalid (%s)", err.Error())
 		}
 	}
-	matcher := func(catName string) bool {
-		if includeRegex != nil && !includeRegex.MatchString(catName) {
+	matcher := func(catName model.CategoryName) bool {
+		if includeRegex != nil && !includeRegex.MatchString(string(catName)) {
 			return false
 		}
-		if excludeRegex != nil && excludeRegex.MatchString(catName) {
+		if excludeRegex != nil && excludeRegex.MatchString(string(catName)) {
 			return false
 		}
 		return true
@@ -146,7 +146,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	func() {
 		fmt.Fprintln(os.Stderr, "PROSPECTIVE MATCHES:")
 		for _, cat := range configData.Categories {
-			if matcher(cat.Name) {
+			if matcher(model.CategoryName(cat.Name)) {
 				fmt.Fprintf(os.Stderr, "  '%s'\n", cat.Name)
 			}
 		}

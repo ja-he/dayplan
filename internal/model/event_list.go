@@ -179,7 +179,7 @@ func (l *EventList) SumUpByCategory() map[CategoryName]time.Duration {
 
 // GetTimesheetEntry returns the TimesheetEntry for this day for a given
 // category (e.g. "work").
-func (l *EventList) GetTimesheetEntry(matcher func(string) bool) (*TimesheetEntry, error) {
+func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool) (*TimesheetEntry, error) {
 	startFound := false
 	var firstStart time.Time
 	var lastEnd time.Time

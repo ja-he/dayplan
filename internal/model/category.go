@@ -1,6 +1,6 @@
 package model
 
-type CategoryName = string
+type CategoryName string
 
 type Category struct {
 	Name       CategoryName `dpedit:"name"`
