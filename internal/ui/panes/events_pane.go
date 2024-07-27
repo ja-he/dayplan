@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/input"
@@ -37,6 +38,8 @@ type EventsPane struct {
 	getCurrentEvent func() *model.Event
 	mouseMode       func() bool
 
+	log zerolog.Logger
+
 	// TODO: get rid of this
 	positions map[*model.Event]util.Rect
 }
@@ -57,6 +60,9 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
+	p.log.Debug().Msg("drawing...")
+	defer p.log.Debug().Msgf("drawn")
+
 	x, y, w, h := p.Dimensions()
 	style := p.Stylesheet.Normal
 	if p.HasFocus() {
@@ -64,7 +70,9 @@ func (p *EventsPane) Draw() {
 	}
 	p.Renderer.DrawBox(x, y, w, h, style)
 
+	p.log.Trace().Msg("loading day events...")
 	date, day, err := p.dayEvents()
+	p.log.Trace().Msg("loaded.")
 	if err != nil {
 		p.Renderer.DrawBox(x, y, w, h, p.Stylesheet.CategoryFallback.DarkenedBG(20))
 		p.Renderer.DrawText(x, y, w, h, p.Stylesheet.CategoryFallback.DarkenedBG(20).LightenedFG(50).Italicized(), "error (see log)")
@@ -78,13 +86,13 @@ func (p *EventsPane) Draw() {
 	for _, e := range day.Events {
 		start, end := model.FromTime(e.Start), model.FromTime(e.End)
 		if start.Date.IsAfter(date) || end.Date.IsBefore(date) {
-			log.Warn().Stringer("date", date).Stringer("event", e).Msg("got an event where the start date is after the drawn date or end is before drawn date, which should not happen")
+			p.log.Warn().Stringer("date", date).Stringer("event", e).Msg("got an event where the start date is after the drawn date or end is before drawn date, which should not happen")
 			continue
 		}
 
 		style, err := p.styleForCategory(e.Cat)
 		if err != nil {
-			log.Error().Err(err).Str("category-name", e.Cat.Name).Msg("an error occurred getting category style")
+			p.log.Error().Err(err).Str("category-name", e.Cat.Name).Msg("an error occurred getting category style")
 			style = p.Stylesheet.CategoryFallback
 		}
 		if !p.isCurrentDay() {
@@ -172,7 +180,7 @@ func (p *EventsPane) getEventForPos(x, y int) *ui.EventsPanePositionInfo {
 		x < (dimX+dimW) {
 		date, currentDay, err := p.dayEvents()
 		if err != nil {
-			log.Warn().Err(err).Msg("error getting day event for position, presumably this will be handled elsewhere")
+			p.log.Warn().Err(err).Msg("error getting day event for position, presumably this will be handled elsewhere")
 			return nil
 		}
 		for i := len(currentDay.Events) - 1; i >= 0; i-- {
@@ -221,7 +229,7 @@ func (p *EventsPane) computeRects(date model.Date, l *model.EventList, offsetX, 
 		// the true start timestamps
 		start, end := model.FromTime(e.Start), model.FromTime(e.End)
 		if start.Date.IsAfter(date) || end.Date.IsBefore(date) {
-			log.Warn().Stringer("date", date).Stringer("event", e).Msg("got an event where the start date is after the drawn date or end is before drawn date, which should not happen")
+			p.log.Warn().Stringer("date", date).Stringer("event", e).Msg("got an event where the start date is after the drawn date or end is before drawn date, which should not happen")
 			continue
 		}
 		var startTS, endTS model.Timestamp
@@ -279,10 +287,11 @@ func NewEventsPane(
 	getCurrentEvent func() *model.Event,
 	mouseMode func() bool,
 ) *EventsPane {
-	return &EventsPane{
+	id := ui.GeneratePaneID()
+	p := &EventsPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID:             ui.GeneratePaneID(),
+				ID:             id,
 				InputProcessor: inputProcessor,
 			},
 			Renderer:   renderer,
@@ -301,5 +310,8 @@ func NewEventsPane(
 		getCurrentEvent:  getCurrentEvent,
 		mouseMode:        mouseMode,
 		positions:        make(map[*model.Event]util.Rect, 0),
+		log:              log.With().Str("component", fmt.Sprintf("events-pane-%d", id)).Logger(),
 	}
+	defer p.log.Info().Msgf("constructed new events pane with id '%d'", p.Identify())
+	return p
 }

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/control"
@@ -57,6 +58,8 @@ type Controller struct {
 
 	// TODO: try to get rid of this
 	ensureEventsPaneTimestampWithinVisibleScroll func(time.Time)
+
+	log zerolog.Logger
 }
 
 // NewController creates a new Controller.
@@ -66,7 +69,10 @@ func NewController(
 	categoryStyling styling.CategoryStyling,
 	stylesheet styling.Stylesheet,
 ) (*Controller, error) {
-	controller := Controller{}
+	controller := Controller{
+		log: log.With().Str("component", "controller").Logger(),
+	}
+	defer controller.goToDay(date)
 
 	categoryGetter := func(name string) model.Category {
 		cat, ok := categoryStyling.GetKnownCategoriesByName()[name]
@@ -85,7 +91,6 @@ func NewController(
 		var err error
 		dp, err = providers.NewFilesDataProvider(
 			path.Join(envData.BaseDirPath, "days"),
-			controller.data.Categories,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("cannot initialize data provider (%w)", err)

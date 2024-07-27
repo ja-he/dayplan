@@ -2,9 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -12,9 +10,10 @@ import (
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/storage"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/util"
+	"github.com/rs/zerolog/log"
 )
 
 // TimesheetCommand is the command `timesheet`, which produces a timesheet for
@@ -91,12 +90,12 @@ func (command *TimesheetCommand) Execute(args []string) error {
 
 	startDate, err := model.FromString(command.FromDay)
 	if err != nil {
-		log.Fatalf("from date '%s' invalid", command.FromDay)
+		log.Fatal().Msgf("from date '%s' invalid", command.FromDay)
 	}
 	currentDate := startDate
 	finalDate, err := model.FromString(command.TilDay)
 	if err != nil {
-		log.Fatalf("til date '%s' invalid", command.TilDay)
+		log.Fatal().Msgf("til date '%s' invalid", command.TilDay)
 	}
 
 	type dateAndDay struct {
@@ -104,14 +103,19 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		model.EventList
 	}
 
+	var dataProvider storage.DataProvider
+	log.Fatal().Msg("TODO: initialize data provider")
+
 	data := make([]dateAndDay, 0)
 	for currentDate != finalDate.Next() {
-		fh := providers.NewFileHandler(path.Join(envData.BaseDirPath+"days"), currentDate)
-		categories := make([]model.Category, 0)
-		for _, cat := range styledCategories.GetAll() {
-			categories = append(categories, cat.Cat)
+		events, err := dataProvider.GetEventsCoveringTimerange(currentDate.ToGotime(), currentDate.ToGotime().Add(24*time.Hour))
+		if err != nil {
+			return fmt.Errorf("error while getting events for %s (%w)", currentDate.String(), err)
 		}
-		data = append(data, dateAndDay{currentDate, *fh.Read(categories)})
+		data = append(data, dateAndDay{
+			currentDate,
+			model.EventList{Events: events},
+		})
 
 		currentDate = currentDate.Next()
 	}

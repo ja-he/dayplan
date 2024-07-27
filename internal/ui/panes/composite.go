@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
@@ -18,6 +21,8 @@ type Composite struct {
 	focussables []ui.Pane
 
 	FocussedPane ui.Pane
+
+	log zerolog.Logger
 }
 
 // Draw draws this pane by drawing all its subpanes.
@@ -180,14 +185,17 @@ func NewWrapperPane(
 	focussables []ui.Pane,
 	inputProcessor input.ModalInputProcessor,
 ) *Composite {
+	id := ui.GeneratePaneID()
 	p := &Composite{
 		focussables: focussables,
 		drawables:   drawables,
 		BasePane: ui.BasePane{
 			InputProcessor: inputProcessor,
-			ID:             ui.GeneratePaneID(),
+			ID:             id,
 		},
+		log: log.With().Str("component", fmt.Sprintf("wrapper-pane-%d", id)).Logger(),
 	}
+	defer p.log.Trace().Msgf("constructed new wrapper pane for %d drawables with id '%d'", len(p.drawables), p.Identify())
 	if len(p.focussables) > 0 {
 		p.FocussedPane = p.focussables[0]
 	}
