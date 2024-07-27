@@ -2,7 +2,6 @@ package model_test
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"testing"
@@ -30,7 +29,7 @@ func TestStartsDuring(t *testing.T) {
 		result := b.StartsDuring(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -43,7 +42,7 @@ func TestStartsDuring(t *testing.T) {
 		result := b.StartsDuring(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -56,7 +55,7 @@ func TestStartsDuring(t *testing.T) {
 		result := b.StartsDuring(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -69,7 +68,7 @@ func TestStartsDuring(t *testing.T) {
 		result := b.StartsDuring(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -82,7 +81,7 @@ func TestStartsDuring(t *testing.T) {
 		result := b.StartsDuring(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -95,7 +94,7 @@ func TestStartsDuring(t *testing.T) {
 		result := b.StartsDuring(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 }
@@ -118,7 +117,7 @@ func TestIsContainedIn(t *testing.T) {
 		result := b.IsContainedIn(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -142,7 +141,7 @@ func TestIsContainedIn(t *testing.T) {
 		result := b.IsContainedIn(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -164,7 +163,7 @@ func TestIsContainedIn(t *testing.T) {
 		result := b.IsContainedIn(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -183,7 +182,7 @@ func TestIsContainedIn(t *testing.T) {
 		result := b.IsContainedIn(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -202,7 +201,7 @@ func TestIsContainedIn(t *testing.T) {
 		result := b.IsContainedIn(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 	{
@@ -220,7 +219,7 @@ func TestIsContainedIn(t *testing.T) {
 		result := b.IsContainedIn(a)
 
 		if result != expected {
-			log.Fatalf("test case '%s' failed.", testcase)
+			t.Fatalf("test case '%s' failed.", testcase)
 		}
 	}
 }
@@ -232,17 +231,12 @@ func TestSumUpByCategory(t *testing.T) {
 		eventList.Events = []*model.Event{
 			{Name: "Breakfast", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(5*time.Hour + 50*time.Minute), End: baseDate.Add(6*time.Hour + 30*time.Minute)},
 		}
-		expected := map[model.Category]int{
-			{
-				Name:       "eating",
-				Priority:   0,
-				Goal:       nil,
-				Deprecated: false,
-			}: 40,
+		expected := map[model.CategoryName]time.Duration{
+			"eating": 40 * time.Minute,
 		}
 		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
-			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, result)
 		}
 	}
 	{
@@ -253,17 +247,12 @@ func TestSumUpByCategory(t *testing.T) {
 			{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(11*time.Hour + 30*time.Minute), End: baseDate.Add(12*time.Hour + 10*time.Minute)},
 			{Name: "Dinner", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(18*time.Hour + 15*time.Minute), End: baseDate.Add(19 * time.Hour)},
 		}
-		expected := map[model.Category]int{
-			{
-				Name:       "eating",
-				Priority:   0,
-				Goal:       nil,
-				Deprecated: false,
-			}: 125,
+		expected := map[model.CategoryName]time.Duration{
+			"eating": 125 * time.Minute,
 		}
 		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
-			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
+			t.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
 	}
 	{
@@ -274,23 +263,13 @@ func TestSumUpByCategory(t *testing.T) {
 			{Name: "Lunch", Cat: model.Category{Name: "eating"}, Start: baseDate.Add(11*time.Hour + 30*time.Minute), End: baseDate.Add(12*time.Hour + 10*time.Minute)},
 			{Name: "Dinner", Cat: model.Category{Name: "cooking"}, Start: baseDate.Add(18*time.Hour + 15*time.Minute), End: baseDate.Add(19 * time.Hour)},
 		}
-		expected := map[model.Category]int{
-			{
-				Name:       "eating",
-				Priority:   0,
-				Goal:       nil,
-				Deprecated: false,
-			}: 80,
-			{
-				Name:       "cooking",
-				Priority:   0,
-				Goal:       nil,
-				Deprecated: false,
-			}: 45,
+		expected := map[model.CategoryName]time.Duration{
+			"eating":  80 * time.Minute,
+			"cooking": 45 * time.Minute,
 		}
 		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
-			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
+			t.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
 	}
 	{
@@ -300,17 +279,12 @@ func TestSumUpByCategory(t *testing.T) {
 			{Name: "A1", Cat: model.Category{Name: "a"}, Start: baseDate.Add(1 * time.Hour), End: baseDate.Add(2 * time.Hour)},
 			{Name: "A2", Cat: model.Category{Name: "a"}, Start: baseDate.Add(1*time.Hour + 30*time.Minute), End: baseDate.Add(2*time.Hour + 30*time.Minute)},
 		}
-		expected := map[model.Category]int{
-			{
-				Name:       "a",
-				Priority:   0,
-				Goal:       nil,
-				Deprecated: false,
-			}: 90,
+		expected := map[model.CategoryName]time.Duration{
+			"a": 90 * time.Minute,
 		}
 		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
-			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
+			t.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
 	}
 	{
@@ -320,17 +294,12 @@ func TestSumUpByCategory(t *testing.T) {
 			{Name: "A main", Cat: model.Category{Name: "a"}, Start: baseDate.Add(1 * time.Hour), End: baseDate.Add(2 * time.Hour)},
 			{Name: "A subevent", Cat: model.Category{Name: "a"}, Start: baseDate.Add(1*time.Hour + 15*time.Minute), End: baseDate.Add(1*time.Hour + 45*time.Minute)},
 		}
-		expected := map[model.Category]int{
-			{
-				Name:       "a",
-				Priority:   0,
-				Goal:       nil,
-				Deprecated: false,
-			}: 60,
+		expected := map[model.CategoryName]time.Duration{
+			"a": 60 * time.Minute,
 		}
 		result := eventList.SumUpByCategory()
 		if !reflect.DeepEqual(result, expected) {
-			log.Fatalf("test case '%s' failed:\n%#v", testcase, result)
+			t.Fatalf("test case '%s' failed:\n%#v", testcase, result)
 		}
 	}
 }
@@ -345,7 +314,7 @@ func TestFlatten(t *testing.T) {
 		dayExpected := day
 		day.Flatten()
 		if !reflect.DeepEqual(day.Events, dayExpected.Events) {
-			log.Fatalf("test case '%s' failed:\n%#v", testcase, day)
+			t.Fatalf("test case '%s' failed:\n%#v", testcase, day)
 		}
 	}
 	{
@@ -358,10 +327,10 @@ func TestFlatten(t *testing.T) {
 		dayExpected := day
 		day.Flatten()
 		if reflect.DeepEqual(day.Events, dayExpected.Events) {
-			log.Fatalf("test case '%s' failed, these should be different:\n%#v\n%#v", testcase, day, dayExpected)
+			t.Fatalf("test case '%s' failed, these should be different:\n%v\n%v", testcase, day, dayExpected)
 		}
 		if len(day.Events) != 1 {
-			log.Fatalf("test case '%s' failed: len is %d", testcase, len(day.Events))
+			t.Fatalf("test case '%s' failed: len is %d", testcase, len(day.Events))
 		}
 	}
 	{
@@ -378,7 +347,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -395,7 +364,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -413,7 +382,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -431,7 +400,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -448,7 +417,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -467,7 +436,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -485,7 +454,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -503,7 +472,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -523,7 +492,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 	{
@@ -540,7 +509,7 @@ func TestFlatten(t *testing.T) {
 
 		input.Flatten()
 		if !eventsEqualExceptingIDs(input, expected) {
-			log.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
+			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
 	}
 }

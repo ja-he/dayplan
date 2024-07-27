@@ -163,15 +163,15 @@ func (l *EventList) Clone() EventList {
 // Time cannot be counted multiple times, so if multiple events overlap, only
 // one of them can have the time of the overlap counted. The prioritization for
 // this is according to category priority.
-func (l *EventList) SumUpByCategory() map[Category]time.Duration {
-	result := make(map[Category]time.Duration)
+func (l *EventList) SumUpByCategory() map[CategoryName]time.Duration {
+	result := make(map[CategoryName]time.Duration)
 
 	flattened := l.Clone()
 	flattened.Flatten()
 
 	for i := range flattened.Events {
 		event := flattened.Events[i]
-		result[event.Cat] += event.Duration()
+		result[event.Cat.Name] += event.Duration()
 	}
 
 	return result
