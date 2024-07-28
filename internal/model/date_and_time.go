@@ -105,8 +105,14 @@ func (d Date) Valid() bool {
 	return true
 }
 
-// FromString creates a date from a string in the format "YYYY-MM-DD".
-func FromString(s string) (Date, error) {
+type DateSlice []Date
+
+func (a DateSlice) Len() int           { return len(a) }
+func (a DateSlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a DateSlice) Less(i, j int) bool { return a[i].IsBefore(a[j]) }
+
+// DateFromString creates a date from a string in the format "YYYY-MM-DD".
+func DateFromString(s string) (Date, error) {
 	var result Date
 	var err error
 
