@@ -2,6 +2,9 @@ package providers
 
 import (
 	"fmt"
+	"os"
+	"regexp"
+	"sort"
 	"sync"
 	"time"
 
@@ -13,6 +16,8 @@ import (
 )
 
 const notSameDayEventErrorMsg = string("event does not start and end on the same day")
+
+var fileDateNamingRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 // FilesDataProvider ...
 type FilesDataProvider struct {
@@ -96,15 +101,74 @@ func (p *FilesDataProvider) RemoveEvents([]storage.EventIdentifier) error {
 	return nil
 }
 
-// TODO: doc GetEventAfter
-func (p *FilesDataProvider) GetEventAfter(time.Time) (*model.Event, error) {
-	p.log.Fatal().Msg("TODO IMPL(GetEventAfter)")
+// GetEventAfter retrieves the first event after the specified time.
+func (p *FilesDataProvider) GetEventAfter(t time.Time) (*model.Event, error) {
+	p.log.Debug().Msgf("getting first event after %s", t.String())
+	defer p.log.Debug().Msgf("done getting first event after %s", t.String())
+
+	availableDates, err := p.getAvailableDates()
+	if err != nil {
+		return nil, fmt.Errorf("error getting available dates (%w)", err)
+	}
+	p.log.Trace().Msgf("have %d available dates", len(availableDates))
+
+	sort.Sort(model.DateSlice(availableDates))
+
+	dateForT := model.DateFromGotime(t)
+
+	for _, d := range availableDates {
+		if d.IsBefore(dateForT) {
+			p.log.Trace().Msgf("skipping date '%s' because it is before the target time", d.String())
+			continue
+		}
+		p.log.Trace().Msgf("getting file handler for date '%s'", d.String())
+		fh, err := p.getFileHandler(d)
+		if err != nil {
+			return nil, fmt.Errorf("error getting file handler for date '%s', which should not happen since the file should exist (%w)", d.String(), err)
+		}
+		for _, event := range fh.data.Events {
+			if event.Start == t || event.Start.After(t) {
+				p.log.Trace().Msgf("found event starting after target time: %s", event.String())
+				return event, nil
+			}
+		}
+	}
 	return nil, nil
 }
 
 // TODO: doc GetEventBefore
-func (p *FilesDataProvider) GetEventBefore(time.Time) (*model.Event, error) {
-	p.log.Fatal().Msg("TODO IMPL(GetEventBefore)")
+func (p *FilesDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
+	p.log.Debug().Msgf("getting last event before %s", t.String())
+	defer p.log.Debug().Msgf("done getting last event before %s", t.String())
+
+	availableDates, err := p.getAvailableDates()
+	if err != nil {
+		return nil, fmt.Errorf("error getting available dates (%w)", err)
+	}
+	p.log.Trace().Msgf("have %d available dates", len(availableDates))
+
+	sort.Sort(sort.Reverse(model.DateSlice(availableDates)))
+
+	dateForT := model.DateFromGotime(t)
+
+	for _, d := range availableDates {
+		if d.IsAfter(dateForT) {
+			p.log.Trace().Msgf("skipping date '%s' because it is after the target time", d.String())
+			continue
+		}
+		p.log.Trace().Msgf("getting file handler for date '%s'", d.String())
+		fh, err := p.getFileHandler(d)
+		if err != nil {
+			return nil, fmt.Errorf("error getting file handler for date '%s', which should not happen since the file should exist (%w)", d.String(), err)
+		}
+		for i := len(fh.data.Events) - 1; i >= 0; i-- {
+			event := fh.data.Events[i]
+			if event.End == t || event.End.Before(t) {
+				p.log.Trace().Msgf("found event ending before target time: %s", event.String())
+				return event, nil
+			}
+		}
+	}
 	return nil, nil
 }
 
@@ -278,4 +342,33 @@ func eventStartsAndEndsOnSameDate(e *model.Event) bool {
 
 func timesOnSameDate(a, b time.Time) bool {
 	return a.Year() != b.Year() || a.YearDay() != b.YearDay()
+}
+
+// NOTE: this function is fine, but its use could be improved, because we really should only need to call this once
+func (p *FilesDataProvider) getAvailableDates() ([]model.Date, error) {
+	p.log.Debug().Msg("getting available dates")
+	defer p.log.Debug().Msg("done getting available dates")
+
+	files, err := os.ReadDir(p.BasePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading directory (%w)", err)
+	}
+	var dates []model.Date
+	for _, f := range files {
+		if f.IsDir() {
+			p.log.Trace().Msgf("skipping directory '%s'", f.Name())
+			continue
+		}
+		if !fileDateNamingRegex.MatchString(f.Name()) {
+			p.log.Trace().Msgf("skipping non-date file '%s'", f.Name())
+			continue
+		}
+		d, err := model.DateFromString(f.Name())
+		if err != nil {
+			return nil, fmt.Errorf("error parsing date from file name '%s' (%w)", f.Name(), err)
+		}
+		dates = append(dates, d)
+	}
+	return dates, nil
+
 }

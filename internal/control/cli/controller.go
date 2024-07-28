@@ -1963,18 +1963,84 @@ func (c *Controller) getCurrentMonthEvents() ([]*model.Event, error) {
 	return events, nil
 }
 
-func (c *Controller) switchToNextEventInDay() {
-	if c.data.CurrentEvent != nil {
-		c.ensureEventsPaneTimestampWithinVisibleScroll(c.data.CurrentEvent.Start)
-		c.ensureEventsPaneTimestampWithinVisibleScroll(c.data.CurrentEvent.End)
+func (c *Controller) ensureCurrentEventVisible() {
+	e := c.data.CurrentEvent
+	if e != nil {
+		c.ensureEventsPaneTimestampWithinVisibleScroll(e.Start)
+		c.ensureEventsPaneTimestampWithinVisibleScroll(e.End)
 	}
 }
 
-func (c *Controller) switchToPreviousEventInDay() {
-	if c.data.CurrentEvent != nil {
-		c.ensureEventsPaneTimestampWithinVisibleScroll(c.data.CurrentEvent.Start)
-		c.ensureEventsPaneTimestampWithinVisibleScroll(c.data.CurrentEvent.End)
+func (c *Controller) switchToNextEventInDay() {
+	defer c.ensureCurrentEventVisible()
+
+	if c.data.CurrentEvent == nil {
+		candidate, err := c.dataProvider.GetEventAfter(c.data.CurrentDate.ToGotime())
+		if err != nil {
+			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get next for current date")
+			return
+		}
+		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
+			c.data.CurrentEvent = candidate
+			c.log.Debug().Stringer("event", candidate).Msg("switched to next event")
+			return
+		}
+		c.log.Debug().Msg("no event on current day")
+		return
 	}
+
+	next, err := c.dataProvider.GetEventAfter(c.data.CurrentEvent.End)
+	if err != nil {
+		c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get next for current date")
+		return
+	}
+	if next == nil {
+		c.log.Info().Msg("there is no next event")
+		return
+	}
+	if model.DateFromGotime(next.Start) != c.data.CurrentDate {
+		c.log.Info().Msg("next event is on a different day")
+		return
+	}
+
+	c.data.CurrentEvent = next
+	c.log.Debug().Stringer("event", next).Msg("switched to next event")
+}
+
+func (c *Controller) switchToPreviousEventInDay() {
+	defer c.ensureCurrentEventVisible()
+
+	if c.data.CurrentEvent == nil {
+		candidate, err := c.dataProvider.GetEventBefore(c.data.CurrentDate.ToGotime().Add(24 * time.Hour))
+		if err != nil {
+			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
+			return
+		}
+		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
+			c.data.CurrentEvent = candidate
+			c.log.Debug().Stringer("event", candidate).Msg("switched to prev event")
+			return
+		}
+		c.log.Debug().Msg("no event on current day")
+		return
+	}
+
+	prev, err := c.dataProvider.GetEventBefore(c.data.CurrentEvent.Start)
+	if err != nil {
+		c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
+		return
+	}
+	if prev == nil {
+		c.log.Info().Msg("there is no prev event")
+		return
+	}
+	if model.DateFromGotime(prev.Start) != c.data.CurrentDate {
+		c.log.Info().Msg("prev event is on a different day")
+		return
+	}
+
+	c.data.CurrentEvent = prev
+	c.log.Debug().Stringer("event", prev).Msg("switched to prev event")
 }
 
 func (c *Controller) moveEventsForwardPushing() error {

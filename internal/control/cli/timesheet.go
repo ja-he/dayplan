@@ -88,12 +88,12 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		styledCategories.Add(cat, style)
 	}
 
-	startDate, err := model.FromString(command.FromDay)
+	startDate, err := model.DateFromString(command.FromDay)
 	if err != nil {
 		log.Fatal().Msgf("from date '%s' invalid", command.FromDay)
 	}
 	currentDate := startDate
-	finalDate, err := model.FromString(command.TilDay)
+	finalDate, err := model.DateFromString(command.TilDay)
 	if err != nil {
 		log.Fatal().Msgf("til date '%s' invalid", command.TilDay)
 	}

@@ -73,7 +73,7 @@ func (command *TUICommand) Execute(_ []string) error {
 	if command.Day == "" {
 		initialDay = model.Date{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	} else {
-		initialDay, err = model.FromString(command.Day)
+		initialDay, err = model.DateFromString(command.Day)
 		if err != nil {
 			return fmt.Errorf("could not parse given date (%w)", err)
 		}
