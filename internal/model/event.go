@@ -4,8 +4,11 @@ import (
 	"time"
 )
 
+type EventID = string
+
 // ...
 type Event struct {
+	ID    EventID   `dpedit:",ignore"`
 	Name  string    `dpedit:"name"`
 	Cat   Category  `dpedit:"category"` // TODO: change to just category name
 	Start time.Time `dpedit:",ignore"`
@@ -17,23 +20,14 @@ func (e *Event) Duration() time.Duration {
 	return e.End.Sub(e.Start)
 }
 
-// ...
-func (e *Event) Clone() Event {
-	return Event{
-		Name:  e.Name,
-		Cat:   e.Cat,
-		Start: e.Start,
-		End:   e.End,
-	}
-}
-
 func (e *Event) String() string {
+	id := e.ID
 	start := e.Start.String()
 	end := e.End.String()
 	catName := e.Cat.Name
 	eventName := e.Name
 
-	return (start + "|" + end + "|" + string(catName) + "|" + eventName)
+	return (id + "|" + start + "|" + end + "|" + string(catName) + "|" + eventName)
 }
 
 // ...

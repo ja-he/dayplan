@@ -55,7 +55,7 @@ func (t Task) toBaseTask() BaseTask {
 
 // BacklogStored.
 type BacklogStored struct {
-	TasksByCategory map[CategoryName][]BaseTask `yaml:",inline"`
+	TasksByCategory map[string][]BaseTask `yaml:",inline"`
 }
 
 // BaseTask.
@@ -70,12 +70,12 @@ type BaseTask struct {
 func (b *Backlog) Write(w io.Writer) error {
 
 	toBeWritten := BacklogStored{
-		TasksByCategory: map[CategoryName][]BaseTask{},
+		TasksByCategory: map[string][]BaseTask{},
 	}
 	for _, task := range b.Tasks {
 		categoryName := task.Category.Name
-		toBeWritten.TasksByCategory[categoryName] = append(
-			toBeWritten.TasksByCategory[categoryName],
+		toBeWritten.TasksByCategory[string(categoryName)] = append(
+			toBeWritten.TasksByCategory[string(categoryName)],
 			task.toBaseTask(),
 		)
 	}
@@ -128,7 +128,7 @@ func BacklogFromReader(r io.Reader, categoryGetter func(CategoryName) Category) 
 	b := &Backlog{Tasks: []*Task{}}
 	for cat, tasks := range stored.TasksByCategory {
 		for _, task := range tasks {
-			b.Tasks = append(b.Tasks, toTask(cat, task))
+			b.Tasks = append(b.Tasks, toTask(CategoryName(cat), task))
 		}
 	}
 

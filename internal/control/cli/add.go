@@ -138,7 +138,7 @@ func (command *AddCommand) Execute(args []string) error {
 	fmt.Println("writing to:")
 	for _, event := range events {
 		fmt.Printf(" + %s\n", event.String())
-		err := provider.AddEvent(event)
+		_, err := provider.AddEvent(event)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: could not add event to provider (%s)\n", err.Error())
 		}

@@ -216,7 +216,11 @@ func NewController(
 				log.Error().Err(err).Msg("could not get events for current day")
 				return
 			}
-			controller.dataProvider.RemoveEvents(events)
+			eventIDs := make([]string, len(events))
+			for i, e := range events {
+				eventIDs[i] = e.ID
+			}
+			controller.dataProvider.RemoveEvents(eventIDs)
 		}),
 	}
 
@@ -309,7 +313,7 @@ func NewController(
 			true,
 			false,
 			func() bool { return controller.data.CurrentDate.GetDayInWeek(dayIndex) == controller.data.CurrentDate },
-			func() *model.Event { return nil /* TODO */ },
+			func() *model.EventID { return nil /* TODO */ },
 			func() bool { return controller.data.MouseMode },
 		)
 	}
@@ -353,7 +357,7 @@ func NewController(
 				false,
 				false,
 				func() bool { return controller.data.CurrentDate.GetDayInMonth(dayIndex) == controller.data.CurrentDate },
-				func() *model.Event { return nil /* TODO */ },
+				func() *model.EventID { return nil /* TODO */ },
 				func() bool { return controller.data.MouseMode },
 			),
 		)
@@ -751,13 +755,13 @@ func NewController(
 		"j": action.NewSimple(func() string { return "switch to next event" }, controller.switchToNextEventInDay),
 		"k": action.NewSimple(func() string { return "switch to previous event" }, controller.switchToPreviousEventInDay),
 		"d": action.NewSimple(func() string { return "delete selected event" }, func() {
-			event := controller.data.CurrentEvent
+			event := controller.data.CurrentEventID
 			if event != nil {
-				controller.dataProvider.RemoveEvent(event)
+				controller.dataProvider.RemoveEvent(*event)
 			}
 		}),
 		"<cr>": action.NewSimple(func() string { return "open the event editor" }, func() {
-			event := controller.data.CurrentEvent
+			event := controller.data.CurrentEventID
 			if event == nil {
 				log.Warn().Msgf("ignoring event editing request since no current event selected")
 				return
@@ -804,7 +808,17 @@ func NewController(
 			}()
 		}),
 		"o": action.NewSimple(func() string { return "add event after selected" }, func() {
-			current := controller.data.CurrentEvent
+			current, err := func() (*model.Event, error) {
+				c := controller.data.CurrentEventID
+				if c == nil {
+					return nil, nil
+				}
+				return controller.dataProvider.GetEvent(*c)
+			}()
+			if err != nil {
+				controller.log.Error().Err(err).Msg("could not get current event")
+				return
+			}
 			newEvent := &model.Event{
 				Name: "",
 				Cat:  controller.data.CurrentCategory,
@@ -827,7 +841,17 @@ func NewController(
 			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.End)
 		}),
 		"O": action.NewSimple(func() string { return "add event before selected" }, func() {
-			current := controller.data.CurrentEvent
+			current, err := func() (*model.Event, error) {
+				c := controller.data.CurrentEventID
+				if c == nil {
+					return nil, nil
+				}
+				return controller.dataProvider.GetEvent(*c)
+			}()
+			if err != nil {
+				controller.log.Error().Err(err).Msg("could not get current event")
+				return
+			}
 			newEvent := &model.Event{
 				Name: "",
 				Cat:  controller.data.CurrentCategory,
@@ -870,23 +894,44 @@ func NewController(
 			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.Start)
 		}),
 		"sn": action.NewSimple(func() string { return "split selected event now" }, func() {
-			current := controller.data.CurrentEvent
+			current, err := func() (*model.Event, error) {
+				c := controller.data.CurrentEventID
+				if c == nil {
+					return nil, nil
+				}
+				return controller.dataProvider.GetEvent(*c)
+			}()
+			if err != nil {
+				controller.log.Error().Err(err).Msg("could not get current event")
+				return
+			}
 			if current == nil {
+				controller.log.Info().Msg("there is no selected event, thus nothing to split")
 				return
 			}
 			now := time.Now()
-			if err := controller.dataProvider.SplitEvent(current, now); err != nil {
+			if err := controller.dataProvider.SplitEvent(current.ID, now); err != nil {
 				log.Warn().Err(err).Msgf("could not split event at %s", now.String())
 				return
 			}
 		}),
 		"sc": action.NewSimple(func() string { return "split selected event at its center" }, func() {
-			current := controller.data.CurrentEvent
+			current, err := func() (*model.Event, error) {
+				c := controller.data.CurrentEventID
+				if c == nil {
+					return nil, nil
+				}
+				return controller.dataProvider.GetEvent(*c)
+			}()
+			if err != nil {
+				controller.log.Error().Err(err).Msg("could not get current event")
+				return
+			}
 			if current == nil {
 				return
 			}
 			center := current.Start.Add(current.End.Sub(current.Start) / 2)
-			if err := controller.dataProvider.SplitEvent(current, center); err != nil {
+			if err := controller.dataProvider.SplitEvent(current.ID, center); err != nil {
 				log.Warn().Err(err).Msgf("could not split event at %s", center.String())
 				return
 			}
@@ -953,11 +998,11 @@ func NewController(
 		true,
 		true,
 		func() bool { return true },
-		func() *model.Event { return controller.data.CurrentEvent },
+		func() *model.EventID { return controller.data.CurrentEventID },
 		func() bool { return controller.data.MouseMode },
 	)
 	startMovePushing = func() {
-		if controller.data.CurrentEvent == nil {
+		if controller.data.CurrentEventID == nil {
 			return
 		}
 
@@ -1056,43 +1101,79 @@ func NewController(
 	}
 
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'm'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event move mode" }, func() {
-		if controller.data.CurrentEvent == nil {
+		if controller.data.CurrentEventID == nil {
 			return
 		}
 
 		eventMoveOverlay, err := input.ConstructInputTree(
 			map[input.Keyspec]action.Action{
 				"n": action.NewSimple(func() string { return "move to now" }, func() {
-					current := controller.data.CurrentEvent
+					current, err := func() (*model.Event, error) {
+						c := controller.data.CurrentEventID
+						if c == nil {
+							return nil, nil
+						}
+						return controller.dataProvider.GetEvent(*c)
+					}()
+					if err != nil {
+						controller.log.Error().Err(err).Msg("could not get current event")
+						return
+					}
+					if current == nil {
+						controller.log.Info().Msg("no current event selected, so nothing to move")
+						return
+					}
 					newStart := time.Now()
 					newEnd := current.End.Add(newStart.Sub(current.Start))
-					controller.dataProvider.SetEventTimes(current, newStart, newEnd)
-					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.Start)
-					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.End)
+					controller.dataProvider.SetEventTimes(current.ID, newStart, newEnd)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(newStart)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(newEnd)
 				}),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
-					current := controller.data.CurrentEvent
-					controller.dataProvider.SnapEventTimes(current, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
-					controller.dataProvider.OffsetEventTimes(current, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
-					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.End)
+					currentID := controller.data.CurrentEventID
+					if currentID == nil {
+						controller.log.Info().Msg("no current event selected, so nothing to move")
+						return
+					}
+					controller.dataProvider.SnapEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					_, newEnd, err := controller.dataProvider.OffsetEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					if err != nil {
+						controller.log.Error().Err(err).Msg("could not move event")
+						return
+					}
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(newEnd)
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
-					current := controller.data.CurrentEvent
-					controller.dataProvider.SnapEventTimes(current, -controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
-					controller.dataProvider.OffsetEventTimes(current, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
-					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.Start)
+					currentID := controller.data.CurrentEventID
+					if currentID == nil {
+						controller.log.Info().Msg("no current event selected, so nothing to move")
+						return
+					}
+					controller.dataProvider.SnapEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					newStart, _, err := controller.dataProvider.OffsetEventTimes(*currentID, -controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					if err != nil {
+						controller.log.Error().Err(err).Msg("could not move event")
+						return
+					}
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(newStart)
 				}),
 				"h": action.NewSimple(func() string { return "move to previous day" }, func() {
-					event := controller.data.CurrentEvent
-					controller.dataProvider.RemoveEvent(event)
+					currentEventID := controller.data.CurrentEventID
+					if currentEventID == nil {
+						controller.log.Info().Msg("no current event selected, so nothing to move")
+						return
+					}
+					controller.dataProvider.OffsetEventTimes(*currentEventID, (-24)*time.Hour)
 					controller.goToPreviousDay()
-					controller.dataProvider.AddEvent(*event)
 				}),
 				"l": action.NewSimple(func() string { return "move to next day" }, func() {
-					event := controller.data.CurrentEvent
-					controller.dataProvider.RemoveEvent(event)
-					controller.goToNextDay()
-					controller.dataProvider.AddEvent(*event)
+					currentEventID := controller.data.CurrentEventID
+					if currentEventID == nil {
+						controller.log.Info().Msg("no current event selected, so nothing to move")
+						return
+					}
+					controller.dataProvider.OffsetEventTimes(*currentEventID, (+24)*time.Hour)
+					controller.goToPreviousDay()
 				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
@@ -1105,48 +1186,67 @@ func NewController(
 		controller.data.EventEditMode = edit.EventEditModeMove
 	})}
 	dayViewEventsPaneInputTree.Root.Children[input.Key{Key: tcell.KeyRune, Ch: 'r'}] = &input.Node{Action: action.NewSimple(func() string { return "enter event resize mode" }, func() {
-		if controller.data.CurrentEvent == nil {
+		if controller.data.CurrentEventID == nil {
 			return
 		}
 
 		eventResizeOverlay, err := input.ConstructInputTree(
 			map[input.Keyspec]action.Action{
 				"n": action.NewSimple(func() string { return "resize to now" }, func() {
-					current := controller.data.CurrentEvent
+					current := controller.data.CurrentEventID
+					if current == nil {
+						controller.log.Info().Msg("no current event selected, so nothing to resize")
+						return
+					}
 					newEnd := time.Now()
-					controller.dataProvider.SetEventEnd(current, newEnd)
+					controller.dataProvider.SetEventEnd(*current, newEnd)
 					controller.ensureEventsPaneTimestampWithinVisibleScroll(newEnd)
 				}),
 				"j": action.NewSimple(func() string { return "increase size (lengthen)" }, func() {
 					var err error
-					current := controller.data.CurrentEvent
-					err = controller.dataProvider.OffsetEventEnd(
-						current,
+					currentID := controller.data.CurrentEventID
+					if currentID == nil {
+						controller.log.Info().Msg("no current event selected, so nothing to resize")
+						return
+					}
+					_, err = controller.dataProvider.OffsetEventEnd(
+						*currentID,
 						controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to resize")
+						return
 					}
-					err = controller.dataProvider.SnapEventEnd(
-						current,
+					var newEventEnd time.Time
+					newEventEnd, err = controller.dataProvider.SnapEventEnd(
+						*currentID,
 						controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
 					if err != nil {
 						log.Warn().Err(err).Msg("unable to snap")
+						return
 					}
-					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.End)
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(newEventEnd)
 				}),
 				"k": action.NewSimple(func() string { return "decrease size (shorten)" }, func() {
-					current := controller.data.CurrentEvent
+					currentID := controller.data.CurrentEventID
+					if currentID == nil {
+						controller.log.Info().Msg("no current event selected, so nothing to resize")
+						return
+					}
 					controller.dataProvider.OffsetEventEnd(
-						current,
+						*currentID,
 						-controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
-					controller.dataProvider.SnapEventEnd(
-						current,
+					newEnd, err := controller.dataProvider.SnapEventEnd(
+						*currentID,
 						controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
-					controller.ensureEventsPaneTimestampWithinVisibleScroll(current.End)
+					if err != nil {
+						controller.log.Error().Err(err).Msg("could not snap event end")
+						return
+					}
+					controller.ensureEventsPaneTimestampWithinVisibleScroll(newEnd)
 				}),
 				"r":     action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit resize mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
@@ -1547,7 +1647,7 @@ func (c *Controller) ScrollBottom() {
 
 func (c *Controller) endEdit() {
 	c.data.MouseEditState = edit.MouseEditStateNone
-	c.data.MouseEditedEvent = nil
+	c.data.MouseEditedEventID = nil
 	if c.data.EventEditor != nil {
 		c.data.EventEditor.Write()
 		c.data.EventEditor.Quit()
@@ -1557,14 +1657,24 @@ func (c *Controller) endEdit() {
 }
 
 func (c *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
+	if eventsInfo.Event == nil {
+		log.Warn().Msg("no event to move, will not start moving")
+		return
+	}
 	c.data.MouseEditState = edit.MouseEditStateMoving
-	c.data.MouseEditedEvent = eventsInfo.Event
+	c.data.MouseEditedEventID = new(model.EventID)
+	*c.data.MouseEditedEventID = eventsInfo.Event.ID
 	c.data.CurrentMoveStartingOffset = eventsInfo.Time.Sub(eventsInfo.Event.Start)
 }
 
 func (c *Controller) startMouseResize(eventsInfo *ui.EventsPanePositionInfo) {
+	if eventsInfo.Event == nil {
+		log.Warn().Msg("no event to resize, will not start resizing")
+		return
+	}
 	c.data.MouseEditState = edit.MouseEditStateResizing
-	c.data.MouseEditedEvent = eventsInfo.Event
+	c.data.MouseEditedEventID = new(model.EventID)
+	*c.data.MouseEditedEventID = eventsInfo.Event.ID
 }
 
 func (c *Controller) getDateAtCursor() model.Date {
@@ -1597,13 +1707,14 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 	e.Start = eventStartTime
 	e.End = eventStartTime.Add(c.data.MainTimelineViewParams.DurationOfHeight(1))
 
-	err := c.dataProvider.AddEvent(e)
+	newEventID, err := c.dataProvider.AddEvent(e)
 	if err != nil {
 		log.Error().Err(err).Interface("event", e).Msg("error occurred adding event")
-	} else {
-		c.data.MouseEditedEvent = &e
-		c.data.MouseEditState = edit.MouseEditStateResizing
+		return
 	}
+	c.data.MouseEditedEventID = new(model.EventID)
+	*c.data.MouseEditedEventID = newEventID
+	c.data.MouseEditState = edit.MouseEditStateResizing
 }
 
 func (c *Controller) goToDay(newDate model.Date) {
@@ -1664,11 +1775,11 @@ func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 		// if button clicked, handle
 		switch buttons {
 		case tcell.Button3:
-			c.dataProvider.RemoveEvent(eventsInfo.Event)
+			c.dataProvider.RemoveEvent(eventsInfo.Event.ID)
 		case tcell.Button2:
 			event := eventsInfo.Event
 			if event != nil && eventsInfo.Time.After(event.Start) {
-				c.dataProvider.SplitEvent(event, eventsInfo.Time)
+				c.dataProvider.SplitEvent(event.ID, eventsInfo.Time)
 			}
 
 		case tcell.Button1:
@@ -1716,13 +1827,18 @@ func (c *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 
 		switch buttons {
 		case tcell.Button1:
+			eventID := c.data.MouseEditedEventID
+			if eventID == nil {
+				c.log.Warn().Msg("no event to resize, will not resize")
+				return
+			}
+
 			cursorDate := c.getDateAtCursor()
 			cursorTime := model.DateAndTimestampToGotime(cursorDate, c.timestampGuesser(x, y))
 			visualCursorTime := cursorTime.Add(c.data.MainTimelineViewParams.DurationOfHeight(1))
-			event := c.data.MouseEditedEvent
 
 			var err error
-			err = c.dataProvider.SetEventEnd(event, visualCursorTime)
+			err = c.dataProvider.SetEventEnd(*eventID, visualCursorTime)
 			if err != nil {
 				log.Warn().Err(err).Msg("unable to resize")
 			}
@@ -1744,11 +1860,23 @@ func (c *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 
 		switch buttons {
 		case tcell.Button1:
+			eventID := c.data.MouseEditedEventID
+			if eventID == nil {
+				c.log.Warn().Msg("no event to move, will not move")
+				return
+			}
+			event, err := c.dataProvider.GetEvent(*eventID)
+			if err != nil {
+				log.Error().Err(err).Msg("could not get event")
+				return
+			}
+
 			cursorDate := c.getDateAtCursor()
 			cursorTimestamp := c.timestampGuesser(x, y)
 			cursorTime := model.DateAndTimestampToGotime(cursorDate, cursorTimestamp)
 			newStartOfEvent := cursorTime.Add(-c.data.CurrentMoveStartingOffset)
-			c.dataProvider.OffsetEventTimes(c.data.MouseEditedEvent, newStartOfEvent.Sub(c.data.MouseEditedEvent.Start))
+			c.dataProvider.OffsetEventTimes(event.ID, newStartOfEvent.Sub(event.Start))
+
 		case tcell.ButtonNone:
 			c.endEdit()
 		}
@@ -1964,24 +2092,32 @@ func (c *Controller) getCurrentMonthEvents() ([]*model.Event, error) {
 }
 
 func (c *Controller) ensureCurrentEventVisible() {
-	e := c.data.CurrentEvent
-	if e != nil {
-		c.ensureEventsPaneTimestampWithinVisibleScroll(e.Start)
-		c.ensureEventsPaneTimestampWithinVisibleScroll(e.End)
+	id := c.data.CurrentEventID
+	if id == nil {
+		c.log.Info().Msg("no current event selected, so nothing to ensure visible")
+		return
 	}
+	e, err := c.dataProvider.GetEvent(*id)
+	if err != nil {
+		c.log.Error().Err(err).Msg("could not get current event while ensuring visibility")
+		return
+	}
+	c.ensureEventsPaneTimestampWithinVisibleScroll(e.Start)
+	c.ensureEventsPaneTimestampWithinVisibleScroll(e.End)
 }
 
 func (c *Controller) switchToNextEventInDay() {
 	defer c.ensureCurrentEventVisible()
 
-	if c.data.CurrentEvent == nil {
+	if c.data.CurrentEventID == nil {
 		candidate, err := c.dataProvider.GetEventAfter(c.data.CurrentDate.ToGotime())
 		if err != nil {
 			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get next for current date")
 			return
 		}
 		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
-			c.data.CurrentEvent = candidate
+			c.data.CurrentEventID = new(model.EventID)
+			*c.data.CurrentEventID = candidate.ID
 			c.log.Debug().Stringer("event", candidate).Msg("switched to next event")
 			return
 		}
@@ -1989,9 +2125,9 @@ func (c *Controller) switchToNextEventInDay() {
 		return
 	}
 
-	next, err := c.dataProvider.GetEventAfter(c.data.CurrentEvent.End)
+	next, err := c.dataProvider.GetFollowingEvent(*c.data.CurrentEventID)
 	if err != nil {
-		c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get next for current date")
+		c.log.Error().Err(err).Str("id", string(*c.data.CurrentEventID)).Msg("could not get following event of current event")
 		return
 	}
 	if next == nil {
@@ -2003,21 +2139,23 @@ func (c *Controller) switchToNextEventInDay() {
 		return
 	}
 
-	c.data.CurrentEvent = next
+	c.data.CurrentEventID = new(model.EventID)
+	*c.data.CurrentEventID = next.ID
 	c.log.Debug().Stringer("event", next).Msg("switched to next event")
 }
 
 func (c *Controller) switchToPreviousEventInDay() {
 	defer c.ensureCurrentEventVisible()
 
-	if c.data.CurrentEvent == nil {
+	if c.data.CurrentEventID == nil {
 		candidate, err := c.dataProvider.GetEventBefore(c.data.CurrentDate.ToGotime().Add(24 * time.Hour))
 		if err != nil {
 			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
 			return
 		}
 		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
-			c.data.CurrentEvent = candidate
+			c.data.CurrentEventID = new(model.EventID)
+			*c.data.CurrentEventID = candidate.ID
 			c.log.Debug().Stringer("event", candidate).Msg("switched to prev event")
 			return
 		}
@@ -2025,7 +2163,7 @@ func (c *Controller) switchToPreviousEventInDay() {
 		return
 	}
 
-	prev, err := c.dataProvider.GetEventBefore(c.data.CurrentEvent.Start)
+	prev, err := c.dataProvider.GetPrecedingEvent(*c.data.CurrentEventID)
 	if err != nil {
 		c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
 		return
@@ -2039,7 +2177,8 @@ func (c *Controller) switchToPreviousEventInDay() {
 		return
 	}
 
-	c.data.CurrentEvent = prev
+	// current event ID is not nil, so we can just set it to the previous event's
+	*c.data.CurrentEventID = prev.ID
 	c.log.Debug().Stringer("event", prev).Msg("switched to prev event")
 }
 

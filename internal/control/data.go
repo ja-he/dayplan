@@ -67,9 +67,9 @@ type ControlData struct {
 
 	EnvData EnvData
 
-	CurrentDate  model.Date
-	CurrentEvent *model.Event
-	Weather      weather.Handler
+	CurrentDate    model.Date
+	CurrentEventID *model.EventID
+	Weather        weather.Handler
 
 	EventEditor *editors.Composite
 	TaskEditor  *editors.Composite
@@ -90,7 +90,7 @@ type ControlData struct {
 	EventEditMode edit.EventEditMode
 
 	MouseEditState            edit.MouseEditState
-	MouseEditedEvent          *model.Event
+	MouseEditedEventID        *model.EventID
 	CurrentMoveStartingOffset time.Duration
 }
 
