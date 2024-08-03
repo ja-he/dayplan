@@ -30,13 +30,13 @@ type EventsPane struct {
 	viewParams ui.TimespanViewParams
 	cursor     *ui.MouseCursorPos
 
-	pad             int
-	drawTimestamps  bool
-	drawNames       bool
-	drawCat         bool
-	isCurrentDay    func() bool
-	getCurrentEvent func() *model.Event
-	mouseMode       func() bool
+	pad               int
+	drawTimestamps    bool
+	drawNames         bool
+	drawCat           bool
+	isCurrentDay      func() bool
+	getCurrentEventID func() *model.EventID
+	mouseMode         func() bool
 
 	log zerolog.Logger
 
@@ -112,7 +112,8 @@ func (p *EventsPane) Draw() {
 			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
 		}
 
-		if p.getCurrentEvent() == e {
+		currentID := p.getCurrentEventID()
+		if currentID != nil && *currentID == e.ID {
 			style = style.Invert()
 		}
 
@@ -259,7 +260,8 @@ func (p *EventsPane) computeRects(date model.Date, l *model.EventList, offsetX, 
 		x += (width - w)
 
 		// make the current event wider by 1 on either side
-		if e == p.getCurrentEvent() {
+		currentID := p.getCurrentEventID()
+		if currentID != nil && e.ID == *currentID {
 			x -= 1
 			w += 2
 		}
@@ -284,7 +286,7 @@ func NewEventsPane(
 	drawNames bool,
 	drawCat bool,
 	isCurrentDay func() bool,
-	getCurrentEvent func() *model.Event,
+	getCurrentEvent func() *model.EventID,
 	mouseMode func() bool,
 ) *EventsPane {
 	id := ui.GeneratePaneID()
@@ -298,19 +300,19 @@ func NewEventsPane(
 			Dims:       dimensions,
 			Stylesheet: stylesheet,
 		},
-		dayEvents:        dayEvents,
-		styleForCategory: styleForCategory,
-		viewParams:       viewParams,
-		cursor:           cursor,
-		pad:              pad,
-		drawTimestamps:   drawTimestamps,
-		drawNames:        drawNames,
-		drawCat:          drawCat,
-		isCurrentDay:     isCurrentDay,
-		getCurrentEvent:  getCurrentEvent,
-		mouseMode:        mouseMode,
-		positions:        make(map[*model.Event]util.Rect, 0),
-		log:              log.With().Str("component", fmt.Sprintf("events-pane-%d", id)).Logger(),
+		dayEvents:         dayEvents,
+		styleForCategory:  styleForCategory,
+		viewParams:        viewParams,
+		cursor:            cursor,
+		pad:               pad,
+		drawTimestamps:    drawTimestamps,
+		drawNames:         drawNames,
+		drawCat:           drawCat,
+		isCurrentDay:      isCurrentDay,
+		getCurrentEventID: getCurrentEvent,
+		mouseMode:         mouseMode,
+		positions:         make(map[*model.Event]util.Rect, 0),
+		log:               log.With().Str("component", fmt.Sprintf("events-pane-%d", id)).Logger(),
 	}
 	defer p.log.Info().Msgf("constructed new events pane with id '%d'", p.Identify())
 	return p

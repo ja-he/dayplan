@@ -150,10 +150,20 @@ func (l *EventList) getEventsBefore(event *Event) []*Event {
 	return result
 }
 
+func cloneEvent(e *Event) Event {
+	return Event{
+		ID:    e.ID,
+		Name:  e.Name,
+		Cat:   e.Cat,
+		Start: e.Start,
+		End:   e.End,
+	}
+}
+
 func (l *EventList) Clone() EventList {
 	cloned := make([]*Event, len(l.Events))
 	for i := range l.Events {
-		c := l.Events[i].Clone()
+		c := cloneEvent(l.Events[i])
 		cloned[i] = &c
 	}
 	return EventList{Events: cloned}
@@ -255,7 +265,7 @@ func (l *EventList) Flatten() {
 		if l.Events[next].IsContainedIn(l.Events[current]) {
 			if l.Events[next].Cat.Priority > l.Events[current].Cat.Priority {
 				// clone the current event for the remainder after the next event
-				currentRemainder := l.Events[current].Clone()
+				currentRemainder := cloneEvent(l.Events[current])
 				currentRemainder.Start = l.Events[next].End
 
 				// trim the current until the next event

@@ -8,16 +8,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
 )
 
 const notSameDayEventErrorMsg = string("event does not start and end on the same day")
 
 var fileDateNamingRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
+var filesProviderIDGenerator = func() model.EventID {
+	return uuid.NewString()
+}
 
 // FilesDataProvider ...
 type FilesDataProvider struct {
@@ -76,29 +80,35 @@ func (p *FilesDataProvider) getFileHandler(date model.Date) (*fileHandler, error
 
 // AddEvent ...
 // TODO: doc AddEvent
-func (p *FilesDataProvider) AddEvent(e model.Event) error {
+func (p *FilesDataProvider) AddEvent(e model.Event) (model.EventID, error) {
 	if !eventStartsAndEndsOnSameDate(&e) {
-		return fmt.Errorf(notSameDayEventErrorMsg)
+		return "", fmt.Errorf(notSameDayEventErrorMsg)
 	}
 	d := model.DateFromGotime(e.Start)
 	fh, err := p.getFileHandler(d)
 	if err != nil {
-		return fmt.Errorf("error loading file handler for date (%w)", err)
+		return "", fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 	fh.AddEvent(&e)
-	return nil
+	return filesProviderIDGenerator(), nil
 }
 
 // TODO: doc RemoveEvent
-func (p *FilesDataProvider) RemoveEvent(storage.EventIdentifier) error {
+func (p *FilesDataProvider) RemoveEvent(model.EventID) error {
 	p.log.Fatal().Msg("TODO IMPL(RemoveEvent)")
 	return nil
 }
 
 // TODO: doc RemoveEvents
-func (p *FilesDataProvider) RemoveEvents([]storage.EventIdentifier) error {
+func (p *FilesDataProvider) RemoveEvents([]model.EventID) error {
 	p.log.Fatal().Msg("TODO IMPL(RemoveEvents)")
 	return nil
+}
+
+// TODO: doc GetEvent
+func (p *FilesDataProvider) GetEvent(id model.EventID) (*model.Event, error) {
+	p.log.Fatal().Msg("TODO IMPL(GetEvent)")
+	return nil, nil
 }
 
 // GetEventAfter retrieves the first event after the specified time.
@@ -173,13 +183,13 @@ func (p *FilesDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
 }
 
 // TODO: doc GetPrecedingEvent
-func (p *FilesDataProvider) GetPrecedingEvent(storage.EventIdentifier, time.Time) (*model.Event, error) {
+func (p *FilesDataProvider) GetPrecedingEvent(model.EventID) (*model.Event, error) {
 	p.log.Fatal().Msg("TODO IMPL(GetPrecedingEvent)")
 	return nil, nil
 }
 
 // TODO: doc GetFollowingEvent
-func (p *FilesDataProvider) GetFollowingEvent(storage.EventIdentifier, time.Time) (*model.Event, error) {
+func (p *FilesDataProvider) GetFollowingEvent(model.EventID) (*model.Event, error) {
 	p.log.Fatal().Msg("TODO IMPL(GetFollowingEvent)")
 	return nil, nil
 }
@@ -247,79 +257,79 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 }
 
 // TODO: doc SplitEvent
-func (p *FilesDataProvider) SplitEvent(storage.EventIdentifier, time.Time) error {
+func (p *FilesDataProvider) SplitEvent(model.EventID, time.Time) error {
 	p.log.Fatal().Msg("TODO IMPL(SplitEvent)")
 	return nil
 }
 
 // TODO: doc SetEventStart
-func (p *FilesDataProvider) SetEventStart(storage.EventIdentifier, time.Time) error {
+func (p *FilesDataProvider) SetEventStart(model.EventID, time.Time) error {
 	p.log.Fatal().Msg("TODO IMPL(SetEventStart)")
 	return nil
 }
 
 // TODO: doc SetEventEnd
-func (p *FilesDataProvider) SetEventEnd(storage.EventIdentifier, time.Time) error {
+func (p *FilesDataProvider) SetEventEnd(model.EventID, time.Time) error {
 	p.log.Fatal().Msg("TODO IMPL(SetEventEnd)")
 	return nil
 }
 
 // TODO: doc SetEventTimes
-func (p *FilesDataProvider) SetEventTimes(storage.EventIdentifier, time.Time, time.Time) error {
+func (p *FilesDataProvider) SetEventTimes(model.EventID, time.Time, time.Time) error {
 	p.log.Fatal().Msg("TODO IMPL(SetEventTimes)")
 	return nil
 }
 
 // TODO: doc OffsetEventStart
-func (p *FilesDataProvider) OffsetEventStart(storage.EventIdentifier, time.Duration) error {
+func (p *FilesDataProvider) OffsetEventStart(model.EventID, time.Duration) (time.Time, error) {
 	p.log.Fatal().Msg("TODO IMPL(OffsetEventStart)")
-	return nil
+	return time.Time{}, nil
 }
 
 // TODO: doc OffsetEventEnd
-func (p *FilesDataProvider) OffsetEventEnd(storage.EventIdentifier, time.Duration) error {
+func (p *FilesDataProvider) OffsetEventEnd(model.EventID, time.Duration) (time.Time, error) {
 	p.log.Fatal().Msg("TODO IMPL(OffsetEventEnd)")
-	return nil
+	return time.Time{}, nil
 }
 
 // TODO: doc OffsetEventTimes
-func (p *FilesDataProvider) OffsetEventTimes(storage.EventIdentifier, time.Duration) error {
+func (p *FilesDataProvider) OffsetEventTimes(model.EventID, time.Duration) (time.Time, time.Time, error) {
 	p.log.Fatal().Msg("TODO IMPL(OffsetEventTimes)")
-	return nil
+	return time.Time{}, time.Time{}, nil
 }
 
 // TODO: doc SnapEventStart
-func (p *FilesDataProvider) SnapEventStart(storage.EventIdentifier, time.Duration) error {
+func (p *FilesDataProvider) SnapEventStart(model.EventID, time.Duration) (time.Time, error) {
 	p.log.Fatal().Msg("TODO IMPL(SnapEventStart)")
-	return nil
+	return time.Time{}, nil
 }
 
 // TODO: doc SnapEventEnd
-func (p *FilesDataProvider) SnapEventEnd(storage.EventIdentifier, time.Duration) error {
+func (p *FilesDataProvider) SnapEventEnd(model.EventID, time.Duration) (time.Time, error) {
 	p.log.Fatal().Msg("TODO IMPL(SnapEventEnd)")
-	return nil
+	return time.Time{}, nil
 }
 
 // TODO: doc SnapEventTimes
-func (p *FilesDataProvider) SnapEventTimes(storage.EventIdentifier, time.Duration) error {
+func (p *FilesDataProvider) SnapEventTimes(model.EventID, time.Duration) (time.Time, time.Time, error) {
 	p.log.Fatal().Msg("TODO IMPL(SnapEventTimes)")
-	return nil
+	return time.Time{}, time.Time{}, nil
 }
 
 // TODO: doc SetEventTitle
-func (p *FilesDataProvider) SetEventTitle(storage.EventIdentifier, string) error {
+func (p *FilesDataProvider) SetEventTitle(model.EventID, string) error {
 	p.log.Fatal().Msg("TODO IMPL(SetEventTitle)")
 	return nil
 }
 
 // TODO: doc SetEventCategory
-func (p *FilesDataProvider) SetEventCategory(storage.EventIdentifier, model.Category) error {
+func (p *FilesDataProvider) SetEventCategory(model.EventID, model.Category) error {
 	p.log.Fatal().Msg("TODO IMPL(SetEventCategory)")
 	return nil
 }
 
 // TODO: doc SetEventAllData
-func (p *FilesDataProvider) SetEventAllData(storage.EventIdentifier, model.Event) error {
+func (p *FilesDataProvider) SetEventAllData(model.EventID, model.Event) error {
 	p.log.Fatal().Msg("TODO IMPL(SetEventAllData)")
 	return nil
 }
