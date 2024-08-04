@@ -12,7 +12,7 @@ type EventList struct {
 }
 
 // ...
-func (l *EventList) RemoveEvent(event *Event) {
+func (l *EventList) RemoveEvent(event *Event) error {
 	if event != nil {
 		index := -1
 		for i := range l.Events {
@@ -22,10 +22,11 @@ func (l *EventList) RemoveEvent(event *Event) {
 			}
 		}
 		if index == -1 {
-			panic(fmt.Sprintf("event %s not found for removal", event.String()))
+			return fmt.Errorf("event %s not found for removal", event.String())
 		}
 		l.Events = append(l.Events[:index], l.Events[index+1:]...)
 	}
+	return nil
 }
 
 func (l *EventList) GetEventByID(id EventID) *Event {
