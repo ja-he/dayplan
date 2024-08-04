@@ -43,7 +43,7 @@ type DataProvider interface {
 	SetEventCategory(model.EventID, model.Category) error
 	SetEventAllData(model.EventID, model.Event) error
 
-	SumUpTimespanByCategory(start time.Time, end time.Time) map[model.CategoryName]time.Duration
+	SumUpTimespanByCategory(start time.Time, end time.Time) (map[model.CategoryName]time.Duration, error)
 
 	// need something here for mutability, e.g. constructing an editor...
 

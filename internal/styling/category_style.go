@@ -58,11 +58,11 @@ func (cs *CategoryStyling) GetAll() []StyledCategory {
 // GetStyle returns the styling for the requested category from this styling.
 //
 // If no styling is present for the category, it returns nil an an error.
-func (cs *CategoryStyling) GetStyle(c model.Category) (DrawStyling, error) {
+func (cs *CategoryStyling) GetStyle(c model.CategoryName) (DrawStyling, error) {
 	for _, styling := range cs.styles {
-		if styling.Cat.Name == c.Name {
+		if styling.Cat.Name == c {
 			return styling.Style, nil
 		}
 	}
-	return nil, fmt.Errorf("style for category '%s' not found", c.Name)
+	return nil, fmt.Errorf("style for category '%s' not found", c)
 }

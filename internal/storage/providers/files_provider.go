@@ -341,9 +341,9 @@ func (p *FilesDataProvider) CommitState() error {
 }
 
 // TODO: doc SumUpTimespanByCategory
-func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Time) map[model.CategoryName]time.Duration {
+func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Time) (map[model.CategoryName]time.Duration, error) {
 	p.log.Fatal().Msg("TODO IMPL(SumUpTimespanByCategory)")
-	return nil
+	return nil, nil
 }
 
 func eventStartsAndEndsOnSameDate(e *model.Event) bool {

@@ -25,7 +25,7 @@ type EventsPane struct {
 
 	dayEvents func() (model.Date, *model.EventList, error)
 
-	styleForCategory func(model.Category) (styling.DrawStyling, error)
+	styleForCategory func(model.CategoryName) (styling.DrawStyling, error)
 
 	viewParams ui.TimespanViewParams
 	cursor     *ui.MouseCursorPos
@@ -90,9 +90,9 @@ func (p *EventsPane) Draw() {
 			continue
 		}
 
-		style, err := p.styleForCategory(e.Cat)
+		style, err := p.styleForCategory(e.Category)
 		if err != nil {
-			p.log.Error().Err(err).Str("category-name", string(e.Cat.Name)).Msg("an error occurred getting category style")
+			p.log.Error().Err(err).Str("category-name", string(e.Category)).Msg("an error occurred getting category style")
 			style = p.Stylesheet.CategoryFallback
 		}
 		if !p.isCurrentDay() {
@@ -168,7 +168,7 @@ func (p *EventsPane) Draw() {
 				catStyling = bottomStyling.NormalizeFromBG(0.2).Unbolded().Italicized()
 			}
 			catWidth := pos.W - 2 - 1
-			p.Renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(string(e.Cat.Name), catWidth))
+			p.Renderer.DrawText(pos.X+pos.W-1-catWidth, pos.Y+1, catWidth, 1, catStyling, util.TruncateAt(string(e.Category), catWidth))
 		}
 
 	}
@@ -278,7 +278,7 @@ func NewEventsPane(
 	stylesheet styling.Stylesheet,
 	inputProcessor input.ModalInputProcessor,
 	dayEvents func() (model.Date, *model.EventList, error),
-	styleForCategory func(model.Category) (styling.DrawStyling, error),
+	styleForCategory func(model.CategoryName) (styling.DrawStyling, error),
 	viewParams ui.TimespanViewParams,
 	cursor *ui.MouseCursorPos,
 	pad int,

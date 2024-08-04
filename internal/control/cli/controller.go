@@ -74,16 +74,6 @@ func NewController(
 	}
 	defer controller.goToDay(date)
 
-	categoryGetter := func(name model.CategoryName) model.Category {
-		cat, ok := categoryStyling.GetKnownCategoriesByName()[name]
-		if ok {
-			return *cat
-		}
-		return model.Category{
-			Name: name,
-		}
-	}
-
 	controller.data = control.NewControlData(categoryStyling)
 
 	{
@@ -153,7 +143,7 @@ func NewController(
 			return &model.Backlog{}, err
 		}
 		defer backlogReader.Close()
-		return model.BacklogFromReader(backlogReader, categoryGetter)
+		return model.BacklogFromReader(backlogReader)
 	}()
 	if err != nil {
 		return nil, fmt.Errorf("could not read backlog at '%s' (%w)", backlogFilePath, err)
@@ -708,10 +698,10 @@ func NewController(
 		map[input.Keyspec]action.Action{
 			"j": action.NewSimple(func() string { return "switch to next category" }, func() {
 				for i, cat := range controller.data.Categories {
-					if cat == controller.data.CurrentCategory {
+					if cat.Name == controller.data.CurrentCategory {
 						for ii := i + 1; ii < len(controller.data.Categories); ii++ {
 							if !controller.data.Categories[ii].Deprecated {
-								controller.data.CurrentCategory = controller.data.Categories[ii]
+								controller.data.CurrentCategory = controller.data.Categories[ii].Name
 								return
 							}
 						}
@@ -720,10 +710,10 @@ func NewController(
 			}),
 			"k": action.NewSimple(func() string { return "switch to previous category" }, func() {
 				for i, cat := range controller.data.Categories {
-					if cat == controller.data.CurrentCategory {
+					if cat.Name == controller.data.CurrentCategory {
 						for ii := i - 1; ii >= 0; ii-- {
 							if !controller.data.Categories[ii].Deprecated {
-								controller.data.CurrentCategory = controller.data.Categories[ii]
+								controller.data.CurrentCategory = controller.data.Categories[ii].Name
 								return
 							}
 						}
@@ -820,8 +810,8 @@ func NewController(
 				return
 			}
 			newEvent := &model.Event{
-				Name: "",
-				Cat:  controller.data.CurrentCategory,
+				Name:     "",
+				Category: controller.data.CurrentCategory,
 			}
 			if current == nil {
 				newEvent.Start = time.Now()
@@ -853,8 +843,8 @@ func NewController(
 				return
 			}
 			newEvent := &model.Event{
-				Name: "",
-				Cat:  controller.data.CurrentCategory,
+				Name:     "",
+				Category: controller.data.CurrentCategory,
 			}
 			if current == nil {
 				newEvent.End = time.Now()
@@ -876,8 +866,8 @@ func NewController(
 		}),
 		"<c-o>": action.NewSimple(func() string { return "add event now" }, func() {
 			newEvent := &model.Event{
-				Name: "",
-				Cat:  controller.data.CurrentCategory,
+				Name:     "",
+				Category: controller.data.CurrentCategory,
 			}
 			newEvent.Start = time.Now()
 			eventAfter, err := controller.dataProvider.GetEventAfter(newEvent.Start)
@@ -968,7 +958,7 @@ func NewController(
 		toolsDimensions,
 		stylesheet,
 		processors.NewModalInputProcessor(toolsInputTree),
-		&controller.data.CurrentCategory,
+		func() model.CategoryName { return controller.data.CurrentCategory },
 		&categoryStyling,
 		2,
 		1,
@@ -1514,7 +1504,15 @@ func NewController(
 				}
 				return fmt.Sprintf("SUMMARY (%s)", dateString)
 			},
-			controller.getCurrentViewEvents,
+			func() (map[model.CategoryName]time.Duration, error) {
+				startOfDay := controller.data.CurrentDate.ToGotime()
+				endOfDay := startOfDay.Add(24 * time.Hour)
+				result, err := controller.dataProvider.SumUpTimespanByCategory(startOfDay, endOfDay)
+				if err != nil {
+					return nil, fmt.Errorf("could not sum up timespans by category (%w)", err)
+				}
+				return result, nil
+			},
 			&categoryStyling,
 			processors.NewModalInputProcessor(summaryPaneInputTree),
 		),
@@ -1599,7 +1597,7 @@ func NewController(
 	controller.screenEvents = renderer.GetEventPollable()
 
 	controller.rootPane = rootPane
-	controller.data.CurrentCategory.Name = "default"
+	controller.data.CurrentCategory = "default"
 
 	controller.timestampGuesser = func(cursorX, cursorY int) model.Timestamp {
 		_, yOffset, _, _ := dayViewEventsPaneDimensions()
@@ -1702,7 +1700,7 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 
 	// create event at time with cat etc.
 	e := model.Event{}
-	e.Cat = c.data.CurrentCategory
+	e.Category = c.data.CurrentCategory
 	e.Name = ""
 	e.Start = eventStartTime
 	e.End = eventStartTime.Add(c.data.MainTimelineViewParams.DurationOfHeight(1))
@@ -1811,7 +1809,7 @@ func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 		case tcell.Button1:
 			cat := toolsInfo.Category
 			if cat != nil {
-				c.data.CurrentCategory = *cat
+				c.data.CurrentCategory = cat.Name
 			}
 		}
 

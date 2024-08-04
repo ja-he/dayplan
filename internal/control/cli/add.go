@@ -96,10 +96,10 @@ func (command *AddCommand) Execute(args []string) error {
 
 	var events []model.Event
 	events = append(events, model.Event{
-		Start: start,
-		End:   end,
-		Name:  command.Name,
-		Cat:   model.Category{Name: categoryName},
+		Start:    start,
+		End:      end,
+		Name:     command.Name,
+		Category: categoryName,
 	})
 
 	if command.RepeatInterval != "" {
@@ -122,10 +122,10 @@ func (command *AddCommand) Execute(args []string) error {
 
 		for !currentStart.After(repeatTilTime) {
 			event := model.Event{
-				Start: currentStart,
-				End:   currentEnd,
-				Name:  command.Name,
-				Cat:   model.Category{Name: categoryName},
+				Start:    currentStart,
+				End:      currentEnd,
+				Name:     command.Name,
+				Category: categoryName,
 			}
 			events = append(events, event)
 

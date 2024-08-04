@@ -152,8 +152,21 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		}
 	}()
 
+	categoryPriority := map[model.CategoryName]int{}
+	for _, cat := range configData.Categories {
+		categoryPriority[model.CategoryName(cat.Name)] = cat.Priority
+	}
+
+	categoryPriorityProvider := func(catName model.CategoryName) int {
+		prio, ok := categoryPriority[catName]
+		if !ok {
+			return 0
+		}
+		return prio
+	}
+
 	for _, dataEntry := range data {
-		timesheetEntry, err := dataEntry.EventList.GetTimesheetEntry(matcher)
+		timesheetEntry, err := dataEntry.EventList.GetTimesheetEntry(matcher, categoryPriorityProvider)
 		if err != nil {
 			return fmt.Errorf("error while getting timesheet entry: %s", err)
 		}

@@ -20,7 +20,7 @@ type SummaryPane struct {
 	ui.LeafPane
 
 	titleString func() string
-	events      func() ([]*model.Event, error)
+	summary     func() (map[model.CategoryName]time.Duration, error)
 
 	categories *styling.CategoryStyling
 
@@ -51,15 +51,11 @@ func (p *SummaryPane) Draw() {
 		p.Renderer.DrawBox(x, y, w, 1, p.Stylesheet.SummaryTitleBox)
 		p.Renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.Stylesheet.SummaryTitleBox, title)
 
-		events, err := p.events()
+		summary, err := p.summary()
 		if err != nil {
-			log.Error().Err(err).Msg("error getting events for summary pane")
+			p.log.Error().Err(err).Msg("could not get summary")
 			return
 		}
-		el := model.EventList{
-			Events: events,
-		}
-		summary := el.SumUpByCategory()
 		categoriesByName := p.categories.GetKnownCategoriesByName()
 
 		maxDuration := time.Duration(0)
@@ -82,7 +78,7 @@ func (p *SummaryPane) Draw() {
 		row := 2
 		for _, category := range categories {
 			duration := summary[category.Name]
-			style, err := p.categories.GetStyle(category)
+			style, err := p.categories.GetStyle(category.Name)
 			if err != nil {
 				style = p.Stylesheet.CategoryFallback
 			}
@@ -110,7 +106,7 @@ func NewSummaryPane(
 	stylesheet styling.Stylesheet,
 	condition func() bool,
 	titleString func() string,
-	events func() ([]*model.Event, error),
+	summary func() (map[model.CategoryName]time.Duration, error),
 	categories *styling.CategoryStyling,
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
@@ -126,7 +122,7 @@ func NewSummaryPane(
 			Stylesheet: stylesheet,
 		},
 		titleString: titleString,
-		events:      events,
+		summary:     summary,
 		categories:  categories,
 		log:         log.With().Str("component", "summary-pane").Logger(),
 	}
