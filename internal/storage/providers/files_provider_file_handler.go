@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/internal/model"
 )
 
@@ -67,6 +69,17 @@ func (h *fileHandler) AddEvent(e *model.Event) error {
 	return nil
 }
 
+func (h *fileHandler) GetEvent(id model.EventID) (*model.Event, error) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	e := h.data.GetEventByID(id)
+	if e == nil {
+		return nil, fmt.Errorf("event with ID '%s' not found", id)
+	}
+	return e, nil
+}
+
 // Read ...
 func (h *fileHandler) readFromDisk() error {
 	if len(h.data.Events) != 0 {
@@ -89,7 +102,15 @@ func (h *fileHandler) readFromDisk() error {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		s := scanner.Text()
-		h.data.AddEvent(newEventFromDaywiseFileLine(h.date, s))
+		e := newEventFromDaywiseFileLine(h.date, s)
+		if e.ID == "" {
+			newID := filesProviderIDGenerator()
+			log.Warn().Msgf("generated temporary (until write) event ID '%s' to cope with legacy format", newID)
+			e.ID = newID
+		} else if !filesProviderIDValidator(e.ID) {
+			return fmt.Errorf("invalid event ID '%s' in file '%s'", e.ID, h.Filename())
+		}
+		h.data.AddEvent(e)
 	}
 
 	return nil

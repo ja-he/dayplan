@@ -28,6 +28,15 @@ func (l *EventList) RemoveEvent(event *Event) {
 	}
 }
 
+func (l *EventList) GetEventByID(id EventID) *Event {
+	for _, e := range l.Events {
+		if e.ID == id {
+			return e
+		}
+	}
+	return nil
+}
+
 // ...
 func (l *EventList) AddEvent(e *Event) error {
 	if !(e.End.After(e.Start)) {

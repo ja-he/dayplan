@@ -22,6 +22,10 @@ var fileDateNamingRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 var filesProviderIDGenerator = func() model.EventID {
 	return uuid.NewString()
 }
+var filesProviderIDValidator = func(id model.EventID) bool {
+	_, err := uuid.Parse(id)
+	return err == nil
+}
 
 // FilesDataProvider ...
 type FilesDataProvider struct {
@@ -29,6 +33,9 @@ type FilesDataProvider struct {
 
 	fhMutex      sync.RWMutex
 	FileHandlers map[model.Date]*fileHandler
+
+	eventsDateMapMtx sync.RWMutex
+	eventsDateMap    map[model.EventID]model.Date
 
 	log zerolog.Logger
 }
@@ -39,10 +46,11 @@ func NewFilesDataProvider(
 ) (*FilesDataProvider, error) {
 
 	result := &FilesDataProvider{
-		BasePath:     basePath,
-		fhMutex:      sync.RWMutex{},
-		FileHandlers: make(map[model.Date]*fileHandler),
-		log:          log.With().Str("component", "files-data-provider").Logger(),
+		BasePath:      basePath,
+		fhMutex:       sync.RWMutex{},
+		FileHandlers:  make(map[model.Date]*fileHandler),
+		eventsDateMap: make(map[model.EventID]model.Date),
+		log:           log.With().Str("component", "files-data-provider").Logger(),
 	}
 
 	return result, nil
@@ -81,6 +89,14 @@ func (p *FilesDataProvider) getFileHandler(date model.Date) (*fileHandler, error
 // AddEvent ...
 // TODO: doc AddEvent
 func (p *FilesDataProvider) AddEvent(e model.Event) (model.EventID, error) {
+	if e.ID == "" {
+		e.ID = filesProviderIDGenerator()
+	} else {
+		if !filesProviderIDValidator(e.ID) {
+			return "", fmt.Errorf("invalid event ID")
+		}
+	}
+
 	if !eventStartsAndEndsOnSameDate(&e) {
 		return "", fmt.Errorf(notSameDayEventErrorMsg)
 	}
@@ -105,10 +121,68 @@ func (p *FilesDataProvider) RemoveEvents([]model.EventID) error {
 	return nil
 }
 
-// TODO: doc GetEvent
+// GetEvent retrieves the event with the specified ID.
 func (p *FilesDataProvider) GetEvent(id model.EventID) (*model.Event, error) {
-	p.log.Fatal().Msg("TODO IMPL(GetEvent)")
-	return nil, nil
+	if !filesProviderIDValidator(id) {
+		return nil, fmt.Errorf("invalid event ID")
+	}
+
+	p.log.Debug().Msgf("getting event with ID '%s'", id)
+	defer p.log.Debug().Msgf("done getting event with ID '%s'", id)
+
+	p.eventsDateMapMtx.RLock()
+	d, ok := p.eventsDateMap[id]
+	p.eventsDateMapMtx.RUnlock()
+
+	if ok {
+		p.log.Trace().Msgf("found event ID '%s' in map", id)
+		fh, err := p.getFileHandler(d)
+		if err != nil {
+			return nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
+		}
+		e, err := fh.GetEvent(id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting event with ID '%s' from file handler (%w)", id, err)
+		}
+		return e, nil
+	}
+
+	p.log.Trace().Msgf("will look for event with ID '%s' in files", id)
+	e, d, err := p.getYetUnfoundEvent(id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	p.log.Trace().Msgf("found date '%s' for event with ID '%s', will add to map", d.String(), id)
+	p.eventsDateMapMtx.Lock()
+	p.eventsDateMap[id] = d
+	p.eventsDateMapMtx.Unlock()
+
+	return e, nil
+
+}
+
+func (p *FilesDataProvider) getYetUnfoundEvent(id model.EventID) (*model.Event, model.Date, error) {
+	availableDates, err := p.getAvailableDates()
+	if err != nil {
+		return nil, model.Date{}, fmt.Errorf("error getting available dates (%w)", err)
+	}
+	p.log.Trace().Msgf("have %d available dates", len(availableDates))
+
+	for _, d := range availableDates {
+		p.log.Trace().Msgf("getting file handler for date '%s'", d.String())
+		fh, err := p.getFileHandler(d)
+		if err != nil {
+			return nil, model.Date{}, fmt.Errorf("error getting file handler for date '%s', which should not happen since the file should exist (%w)", d.String(), err)
+		}
+		for _, event := range fh.data.Events {
+			if event.ID == id {
+				p.log.Trace().Msgf("found event with ID '%s'", id)
+				return event, d, nil
+			}
+		}
+	}
+	return nil, model.Date{}, fmt.Errorf("event with ID '%s' not found", id)
 }
 
 // GetEventAfter retrieves the first event after the specified time.
