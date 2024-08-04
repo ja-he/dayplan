@@ -225,6 +225,16 @@ func TestIsContainedIn(t *testing.T) {
 }
 
 var categoryZeroPriorityFunc = func(cat model.CategoryName) int { return 0 }
+var workAndEatingPriorityFunc = func(cat model.CategoryName) int {
+	switch cat {
+	case "eating":
+		return 1
+	case "work":
+		return 2
+	default:
+		panic("you forgot to update the test")
+	}
+}
 
 func TestSumUpByCategory(t *testing.T) {
 	{
@@ -382,7 +392,7 @@ func TestFlatten(t *testing.T) {
 			{Name: "Work", Category: "work", Start: baseDate.Add(6 * time.Hour), End: baseDate.Add(8 * time.Hour)},
 		}
 
-		input.Flatten(categoryZeroPriorityFunc)
+		input.Flatten(workAndEatingPriorityFunc)
 		if !eventsEqualExceptingIDs(input, expected) {
 			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %v\n (b): %v", testcase, expected, input)
 		}
@@ -400,7 +410,7 @@ func TestFlatten(t *testing.T) {
 			{Name: "Lunch", Category: "eating", Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(12*time.Hour + 30*time.Minute)},
 		}
 
-		input.Flatten(categoryZeroPriorityFunc)
+		input.Flatten(workAndEatingPriorityFunc)
 		if !eventsEqualExceptingIDs(input, expected) {
 			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
@@ -417,7 +427,7 @@ func TestFlatten(t *testing.T) {
 			{Name: "Work", Category: "work", Start: baseDate.Add(9 * time.Hour), End: baseDate.Add(14 * time.Hour)},
 		}
 
-		input.Flatten(categoryZeroPriorityFunc)
+		input.Flatten(workAndEatingPriorityFunc)
 		if !eventsEqualExceptingIDs(input, expected) {
 			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
@@ -436,7 +446,7 @@ func TestFlatten(t *testing.T) {
 			{Name: "Lunch", Category: "eating", Start: baseDate.Add(12*time.Hour + 35*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
 
-		input.Flatten(categoryZeroPriorityFunc)
+		input.Flatten(workAndEatingPriorityFunc)
 		if !eventsEqualExceptingIDs(input, expected) {
 			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
@@ -454,7 +464,7 @@ func TestFlatten(t *testing.T) {
 			{Name: "Lunch", Category: "eating", Start: baseDate.Add(12*time.Hour + 10*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
 
-		input.Flatten(categoryZeroPriorityFunc)
+		input.Flatten(workAndEatingPriorityFunc)
 		if !eventsEqualExceptingIDs(input, expected) {
 			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
@@ -472,7 +482,7 @@ func TestFlatten(t *testing.T) {
 			{Name: "Reply to that one email even though it could wait 15 minutes", Category: "work", Start: baseDate.Add(12*time.Hour + 40*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
 
-		input.Flatten(categoryZeroPriorityFunc)
+		input.Flatten(workAndEatingPriorityFunc)
 		if !eventsEqualExceptingIDs(input, expected) {
 			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
@@ -492,7 +502,18 @@ func TestFlatten(t *testing.T) {
 			{Name: "A", Category: "a", Start: baseDate.Add(12*time.Hour + 30*time.Minute), End: baseDate.Add(13 * time.Hour)},
 		}
 
-		input.Flatten(categoryZeroPriorityFunc)
+		input.Flatten(func(cat model.CategoryName) int {
+			switch cat {
+			case "a":
+				return 1
+			case "b":
+				return 2
+			case "c":
+				return 3
+			default:
+				panic("you forgot to update the test")
+			}
+		})
 		if !eventsEqualExceptingIDs(input, expected) {
 			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
@@ -509,7 +530,7 @@ func TestFlatten(t *testing.T) {
 			{Name: "Work through lunch break and beyond", Category: "work", Start: baseDate.Add(12 * time.Hour), End: baseDate.Add(15 * time.Hour)},
 		}
 
-		input.Flatten(categoryZeroPriorityFunc)
+		input.Flatten(workAndEatingPriorityFunc)
 		if !eventsEqualExceptingIDs(input, expected) {
 			t.Fatalf("test case '%s' failed, expected (a) but got (b)\n (a): %#v\n (b): %#v", testcase, expected, input)
 		}
