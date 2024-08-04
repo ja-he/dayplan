@@ -10,6 +10,7 @@ import (
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/rs/zerolog/log"
 )
 
 // AddCommand contains flags for the `summarize` command line command, for
@@ -91,7 +92,7 @@ func (command *AddCommand) Execute(args []string) error {
 		}
 	}
 
-	panic("TODO: need to implement provider setup i suppose")
+	log.Fatal().Msg("TODO: need to implement provider setup i suppose")
 	var provider storage.DataProvider
 
 	var events []model.Event
