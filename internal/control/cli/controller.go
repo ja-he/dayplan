@@ -1717,7 +1717,11 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 
 func (c *Controller) goToDay(newDate model.Date) {
 	log.Debug().Str("new-date", newDate.String()).Msg("going to new date")
+	if c.data.CurrentDate == newDate {
+		return
+	}
 	c.data.CurrentDate = newDate
+	c.data.CurrentEventID = nil
 }
 
 func (c *Controller) goToPreviousDay() {
