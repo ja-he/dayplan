@@ -71,10 +71,10 @@ func (l *EventList) SplitEvent(originalEvent *Event, timestamp time.Time) error 
 	}
 
 	secondEvent := Event{
-		Name:  originalEvent.Name,
-		Cat:   originalEvent.Cat,
-		Start: timestamp,
-		End:   originalEvent.End,
+		Name:     originalEvent.Name,
+		Category: originalEvent.Category,
+		Start:    timestamp,
+		End:      originalEvent.End,
 	}
 	originalEvent.End = timestamp
 
@@ -152,11 +152,11 @@ func (l *EventList) getEventsBefore(event *Event) []*Event {
 
 func cloneEvent(e *Event) Event {
 	return Event{
-		ID:    e.ID,
-		Name:  e.Name,
-		Cat:   e.Cat,
-		Start: e.Start,
-		End:   e.End,
+		ID:       e.ID,
+		Name:     e.Name,
+		Category: e.Category,
+		Start:    e.Start,
+		End:      e.End,
 	}
 }
 
@@ -173,15 +173,15 @@ func (l *EventList) Clone() EventList {
 // Time cannot be counted multiple times, so if multiple events overlap, only
 // one of them can have the time of the overlap counted. The prioritization for
 // this is according to category priority.
-func (l *EventList) SumUpByCategory() map[CategoryName]time.Duration {
+func (l *EventList) SumUpByCategory(getCategoryPriority func(CategoryName) int) map[CategoryName]time.Duration {
 	result := make(map[CategoryName]time.Duration)
 
 	flattened := l.Clone()
-	flattened.Flatten()
+	flattened.Flatten(getCategoryPriority)
 
 	for i := range flattened.Events {
 		event := flattened.Events[i]
-		result[event.Cat.Name] += event.Duration()
+		result[event.Category] += event.Duration()
 	}
 
 	return result
@@ -189,7 +189,7 @@ func (l *EventList) SumUpByCategory() map[CategoryName]time.Duration {
 
 // GetTimesheetEntry returns the TimesheetEntry for this day for a given
 // category (e.g. "work").
-func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool) (*TimesheetEntry, error) {
+func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCategoryPriority func(CategoryName) int) (*TimesheetEntry, error) {
 	startFound := false
 	var firstStart time.Time
 	var lastEnd time.Time
@@ -197,11 +197,11 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool) (*Timeshe
 	var breakDurationCumulative time.Duration
 
 	flattened := l.Clone()
-	flattened.Flatten()
+	flattened.Flatten(getCategoryPriority)
 
 	for _, event := range flattened.Events {
 
-		if matcher(event.Cat.Name) {
+		if matcher(event.Category) {
 
 			if !startFound {
 				firstStart = event.Start
@@ -251,7 +251,7 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool) (*Timeshe
 //	    +-----+       +-------+
 //
 // It modifies the input in-place.
-func (l *EventList) Flatten() {
+func (l *EventList) Flatten(getCategoryPriority func(CategoryName) int) {
 	if len(l.Events) < 2 {
 		return
 	}
@@ -262,8 +262,11 @@ func (l *EventList) Flatten() {
 	for current < len(l.Events) && next < len(l.Events) {
 		l.UpdateEventOrder()
 
+		nextPrio := getCategoryPriority(l.Events[next].Category)
+		currentPrio := getCategoryPriority(l.Events[current].Category)
+
 		if l.Events[next].IsContainedIn(l.Events[current]) {
-			if l.Events[next].Cat.Priority > l.Events[current].Cat.Priority {
+			if nextPrio > currentPrio {
 				// clone the current event for the remainder after the next event
 				currentRemainder := cloneEvent(l.Events[current])
 				currentRemainder.Start = l.Events[next].End
@@ -289,7 +292,7 @@ func (l *EventList) Flatten() {
 				l.Events = append(l.Events[:next], l.Events[next+1:]...)
 			}
 		} else if l.Events[next].StartsDuring(l.Events[current]) {
-			if l.Events[next].Cat.Priority > l.Events[current].Cat.Priority {
+			if nextPrio > currentPrio {
 				// trim current
 				l.Events[current].End = l.Events[next].Start
 				if l.Events[current].Duration() == 0 {
@@ -300,7 +303,7 @@ func (l *EventList) Flatten() {
 					current = next
 					next++
 				}
-			} else if l.Events[next].Cat.Name == l.Events[current].Cat.Name {
+			} else if l.Events[next].Category == l.Events[current].Category {
 				// lengthen current, remove next
 				l.Events[current].End = l.Events[next].End
 				l.Events = append(l.Events[:next], l.Events[next+1:]...)

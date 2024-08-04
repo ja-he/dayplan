@@ -8,11 +8,11 @@ type EventID = string
 
 // ...
 type Event struct {
-	ID    EventID   `dpedit:",ignore"`
-	Name  string    `dpedit:"name"`
-	Cat   Category  `dpedit:"category"` // TODO: change to just category name
-	Start time.Time `dpedit:",ignore"`
-	End   time.Time `dpedit:",ignore"`
+	ID       EventID      `dpedit:",ignore"`
+	Name     string       `dpedit:"name"`
+	Category CategoryName `dpedit:"category"`
+	Start    time.Time    `dpedit:",ignore"`
+	End      time.Time    `dpedit:",ignore"`
 }
 
 // ...
@@ -24,7 +24,7 @@ func (e *Event) String() string {
 	id := e.ID
 	start := e.Start.String()
 	end := e.End.String()
-	catName := e.Cat.Name
+	catName := e.Category
 	eventName := e.Name
 
 	return (id + "|" + start + "|" + end + "|" + string(catName) + "|" + eventName)

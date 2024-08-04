@@ -111,7 +111,7 @@ func newEventFromDaywiseFileLine(date model.Date, line string) *model.Event {
 	e.End = model.DateAndTimestampToGotime(date, endTime)
 
 	e.Name = nameString
-	e.Cat.Name = model.CategoryName(catString)
+	e.Category = model.CategoryName(catString)
 
 	return &e
 }
