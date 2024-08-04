@@ -256,16 +256,159 @@ func (p *FilesDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
 	return nil, nil
 }
 
-// TODO: doc GetPrecedingEvent
-func (p *FilesDataProvider) GetPrecedingEvent(model.EventID) (*model.Event, error) {
-	p.log.Fatal().Msg("TODO IMPL(GetPrecedingEvent)")
-	return nil, nil
+// GetPrecedingEvent retrieves the event immediately preceding the event with the specified ID.
+func (p *FilesDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, error) {
+	if !filesProviderIDValidator(id) {
+		return nil, fmt.Errorf("invalid event ID")
+	}
+
+	// find out date for event
+	p.eventsDateMapMtx.RLock()
+	d, ok := p.eventsDateMap[id]
+	p.eventsDateMapMtx.RUnlock()
+	if !ok {
+		var err error
+		_, d, err = p.getYetUnfoundEvent(id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+		}
+		p.eventsDateMapMtx.Lock()
+		p.eventsDateMap[id] = d
+		p.eventsDateMapMtx.Unlock()
+	}
+	log.Debug().Msgf("found date '%s' for event with ID '%s'", d.String(), id)
+
+	// get preceding event from file handler, if possible
+	e, err := p.getPrevEventFromFH(d, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting preceding event for event with ID '%s' (%w)", id, err)
+	}
+	if e != nil {
+		return e, nil
+	}
+
+	// get preceding event from the closesd previous day
+	availableDates, err := p.getAvailableDates()
+	if err != nil {
+		return nil, fmt.Errorf("error getting available dates (%w)", err)
+	}
+	sort.Sort(model.DateSlice(availableDates))
+	for i, date := range availableDates {
+		if date == d {
+			if i == 0 {
+				// there is no previous available date
+				return nil, nil
+			}
+			previousDate := availableDates[i-1]
+			e, err := p.getPrevEventFromFH(previousDate, id)
+			if err != nil {
+				return nil, fmt.Errorf("error getting preceding event for event with ID '%s' (%w)", id, err)
+			}
+			return e, nil
+		}
+	}
+	return nil, fmt.Errorf("could not find date '%s' in available dates even though it should be available", d.String())
+}
+
+func (p *FilesDataProvider) getPrevEventFromFH(d model.Date, id model.EventID) (*model.Event, error) {
+	fh, err := p.getFileHandler(d)
+	if err != nil {
+		return nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
+	}
+	fh.mutex.Lock()
+	defer fh.mutex.Unlock()
+	eventIndex := -1
+	for i, e := range fh.data.Events {
+		if e.ID == id {
+			eventIndex = i
+			break
+		}
+	}
+	if eventIndex == -1 {
+		return nil, fmt.Errorf("event with ID '%s' not found in file handler for date '%s'", id, d.String())
+	}
+	if eventIndex == 0 {
+		return nil, nil
+	}
+	return fh.data.Events[eventIndex-1], nil
+}
+
+func (p *FilesDataProvider) getNextEventFromFH(d model.Date, id model.EventID) (*model.Event, error) {
+	fh, err := p.getFileHandler(d)
+	if err != nil {
+		return nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
+	}
+	fh.mutex.Lock()
+	defer fh.mutex.Unlock()
+	eventIndex := -1
+	for i, e := range fh.data.Events {
+		if e.ID == id {
+			eventIndex = i
+			break
+		}
+	}
+	if eventIndex == -1 {
+		return nil, fmt.Errorf("event with ID '%s' not found in file handler for date '%s'", id, d.String())
+	}
+	if eventIndex == len(fh.data.Events)-1 {
+		return nil, nil
+	}
+	return fh.data.Events[eventIndex+1], nil
 }
 
 // TODO: doc GetFollowingEvent
-func (p *FilesDataProvider) GetFollowingEvent(model.EventID) (*model.Event, error) {
-	p.log.Fatal().Msg("TODO IMPL(GetFollowingEvent)")
-	return nil, nil
+func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, error) {
+	if !filesProviderIDValidator(id) {
+		return nil, fmt.Errorf("invalid event ID")
+	}
+
+	// find out date for event
+	p.eventsDateMapMtx.RLock()
+	d, ok := p.eventsDateMap[id]
+	p.eventsDateMapMtx.RUnlock()
+	if !ok {
+		var err error
+		_, d, err = p.getYetUnfoundEvent(id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+		}
+		p.eventsDateMapMtx.Lock()
+		p.eventsDateMap[id] = d
+		p.eventsDateMapMtx.Unlock()
+	}
+	log.Debug().Msgf("found date '%s' for event with ID '%s'", d.String(), id)
+
+	// get following event from file handler, if possible
+	e, err := p.getNextEventFromFH(d, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting preceding event for event with ID '%s' (%w)", id, err)
+	}
+	if e != nil {
+		return e, nil
+	}
+
+	// get preceding event from the closesd previous day
+	availableDates, err := p.getAvailableDates()
+	if err != nil {
+		return nil, fmt.Errorf("error getting available dates (%w)", err)
+	}
+	sort.Sort(model.DateSlice(availableDates))
+	for i, date := range availableDates {
+		if date == d {
+			if i == len(availableDates)-1 {
+				// there is no next available date
+				return nil, nil
+			}
+			nextDate := availableDates[i+1]
+			e, err := p.getPrevEventFromFH(nextDate, id)
+			if err != nil {
+				return nil, fmt.Errorf("error getting next event for event with ID '%s' (%w)", id, err)
+			}
+			return e, nil
+		}
+	}
+	return nil, fmt.Errorf("could not find date '%s' in available dates even though it should be available", d.String())
+
 }
 
 // TODO: doc GetEventsCoveringTimerange
