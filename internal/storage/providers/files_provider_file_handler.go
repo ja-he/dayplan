@@ -34,6 +34,11 @@ func newFileHandlerWithDataReadFromDisk(basePath string, date model.Date) (*file
 
 func (h *fileHandler) Write() error {
 	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	return h.writeUnsafe()
+}
+
+func (h *fileHandler) writeUnsafe() error {
 	filename := h.Filename()
 	f, err := os.OpenFile(filename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
@@ -47,7 +52,6 @@ func (h *fileHandler) Write() error {
 	}
 	writer.Flush()
 	f.Close()
-	h.mutex.Unlock()
 
 	return nil
 }
@@ -97,6 +101,33 @@ func (h *fileHandler) GetEvent(id model.EventID) (*model.Event, error) {
 		return nil, fmt.Errorf("event with ID '%s' not found", id)
 	}
 	return e, nil
+}
+
+// UpdateEvent updates an existing event identified by its ID.
+func (h *fileHandler) UpdateEvent(e *model.Event) error {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	indexOfEvent := -1
+	for i, ev := range h.data.Events {
+		if ev.ID == e.ID {
+			indexOfEvent = i
+			break
+		}
+	}
+	if indexOfEvent == -1 {
+		return fmt.Errorf("event with ID '%s' not found", e.ID)
+	}
+
+	// Update the event details
+	h.data.Events[indexOfEvent] = e
+
+	// Optionally, write to disk to ensure data persistence
+	if err := h.writeUnsafe(); err != nil {
+		return fmt.Errorf("could not write updated event to disk (%w)", err)
+	}
+
+	return nil
 }
 
 // Read ...
