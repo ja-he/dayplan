@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -27,8 +28,6 @@ import (
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/ui/panes"
 	"github.com/ja-he/dayplan/internal/weather"
-
-	"github.com/gdamore/tcell/v2"
 )
 
 // Controller is the struct for the TUI controller.
@@ -2207,21 +2206,46 @@ func (c *Controller) moveEventsPushingBy(d, m time.Duration) error {
 }
 
 func (c *Controller) removeEvent(id model.EventID) {
-	nextEvent, err := c.dataProvider.GetFollowingEvent(id)
-	var nextEventID *model.EventID
-	if err != nil {
-		c.log.Error().Err(err).Msg("could not get following event")
-	} else if nextEvent != nil {
-		nextEventID = new(model.EventID)
-		*nextEventID = nextEvent.ID
+	isCurrentEvent := c.data.CurrentEventID != nil && *c.data.CurrentEventID == id
+	var newCurrentEventID *model.EventID
+	if isCurrentEvent {
+		nextEvent, err := c.dataProvider.GetFollowingEvent(id)
+		if err != nil {
+			c.log.Error().Err(err).Msg("could not get following event")
+		} else if nextEvent == nil || !c.data.CurrentDate.Is(nextEvent.Start) {
+			prevEvent, err := c.dataProvider.GetPrecedingEvent(id)
+			if err != nil {
+				c.log.Error().Err(err).Msg("could not get preceding event")
+			} else if nextEvent != nil && !c.data.CurrentDate.Is(prevEvent.End) {
+				newCurrentEventID = new(model.EventID)
+				*newCurrentEventID = prevEvent.ID
+				log.Debug().Msgf("will switch to previous event: %s", *newCurrentEventID)
+			}
+		} else {
+			newCurrentEventID = new(model.EventID)
+			*newCurrentEventID = nextEvent.ID
+			log.Debug().Msgf("will switch to next event: %s", *newCurrentEventID)
+		}
+		if newCurrentEventID == nil {
+			c.log.Debug().Msg("no next/prev event to switch to")
+		}
 	}
-	err = c.dataProvider.RemoveEvent(id)
+	err := c.dataProvider.RemoveEvent(id)
 	if err != nil {
 		c.log.Error().Err(err).Msg("could not remove event")
 		return
 	}
-	c.data.CurrentEventID = nextEventID
-	c.ensureCurrentEventVisible()
+	if isCurrentEvent {
+		if newCurrentEventID != nil {
+			c.log.Debug().Msgf("updating current event to %s", *newCurrentEventID)
+			c.data.CurrentEventID = new(model.EventID)
+			*c.data.CurrentEventID = *newCurrentEventID
+			c.ensureCurrentEventVisible()
+		} else {
+			c.log.Debug().Msg("nilling current event")
+			c.data.CurrentEventID = nil
+		}
+	}
 }
 
 func (c *Controller) removeEvents(ids []model.EventID) {

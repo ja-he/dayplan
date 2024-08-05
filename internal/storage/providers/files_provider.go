@@ -317,21 +317,26 @@ func (p *FilesDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, e
 		return nil, fmt.Errorf("error getting available dates (%w)", err)
 	}
 	sort.Sort(model.DateSlice(availableDates))
+	dateIndex := -1
 	for i, date := range availableDates {
 		if date == d {
-			if i == 0 {
-				// there is no previous available date
-				return nil, nil
-			}
-			previousDate := availableDates[i-1]
-			e, err := p.getPrevEventFromFH(previousDate, id)
-			if err != nil {
-				return nil, fmt.Errorf("error getting preceding event for event with ID '%s' (%w)", id, err)
-			}
-			return e, nil
+			dateIndex = i
+			break
 		}
 	}
-	return nil, fmt.Errorf("could not find date '%s' in available dates even though it should be available", d.String())
+	if dateIndex == -1 {
+		return nil, fmt.Errorf("could not find date '%s' in available dates even though it should be available", d.String())
+	}
+	for i := dateIndex - 1; i >= 0; i-- {
+		precedingDate := availableDates[i]
+		e, err := p.getLastEventFromFH(precedingDate)
+		if err != nil {
+			return nil, fmt.Errorf("error getting preceding event for event with ID '%s' (%w)", id, err)
+		}
+		return e, nil
+	}
+
+	return nil, nil
 }
 
 func (p *FilesDataProvider) getPrevEventFromFH(d model.Date, id model.EventID) (*model.Event, error) {
@@ -391,6 +396,7 @@ func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, e
 	d, ok := p.eventsDateMap[id]
 	p.eventsDateMapMtx.RUnlock()
 	if !ok {
+		p.log.Trace().Msgf("have to find date for event with ID '%s'", id)
 		var err error
 		_, d, err = p.getYetUnfoundEvent(id)
 		if err != nil {
@@ -405,7 +411,7 @@ func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, e
 	// get following event from file handler, if possible
 	e, err := p.getNextEventFromFH(d, id)
 	if err != nil {
-		return nil, fmt.Errorf("error getting preceding event for event with ID '%s' (%w)", id, err)
+		return nil, fmt.Errorf("error getting next event for event with ID '%s' (%w)", id, err)
 	}
 	if e != nil {
 		return e, nil
@@ -417,22 +423,53 @@ func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, e
 		return nil, fmt.Errorf("error getting available dates (%w)", err)
 	}
 	sort.Sort(model.DateSlice(availableDates))
+	dateIndex := -1
 	for i, date := range availableDates {
 		if date == d {
-			if i == len(availableDates)-1 {
-				// there is no next available date
-				return nil, nil
-			}
-			nextDate := availableDates[i+1]
-			e, err := p.getPrevEventFromFH(nextDate, id)
-			if err != nil {
-				return nil, fmt.Errorf("error getting next event for event with ID '%s' (%w)", id, err)
-			}
-			return e, nil
+			dateIndex = i
+			break
 		}
 	}
-	return nil, fmt.Errorf("could not find date '%s' in available dates even though it should be available", d.String())
+	if dateIndex == -1 {
+		return nil, fmt.Errorf("could not find date '%s' in available dates even though it should be available", d.String())
+	}
 
+	for i := dateIndex + 1; i < len(availableDates); i++ {
+		followingDate := availableDates[i]
+		e, err := p.getFirstEventFromFH(followingDate)
+		if err != nil {
+			return nil, fmt.Errorf("error getting next event for event with ID '%s' (%w)", id, err)
+		}
+		return e, nil
+	}
+
+	return nil, nil
+}
+
+func (p *FilesDataProvider) getFirstEventFromFH(d model.Date) (*model.Event, error) {
+	fh, err := p.getFileHandler(d)
+	if err != nil {
+		return nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
+	}
+	fh.mutex.Lock()
+	defer fh.mutex.Unlock()
+	if len(fh.data.Events) == 0 {
+		return nil, nil
+	}
+	return fh.data.Events[0], nil
+}
+
+func (p *FilesDataProvider) getLastEventFromFH(d model.Date) (*model.Event, error) {
+	fh, err := p.getFileHandler(d)
+	if err != nil {
+		return nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
+	}
+	fh.mutex.Lock()
+	defer fh.mutex.Unlock()
+	if len(fh.data.Events) == 0 {
+		return nil, nil
+	}
+	return fh.data.Events[len(fh.data.Events)-1], nil
 }
 
 // TODO: doc GetEventsCoveringTimerange
@@ -503,15 +540,49 @@ func (p *FilesDataProvider) SplitEvent(model.EventID, time.Time) error {
 	return nil
 }
 
-// TODO: doc SetEventStart
-func (p *FilesDataProvider) SetEventStart(model.EventID, time.Time) error {
-	p.log.Fatal().Msg("TODO IMPL(SetEventStart)")
+// SetEventStart sets the start time of an event with a specific ID.
+func (p *FilesDataProvider) SetEventStart(id model.EventID, start time.Time) error {
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	e.Start = start
+
+	// Ensure start and end are on the same date
+	if !eventStartsAndEndsOnSameDate(e) {
+		return fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	fh, err := p.getFileHandler(model.DateFromGotime(start))
+	if err != nil {
+		return fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.UpdateEvent(e)
 	return nil
 }
 
-// TODO: doc SetEventEnd
-func (p *FilesDataProvider) SetEventEnd(model.EventID, time.Time) error {
-	p.log.Fatal().Msg("TODO IMPL(SetEventEnd)")
+// SetEventEnd sets the end time of an event with a specific ID.
+func (p *FilesDataProvider) SetEventEnd(id model.EventID, end time.Time) error {
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	e.End = end
+
+	// Ensure start and end are on the same date
+	if !eventStartsAndEndsOnSameDate(e) {
+		return fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	fh, err := p.getFileHandler(model.DateFromGotime(end))
+	if err != nil {
+		return fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.UpdateEvent(e)
 	return nil
 }
 
@@ -533,28 +604,99 @@ func (p *FilesDataProvider) OffsetEventEnd(model.EventID, time.Duration) (time.T
 	return time.Time{}, nil
 }
 
-// TODO: doc OffsetEventTimes
-func (p *FilesDataProvider) OffsetEventTimes(model.EventID, time.Duration) (time.Time, time.Time, error) {
-	p.log.Fatal().Msg("TODO IMPL(OffsetEventTimes)")
-	return time.Time{}, time.Time{}, nil
+// OffsetEventTimes offsets both the start and end times of an event with the specified ID by a duration.
+func (p *FilesDataProvider) OffsetEventTimes(id model.EventID, offset time.Duration) (time.Time, time.Time, error) {
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	e.Start = e.Start.Add(offset)
+	e.End = e.End.Add(offset)
+
+	// Ensure start and end are on the same date
+	if !eventStartsAndEndsOnSameDate(e) {
+		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.UpdateEvent(e)
+	return e.Start, e.End, nil
 }
 
-// TODO: doc SnapEventStart
-func (p *FilesDataProvider) SnapEventStart(model.EventID, time.Duration) (time.Time, error) {
-	p.log.Fatal().Msg("TODO IMPL(SnapEventStart)")
-	return time.Time{}, nil
+// SnapEventStart snaps the start time of an event with the specified ID to the nearest interval.
+func (p *FilesDataProvider) SnapEventStart(id model.EventID, interval time.Duration) (time.Time, error) {
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	e.Start = snapToInterval(e.Start, interval)
+
+	// Ensure start and end are on the same date
+	if !eventStartsAndEndsOnSameDate(e) {
+		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.UpdateEvent(e)
+	return e.Start, nil
 }
 
-// TODO: doc SnapEventEnd
-func (p *FilesDataProvider) SnapEventEnd(model.EventID, time.Duration) (time.Time, error) {
-	p.log.Fatal().Msg("TODO IMPL(SnapEventEnd)")
-	return time.Time{}, nil
+// SnapEventEnd snaps the end time of an event with the specified ID to the nearest interval.
+func (p *FilesDataProvider) SnapEventEnd(id model.EventID, interval time.Duration) (time.Time, error) {
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	e.End = snapToInterval(e.End, interval)
+
+	// Ensure start and end are on the same date
+	if !eventStartsAndEndsOnSameDate(e) {
+		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	fh, err := p.getFileHandler(model.DateFromGotime(e.End))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.UpdateEvent(e)
+	return e.End, nil
 }
 
 // TODO: doc SnapEventTimes
-func (p *FilesDataProvider) SnapEventTimes(model.EventID, time.Duration) (time.Time, time.Time, error) {
-	p.log.Fatal().Msg("TODO IMPL(SnapEventTimes)")
-	return time.Time{}, time.Time{}, nil
+// SnapEventTimes snaps both the start and end times of an event with the specified ID to the nearest interval.
+func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Duration) (time.Time, time.Time, error) {
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	e.Start = snapToInterval(e.Start, interval)
+	e.End = snapToInterval(e.End, interval)
+
+	// Ensure start and end are on the same date
+	if !eventStartsAndEndsOnSameDate(e) {
+		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.UpdateEvent(e)
+	return e.Start, e.End, nil
 }
 
 // TODO: doc SetEventTitle
@@ -622,4 +764,13 @@ func (p *FilesDataProvider) getAvailableDates() ([]model.Date, error) {
 	}
 	return dates, nil
 
+}
+
+// snapToInterval snaps a given time to the nearest interval from the beginning of the day.
+func snapToInterval(t time.Time, interval time.Duration) time.Time {
+	year, month, day := t.Date()
+	tBeginningOfDay := time.Date(year, month, day, 0, 0, 0, 0, t.Location())
+
+	intervalSinceBeginningOfDay := time.Duration(t.Sub(tBeginningOfDay).Seconds()/interval.Seconds()) * interval
+	return tBeginningOfDay.Add(intervalSinceBeginningOfDay)
 }

@@ -99,6 +99,33 @@ func (h *fileHandler) GetEvent(id model.EventID) (*model.Event, error) {
 	return e, nil
 }
 
+// UpdateEvent updates an existing event identified by its ID.
+func (h *fileHandler) UpdateEvent(e *model.Event) error {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	indexOfEvent := -1
+	for i, ev := range h.data.Events {
+		if ev.ID == e.ID {
+			indexOfEvent = i
+			break
+		}
+	}
+	if indexOfEvent == -1 {
+		return fmt.Errorf("event with ID '%s' not found", e.ID)
+	}
+
+	// Update the event details
+	h.data.Events[indexOfEvent] = e
+
+	// Optionally, write to disk to ensure data persistence
+	if err := h.Write(); err != nil {
+		return fmt.Errorf("could not write updated event to disk (%w)", err)
+	}
+
+	return nil
+}
+
 // Read ...
 func (h *fileHandler) readFromDisk() error {
 	if len(h.data.Events) != 0 {
