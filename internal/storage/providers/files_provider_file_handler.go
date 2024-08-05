@@ -69,6 +69,25 @@ func (h *fileHandler) AddEvent(e *model.Event) error {
 	return nil
 }
 
+// RemoveEvent ...
+func (h *fileHandler) RemoveEvent(e model.EventID) error {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	indexOfEvent := -1
+	for i, ev := range h.data.Events {
+		if ev.ID == e {
+			indexOfEvent = i
+			break
+		}
+	}
+	if indexOfEvent == -1 {
+		return fmt.Errorf("event with ID '%s' not found", e)
+	}
+	h.data.Events = append(h.data.Events[:indexOfEvent], h.data.Events[indexOfEvent+1:]...)
+	return nil
+}
+
 func (h *fileHandler) GetEvent(id model.EventID) (*model.Event, error) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()

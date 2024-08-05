@@ -109,15 +109,39 @@ func (p *FilesDataProvider) AddEvent(e model.Event) (model.EventID, error) {
 	return filesProviderIDGenerator(), nil
 }
 
-// TODO: doc RemoveEvent
-func (p *FilesDataProvider) RemoveEvent(model.EventID) error {
-	p.log.Fatal().Msg("TODO IMPL(RemoveEvent)")
+// RemoveEvent removes an event with the specified ID.
+func (p *FilesDataProvider) RemoveEvent(id model.EventID) error {
+	if !filesProviderIDValidator(id) {
+		return fmt.Errorf("invalid event ID")
+	}
+
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return fmt.Errorf("error getting event with ID '%s' for removal (%w)", id, err)
+	}
+
+	d := model.DateFromGotime(e.Start)
+	fh, err := p.getFileHandler(d)
+	if err != nil {
+		return fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.RemoveEvent(id)
+
+	p.eventsDateMapMtx.Lock()
+	delete(p.eventsDateMap, id)
+	p.eventsDateMapMtx.Unlock()
+
 	return nil
 }
 
-// TODO: doc RemoveEvents
-func (p *FilesDataProvider) RemoveEvents([]model.EventID) error {
-	p.log.Fatal().Msg("TODO IMPL(RemoveEvents)")
+// RemoveEvents removes multiple events by their IDs.
+func (p *FilesDataProvider) RemoveEvents(ids []model.EventID) error {
+	for _, id := range ids {
+		if err := p.RemoveEvent(id); err != nil {
+			return fmt.Errorf("error removing event with ID '%s' (%w)", id, err)
+		}
+	}
 	return nil
 }
 
