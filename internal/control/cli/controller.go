@@ -210,7 +210,7 @@ func NewController(
 			for i, e := range events {
 				eventIDs[i] = e.ID
 			}
-			controller.dataProvider.RemoveEvents(eventIDs)
+			controller.removeEvents(eventIDs)
 		}),
 	}
 
@@ -747,7 +747,7 @@ func NewController(
 		"d": action.NewSimple(func() string { return "delete selected event" }, func() {
 			event := controller.data.CurrentEventID
 			if event != nil {
-				controller.dataProvider.RemoveEvent(*event)
+				controller.removeEvent(*event)
 			}
 		}),
 		"<cr>": action.NewSimple(func() string { return "open the event editor" }, func() {
@@ -1777,7 +1777,7 @@ func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 		// if button clicked, handle
 		switch buttons {
 		case tcell.Button3:
-			c.dataProvider.RemoveEvent(eventsInfo.Event.ID)
+			c.removeEvent(eventsInfo.Event.ID)
 		case tcell.Button2:
 			event := eventsInfo.Event
 			if event != nil && eventsInfo.Time.After(event.Start) {
@@ -2204,4 +2204,33 @@ func (c *Controller) moveEventsBackwardPushing() error {
 // grid of visible resolution, this is that, not sure yet if needed really.
 func (c *Controller) moveEventsPushingBy(d, m time.Duration) error {
 	return fmt.Errorf("unimplemented (this should push for %s (with res %s))", d, m)
+}
+
+func (c *Controller) removeEvent(id model.EventID) {
+	nextEvent, err := c.dataProvider.GetFollowingEvent(id)
+	var nextEventID *model.EventID
+	if err != nil {
+		c.log.Error().Err(err).Msg("could not get following event")
+	} else if nextEvent != nil {
+		nextEventID = new(model.EventID)
+		*nextEventID = nextEvent.ID
+	}
+	err = c.dataProvider.RemoveEvent(id)
+	if err != nil {
+		c.log.Error().Err(err).Msg("could not remove event")
+		return
+	}
+	c.data.CurrentEventID = nextEventID
+	c.ensureCurrentEventVisible()
+}
+
+func (c *Controller) removeEvents(ids []model.EventID) {
+	err := c.dataProvider.RemoveEvents(ids)
+	if err != nil {
+		c.log.Error().Err(err).Msg("could not remove events")
+		return
+	}
+
+	c.log.Warn().Msgf("missing implementation of current-event updating after removing multiple events (just nilling)")
+	c.data.CurrentEventID = nil
 }
