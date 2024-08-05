@@ -540,7 +540,7 @@ func (p *FilesDataProvider) SetEventTitle(model.EventID, string) error {
 }
 
 // TODO: doc SetEventCategory
-func (p *FilesDataProvider) SetEventCategory(model.EventID, model.Category) error {
+func (p *FilesDataProvider) SetEventCategory(model.EventID, model.CategoryName) error {
 	p.log.Fatal().Msg("TODO IMPL(SetEventCategory)")
 	return nil
 }
