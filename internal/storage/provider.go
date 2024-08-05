@@ -40,7 +40,7 @@ type DataProvider interface {
 	SnapEventEnd(model.EventID, time.Duration) (time.Time, error)
 	SnapEventTimes(model.EventID, time.Duration) (time.Time, time.Time, error)
 	SetEventTitle(model.EventID, string) error
-	SetEventCategory(model.EventID, model.Category) error
+	SetEventCategory(model.EventID, model.CategoryName) error
 	SetEventAllData(model.EventID, model.Event) error
 
 	SumUpTimespanByCategory(start time.Time, end time.Time) (map[model.CategoryName]time.Duration, error)
