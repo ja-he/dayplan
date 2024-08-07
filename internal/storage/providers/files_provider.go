@@ -300,7 +300,7 @@ func (p *FilesDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, e
 		p.eventsDateMap[id] = d
 		p.eventsDateMapMtx.Unlock()
 	}
-	log.Debug().Msgf("found date '%s' for event with ID '%s'", d.String(), id)
+	p.log.Debug().Msgf("found date '%s' for event with ID '%s'", d.String(), id)
 
 	// get preceding event from file handler, if possible
 	e, err := p.getPrevEventFromFH(d, id)
