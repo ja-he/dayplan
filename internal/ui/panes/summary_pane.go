@@ -2,12 +2,15 @@ package panes
 
 import (
 	"sort"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 // SummaryPane shows a summary of the set of days it is provided.
@@ -17,9 +20,11 @@ type SummaryPane struct {
 	ui.LeafPane
 
 	titleString func() string
-	days        func() []*model.Day
+	summary     func() (map[model.CategoryName]time.Duration, error)
 
 	categories *styling.CategoryStyling
+
+	log zerolog.Logger
 }
 
 // EnsureHidden informs the pane that it is not being shown so that it can take
@@ -46,25 +51,23 @@ func (p *SummaryPane) Draw() {
 		p.Renderer.DrawBox(x, y, w, 1, p.Stylesheet.SummaryTitleBox)
 		p.Renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.Stylesheet.SummaryTitleBox, title)
 
-		summary := make(map[model.Category]int)
-
-		days := p.days()
-		for i := range days {
-			if days[i] == nil {
-				return
-			}
-			tmpSummary := days[i].SumUpByCategory()
-			for k, v := range tmpSummary {
-				summary[k] += v
-			}
+		summary, err := p.summary()
+		if err != nil {
+			p.log.Error().Err(err).Msg("could not get summary")
+			return
 		}
+		categoriesByName := p.categories.GetKnownCategoriesByName()
 
-		maxDuration := 0
+		maxDuration := time.Duration(0)
 		categories := make([]model.Category, len(summary))
 		{ // get sorted keys to have deterministic order
 			i := 0
-			for category, duration := range summary {
-				categories[i] = category
+			for categoryName, duration := range summary {
+				c, ok := categoriesByName[categoryName]
+				if !ok {
+					p.log.Warn().Str("category", string(categoryName)).Msg("unknown category")
+				}
+				categories[i] = *c
 				if duration > maxDuration {
 					maxDuration = duration
 				}
@@ -74,8 +77,8 @@ func (p *SummaryPane) Draw() {
 		}
 		row := 2
 		for _, category := range categories {
-			duration := summary[category]
-			style, err := p.categories.GetStyle(category)
+			duration := summary[category.Name]
+			style, err := p.categories.GetStyle(category.Name)
 			if err != nil {
 				style = p.Stylesheet.CategoryFallback
 			}
@@ -84,8 +87,8 @@ func (p *SummaryPane) Draw() {
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
 			p.Renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
-			p.Renderer.DrawText(x, y+row, catLen, 1, p.Stylesheet.SummaryDefault, util.TruncateAt(category.Name, catLen))
-			p.Renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+util.DurationToString(duration)+")")
+			p.Renderer.DrawText(x, y+row, catLen, 1, p.Stylesheet.SummaryDefault, util.TruncateAt(string(category.Name), catLen))
+			p.Renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+duration.String()+")")
 			row++
 		}
 	}
@@ -103,7 +106,7 @@ func NewSummaryPane(
 	stylesheet styling.Stylesheet,
 	condition func() bool,
 	titleString func() string,
-	days func() []*model.Day,
+	summary func() (map[model.CategoryName]time.Duration, error),
 	categories *styling.CategoryStyling,
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
@@ -119,7 +122,8 @@ func NewSummaryPane(
 			Stylesheet: stylesheet,
 		},
 		titleString: titleString,
-		days:        days,
+		summary:     summary,
 		categories:  categories,
+		log:         log.With().Str("component", "summary-pane").Logger(),
 	}
 }

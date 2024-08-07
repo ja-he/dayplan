@@ -26,7 +26,7 @@ type Backlog struct {
 // subtasks.
 type Task struct {
 	Name     string         `dpedit:"name"`
-	Category Category       `dpedit:"category"`
+	Category CategoryName   `dpedit:"category"`
 	Duration *time.Duration `dpedit:"duration"`
 	Deadline *time.Time     `dpedit:"deadline"`
 	Subtasks []*Task        `dpedit:",ignore"`
@@ -40,12 +40,12 @@ func (t Task) toBaseTask() BaseTask {
 		Subtasks: make([]BaseTask, 0, len(t.Subtasks)),
 	}
 	for _, subtask := range t.Subtasks {
-		if t.Category.Name != subtask.Category.Name {
+		if t.Category != subtask.Category {
 			log.Warn().
 				Str("subtask", subtask.Name).
 				Str("parent-task", t.Name).
-				Str("subtask-category", subtask.Category.Name).
-				Str("parent-task-category", t.Category.Name).
+				Str("subtask-category", string(subtask.Category)).
+				Str("parent-task-category", string(t.Category)).
 				Msg("subtask has different category from parent, which will be lost")
 		}
 		result.Subtasks = append(result.Subtasks, subtask.toBaseTask())
@@ -73,9 +73,9 @@ func (b *Backlog) Write(w io.Writer) error {
 		TasksByCategory: map[string][]BaseTask{},
 	}
 	for _, task := range b.Tasks {
-		categoryName := task.Category.Name
-		toBeWritten.TasksByCategory[categoryName] = append(
-			toBeWritten.TasksByCategory[categoryName],
+		categoryName := task.Category
+		toBeWritten.TasksByCategory[string(categoryName)] = append(
+			toBeWritten.TasksByCategory[string(categoryName)],
 			task.toBaseTask(),
 		)
 	}
@@ -94,7 +94,7 @@ func (b *Backlog) Write(w io.Writer) error {
 
 // BacklogFromReader reads and deserializes a backlog from the io.Reader and returns the
 // backlog.
-func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Backlog, error) {
+func BacklogFromReader(r io.Reader) (*Backlog, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return &Backlog{}, fmt.Errorf("unable to read from reader (%s)", err.Error())
@@ -107,17 +107,17 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 	}
 	log.Debug().Int("N-Cats", len(stored.TasksByCategory)).Msg("read storeds")
 
-	var mapSubtasks func(cat string, tasks []BaseTask) []*Task
-	toTask := func(cat string, b BaseTask) *Task {
+	var mapSubtasks func(cat CategoryName, tasks []BaseTask) []*Task
+	toTask := func(cat CategoryName, b BaseTask) *Task {
 		return &Task{
 			Name:     b.Name,
-			Category: categoryGetter(cat),
+			Category: cat,
 			Duration: b.Duration,
 			Deadline: b.Deadline,
 			Subtasks: mapSubtasks(cat, b.Subtasks),
 		}
 	}
-	mapSubtasks = func(cat string, tasks []BaseTask) []*Task {
+	mapSubtasks = func(cat CategoryName, tasks []BaseTask) []*Task {
 		result := []*Task{}
 		for _, t := range tasks {
 			result = append(result, toTask(cat, t))
@@ -128,7 +128,7 @@ func BacklogFromReader(r io.Reader, categoryGetter func(string) Category) (*Back
 	b := &Backlog{Tasks: []*Task{}}
 	for cat, tasks := range stored.TasksByCategory {
 		for _, task := range tasks {
-			b.Tasks = append(b.Tasks, toTask(cat, task))
+			b.Tasks = append(b.Tasks, toTask(CategoryName(cat), task))
 		}
 	}
 
@@ -267,14 +267,10 @@ func (b *Backlog) AddBefore(anchorTask *Task) (newTask *Task, parent *Task, err 
 
 func (t *Task) toEvent(startTime time.Time, namePrefix string) Event {
 	return Event{
-		Start: *NewTimestampFromGotime(startTime),
-		End: *NewTimestampFromGotime(
-			func() time.Time {
-				return startTime.Add(t.getDurationNormalized())
-			}(),
-		),
-		Name: namePrefix + t.Name,
-		Cat:  t.Category,
+		Start:    startTime,
+		End:      startTime.Add(t.getDurationNormalized()),
+		Name:     namePrefix + t.Name,
+		Category: t.Category,
 	}
 }
 
@@ -323,12 +319,6 @@ func (a TasksByDeadline) Less(i, j int) bool {
 	switch {
 
 	case a[i].Deadline == nil && a[j].Deadline == nil: // neither deadlines
-		if a[i].Category.Priority != a[j].Category.Priority {
-			return a[i].Category.Priority > a[j].Category.Priority
-		}
-		if a[i].Category.Name != a[j].Category.Name {
-			return a[i].Category.Name < a[j].Category.Name
-		}
 		return a[i].Name < a[j].Name
 
 	case a[i].Deadline == nil && a[j].Deadline != nil: // only second deadline

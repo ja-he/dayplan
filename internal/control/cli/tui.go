@@ -23,6 +23,7 @@ type TUICommand struct {
 	Theme         string `short:"t" long:"theme" choice:"light" choice:"dark" description:"Select a 'dark' or a 'light' default theme (note: only sets defaults, which are individually overridden by settings in config.yaml"`
 	LogOutputFile string `short:"l" long:"log-output-file" description:"specify a log output file (otherwise logs dropped)"`
 	LogPretty     bool   `short:"p" long:"log-pretty" description:"prettify logs to file"`
+	LogLevel      string `long:"log-level" description:"set log level to 'trace', 'debug', 'info', 'warn', 'error'"`
 }
 
 // Execute runs the TUI command.
@@ -44,7 +45,22 @@ func (command *TUICommand) Execute(_ []string) error {
 	} else {
 		logWriter = &potatolog.GlobalMemoryLogReaderWriter
 	}
-	tuiLogger := zerolog.New(logWriter).With().Timestamp().Caller().Logger()
+	logLevel := func() zerolog.Level {
+		switch command.LogLevel {
+		case "trace":
+			return zerolog.TraceLevel
+		case "debug":
+			return zerolog.DebugLevel
+		case "info":
+			return zerolog.InfoLevel
+		case "warn":
+			return zerolog.WarnLevel
+		case "error":
+			return zerolog.ErrorLevel
+		}
+		return zerolog.WarnLevel
+	}()
+	tuiLogger := zerolog.New(logWriter).Level(logLevel).With().Timestamp().Caller().Logger()
 
 	var theme config.ColorschemeType
 	switch command.Theme {
@@ -73,7 +89,7 @@ func (command *TUICommand) Execute(_ []string) error {
 	if command.Day == "" {
 		initialDay = model.Date{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	} else {
-		initialDay, err = model.FromString(command.Day)
+		initialDay, err = model.DateFromString(command.Day)
 		if err != nil {
 			return fmt.Errorf("could not parse given date (%w)", err)
 		}
@@ -112,7 +128,7 @@ func (command *TUICommand) Execute(_ []string) error {
 		}
 
 		cat := model.Category{
-			Name:       category.Name,
+			Name:       model.CategoryName(category.Name),
 			Priority:   category.Priority,
 			Goal:       goal,
 			Deprecated: category.Deprecated,

@@ -19,7 +19,7 @@ type BacklogPane struct {
 	viewParams            ui.TimeViewParams
 	getCurrentTask        func() *model.Task
 	backlog               *model.Backlog
-	categoryStyleProvider func(model.Category) (styling.DrawStyling, error)
+	categoryStyleProvider func(model.CategoryName) (styling.DrawStyling, error)
 
 	uiBoundsMtx sync.RWMutex
 	uiBounds    map[*model.Task]taskUIYBounds
@@ -104,7 +104,7 @@ func (p *BacklogPane) Draw() {
 			p.Renderer.DrawText(
 				xBase+3, yOffset+1, wBase-2-2, 1,
 				style.Italicized(),
-				util.TruncateAt(t.Category.Name, wBase-2-2),
+				util.TruncateAt(string(t.Category), wBase-2-2),
 			)
 			if t.Deadline != nil {
 				deadline := t.Deadline.Format("2006-01-02 15:04:05")
@@ -209,7 +209,7 @@ func NewBacklogPane(
 	viewParams ui.TimeViewParams,
 	getCurrentTask func() *model.Task,
 	backlog *model.Backlog,
-	categoryStyleProvider func(model.Category) (styling.DrawStyling, error),
+	categoryStyleProvider func(model.CategoryName) (styling.DrawStyling, error),
 	visible func() bool,
 ) *BacklogPane {
 	p := BacklogPane{

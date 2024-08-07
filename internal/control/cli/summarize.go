@@ -2,8 +2,8 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -11,15 +11,15 @@ import (
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/storage/providers"
 	"github.com/ja-he/dayplan/internal/styling"
-	"github.com/ja-he/dayplan/internal/util"
 )
 
 // Flags for the `summarize` command line command, for `go-flags` to parse
 // command line args into.
 type SummarizeCommand struct {
-	FromDay string `short:"f" long:"from" description:"the day from which to start summarizing" value-name:"<yyyy-mm-dd>" required:"true"`
-	TilDay  string `short:"t" long:"til" description:"the day til which to summarize (inclusive)" value-name:"<yyyy-mm-dd>" required:"true"`
+	From time.Time `short:"f" long:"from" description:"the timestamp from which to start summarizing" value-name:"<TIME>" required:"true"`
+	Til  time.Time `short:"t" long:"til" description:"the timestamp until which to summarize" value-name:"<TIME>" required:"true"`
 
 	HumanReadable        bool   `long:"human-readable" description:"format times as hours and minutes"`
 	CategoryFilterString string `long:"category-filter" description:"a filter for categories; any named categories included; all included if omitted" value-name:"<cat1>,<cat2>,..."`
@@ -65,7 +65,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		}
 
 		cat := model.Category{
-			Name:     category.Name,
+			Name:     model.CategoryName(category.Name),
 			Priority: category.Priority,
 			Goal:     goal,
 		}
@@ -73,76 +73,72 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		styledCategories.Add(cat, style)
 	}
 
-	startDate, err := model.FromString(Opts.SummarizeCommand.FromDay)
-	if err != nil {
-		log.Fatalf("from date '%s' invalid", Opts.SummarizeCommand.FromDay)
-	}
-	currentDate := startDate
-	finalDate, err := model.FromString(Opts.SummarizeCommand.TilDay)
-	if err != nil {
-		log.Fatalf("til date '%s' invalid", Opts.SummarizeCommand.TilDay)
+	if command.Til.Before(command.From) {
+		return fmt.Errorf("from-time must be before til-time")
 	}
 
 	filterCategories := len(Opts.SummarizeCommand.CategoryFilterString) > 0
-	includeCategoriesByName := make(map[string]struct{})
+	includeCategoriesByName := make(map[model.CategoryName]struct{})
 	if filterCategories {
 		for _, name := range strings.Split(Opts.SummarizeCommand.CategoryFilterString, ",") {
-			includeCategoriesByName[name] = struct{}{}
+			includeCategoriesByName[model.CategoryName(name)] = struct{}{}
 		}
 	}
 
 	// TODO: can probably make this mostly async?
-	days := make([]model.Day, 0)
-	for currentDate != finalDate.Next() {
-		fh := storage.NewFileHandler(envData.BaseDirPath + "/days/" + currentDate.ToString())
-		categories := make([]model.Category, 0)
-		for _, cat := range styledCategories.GetAll() {
-			categories = append(categories, cat.Cat)
-		}
-		days = append(days, *fh.Read(categories))
-
-		currentDate = currentDate.Next()
+	var dataProvider storage.DataProvider
+	dataProvider, err = providers.NewFilesDataProvider(path.Join(envData.BaseDirPath, "days"))
+	if err != nil {
+		return fmt.Errorf("can't create file data provider (%w)", err)
 	}
 
-	categoryIncluded := func(cat model.Category) bool {
-		_, ok := includeCategoriesByName[cat.Name]
+	categoryIncluded := func(categoryName model.CategoryName) bool {
+		_, ok := includeCategoriesByName[categoryName]
 		return ok
 	}
 
-	totalSummary := make(map[model.Category]int)
-	for _, day := range days {
-		daySummary := day.SumUpByCategory()
-		for category, duration := range daySummary {
-			totalSummary[category] += duration
-		}
+	totalSummary, err := dataProvider.SumUpTimespanByCategory(command.From, command.Til)
+	if err != nil {
+		return fmt.Errorf("can't summarize timespan by category (%w)", err)
 	}
 
 	if Opts.SummarizeCommand.Verbose {
 		fmt.Println("dayplan time summary:")
 
-		fmt.Println("from:            ", Opts.SummarizeCommand.FromDay)
-		fmt.Println("til:             ", Opts.SummarizeCommand.TilDay)
-		fmt.Println("category filter: ", Opts.SummarizeCommand.CategoryFilterString)
+		fmt.Println("from:            ", command.From)
+		fmt.Println("til:             ", command.Til)
+		fmt.Println("category filter: ", command.CategoryFilterString)
 
-		fmt.Println("read", len(days), "days")
 		fmt.Println("total summary:")
 	}
 
-	for category, duration := range totalSummary {
-		if filterCategories && !categoryIncluded(category) {
+	categoriesByName := styledCategories.GetKnownCategoriesByName()
+	for categoryName, duration := range totalSummary {
+		category, ok := categoriesByName[categoryName]
+		if !ok {
+			fmt.Fprint(os.Stderr, "warning: category '", categoryName, "' not found in config\n")
+			category = &model.Category{
+				Name:       categoryName,
+				Priority:   0,
+				Goal:       nil,
+				Deprecated: false,
+			}
+		}
+
+		if filterCategories && !categoryIncluded(categoryName) {
 			continue
 		}
 
 		var durationStr string
 		if Opts.SummarizeCommand.HumanReadable {
-			durationStr = fmt.Sprint(util.DurationToString(duration))
+			durationStr = fmt.Sprint(duration.String())
 		} else {
 			durationStr = fmt.Sprint(duration, " min")
 		}
 
 		var goalStr string = ""
 		if category.Goal != nil {
-			goal := model.GoalForRange(category.Goal, startDate, finalDate)
+			goal := model.GoalForRange(category.Goal, command.From, command.Til)
 			actual := time.Duration(duration) * time.Minute
 			deficit := goal - actual
 			deficitStr := fmt.Sprint(deficit - (deficit % time.Minute))
