@@ -2216,7 +2216,7 @@ func (c *Controller) removeEvent(id model.EventID) {
 			prevEvent, err := c.dataProvider.GetPrecedingEvent(id)
 			if err != nil {
 				c.log.Error().Err(err).Msg("could not get preceding event")
-			} else if nextEvent != nil && !c.data.CurrentDate.Is(prevEvent.End) {
+			} else if nextEvent != nil && c.data.CurrentDate.Is(prevEvent.End) {
 				newCurrentEventID = new(model.EventID)
 				*newCurrentEventID = prevEvent.ID
 				log.Debug().Msgf("will switch to previous event: %s", *newCurrentEventID)
