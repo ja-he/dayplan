@@ -82,7 +82,7 @@ func TestFilesProvider(t *testing.T) {
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC), event.Start)
 		})
 
 		t.Run("try-after-end", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestFilesProvider(t *testing.T) {
 			assert.NotNil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC), event.Start)
 		})
 
 		t.Run("try-equal-end", func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestFilesProvider(t *testing.T) {
 			assert.NotNil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC), event.Start)
 		})
 
 		// for he files provider we expect this not to work because it does not
@@ -108,7 +108,7 @@ func TestFilesProvider(t *testing.T) {
 			assert.NotNil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC), event.Start)
 		})
 	})
 
@@ -127,7 +127,7 @@ func TestFilesProvider(t *testing.T) {
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.End, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
 		})
 
 		t.Run("try-before-start", func(t *testing.T) {
@@ -135,7 +135,7 @@ func TestFilesProvider(t *testing.T) {
 			assert.NotNil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.End, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
 		})
 
 		t.Run("try-equal-start", func(t *testing.T) {
@@ -143,7 +143,7 @@ func TestFilesProvider(t *testing.T) {
 			assert.NotNil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.End, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
 		})
 
 		// for the files provider we expect this not to work because it does not
@@ -153,7 +153,7 @@ func TestFilesProvider(t *testing.T) {
 			assert.NotNil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.End, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
 		})
 	})
 
@@ -169,21 +169,21 @@ func TestFilesProvider(t *testing.T) {
 		t.Run("basic", func(t *testing.T) {
 			newStart, err := p.OffsetEventStart(id, 1*time.Hour)
 			assert.Nil(t, err)
-			assert.Equal(t, newStart, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC), newStart)
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC), event.Start)
 		})
 
 		t.Run("before-end", func(t *testing.T) {
 			newStart, err := p.OffsetEventStart(id, -1*time.Minute)
 			assert.Nil(t, err)
-			assert.Equal(t, newStart, time.Date(2023, 1, 1, 12, 59, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 12, 59, 0, 0, time.UTC), newStart)
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 12, 59, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 12, 59, 0, 0, time.UTC), event.Start)
 		})
 
 		t.Run("invalid-duration", func(t *testing.T) {
@@ -249,13 +249,13 @@ func TestFilesProvider(t *testing.T) {
 		t.Run("basic", func(t *testing.T) {
 			newStart, newEnd, err := p.OffsetEventTimes(id, 1*time.Hour)
 			assert.Nil(t, err)
-			assert.Equal(t, newStart, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC))
-			assert.Equal(t, newEnd, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC), newStart)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), newEnd)
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC))
-			assert.Equal(t, event.End, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Equal(t, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC), event.Start)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
 		})
 
 		t.Run("no-duration-change", func(t *testing.T) {
