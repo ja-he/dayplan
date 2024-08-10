@@ -552,6 +552,10 @@ func (p *FilesDataProvider) SetEventStart(id model.EventID, start time.Time) err
 		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
+	if !start.Before(e.End) {
+		return fmt.Errorf("start time is not before end time")
+	}
+
 	e.Start = start
 
 	// Ensure start and end are on the same date
@@ -573,6 +577,10 @@ func (p *FilesDataProvider) SetEventEnd(id model.EventID, end time.Time) error {
 	e, err := p.GetEvent(id)
 	if err != nil {
 		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	if !e.Start.Before(end) {
+		return fmt.Errorf("start time is not before end time")
 	}
 
 	e.End = end
