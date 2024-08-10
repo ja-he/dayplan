@@ -604,16 +604,58 @@ func (p *FilesDataProvider) SetEventTimes(model.EventID, time.Time, time.Time) e
 	return nil
 }
 
-// TODO: doc OffsetEventStart
-func (p *FilesDataProvider) OffsetEventStart(model.EventID, time.Duration) (time.Time, error) {
-	p.log.Fatal().Msg("TODO IMPL(OffsetEventStart)")
-	return time.Time{}, nil
+// OffsetEventStart offsets the start time of an event with the specified ID by a duration.
+func (p *FilesDataProvider) OffsetEventStart(id model.EventID, offset time.Duration) (time.Time, error) {
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	newStart := e.Start.Add(offset)
+	if !newStart.Before(e.End) {
+		return time.Time{}, fmt.Errorf("resulting start time would not be before end time")
+	}
+
+	if !timesOnSameDate(newStart, e.End) {
+		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	e.Start = newStart
+
+	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.UpdateEvent(e)
+	return e.Start, nil
 }
 
-// TODO: doc OffsetEventEnd
-func (p *FilesDataProvider) OffsetEventEnd(model.EventID, time.Duration) (time.Time, error) {
-	p.log.Fatal().Msg("TODO IMPL(OffsetEventEnd)")
-	return time.Time{}, nil
+// OffsetEventEnd offsets the end time of an event with the specified ID by a duration.
+func (p *FilesDataProvider) OffsetEventEnd(id model.EventID, offset time.Duration) (time.Time, error) {
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	newEnd := e.End.Add(offset)
+	if !e.Start.Before(newEnd) {
+		return time.Time{}, fmt.Errorf("resulting end time would not be after start time")
+	}
+
+	if !timesOnSameDate(e.Start, newEnd) {
+		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	e.End = newEnd
+
+	fh, err := p.getFileHandler(model.DateFromGotime(e.End))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	fh.UpdateEvent(e)
+	return e.End, nil
 }
 
 // OffsetEventTimes offsets both the start and end times of an event with the specified ID by a duration.
