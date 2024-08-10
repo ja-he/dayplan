@@ -231,9 +231,18 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, expectedEnd, event.End)
 		})
 
-		t.Run("invalid-duration", func(t *testing.T) {
-			_, err := p.OffsetEventEnd(id, -3*time.Hour)
+		t.Run("invalid-duration-would-move-end-before-start", func(t *testing.T) {
+			e, err := p.GetEvent(id)
+			endBefore := e.End
+			assert.Nil(t, err)
+			invalidDuration := -(e.End.Sub(e.Start) + (10 * time.Minute))
+
+			_, err = p.OffsetEventEnd(id, invalidDuration)
 			assert.NotNil(t, err)
+
+			e, err = p.GetEvent(id)
+
+			assert.Equal(t, endBefore, e.End, "event end was changed despite error")
 		})
 	})
 
