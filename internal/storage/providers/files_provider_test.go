@@ -156,6 +156,127 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, event.End, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
 		})
 	})
+
+	t.Run("offset-event-start", func(t *testing.T) {
+		id, err := p.AddEvent(model.Event{
+			Name:     "test event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err)
+
+		t.Run("basic", func(t *testing.T) {
+			newStart, err := p.OffsetEventStart(id, 1*time.Hour)
+			assert.Nil(t, err)
+			assert.Equal(t, newStart, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC))
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC))
+		})
+
+		t.Run("before-end", func(t *testing.T) {
+			newStart, err := p.OffsetEventStart(id, -1*time.Minute)
+			assert.Nil(t, err)
+			assert.Equal(t, newStart, time.Date(2023, 1, 1, 12, 59, 0, 0, time.UTC))
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 12, 59, 0, 0, time.UTC))
+		})
+
+		t.Run("invalid-duration", func(t *testing.T) {
+			e, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			invalidDuration := e.End.Sub(e.Start) + (10 * time.Minute)
+			t.Logf("using invalid duration of %s to offset start", invalidDuration)
+
+			_, err = p.OffsetEventStart(id, invalidDuration)
+			assert.NotNil(t, err)
+		})
+	})
+
+	t.Run("offset-event-end", func(t *testing.T) {
+		id, err := p.AddEvent(model.Event{
+			Name:     "test event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err)
+
+		t.Run("basic", func(t *testing.T) {
+			newEnd, err := p.OffsetEventEnd(id, 1*time.Hour)
+			assert.Nil(t, err)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), newEnd)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
+		})
+
+		t.Run("after-start", func(t *testing.T) {
+			e, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			endBefore := e.End
+
+			newEnd, err := p.OffsetEventEnd(id, -1*time.Minute)
+			expectedEnd := endBefore.Add(-1 * time.Minute)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedEnd, newEnd)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+
+		t.Run("invalid-duration", func(t *testing.T) {
+			_, err := p.OffsetEventEnd(id, -3*time.Hour)
+			assert.NotNil(t, err)
+		})
+	})
+
+	t.Run("offset-event-times", func(t *testing.T) {
+		id, err := p.AddEvent(model.Event{
+			Name:     "test event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err)
+
+		t.Run("basic", func(t *testing.T) {
+			newStart, newEnd, err := p.OffsetEventTimes(id, 1*time.Hour)
+			assert.Nil(t, err)
+			assert.Equal(t, newStart, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC))
+			assert.Equal(t, newEnd, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC))
+			assert.Equal(t, event.End, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+		})
+
+		t.Run("no-duration-change", func(t *testing.T) {
+			e, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			startBefore, endBefore := e.Start, e.End
+
+			reportedNewStart, reportedNewEnd, err := p.OffsetEventTimes(id, 0)
+			assert.Nil(t, err)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			startAfter, endAfter := event.Start, event.End
+
+			assert.Equal(t, startBefore, startAfter)
+			assert.Equal(t, endBefore, endAfter)
+			assert.Equal(t, startBefore, reportedNewStart)
+			assert.Equal(t, endBefore, reportedNewEnd)
+		})
+	})
+
 }
 
 type testWriter struct {
