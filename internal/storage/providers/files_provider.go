@@ -52,6 +52,7 @@ func NewFilesDataProvider(
 		eventsDateMap: make(map[model.EventID]model.Date),
 		log:           log.With().Str("component", "files-data-provider").Logger(),
 	}
+	result.log.Debug().Msgf("created new files data provider with base path '%s'", basePath)
 
 	return result, nil
 }
@@ -90,7 +91,9 @@ func (p *FilesDataProvider) getFileHandler(date model.Date) (*fileHandler, error
 // TODO: doc AddEvent
 func (p *FilesDataProvider) AddEvent(e model.Event) (model.EventID, error) {
 	if e.ID == "" {
-		e.ID = filesProviderIDGenerator()
+		generatedID := filesProviderIDGenerator()
+		e.ID = generatedID
+		p.log.Debug().Msgf("generated ID '%s' for event", generatedID)
 	} else {
 		if !filesProviderIDValidator(e.ID) {
 			return "", fmt.Errorf("invalid event ID")
