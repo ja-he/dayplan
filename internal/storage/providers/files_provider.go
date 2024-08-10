@@ -490,30 +490,32 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 	fhs, err := func() ([]*fileHandler, error) {
 
 		var result []*fileHandler
-		currentDate := model.DateFromGotime(start)
+		startDate := model.DateFromGotime(start)
 		endDate := model.DateFromGotime(end)
 		if end.Hour() == 0 && end.Minute() == 0 && end.Second() == 0 {
 			endDate = endDate.Prev()
 		}
-		p.log.Debug().Msgf("getting file handlers for dates %s to %s", currentDate.String(), endDate.String())
+		p.log.Debug().Msgf("getting file handlers for dates %s to %s", startDate.String(), endDate.String())
 
-		for !currentDate.IsAfter(endDate) {
-			fh, err := p.getFileHandler(currentDate)
-			if err != nil {
-				return nil, fmt.Errorf("error getting file handler for date %s (%w)", currentDate.String(), err)
-			}
-			result = append(result, fh)
-			currentDate = currentDate.Next()
+		availableDates, err := p.getAvailableDates()
+		if err != nil {
+			return nil, fmt.Errorf("error getting available dates (%w)", err)
 		}
+		for _, d := range availableDates {
+			p.log.Trace().Msgf("checking date '%s'", d.String())
+			if !d.IsBefore(startDate) && !d.IsAfter(endDate) {
+				fh, err := p.getFileHandler(d)
+				if err != nil {
+					return nil, fmt.Errorf("error getting file handler for date %s (%w)", startDate.String(), err)
+				}
+				result = append(result, fh)
+			}
+		}
+
 		return result, nil
 	}()
 	if err != nil {
 		return nil, fmt.Errorf("error getting file handlers for timerange (%w)", err)
-	}
-
-	if len(fhs) == 0 {
-		p.log.Warn().Msgf("somehow, found no file handlers for timerange %s to %s", start.String(), end.String())
-		return nil, nil
 	}
 
 	p.log.Debug().Msgf("found %d file handlers for timerange %s to %s", len(fhs), start.String(), end.String())
