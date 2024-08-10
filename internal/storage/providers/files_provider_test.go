@@ -48,6 +48,51 @@ func TestFilesProvider(t *testing.T) {
 		assert.Equal(t, "thing", evs[0].Name)
 		assert.Equal(t, model.CategoryName("cat"), evs[0].Category)
 	})
+
+	t.Run("set-event-start", func(t *testing.T) {
+		id, err := p.AddEvent(model.Event{
+			Name:     "test event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err)
+
+		t.Run("basic", func(t *testing.T) {
+			err = p.SetEventStart(id, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+			assert.Nil(t, err)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+		})
+
+		t.Run("try-after-end", func(t *testing.T) {
+			err = p.SetEventStart(id, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.NotNil(t, err)
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+		})
+
+		t.Run("try-equal-end", func(t *testing.T) {
+			err = p.SetEventStart(id, time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC))
+			assert.NotNil(t, err)
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+		})
+
+		// for he files provider we expect this not to work because it does not
+		// support this.
+		t.Run("try-different-date", func(t *testing.T) {
+			err = p.SetEventStart(id, time.Date(2022, 12, 31, 14, 0, 0, 0, time.UTC))
+			assert.NotNil(t, err)
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, event.Start, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC))
+		})
+	})
 }
 
 type testWriter struct {
