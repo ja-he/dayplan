@@ -556,12 +556,12 @@ func (p *FilesDataProvider) SetEventStart(id model.EventID, start time.Time) err
 		return fmt.Errorf("start time is not before end time")
 	}
 
-	e.Start = start
-
 	// Ensure start and end are on the same date
-	if !eventStartsAndEndsOnSameDate(e) {
+	if !timesOnSameDate(start, e.End) {
 		return fmt.Errorf(notSameDayEventErrorMsg)
 	}
+
+	e.Start = start
 
 	fh, err := p.getFileHandler(model.DateFromGotime(start))
 	if err != nil {
@@ -583,13 +583,12 @@ func (p *FilesDataProvider) SetEventEnd(id model.EventID, end time.Time) error {
 		return fmt.Errorf("start time is not before end time")
 	}
 
-	e.End = end
-
 	// Ensure start and end are on the same date
-	if !eventStartsAndEndsOnSameDate(e) {
+	if !timesOnSameDate(e.Start, end) {
 		return fmt.Errorf(notSameDayEventErrorMsg)
 	}
 
+	e.End = end
 	fh, err := p.getFileHandler(model.DateFromGotime(end))
 	if err != nil {
 		return fmt.Errorf("error loading file handler for date (%w)", err)
