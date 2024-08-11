@@ -620,6 +620,123 @@ func TestFilesProvider(t *testing.T) {
 		})
 	})
 
+	t.Run("get-event-before", func(t *testing.T) {
+		doEmpty(t)
+
+		// Add some events to work with
+		id1, err := p.AddEvent(model.Event{
+			Name:     "first event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err, "could not add first event")
+
+		_, err = p.AddEvent(model.Event{
+			Name:     "second event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err, "could not add second event")
+
+		_, err = p.AddEvent(model.Event{
+			Name:     "third event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 20, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err, "could not add third event")
+
+		t.Run("event-before", func(t *testing.T) {
+			event, err := p.GetEventBefore(time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Nil(t, err, "error retrieving event before specified time")
+			assert.NotNil(t, event, "event should not be nil")
+			assert.Equal(t, "first event", event.Name, "event name mismatch")
+			assert.Equal(t, id1, event.ID, "event ID mismatch")
+		})
+
+		t.Run("no-event-before", func(t *testing.T) {
+			event, err := p.GetEventBefore(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC))
+			assert.Nil(t, err, "error retrieving event before specified time")
+			assert.Nil(t, event, "event should be nil")
+		})
+
+		t.Run("multiple-events-ending-at-same-time", func(t *testing.T) {
+			id4, err := p.AddEvent(model.Event{
+				Name:     "overlapping event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add overlapping event")
+
+			event, err := p.GetEventBefore(time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Nil(t, err, "error retrieving event before specified time")
+			assert.NotNil(t, event, "event should not be nil")
+			assert.Equal(t, id4, event.ID, "event ID mismatch")
+		})
+	})
+
+	t.Run("get-event-after", func(t *testing.T) {
+		doEmpty(t)
+
+		// Add some events to work with
+		_, err := p.AddEvent(model.Event{
+			Name:     "first event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err, "could not add first event")
+
+		id2, err := p.AddEvent(model.Event{
+			Name:     "second event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err, "could not add second event")
+
+		_, err = p.AddEvent(model.Event{
+			Name:     "third event",
+			Category: "test",
+			Start:    time.Date(2023, 1, 1, 20, 0, 0, 0, time.UTC),
+			End:      time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC),
+		})
+		assert.Nil(t, err, "could not add third event")
+
+		t.Run("event-after", func(t *testing.T) {
+			event, err := p.GetEventAfter(time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Nil(t, err, "error retrieving event after specified time")
+			assert.NotNil(t, event, "event should not be nil")
+			assert.Equal(t, "second event", event.Name, "event name mismatch")
+			assert.Equal(t, id2, event.ID, "event ID mismatch")
+		})
+
+		t.Run("no-event-after", func(t *testing.T) {
+			event, err := p.GetEventAfter(time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC))
+			assert.Nil(t, err, "error retrieving event after specified time")
+			assert.Nil(t, event, "event should be nil")
+		})
+
+		t.Run("multiple-events-starting-at-same-time", func(t *testing.T) {
+			_, err := p.AddEvent(model.Event{
+				Name:     "concurrent event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add concurrent event")
+
+			event, err := p.GetEventAfter(time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC))
+			assert.Nil(t, err, "error retrieving event after specified time")
+			assert.NotNil(t, event, "event should not be nil")
+			assert.Equal(t, "second event", event.Name, "event name mismatch (second event should be longer)")
+			assert.Equal(t, id2, event.ID, "event ID mismatch")
+		})
+	})
+
 }
 
 type testWriter struct {
