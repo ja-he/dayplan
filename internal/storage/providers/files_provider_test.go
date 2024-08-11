@@ -28,12 +28,23 @@ func TestFilesProvider(t *testing.T) {
 	p, err = providers.NewFilesDataProvider(tempDir)
 	assert.Nil(t, err)
 
+	yearZero := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
+	yearTenK := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
+	doEmpty := func(t *testing.T) {
+		allEventsBefore, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
+		assert.Nil(t, err, "could not get all events before test")
+		for _, e := range allEventsBefore {
+			err = p.RemoveEvent(e.ID)
+			assert.Nil(t, err, "could not remove event %s", e.ID)
+		}
+		allEventsBefore, err = p.GetEventsCoveringTimerange(yearZero, yearTenK)
+		assert.Nil(t, err, "could not get events after removing all events")
+		assert.Empty(t, allEventsBefore, "not all events were removed")
+	}
+
 	t.Run("create-event", func(t *testing.T) {
-		yearZero := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
-		yearTenK := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
-		evs, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
-		assert.Nil(t, err)
-		assert.Empty(t, evs)
+		doEmpty(t)
+
 		id, err := p.AddEvent(model.Event{
 			Name:     "thing",
 			Category: "cat",
@@ -42,7 +53,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 		assert.Nil(t, err)
 		assert.True(t, validateUUID(id), "id '%s' is not a valid UUID", id)
-		evs, err = p.GetEventsCoveringTimerange(yearZero, yearTenK)
+		evs, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
 		assert.Nil(t, err)
 		assert.Len(t, evs, 1)
 		assert.Equal(t, "thing", evs[0].Name)
@@ -283,6 +294,329 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, endBefore, endAfter)
 			assert.Equal(t, startBefore, reportedNewStart)
 			assert.Equal(t, endBefore, reportedNewEnd)
+		})
+	})
+
+	t.Run("get-preceding-event", func(t *testing.T) {
+		t.Run("simple", func(t *testing.T) {
+			doEmpty(t)
+
+			id1, err := p.AddEvent(model.Event{
+				Name:     "first event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add first event")
+
+			id2, err := p.AddEvent(model.Event{
+				Name:     "second event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add second event")
+
+			id3, err := p.AddEvent(model.Event{
+				Name:     "third event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 20, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add third event")
+
+			id4, err := p.AddEvent(model.Event{
+				Name:     "fourth event (different date)",
+				Category: "test",
+				Start:    time.Date(2023, 2, 12, 14, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 2, 12, 16, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add fourth event")
+
+			t.Run("preceding-event-present", func(t *testing.T) {
+				precedingEvent, err := p.GetPrecedingEvent(id2)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
+				assert.Equal(t, "first event", precedingEvent.Name, "preceding event name mismatch")
+				assert.Equal(t, id1, precedingEvent.ID, "preceding event ID mismatch")
+			})
+
+			t.Run("no-preceding-event", func(t *testing.T) {
+				precedingEvent, err := p.GetPrecedingEvent(id1)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.Nil(t, precedingEvent, "preceding event should be nil")
+			})
+
+			t.Run("preceding-event-for-third", func(t *testing.T) {
+				precedingEvent, err := p.GetPrecedingEvent(id3)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
+				assert.Equal(t, "second event", precedingEvent.Name, "preceding event name mismatch")
+				assert.Equal(t, id2, precedingEvent.ID, "preceding event ID mismatch")
+			})
+
+			t.Run("preceding-on-different-date", func(t *testing.T) {
+				precedingEvent, err := p.GetPrecedingEvent(id4)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
+				assert.Equal(t, "third event", precedingEvent.Name, "preceding event name mismatch")
+				assert.Equal(t, id3, precedingEvent.ID, "preceding event ID mismatch")
+			})
+
+			// this is a test case that could trip up the file-based data provider
+			// because it might store a handler for that date and then blindly return
+			// the last event for that date (none, so nil) even though it should
+			// check previous dates instead.
+			t.Run("preceding-on-different-date-with-previously-existing-event-inbetween", func(t *testing.T) {
+				inbetweenerID, err := p.AddEvent(model.Event{
+					Name:     "inbetweener event",
+					Category: "test",
+					Start:    time.Date(2023, 1, 15, 12, 0, 0, 0, time.UTC),
+					End:      time.Date(2023, 1, 15, 14, 0, 0, 0, time.UTC),
+				})
+				assert.Nil(t, err, "could not add inbetweener event")
+				err = p.RemoveEvent(inbetweenerID)
+				assert.Nil(t, err, "could not remove inbetweener event")
+
+				precedingEvent, err := p.GetPrecedingEvent(id4)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
+				assert.Equal(t, "third event", precedingEvent.Name, "preceding event name mismatch")
+				assert.Equal(t, id3, precedingEvent.ID, "preceding event ID mismatch")
+			})
+
+			t.Run("non-existent-event-id", func(t *testing.T) {
+				invalidID := model.EventID("non-existent-id")
+				precedingEvent, err := p.GetPrecedingEvent(invalidID)
+				assert.NotNil(t, err, "error should occur for non-existent event ID")
+				assert.Nil(t, precedingEvent, "preceding event should be nil for non-existent event ID")
+			})
+
+		})
+
+		t.Run("get-preceding-event-overlapping", func(t *testing.T) {
+			doEmpty(t)
+
+			// Add some events to work with
+			id1, err := p.AddEvent(model.Event{
+				Name:     "first event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add first event")
+
+			id2, err := p.AddEvent(model.Event{
+				Name:     "second event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add second event")
+
+			id3, err := p.AddEvent(model.Event{
+				Name:     "third event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add third event")
+
+			id4, err := p.AddEvent(model.Event{
+				Name:     "fourth event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add fourth event")
+
+			t.Run("preceding-event-present", func(t *testing.T) {
+				precedingEvent, err := p.GetPrecedingEvent(id3)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
+				assert.Equal(t, "second event", precedingEvent.Name, "preceding event name mismatch")
+				assert.Equal(t, id2, precedingEvent.ID, "preceding event ID mismatch")
+			})
+
+			t.Run("no-preceding-event", func(t *testing.T) {
+				precedingEvent, err := p.GetPrecedingEvent(id1)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.Nil(t, precedingEvent, "preceding event should be nil")
+			})
+
+			t.Run("preceding-event-for-fourth", func(t *testing.T) {
+				precedingEvent, err := p.GetPrecedingEvent(id4)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
+				assert.Equal(t, "third event", precedingEvent.Name, "preceding event name mismatch")
+				assert.Equal(t, id3, precedingEvent.ID, "preceding event ID mismatch")
+			})
+
+			t.Run("if two events overlap, the one that starts earlier will be considered preceding", func(t *testing.T) {
+				precedingEvent, err := p.GetPrecedingEvent(id2)
+				assert.Nil(t, err, "error retrieving preceding event")
+				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
+				assert.Equal(t, "first event", precedingEvent.Name, "preceding event name mismatch")
+				assert.Equal(t, id1, precedingEvent.ID, "preceding event ID mismatch")
+			})
+
+			t.Run("non-existent-event-id", func(t *testing.T) {
+				invalidID := model.EventID("non-existent-id")
+				precedingEvent, err := p.GetPrecedingEvent(invalidID)
+				assert.NotNil(t, err, "error should occur for non-existent event ID")
+				assert.Nil(t, precedingEvent, "preceding event should be nil for non-existent event ID")
+			})
+		})
+
+	})
+
+	t.Run("get-following-event", func(t *testing.T) {
+		t.Run("simple", func(t *testing.T) {
+			doEmpty(t)
+
+			id1, err := p.AddEvent(model.Event{
+				Name:     "first event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add first event")
+
+			id2, err := p.AddEvent(model.Event{
+				Name:     "second event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add second event")
+
+			id3, err := p.AddEvent(model.Event{
+				Name:     "third event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 20, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add third event")
+
+			id4, err := p.AddEvent(model.Event{
+				Name:     "fourth event (different date)",
+				Category: "test",
+				Start:    time.Date(2023, 2, 12, 14, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 2, 12, 16, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add fourth event")
+
+			t.Run("following-event-present", func(t *testing.T) {
+				followingEvent, err := p.GetFollowingEvent(id1)
+				assert.Nil(t, err, "error retrieving following event")
+				assert.NotNil(t, followingEvent, "following event should not be nil")
+				assert.Equal(t, "second event", followingEvent.Name, "following event name mismatch")
+				assert.Equal(t, id2, followingEvent.ID, "following event ID mismatch")
+			})
+
+			t.Run("no-following-event", func(t *testing.T) {
+				followingEvent, err := p.GetFollowingEvent(id4)
+				assert.Nil(t, err, "error retrieving following event")
+				assert.Nil(t, followingEvent, "following event should be nil")
+			})
+
+			t.Run("following-event-for-second", func(t *testing.T) {
+				followingEvent, err := p.GetFollowingEvent(id2)
+				assert.Nil(t, err, "error retrieving following event")
+				assert.NotNil(t, followingEvent, "following event should not be nil")
+				assert.Equal(t, "third event", followingEvent.Name, "following event name mismatch")
+				assert.Equal(t, id3, followingEvent.ID, "following event ID mismatch")
+			})
+
+			t.Run("following-on-different-date", func(t *testing.T) {
+				followingEvent, err := p.GetFollowingEvent(id3)
+				assert.Nil(t, err, "error retrieving following event")
+				assert.NotNil(t, followingEvent, "following event should not be nil")
+				assert.Equal(t, "fourth event (different date)", followingEvent.Name, "following event name mismatch")
+				assert.Equal(t, id4, followingEvent.ID, "following event ID mismatch")
+			})
+
+			t.Run("non-existent-event-id", func(t *testing.T) {
+				invalidID := model.EventID("non-existent-id")
+				followingEvent, err := p.GetFollowingEvent(invalidID)
+				assert.NotNil(t, err, "error should occur for non-existent event ID")
+				assert.Nil(t, followingEvent, "following event should be nil for non-existent event ID")
+			})
+
+		})
+
+		t.Run("overlap", func(t *testing.T) {
+			doEmpty(t)
+
+			// Add some events to work with
+			id1, err := p.AddEvent(model.Event{
+				Name:     "first event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add first event")
+
+			id2, err := p.AddEvent(model.Event{
+				Name:     "second event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add second event")
+
+			id3, err := p.AddEvent(model.Event{
+				Name:     "third event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add third event")
+
+			id4, err := p.AddEvent(model.Event{
+				Name:     "fourth event",
+				Category: "test",
+				Start:    time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
+				End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+			})
+			assert.Nil(t, err, "could not add fourth event")
+
+			t.Run("following-event-present", func(t *testing.T) {
+				followingEvent, err := p.GetFollowingEvent(id1)
+				assert.Nil(t, err, "error retrieving following event")
+				assert.NotNil(t, followingEvent, "following event should not be nil")
+				assert.Equal(t, "second event", followingEvent.Name, "following event name mismatch")
+				assert.Equal(t, id2, followingEvent.ID, "following event ID mismatch")
+			})
+
+			t.Run("no-following-event", func(t *testing.T) {
+				followingEvent, err := p.GetFollowingEvent(id4)
+				assert.Nil(t, err, "error retrieving following event")
+				assert.Nil(t, followingEvent, "following event should be nil")
+			})
+
+			t.Run("following-event-for-second", func(t *testing.T) {
+				followingEvent, err := p.GetFollowingEvent(id2)
+				assert.Nil(t, err, "error retrieving following event")
+				assert.NotNil(t, followingEvent, "following event should not be nil")
+				assert.Equal(t, "third event", followingEvent.Name, "following event name mismatch")
+				assert.Equal(t, id3, followingEvent.ID, "following event ID mismatch")
+			})
+
+			t.Run("if two events overlap, the one that ends later will be considered following", func(t *testing.T) {
+				followingEvent, err := p.GetFollowingEvent(id2)
+				assert.Nil(t, err, "error retrieving following event")
+				assert.NotNil(t, followingEvent, "following event should not be nil")
+				assert.Equal(t, "third event", followingEvent.Name, "following event name mismatch")
+				assert.Equal(t, id3, followingEvent.ID, "following event ID mismatch")
+			})
+
+			t.Run("non-existent-event-id", func(t *testing.T) {
+				invalidID := model.EventID("non-existent-id")
+				followingEvent, err := p.GetFollowingEvent(invalidID)
+				assert.NotNil(t, err, "error should occur for non-existent event ID")
+				assert.Nil(t, followingEvent, "following event should be nil for non-existent event ID")
+			})
 		})
 	})
 
