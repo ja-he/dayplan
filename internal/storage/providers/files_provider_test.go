@@ -737,6 +737,273 @@ func TestFilesProvider(t *testing.T) {
 		})
 	})
 
+	setupWithSingleEventTimes := func(t *testing.T, start time.Time, end time.Time) string {
+		doEmpty(t)
+		id, err := p.AddEvent(model.Event{
+			Name:     "test event",
+			Category: "test",
+			Start:    start,
+			End:      end,
+		})
+		assert.Nil(t, err)
+		return id
+	}
+
+	t.Run("snap-event-start", func(t *testing.T) {
+
+		t.Run("basic", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 13, 17, 0, 0, time.UTC),
+			)
+
+			newStart, err := p.SnapEventStart(id, 15*time.Minute)
+			assert.Nil(t, err)
+			expectedStart := time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedStart, newStart)
+			assert.Equal(t, expectedStart, event.Start)
+		})
+
+		t.Run("snap-start-to-nearest-hour", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 13, 50, 0, 0, time.UTC),
+			)
+
+			newStart, err := p.SnapEventStart(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedStart := time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedStart, newStart)
+			assert.Equal(t, expectedStart, event.Start)
+		})
+
+		t.Run("invalid-snap-start-after-end", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+			)
+
+			_, err := p.SnapEventStart(id, 2*time.Hour)
+			assert.NotNil(t, err)
+		})
+
+		t.Run("snap-start-edge-case", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 14, 29, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 15, 30, 0, 0, time.UTC),
+			)
+
+			newStart, err := p.SnapEventStart(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedStart := time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedStart, newStart)
+			assert.Equal(t, expectedStart, event.Start)
+		})
+
+		t.Run("snap-start-edge-case-round-up-at-half", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 14, 30, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+			)
+
+			newStart, err := p.SnapEventStart(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedStart := time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedStart, newStart)
+			assert.Equal(t, expectedStart, event.Start)
+		})
+
+		t.Run("snap-start-edge-case-round-up", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 14, 31, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+			)
+
+			newStart, err := p.SnapEventStart(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedStart := time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedStart, newStart)
+			assert.Equal(t, expectedStart, event.Start)
+		})
+	})
+
+	t.Run("snap-event-end", func(t *testing.T) {
+
+		t.Run("basic", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 14, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 13, 12, 0, 0, time.UTC),
+			)
+
+			newEnd, err := p.SnapEventEnd(id, 15*time.Minute)
+			assert.Nil(t, err)
+			expectedEnd := time.Date(2023, 1, 1, 13, 15, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedEnd, newEnd)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+
+		t.Run("snap-end-to-nearest-hour", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 14, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 13, 12, 0, 0, time.UTC),
+			)
+
+			newEnd, err := p.SnapEventEnd(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedEnd := time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedEnd, newEnd)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+
+		t.Run("invalid-snap-end-before-start", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+			)
+
+			_, err := p.SnapEventEnd(id, -1*time.Hour)
+			assert.NotNil(t, err)
+		})
+
+		t.Run("snap-end-edge-case-round-down-below-half", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 14, 29, 59, 59, time.UTC),
+			)
+
+			newEnd, err := p.SnapEventEnd(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedEnd := time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedEnd, newEnd)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+
+		t.Run("snap-end-edge-case-round-up-at-half", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 14, 30, 0, 0, time.UTC),
+			)
+
+			newEnd, err := p.SnapEventEnd(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedEnd := time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedEnd, newEnd)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+
+		t.Run("snap-end-edge-case-round-up", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 14, 31, 0, 0, time.UTC),
+			)
+
+			newEnd, err := p.SnapEventEnd(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedEnd := time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedEnd, newEnd)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+	})
+
+	t.Run("snap-event-times", func(t *testing.T) {
+		t.Run("basic", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 13, 17, 0, 0, time.UTC),
+			)
+
+			newStart, newEnd, err := p.SnapEventTimes(id, 15*time.Minute)
+			assert.Nil(t, err)
+			expectedStart := time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)
+			expectedEnd := time.Date(2023, 1, 1, 13, 15, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedStart, newStart)
+			assert.Equal(t, expectedEnd, newEnd)
+			assert.Equal(t, expectedStart, event.Start)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+
+		t.Run("snap-times-to-nearest-hour", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 13, 40, 0, 0, time.UTC),
+			)
+
+			newStart, newEnd, err := p.SnapEventTimes(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedStart := time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC)
+			expectedEnd := time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedStart, newStart)
+			assert.Equal(t, expectedEnd, newEnd)
+			assert.Equal(t, expectedStart, event.Start)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+
+		t.Run("invalid-snap-times-start-after-end", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 12, 50, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 13, 10, 0, 0, time.UTC),
+			)
+
+			_, _, err := p.SnapEventTimes(id, 1*time.Hour)
+			assert.NotNil(t, err)
+		})
+
+		t.Run("snap-times-edge-case", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t,
+				time.Date(2023, 1, 1, 14, 29, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 14, 31, 0, 0, time.UTC),
+			)
+
+			newStart, newEnd, err := p.SnapEventTimes(id, 1*time.Hour)
+			assert.Nil(t, err)
+			expectedStart := time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)
+			expectedEnd := time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedStart, newStart)
+			assert.Equal(t, expectedEnd, newEnd)
+			assert.Equal(t, expectedStart, event.Start)
+			assert.Equal(t, expectedEnd, event.End)
+		})
+	})
+
 }
 
 type testWriter struct {
