@@ -336,7 +336,9 @@ func (p *FilesDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, e
 		if err != nil {
 			return nil, fmt.Errorf("error getting preceding event for event with ID '%s' (%w)", id, err)
 		}
-		return e, nil
+		if e != nil {
+			return e, nil
+		}
 	}
 
 	return nil, nil
@@ -443,7 +445,9 @@ func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, e
 		if err != nil {
 			return nil, fmt.Errorf("error getting next event for event with ID '%s' (%w)", id, err)
 		}
-		return e, nil
+		if e != nil {
+			return e, nil
+		}
 	}
 
 	return nil, nil
