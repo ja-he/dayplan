@@ -693,12 +693,17 @@ func (p *FilesDataProvider) SnapEventStart(id model.EventID, interval time.Durat
 		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	e.Start = snapToInterval(e.Start, interval)
+	newStart := snapToInterval(e.Start, interval)
 
-	// Ensure start and end are on the same date
-	if !eventStartsAndEndsOnSameDate(e) {
+	if !timesOnSameDate(newStart, e.End) {
 		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
 	}
+
+	if !newStart.Before(e.End) {
+		return time.Time{}, fmt.Errorf("resulting start time would not be before end time")
+	}
+
+	e.Start = newStart
 
 	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
 	if err != nil {
@@ -716,12 +721,17 @@ func (p *FilesDataProvider) SnapEventEnd(id model.EventID, interval time.Duratio
 		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	e.End = snapToInterval(e.End, interval)
+	newEnd := snapToInterval(e.End, interval)
 
-	// Ensure start and end are on the same date
 	if !eventStartsAndEndsOnSameDate(e) {
 		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
 	}
+
+	if !e.Start.Before(newEnd) {
+		return time.Time{}, fmt.Errorf("resulting end time would not be after start time")
+	}
+
+	e.End = newEnd
 
 	fh, err := p.getFileHandler(model.DateFromGotime(e.End))
 	if err != nil {
@@ -740,13 +750,18 @@ func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Durat
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	e.Start = snapToInterval(e.Start, interval)
-	e.End = snapToInterval(e.End, interval)
+	newStart := snapToInterval(e.Start, interval)
+	newEnd := snapToInterval(e.End, interval)
 
-	// Ensure start and end are on the same date
-	if !eventStartsAndEndsOnSameDate(e) {
+	if !timesOnSameDate(newStart, newEnd) {
 		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
 	}
+
+	if !newStart.Before(newEnd) {
+		return time.Time{}, time.Time{}, fmt.Errorf("resulting start time would not be before end time")
+	}
+
+	e.Start, e.End = newStart, newEnd
 
 	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
 	if err != nil {
@@ -838,11 +853,16 @@ func (p *FilesDataProvider) getAvailableDates() ([]model.Date, error) {
 
 }
 
-// snapToInterval snaps a given time to the nearest interval from the beginning of the day.
 func snapToInterval(t time.Time, interval time.Duration) time.Time {
-	year, month, day := t.Date()
-	tBeginningOfDay := time.Date(year, month, day, 0, 0, 0, 0, t.Location())
+	startOfDay := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 
-	intervalSinceBeginningOfDay := time.Duration(t.Sub(tBeginningOfDay).Seconds()/interval.Seconds()) * interval
-	return tBeginningOfDay.Add(intervalSinceBeginningOfDay)
+	durationFromStartOfDay := t.Sub(startOfDay)
+
+	intervals := durationFromStartOfDay / interval
+	remainder := durationFromStartOfDay % interval
+
+	if remainder < interval/2 {
+		return startOfDay.Add(intervals * interval)
+	}
+	return startOfDay.Add((intervals + 1) * interval)
 }
