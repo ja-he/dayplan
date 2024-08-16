@@ -150,8 +150,16 @@ func (p *FilesDataProvider) RemoveEvents(ids []model.EventID) error {
 
 // GetEvent retrieves the event with the specified ID.
 func (p *FilesDataProvider) GetEvent(id model.EventID) (*model.Event, error) {
+	_, e, err := p.getEventWithFH(id)
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+func (p *FilesDataProvider) getEventWithFH(id model.EventID) (*fileHandler, *model.Event, error) {
 	if !filesProviderIDValidator(id) {
-		return nil, fmt.Errorf("invalid event ID")
+		return nil, nil, fmt.Errorf("invalid event ID")
 	}
 
 	p.log.Debug().Msgf("getting event with ID '%s'", id)
@@ -165,19 +173,19 @@ func (p *FilesDataProvider) GetEvent(id model.EventID) (*model.Event, error) {
 		p.log.Trace().Msgf("found event ID '%s' in map", id)
 		fh, err := p.getFileHandler(d)
 		if err != nil {
-			return nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
+			return nil, nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
 		}
 		e, err := fh.GetEvent(id)
 		if err != nil {
-			return nil, fmt.Errorf("error getting event with ID '%s' from file handler (%w)", id, err)
+			return nil, nil, fmt.Errorf("error getting event with ID '%s' from file handler (%w)", id, err)
 		}
-		return e, nil
+		return fh, e, nil
 	}
 
 	p.log.Trace().Msgf("will look for event with ID '%s' in files", id)
-	e, d, err := p.getYetUnfoundEvent(id)
+	fh, e, d, err := p.getYetUnfoundEvent(id)
 	if err != nil {
-		return nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+		return nil, nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
 	p.log.Trace().Msgf("found date '%s' for event with ID '%s', will add to map", d.String(), id)
@@ -185,14 +193,14 @@ func (p *FilesDataProvider) GetEvent(id model.EventID) (*model.Event, error) {
 	p.eventsDateMap[id] = d
 	p.eventsDateMapMtx.Unlock()
 
-	return e, nil
+	return fh, e, nil
 
 }
 
-func (p *FilesDataProvider) getYetUnfoundEvent(id model.EventID) (*model.Event, model.Date, error) {
+func (p *FilesDataProvider) getYetUnfoundEvent(id model.EventID) (*fileHandler, *model.Event, model.Date, error) {
 	availableDates, err := p.getAvailableDates()
 	if err != nil {
-		return nil, model.Date{}, fmt.Errorf("error getting available dates (%w)", err)
+		return nil, nil, model.Date{}, fmt.Errorf("error getting available dates (%w)", err)
 	}
 	p.log.Trace().Msgf("have %d available dates", len(availableDates))
 
@@ -200,16 +208,16 @@ func (p *FilesDataProvider) getYetUnfoundEvent(id model.EventID) (*model.Event, 
 		p.log.Trace().Msgf("getting file handler for date '%s'", d.String())
 		fh, err := p.getFileHandler(d)
 		if err != nil {
-			return nil, model.Date{}, fmt.Errorf("error getting file handler for date '%s', which should not happen since the file should exist (%w)", d.String(), err)
+			return nil, nil, model.Date{}, fmt.Errorf("error getting file handler for date '%s', which should not happen since the file should exist (%w)", d.String(), err)
 		}
 		for _, event := range fh.data.Events {
 			if event.ID == id {
 				p.log.Trace().Msgf("found event with ID '%s'", id)
-				return event, d, nil
+				return fh, event, d, nil
 			}
 		}
 	}
-	return nil, model.Date{}, fmt.Errorf("event with ID '%s' not found", id)
+	return nil, nil, model.Date{}, fmt.Errorf("event with ID '%s' not found", id)
 }
 
 // GetEventAfter retrieves the first event after the specified time.
@@ -295,7 +303,7 @@ func (p *FilesDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, e
 	p.eventsDateMapMtx.RUnlock()
 	if !ok {
 		var err error
-		_, d, err = p.getYetUnfoundEvent(id)
+		_, _, d, err = p.getYetUnfoundEvent(id)
 		if err != nil {
 			return nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 		}
@@ -403,7 +411,7 @@ func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, e
 	if !ok {
 		p.log.Trace().Msgf("have to find date for event with ID '%s'", id)
 		var err error
-		_, d, err = p.getYetUnfoundEvent(id)
+		_, _, d, err = p.getYetUnfoundEvent(id)
 		if err != nil {
 			return nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 		}
@@ -635,8 +643,57 @@ func (p *FilesDataProvider) SetEventEnd(id model.EventID, end time.Time) error {
 }
 
 // TODO: doc SetEventTimes
-func (p *FilesDataProvider) SetEventTimes(model.EventID, time.Time, time.Time) error {
-	p.log.Fatal().Msg("TODO IMPL(SetEventTimes)")
+func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, newEnd time.Time) error {
+	if !newStart.Before(newEnd) {
+		return fmt.Errorf("start time is not before end time")
+	}
+
+	if !timesOnSameDate(newStart, newEnd) {
+		return fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	fh, e, err := p.getEventWithFH(id)
+	if err != nil {
+		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	// if new times are on the same date as old times we just update the event
+	// with the file handler for that date
+	if timesOnSameDate(e.Start, newStart) {
+		e.Start = newStart
+		e.End = newEnd
+
+		fh.UpdateEvent(e)
+		return nil
+	}
+
+	// otherwise we need to remove the event from this file handler and add it to
+	// the new one
+	if err := fh.RemoveEvent(id); err != nil {
+		return fmt.Errorf("error removing event with ID '%s' from file handler (%w)", id, err)
+	}
+	tryToAddBackDueToError := func() {
+		if err := fh.AddEvent(e); err != nil {
+			p.log.Warn().Msgf("error adding event back to file handler after (another) error: %v", err)
+		}
+	}
+
+	eventClone := *e
+	eventClone.Start = newStart
+	eventClone.End = newEnd
+
+	newFH, err := p.getFileHandler(model.DateFromGotime(newStart))
+	if err != nil {
+		tryToAddBackDueToError()
+		return fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+	if err := newFH.AddEvent(&eventClone); err != nil {
+		tryToAddBackDueToError()
+		return fmt.Errorf("error adding event to new file handler (%w)", err)
+	}
+
+	p.eventsDateMap[id] = model.DateFromGotime(newStart)
+
 	return nil
 }
 
