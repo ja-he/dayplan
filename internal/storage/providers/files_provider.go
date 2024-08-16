@@ -87,6 +87,19 @@ func (p *FilesDataProvider) getFileHandler(date model.Date) (*fileHandler, error
 	return fh, nil
 }
 
+func (p *FilesDataProvider) setEventDateInMap(id model.EventID, date model.Date) {
+	p.eventsDateMapMtx.Lock()
+	p.eventsDateMap[id] = date
+	p.eventsDateMapMtx.Unlock()
+}
+
+func (p *FilesDataProvider) getEventDateFromMap(id model.EventID) (model.Date, bool) {
+	p.eventsDateMapMtx.RLock()
+	d, ok := p.eventsDateMap[id]
+	p.eventsDateMapMtx.RUnlock()
+	return d, ok
+}
+
 // AddEvent ...
 // TODO: doc AddEvent
 func (p *FilesDataProvider) AddEvent(e model.Event) (model.EventID, error) {
@@ -165,9 +178,7 @@ func (p *FilesDataProvider) getEventWithFH(id model.EventID) (*fileHandler, *mod
 	p.log.Debug().Msgf("getting event with ID '%s'", id)
 	defer p.log.Debug().Msgf("done getting event with ID '%s'", id)
 
-	p.eventsDateMapMtx.RLock()
-	d, ok := p.eventsDateMap[id]
-	p.eventsDateMapMtx.RUnlock()
+	d, ok := p.getEventDateFromMap(id)
 
 	if ok {
 		p.log.Trace().Msgf("found event ID '%s' in map", id)
@@ -189,9 +200,7 @@ func (p *FilesDataProvider) getEventWithFH(id model.EventID) (*fileHandler, *mod
 	}
 
 	p.log.Trace().Msgf("found date '%s' for event with ID '%s', will add to map", d.String(), id)
-	p.eventsDateMapMtx.Lock()
-	p.eventsDateMap[id] = d
-	p.eventsDateMapMtx.Unlock()
+	p.setEventDateInMap(id, d)
 
 	return fh, e, nil
 
@@ -298,18 +307,14 @@ func (p *FilesDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, e
 	}
 
 	// find out date for event
-	p.eventsDateMapMtx.RLock()
-	d, ok := p.eventsDateMap[id]
-	p.eventsDateMapMtx.RUnlock()
+	d, ok := p.getEventDateFromMap(id)
 	if !ok {
 		var err error
 		_, _, d, err = p.getYetUnfoundEvent(id)
 		if err != nil {
 			return nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 		}
-		p.eventsDateMapMtx.Lock()
-		p.eventsDateMap[id] = d
-		p.eventsDateMapMtx.Unlock()
+		p.setEventDateInMap(id, d)
 	}
 	p.log.Debug().Msgf("found date '%s' for event with ID '%s'", d.String(), id)
 
@@ -405,9 +410,7 @@ func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, e
 	}
 
 	// find out date for event
-	p.eventsDateMapMtx.RLock()
-	d, ok := p.eventsDateMap[id]
-	p.eventsDateMapMtx.RUnlock()
+	d, ok := p.getEventDateFromMap(id)
 	if !ok {
 		p.log.Trace().Msgf("have to find date for event with ID '%s'", id)
 		var err error
@@ -415,9 +418,7 @@ func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, e
 		if err != nil {
 			return nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 		}
-		p.eventsDateMapMtx.Lock()
-		p.eventsDateMap[id] = d
-		p.eventsDateMapMtx.Unlock()
+		p.setEventDateInMap(id, d)
 	}
 	log.Debug().Msgf("found date '%s' for event with ID '%s'", d.String(), id)
 
@@ -682,7 +683,8 @@ func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, 
 	eventClone.Start = newStart
 	eventClone.End = newEnd
 
-	newFH, err := p.getFileHandler(model.DateFromGotime(newStart))
+	newDate := model.DateFromGotime(newStart)
+	newFH, err := p.getFileHandler(newDate)
 	if err != nil {
 		tryToAddBackDueToError()
 		return fmt.Errorf("error loading file handler for date (%w)", err)
@@ -692,7 +694,7 @@ func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, 
 		return fmt.Errorf("error adding event to new file handler (%w)", err)
 	}
 
-	p.eventsDateMap[id] = model.DateFromGotime(newStart)
+	p.setEventDateInMap(id, newDate)
 
 	return nil
 }
