@@ -1004,6 +1004,122 @@ func TestFilesProvider(t *testing.T) {
 		})
 	})
 
+	t.Run("split-event", func(t *testing.T) {
+		originalStart := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
+		originalEnd := time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)
+
+		t.Run("basic", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			splitTime := time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)
+
+			err := p.SplitEvent(id, splitTime)
+			assert.Nil(t, err)
+
+			// Verify the original event
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, splitTime, event.End)
+
+			// Verify the new split event
+			events, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
+			assert.Nil(t, err)
+			assert.Len(t, events, 2)
+			assert.Equal(t, id, events[0].ID)
+			assert.NotEqual(t, id, events[1].ID)
+			assert.Equal(t, originalStart, events[0].Start)
+			assert.Equal(t, splitTime, events[0].End)
+			assert.Equal(t, splitTime, events[1].Start)
+			assert.Equal(t, originalEnd, events[1].End)
+		})
+
+		t.Run("split-at-start", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			splitTime := originalStart
+
+			err := p.SplitEvent(id, splitTime)
+			assert.NotNil(t, err)
+
+			// Verify the original event
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, originalEnd, event.End)
+
+			// Verifiy that there is no other created event
+			allEvents, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
+			assert.Nil(t, err)
+			assert.Equal(t, len(allEvents), 1)
+
+		})
+
+		t.Run("split-at-end", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			splitTime := originalEnd
+
+			err := p.SplitEvent(id, splitTime)
+			assert.NotNil(t, err)
+
+			// Verify the original event
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, originalEnd, event.End)
+
+			// Verifiy that there is no other created event
+			allEvents, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
+			assert.Nil(t, err)
+			assert.Equal(t, len(allEvents), 1)
+
+		})
+
+		t.Run("invalid-split-time-before-start", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			splitTime := originalStart.Add(-1 * time.Minute)
+
+			err := p.SplitEvent(id, splitTime)
+			assert.NotNil(t, err)
+
+			// Verify the original event
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, originalEnd, event.End)
+
+			// Verifiy that there is no other created event
+			allEvents, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
+			assert.Nil(t, err)
+			assert.Equal(t, len(allEvents), 1)
+		})
+
+		t.Run("invalid-split-time-after-end", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			splitTime := originalEnd.Add(1 * time.Minute)
+
+			err := p.SplitEvent(id, splitTime)
+			assert.NotNil(t, err)
+		})
+
+		t.Run("invalid-split-same-as-end", func(t *testing.T) {
+			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			splitTime := originalEnd
+
+			err := p.SplitEvent(id, splitTime)
+			assert.NotNil(t, err)
+
+			// Verify the original event
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, originalEnd, event.End)
+
+			// Verifiy that there is no other created event
+			allEvents, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
+			assert.Nil(t, err)
+			assert.Equal(t, len(allEvents), 1)
+		})
+	})
+
 }
 
 type testWriter struct {

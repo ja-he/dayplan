@@ -544,8 +544,40 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 }
 
 // TODO: doc SplitEvent
-func (p *FilesDataProvider) SplitEvent(model.EventID, time.Time) error {
-	p.log.Fatal().Msg("TODO IMPL(SplitEvent)")
+func (p *FilesDataProvider) SplitEvent(id model.EventID, splitTime time.Time) error {
+
+	e, err := p.GetEvent(id)
+	if err != nil {
+		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+
+	p.log.Debug().Msgf("will try to split event '%s' (%s til %s) at %s", id, e.Start, e.End, splitTime.String())
+
+	if !(splitTime.After(e.Start) && splitTime.Before(e.End)) {
+		return fmt.Errorf("split time is not between start and end time of event in question")
+	}
+
+	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
+	if err != nil {
+		return fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	firstHalfEvent := e
+	secondHalfEvent := *e
+
+	firstHalfEvent.End = splitTime
+	secondHalfEvent.Start = splitTime
+	secondHalfEvent.ID = filesProviderIDGenerator()
+
+	err = fh.UpdateEvent(firstHalfEvent)
+	if err != nil {
+		return fmt.Errorf("error updating first half event (%w)", err)
+	}
+	err = fh.AddEvent(&secondHalfEvent)
+	if err != nil {
+		return fmt.Errorf("error adding second half event (%w)", err)
+	}
+
 	return nil
 }
 
