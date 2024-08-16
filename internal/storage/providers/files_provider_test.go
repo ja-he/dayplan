@@ -1120,6 +1120,106 @@ func TestFilesProvider(t *testing.T) {
 		})
 	})
 
+	t.Run("set-event-times", func(t *testing.T) {
+		setupWithSingleEvent := func(t *testing.T, start time.Time, end time.Time) string {
+			doEmpty(t)
+			id, err := p.AddEvent(model.Event{
+				Name:     "test event",
+				Category: "test",
+				Start:    start,
+				End:      end,
+			})
+			assert.Nil(t, err)
+			return id
+		}
+
+		originalStart := time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)
+		originalEnd := time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)
+
+		t.Run("valid-change-with-same-date", func(t *testing.T) {
+			id := setupWithSingleEvent(t, originalStart, originalEnd)
+			newStart := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
+			newEnd := time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC)
+
+			err := p.SetEventTimes(id, newStart, newEnd)
+			assert.Nil(t, err)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, newStart, event.Start)
+			assert.Equal(t, newEnd, event.End)
+		})
+
+		t.Run("valid-change-to-different-date", func(t *testing.T) {
+			id := setupWithSingleEvent(t, originalStart, originalEnd)
+			newStart := time.Date(2023, 1, 2, 10, 0, 0, 0, time.UTC)
+			newEnd := time.Date(2023, 1, 2, 16, 0, 0, 0, time.UTC)
+
+			err := p.SetEventTimes(id, newStart, newEnd)
+			assert.Nil(t, err)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, newStart, event.Start)
+			assert.Equal(t, newEnd, event.End)
+		})
+
+		t.Run("invalid-same-start-and-end", func(t *testing.T) {
+			id := setupWithSingleEvent(t, originalStart, originalEnd)
+			newTime := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
+
+			err := p.SetEventTimes(id, newTime, newTime)
+			assert.NotNil(t, err)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, originalEnd, event.End)
+		})
+
+		t.Run("invalid-start-after-end", func(t *testing.T) {
+			id := setupWithSingleEvent(t, originalStart, originalEnd)
+			newStart := time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC)
+			newEnd := time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC)
+
+			err := p.SetEventTimes(id, newStart, newEnd)
+			assert.NotNil(t, err)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, originalEnd, event.End)
+		})
+
+		t.Run("invalid-start-to-different-date", func(t *testing.T) {
+			id := setupWithSingleEvent(t, originalStart, originalEnd)
+			newStart := time.Date(2023, 1, 5, 18, 0, 0, 0, time.UTC)
+			newEnd := time.Date(2023, 1, 6, 16, 0, 0, 0, time.UTC)
+
+			err := p.SetEventTimes(id, newStart, newEnd)
+			assert.NotNil(t, err)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, originalEnd, event.End)
+		})
+
+		t.Run("invalid-end-to-different-date", func(t *testing.T) {
+			id := setupWithSingleEvent(t, originalStart, originalEnd)
+			newStart := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
+			newEnd := time.Date(2023, 1, 2, 14, 0, 0, 0, time.UTC)
+
+			err := p.SetEventTimes(id, newStart, newEnd)
+			assert.NotNil(t, err)
+
+			event, err := p.GetEvent(id)
+			assert.Nil(t, err)
+			assert.Equal(t, originalStart, event.Start)
+			assert.Equal(t, originalEnd, event.End)
+		})
+	})
+
 }
 
 type testWriter struct {
