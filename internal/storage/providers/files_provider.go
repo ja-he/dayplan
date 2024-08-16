@@ -833,7 +833,6 @@ func (p *FilesDataProvider) SnapEventEnd(id model.EventID, interval time.Duratio
 	return e.End, nil
 }
 
-// TODO: doc SnapEventTimes
 // SnapEventTimes snaps both the start and end times of an event with the specified ID to the nearest interval.
 func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Duration) (time.Time, time.Time, error) {
 	e, err := p.GetEvent(id)
@@ -895,8 +894,52 @@ func (p *FilesDataProvider) SetEventCategory(id model.EventID, newCatName model.
 }
 
 // TODO: doc SetEventAllData
-func (p *FilesDataProvider) SetEventAllData(model.EventID, model.Event) error {
-	p.log.Fatal().Msg("TODO IMPL(SetEventAllData)")
+func (p *FilesDataProvider) SetEventAllData(id model.EventID, newEventData model.Event) error {
+	if newEventData.ID != "" && newEventData.ID != id {
+		return fmt.Errorf("new event data has different ID than specified")
+	}
+	if !timesOnSameDate(newEventData.Start, newEventData.End) {
+		return fmt.Errorf(notSameDayEventErrorMsg)
+	}
+
+	newEventData.ID = id // ensure ID is correct
+	fh, e, err := p.getEventWithFH(id)
+	if err != nil {
+		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+	if timesOnSameDate(e.Start, newEventData.Start) {
+		err = fh.UpdateEvent(&newEventData)
+		if err != nil {
+			return fmt.Errorf("error updating event with ID '%s' (%w)", id, err)
+		}
+		return nil
+	}
+
+	err = fh.RemoveEvent(id)
+	if err != nil {
+		return fmt.Errorf("error removing event with ID '%s' (%w)", id, err)
+	}
+	addBackDueToError := func() {
+		if err := fh.AddEvent(e); err != nil {
+			p.log.Warn().Msgf("error adding event back to file handler after (another) error: %v", err)
+		}
+	}
+
+	newStartDate := model.DateFromGotime(newEventData.Start)
+	newFH, err := p.getFileHandler(newStartDate)
+	if err != nil {
+		addBackDueToError()
+		return fmt.Errorf("error loading file handler for date (%w)", err)
+	}
+
+	err = newFH.AddEvent(&newEventData)
+	if err != nil {
+		addBackDueToError()
+		return fmt.Errorf("error adding event to new file handler (%w)", err)
+	}
+
+	p.setEventDateInMap(id, newStartDate)
+
 	return nil
 }
 
