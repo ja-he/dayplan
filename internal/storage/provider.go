@@ -108,9 +108,9 @@ type DataProvider interface {
 	// If the resulting start time is not before the resulting end time of the
 	// event, an error will be returned.
 	SnapEventTimes(model.EventID, time.Duration) (time.Time, time.Time, error)
-	// SetEventTitle sets the title of the event with the given ID to the given
+	// SetEventName sets the name of the event with the given ID to the given
 	// string.
-	SetEventTitle(model.EventID, string) error
+	SetEventName(model.EventID, string) error
 	// SetEventCategory	sets the category of the event with the given ID to the
 	// given category.
 	SetEventCategory(model.EventID, model.CategoryName) error

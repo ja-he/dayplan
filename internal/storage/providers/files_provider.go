@@ -861,15 +861,34 @@ func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Durat
 	return e.Start, e.End, nil
 }
 
-// TODO: doc SetEventTitle
-func (p *FilesDataProvider) SetEventTitle(model.EventID, string) error {
-	p.log.Fatal().Msg("TODO IMPL(SetEventTitle)")
+func (p *FilesDataProvider) SetEventName(id model.EventID, newName string) error {
+	fh, e, err := p.getEventWithFH(id)
+	if err != nil {
+		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+	// TODO: might be advisable to check that the new name matches some character set
+	eClone := *e
+	eClone.Name = newName
+	err = fh.UpdateEvent(&eClone)
+	if err != nil {
+		return fmt.Errorf("error updating event with ID '%s' (%w)", id, err)
+	}
 	return nil
 }
 
 // TODO: doc SetEventCategory
-func (p *FilesDataProvider) SetEventCategory(model.EventID, model.CategoryName) error {
-	p.log.Fatal().Msg("TODO IMPL(SetEventCategory)")
+func (p *FilesDataProvider) SetEventCategory(id model.EventID, newCatName model.CategoryName) error {
+	fh, e, err := p.getEventWithFH(id)
+	if err != nil {
+		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+	// TODO: might be advisable to check that the new name matches some character set
+	eClone := *e
+	eClone.Category = newCatName
+	err = fh.UpdateEvent(&eClone)
+	if err != nil {
+		return fmt.Errorf("error updating event with ID '%s' (%w)", id, err)
+	}
 	return nil
 }
 
