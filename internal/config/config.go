@@ -70,6 +70,7 @@ type Category struct {
 type Goal struct {
 	Workweek *WorkweekGoal `yaml:"workweek,omitempty"`
 	Ranged   *[]RangedGoal `yaml:"ranged,omitempty"`
+	Except   []string      `yaml:"except,omitempty"`
 }
 
 // WorkweekGoal allows defining an expected duration per weekday.

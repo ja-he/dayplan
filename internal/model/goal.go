@@ -17,6 +17,7 @@ type Goal interface {
 // expected duration for each.
 type RangedGoal struct {
 	Entries []rangedGoalEntry
+	Except  map[Date]struct{}
 }
 
 // rangedGoalEntry is a Goal that is defined by an expected total duration over a
@@ -31,6 +32,9 @@ type rangedGoalEntry struct {
 //
 // It is (Time/ DAYSINRANGE(Start, End)) for any day in range, 0 otherwise.
 func (g *RangedGoal) Requires(date Date) time.Duration {
+	if _, ok := g.Except[date]; ok {
+		return 0
+	}
 	for _, e := range g.Entries {
 		// if within range of entry, return the duration (proportional to range length)
 		if !date.IsBefore(e.Start) && !date.IsAfter(e.End) {
@@ -42,8 +46,19 @@ func (g *RangedGoal) Requires(date Date) time.Duration {
 }
 
 // NewRangedGoalFromConfig constructs a new RangedGoal from config data.
-func NewRangedGoalFromConfig(cfg []config.RangedGoal) (*RangedGoal, error) {
-	result := RangedGoal{}
+func NewRangedGoalFromConfig(cfg []config.RangedGoal, except []string) (*RangedGoal, error) {
+	exceptParsed := make(map[Date]struct{})
+	for _, e := range except {
+		d, err := FromString(e)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing except date %s: %w", e, err)
+		}
+		exceptParsed[d] = struct{}{}
+	}
+
+	result := RangedGoal{
+		Except: exceptParsed,
+	}
 
 	for i := range cfg {
 		start, err := FromString(cfg[i].Start)
@@ -84,12 +99,18 @@ type WorkweekGoal struct {
 	Friday    time.Duration
 	Saturday  time.Duration
 	Sunday    time.Duration
+
+	Except map[Date]struct{}
 }
 
 // Requires returns the duration required for the given date.
 //
 // It is just the duration defined for the date's weekday.
 func (g *WorkweekGoal) Requires(date Date) time.Duration {
+	if _, ok := g.Except[date]; ok {
+		return 0
+	}
+
 	switch date.ToWeekday() {
 	case time.Monday:
 		return g.Monday
@@ -111,7 +132,16 @@ func (g *WorkweekGoal) Requires(date Date) time.Duration {
 }
 
 // NewWorkweekGoalFromConfig constructs a new WorkweekGoal from config data.
-func NewWorkweekGoalFromConfig(cfg config.WorkweekGoal) (*WorkweekGoal, error) {
+func NewWorkweekGoalFromConfig(cfg config.WorkweekGoal, except []string) (*WorkweekGoal, error) {
+	exceptParsed := make(map[Date]struct{})
+	for _, e := range except {
+		d, err := FromString(e)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing except date %s: %w", e, err)
+		}
+		exceptParsed[d] = struct{}{}
+	}
+
 	var monday, tuesday, wednesday, thursday, friday, saturday, sunday time.Duration
 	var mondayErr, tuesdayErr, wednesdayErr, thursdayErr, fridayErr, saturdayErr, sundayErr error
 
@@ -163,6 +193,7 @@ func NewWorkweekGoalFromConfig(cfg config.WorkweekGoal) (*WorkweekGoal, error) {
 			Friday:    friday,
 			Saturday:  saturday,
 			Sunday:    sunday,
+			Except:    exceptParsed,
 		}, nil
 	}
 }

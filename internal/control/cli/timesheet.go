@@ -71,9 +71,9 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		var err error
 		switch {
 		case category.Goal.Ranged != nil:
-			goal, err = model.NewRangedGoalFromConfig(*category.Goal.Ranged)
+			goal, err = model.NewRangedGoalFromConfig(*category.Goal.Ranged, category.Goal.Except)
 		case category.Goal.Workweek != nil:
-			goal, err = model.NewWorkweekGoalFromConfig(*category.Goal.Workweek)
+			goal, err = model.NewWorkweekGoalFromConfig(*category.Goal.Workweek, category.Goal.Except)
 		}
 		if err != nil {
 			return err
