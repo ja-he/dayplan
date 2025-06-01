@@ -14,11 +14,12 @@ type ToolsPane struct {
 	ui.LeafPane
 
 	currentCategory func() model.CategoryName
-	categories      *styling.CategoryStyling
+	categories      func() []*model.Category
+	categoryStyle   func(model.CategoryName) (styling.DrawStyling, error)
 
 	horizPadding, vertPadding, gap int
 
-	lastBoxesDrawn map[model.Category]util.Rect
+	lastBoxesDrawn map[model.CategoryName]util.Rect
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -54,7 +55,7 @@ func (p *ToolsPane) Draw() {
 
 	boxes := p.getCategoryBoxes(x, y+1, w, h)
 	for cat, box := range boxes {
-		categoryStyle, err := p.categories.GetStyle(cat.Name)
+		categoryStyle, err := p.categoryStyle(cat)
 		var styling styling.DrawStyling
 		if err != nil {
 			styling = p.Stylesheet.CategoryFallback
@@ -67,24 +68,24 @@ func (p *ToolsPane) Draw() {
 
 		currentCategory := p.currentCategory()
 
-		if currentCategory == cat.Name {
+		if currentCategory == cat {
 			styling = styling.Invert().Bolded()
 		}
 
 		p.Renderer.DrawBox(box.X, box.Y, box.W, box.H, styling)
-		p.Renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(string(cat.Name), textLen))
+		p.Renderer.DrawText(box.X+1, box.Y+textHeightOffset, textLen, 1, styling, util.TruncateAt(string(cat), textLen))
 	}
 	p.lastBoxesDrawn = boxes
 }
 
-func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rect {
+func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.CategoryName]util.Rect {
 	i := y
 
-	result := make(map[model.Category]util.Rect)
+	result := make(map[model.CategoryName]util.Rect)
 	currentCategory := p.currentCategory()
 
-	for _, styling := range p.categories.GetAll() {
-		if styling.Cat.Deprecated {
+	for _, cat := range p.categories() {
+		if cat.Deprecated {
 			continue
 		}
 		box := util.Rect{
@@ -93,20 +94,22 @@ func (p *ToolsPane) getCategoryBoxes(x, y, w, h int) map[model.Category]util.Rec
 			W: w - (2 * p.horizPadding),
 			H: 1,
 		}
-		if styling.Cat.Name == currentCategory && p.horizPadding > 0 {
+		if cat.Name == currentCategory && p.horizPadding > 0 {
 			box.X -= 1
 			box.W += 2
 		}
-		result[styling.Cat] = box
+		result[cat.Name] = box
 		i++
 	}
 	return result
 }
 
-func (p *ToolsPane) getCategoryForPos(x, y int) *model.Category {
+func (p *ToolsPane) getCategoryForPos(x, y int) *model.CategoryName {
 	for cat, box := range p.lastBoxesDrawn {
 		if box.Contains(x, y) {
-			return &cat
+			catClone := new(model.CategoryName)
+			*catClone = cat
+			return catClone
 		}
 	}
 	return nil
@@ -124,7 +127,8 @@ func NewToolsPane(
 	stylesheet styling.Stylesheet,
 	inputProcessor input.ModalInputProcessor,
 	currentCategory func() model.CategoryName,
-	categories *styling.CategoryStyling,
+	getCategoryStyle func(model.CategoryName) (styling.DrawStyling, error),
+	orderedCategoriesList func() []*model.Category,
 	horizPadding int,
 	vertPadding int,
 	gap int,
@@ -142,9 +146,10 @@ func NewToolsPane(
 			Stylesheet: stylesheet,
 		},
 		currentCategory: currentCategory,
-		categories:      categories,
+		categories:      orderedCategoriesList,
 		horizPadding:    horizPadding,
 		vertPadding:     vertPadding,
 		gap:             gap,
+		categoryStyle:   getCategoryStyle,
 	}
 }

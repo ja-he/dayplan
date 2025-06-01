@@ -6,7 +6,6 @@ import (
 	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/control/edit/editors"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
 	"github.com/ja-he/dayplan/internal/weather"
@@ -94,14 +93,8 @@ type ControlData struct {
 	CurrentMoveStartingOffset time.Duration
 }
 
-func NewControlData(cs styling.CategoryStyling) *ControlData {
+func NewControlData() *ControlData {
 	var t ControlData
-
-	// TODO: categories go to the provider as well i guess
-	t.Categories = make([]model.Category, 0)
-	for _, style := range cs.GetAll() {
-		t.Categories = append(t.Categories, style.Cat)
-	}
 
 	t.MainTimelineViewParams.NRowsPerHour = 6
 	t.MainTimelineViewParams.ScrollOffset = 8 * t.MainTimelineViewParams.NRowsPerHour

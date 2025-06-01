@@ -27,7 +27,7 @@ type TimelinePanePositionInfo struct{}
 // ToolsPanePositionInfo conveys information on a position in a tools pane,
 // importantly the possible category displayed at that position.
 type ToolsPanePositionInfo struct {
-	Category *model.Category
+	Category *model.CategoryName
 }
 
 // TasksPanePositionInfo provides information on a position in a tasks pane.

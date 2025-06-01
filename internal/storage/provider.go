@@ -131,3 +131,7 @@ type DataProvider interface {
 type SunTimesProvider interface {
 	Get(model.Date) model.SunTimes
 }
+
+type CategoryProvider interface {
+	GetCategory(model.CategoryName) *model.Category
+}

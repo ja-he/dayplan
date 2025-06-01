@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/model"
+	"github.com/ja-he/dayplan/internal/storage"
 )
 
 const notSameDayEventErrorMsg = string("event does not start and end on the same day")
@@ -37,20 +38,24 @@ type FilesDataProvider struct {
 	eventsDateMapMtx sync.RWMutex
 	eventsDateMap    map[model.EventID]model.Date
 
+	categoryProvider storage.CategoryProvider
+
 	log zerolog.Logger
 }
 
 // NewFilesDataProvider ...
 func NewFilesDataProvider(
 	basePath string,
+	categoryProvider storage.CategoryProvider,
 ) (*FilesDataProvider, error) {
 
 	result := &FilesDataProvider{
-		BasePath:      basePath,
-		fhMutex:       sync.RWMutex{},
-		FileHandlers:  make(map[model.Date]*fileHandler),
-		eventsDateMap: make(map[model.EventID]model.Date),
-		log:           log.With().Str("component", "files-data-provider").Logger(),
+		BasePath:         basePath,
+		fhMutex:          sync.RWMutex{},
+		FileHandlers:     make(map[model.Date]*fileHandler),
+		eventsDateMap:    make(map[model.EventID]model.Date),
+		categoryProvider: categoryProvider,
+		log:              log.With().Str("component", "files-data-provider").Logger(),
 	}
 	result.log.Debug().Msgf("created new files data provider with base path '%s'", basePath)
 
@@ -951,8 +956,55 @@ func (p *FilesDataProvider) CommitState() error {
 
 // TODO: doc SumUpTimespanByCategory
 func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Time) (map[model.CategoryName]time.Duration, error) {
-	p.log.Fatal().Msg("TODO IMPL(SumUpTimespanByCategory)")
-	return nil, nil
+	fullEventList := model.EventList{
+		Events: []*model.Event{},
+	}
+
+	allDates, err := p.getAvailableDates()
+	if err != nil {
+		return nil, fmt.Errorf("error getting available dates (%w)", err)
+	}
+
+	sort.Sort(model.DateSlice(allDates))
+
+	firstDateIndex, afterLastDateIndex := -1, -1
+	for i, d := range allDates {
+		if firstDateIndex == -1 {
+			if !d.IsAfter(model.DateFromGotime(start)) {
+				firstDateIndex = i
+			}
+		}
+		if d.IsAfter(model.DateFromGotime(end)) {
+			afterLastDateIndex = i
+			break
+		}
+	}
+	if firstDateIndex == -1 || afterLastDateIndex == -1 {
+		return nil, fmt.Errorf("could not find first or last date in available dates")
+	}
+
+	datesInRange := allDates[firstDateIndex:afterLastDateIndex]
+
+	for _, d := range datesInRange {
+		fh, err := p.getFileHandler(d)
+		if err != nil {
+			return nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
+		}
+		for _, e := range fh.data.Events {
+			fullEventList.AddEvent(e)
+		}
+	}
+
+	summary := fullEventList.SumUpByCategory(func(category model.CategoryName) int {
+		c := p.categoryProvider.GetCategory(category)
+		if c == nil {
+			p.log.Warn().Msgf("category '%s' not found in category provider", category)
+			return 0
+		}
+		return c.Priority
+	})
+
+	return summary, nil
 }
 
 func eventStartsAndEndsOnSameDate(e *model.Event) bool {

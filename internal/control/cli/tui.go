@@ -112,7 +112,7 @@ func (command *TUICommand) Execute(_ []string) error {
 	}
 
 	// get categories from config
-	categoryStyling := *styling.EmptyCategoryStyling()
+	categoriesByName := map[model.CategoryName]*model.Category{}
 	for _, category := range configData.Categories {
 
 		var goal model.Goal
@@ -127,17 +127,24 @@ func (command *TUICommand) Execute(_ []string) error {
 			return err
 		}
 
+		color, err := styling.ColorfulColorFromHexString(category.Color)
+		if err != nil {
+			return fmt.Errorf("could not parse color from hex string: %w", err)
+		}
 		cat := model.Category{
 			Name:       model.CategoryName(category.Name),
 			Priority:   category.Priority,
 			Goal:       goal,
 			Deprecated: category.Deprecated,
+			Color:      color,
 		}
-		style := styling.StyleFromHexSingle(category.Color, theme == config.Dark)
-		categoryStyling.Add(cat, style)
+		categoriesByName[model.CategoryName(category.Name)] = &cat
 	}
 
-	stylesheet := styling.NewStylesheetFromConfig(configData.Stylesheet)
+	stylesheet, err := styling.NewStylesheetFromConfig(configData.Stylesheet, theme)
+	if err != nil {
+		return fmt.Errorf("could not create stylsheet from config: %w", err)
+	}
 
 	// now that the screen is initialized, we'll always want the TUI logger, so
 	// we're making it the global logger
@@ -145,7 +152,7 @@ func (command *TUICommand) Execute(_ []string) error {
 	log.Logger = tuiLogger
 	log.Debug().Msg("set up logging to only TUI")
 
-	controller, err := NewController(initialDay, envData, categoryStyling, *stylesheet)
+	controller, err := NewController(initialDay, envData, categoriesByName, *stylesheet)
 	if err != nil {
 		log.Logger = previouslySetLogger
 		log.Error().Err(err).Msgf("something went wrong setting up the TUI, will check unpublished logs and return error")

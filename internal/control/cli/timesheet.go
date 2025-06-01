@@ -11,7 +11,6 @@ import (
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/storage"
-	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/util"
 	"github.com/rs/zerolog/log"
 )
@@ -65,7 +64,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	if err != nil {
 		panic(fmt.Sprintf("can't parse config data: '%s'", err))
 	}
-	styledCategories := styling.EmptyCategoryStyling()
+	categories := map[model.CategoryName]*model.Category{}
 	for _, category := range configData.Categories {
 		var goal model.Goal
 		var err error
@@ -84,8 +83,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 			Priority: category.Priority,
 			Goal:     goal,
 		}
-		style := styling.StyleFromHexSingle(category.Color, false)
-		styledCategories.Add(cat, style)
+		categories[cat.Name] = &cat
 	}
 
 	startDate, err := model.DateFromString(command.FromDay)

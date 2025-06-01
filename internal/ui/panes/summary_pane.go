@@ -6,6 +6,7 @@ import (
 
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
+	"github.com/ja-he/dayplan/internal/storage"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
@@ -22,7 +23,8 @@ type SummaryPane struct {
 	titleString func() string
 	summary     func() (map[model.CategoryName]time.Duration, error)
 
-	categories *styling.CategoryStyling
+	categories    storage.CategoryProvider
+	categoryStyle func(model.CategoryName) (styling.DrawStyling, error)
 
 	log zerolog.Logger
 }
@@ -56,18 +58,17 @@ func (p *SummaryPane) Draw() {
 			p.log.Error().Err(err).Msg("could not get summary")
 			return
 		}
-		categoriesByName := p.categories.GetKnownCategoriesByName()
-
 		maxDuration := time.Duration(0)
-		categories := make([]model.Category, len(summary))
+		categories := make([]*model.Category, len(summary))
 		{ // get sorted keys to have deterministic order
 			i := 0
 			for categoryName, duration := range summary {
-				c, ok := categoriesByName[categoryName]
-				if !ok {
-					p.log.Warn().Str("category", string(categoryName)).Msg("unknown category")
+				c := p.categories.GetCategory(categoryName)
+				if c == nil {
+					p.log.Error().Str("category", string(categoryName)).Msg("nil category (but ok)")
+					return
 				}
-				categories[i] = *c
+				categories[i] = c
 				if duration > maxDuration {
 					maxDuration = duration
 				}
@@ -78,11 +79,15 @@ func (p *SummaryPane) Draw() {
 		row := 2
 		for _, category := range categories {
 			duration := summary[category.Name]
-			style, err := p.categories.GetStyle(category.Name)
+
+			p.log.Fatal().Msgf("TODO: get draw styling")
+			var err error
+			var categoryStyling styling.DrawStyling
+			categoryStyling, err = p.categoryStyle(category.Name)
 			if err != nil {
-				style = p.Stylesheet.CategoryFallback
+				p.log.Warn().Msgf("Failed to get style for cat '%s', using fallback.", category.Name)
+				categoryStyling = p.Stylesheet.CategoryFallback
 			}
-			categoryStyling := style
 			catLen := 20
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
@@ -107,7 +112,8 @@ func NewSummaryPane(
 	condition func() bool,
 	titleString func() string,
 	summary func() (map[model.CategoryName]time.Duration, error),
-	categories *styling.CategoryStyling,
+	categories storage.CategoryProvider,
+	getCategoryStyle func(model.CategoryName) (styling.DrawStyling, error),
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
 	return &SummaryPane{
@@ -121,9 +127,10 @@ func NewSummaryPane(
 			Dims:       dimensions,
 			Stylesheet: stylesheet,
 		},
-		titleString: titleString,
-		summary:     summary,
-		categories:  categories,
-		log:         log.With().Str("component", "summary-pane").Logger(),
+		titleString:   titleString,
+		summary:       summary,
+		categories:    categories,
+		categoryStyle: getCategoryStyle,
+		log:           log.With().Str("component", "summary-pane").Logger(),
 	}
 }

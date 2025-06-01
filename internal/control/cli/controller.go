@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/control/action"
 	"github.com/ja-he/dayplan/internal/control/edit"
@@ -37,6 +39,7 @@ type Controller struct {
 
 	dataProvider     storage.DataProvider
 	suntimesProvider storage.SunTimesProvider
+	categoryProvider storage.CategoryProvider
 
 	controllerEvents chan controllerEvent
 
@@ -65,7 +68,7 @@ type Controller struct {
 func NewController(
 	date model.Date,
 	envData control.EnvData,
-	categoryStyling styling.CategoryStyling,
+	categoriesByName map[model.CategoryName]*model.Category,
 	stylesheet styling.Stylesheet,
 ) (*Controller, error) {
 	controller := Controller{
@@ -73,18 +76,21 @@ func NewController(
 	}
 	defer controller.goToDay(date)
 
-	controller.data = control.NewControlData(categoryStyling)
+	controller.data = control.NewControlData()
 
 	{
+		categoryProvider := &providers.CPPOC{M: categoriesByName}
 		var dp storage.DataProvider
 		var err error
 		dp, err = providers.NewFilesDataProvider(
 			path.Join(envData.BaseDirPath, "days"),
+			categoryProvider,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("cannot initialize data provider (%w)", err)
 		}
 		controller.dataProvider = dp
+		controller.categoryProvider = categoryProvider
 	}
 
 	inputConfig := input.InputConfig{
@@ -153,8 +159,8 @@ func NewController(
 	tasksWidth := 40
 	toolsWidth := func() int {
 		width := 20
-		for _, c := range categoryStyling.GetAll() {
-			requisiteWidth := len(c.Cat.Name) + 4
+		for _, c := range categoriesByName {
+			requisiteWidth := len(c.Name) + 4
 			if requisiteWidth > width {
 				width = requisiteWidth
 			}
@@ -278,6 +284,19 @@ func NewController(
 	if err != nil {
 		return nil, fmt.Errorf("could not construct weekday pane input tree (%w)", err)
 	}
+	getCategoryStyle := func(n model.CategoryName) (styling.DrawStyling, error) {
+		c := categoriesByName[n]
+		return styling.StyleFromColorSingle(c.Color, stylesheet.Theme == config.Dark)
+	}
+	getCategoriesInOrder := func() []*model.Category {
+		cats := make([]*model.Category, 0, len(categoriesByName))
+		for _, cat := range categoriesByName {
+			cats = append(cats, cat)
+		}
+		sort.Sort(model.ByName(cats))
+		return cats
+	}
+
 	weekdayPane := func(dayIndex int) *panes.EventsPane {
 		return panes.NewEventsPane(
 			ui.NewConstrainedRenderer(renderer, weekdayDimensions(dayIndex)),
@@ -294,7 +313,7 @@ func NewController(
 				}
 				return model.DateFromGotime(startOfDay), &model.EventList{Events: events}, nil
 			},
-			categoryStyling.GetStyle,
+			getCategoryStyle,
 			&controller.data.MainTimelineViewParams,
 			&controller.data.CursorPos,
 			0,
@@ -338,7 +357,7 @@ func NewController(
 					}
 					return model.DateFromGotime(startOfDay), &model.EventList{Events: events}, nil
 				},
-				categoryStyling.GetStyle,
+				getCategoryStyle,
 				&controller.data.MainTimelineViewParams,
 				&controller.data.CursorPos,
 				0,
@@ -949,7 +968,7 @@ func NewController(
 		&backlogViewParams,
 		func() *model.Task { return currentTask },
 		backlog,
-		categoryStyling.GetStyle,
+		getCategoryStyle,
 		func() bool { return tasksVisible },
 	)
 	toolsPane := panes.NewToolsPane(
@@ -958,7 +977,8 @@ func NewController(
 		stylesheet,
 		processors.NewModalInputProcessor(toolsInputTree),
 		func() model.CategoryName { return controller.data.CurrentCategory },
-		&categoryStyling,
+		getCategoryStyle,
+		getCategoriesInOrder,
 		2,
 		1,
 		0,
@@ -979,7 +999,7 @@ func NewController(
 			}
 			return d, &model.EventList{Events: l}, nil
 		},
-		categoryStyling.GetStyle,
+		getCategoryStyle,
 		&controller.data.MainTimelineViewParams,
 		&controller.data.CursorPos,
 		2,
@@ -1512,7 +1532,8 @@ func NewController(
 				}
 				return result, nil
 			},
-			&categoryStyling,
+			controller.categoryProvider,
+			getCategoryStyle,
 			processors.NewModalInputProcessor(summaryPaneInputTree),
 		),
 		panes.NewLogPane(
@@ -1812,7 +1833,7 @@ func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 		case tcell.Button1:
 			cat := toolsInfo.Category
 			if cat != nil {
-				c.data.CurrentCategory = cat.Name
+				c.data.CurrentCategory = *cat
 			}
 		}
 

@@ -7,8 +7,15 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
+func panicOnErr[T any](t T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
 func Foo(t *testing.T) {
-	l := getLuminance(colorfulColorFromHexString("#000000"))
+	l := getLuminance(panicOnErr(ColorfulColorFromHexString("#000000")))
 	if l != 0.0 {
 		t.Fatalf("lum %f != 0", l)
 	}

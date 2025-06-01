@@ -12,7 +12,6 @@ import (
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/storage"
 	"github.com/ja-he/dayplan/internal/storage/providers"
-	"github.com/ja-he/dayplan/internal/styling"
 )
 
 // Flags for the `summarize` command line command, for `go-flags` to parse
@@ -50,7 +49,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 	if err != nil {
 		panic(fmt.Sprintf("can't parse config data: '%s'", err))
 	}
-	styledCategories := styling.EmptyCategoryStyling()
+	categories := map[model.CategoryName]*model.Category{}
 	for _, category := range configData.Categories {
 		var goal model.Goal
 		var err error
@@ -69,8 +68,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 			Priority: category.Priority,
 			Goal:     goal,
 		}
-		style := styling.StyleFromHexSingle(category.Color, false)
-		styledCategories.Add(cat, style)
+		categories[cat.Name] = &cat
 	}
 
 	if command.Til.Before(command.From) {
@@ -87,7 +85,10 @@ func (command *SummarizeCommand) Execute(args []string) error {
 
 	// TODO: can probably make this mostly async?
 	var dataProvider storage.DataProvider
-	dataProvider, err = providers.NewFilesDataProvider(path.Join(envData.BaseDirPath, "days"))
+	dataProvider, err = providers.NewFilesDataProvider(
+		path.Join(envData.BaseDirPath, "days"),
+		&providers.CPPOC{M: categories},
+	)
 	if err != nil {
 		return fmt.Errorf("can't create file data provider (%w)", err)
 	}
@@ -112,9 +113,8 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		fmt.Println("total summary:")
 	}
 
-	categoriesByName := styledCategories.GetKnownCategoriesByName()
 	for categoryName, duration := range totalSummary {
-		category, ok := categoriesByName[categoryName]
+		category, ok := categories[categoryName]
 		if !ok {
 			fmt.Fprint(os.Stderr, "warning: category '", categoryName, "' not found in config\n")
 			category = &model.Category{

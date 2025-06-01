@@ -25,7 +25,7 @@ func TestFilesProvider(t *testing.T) {
 	tempDir := t.TempDir()
 	var p storage.DataProvider
 	var err error
-	p, err = providers.NewFilesDataProvider(tempDir)
+	p, err = providers.NewFilesDataProvider(tempDir, &providers.CPPOC{M: make(map[model.CategoryName]*model.Category)})
 	assert.Nil(t, err)
 
 	yearZero := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
