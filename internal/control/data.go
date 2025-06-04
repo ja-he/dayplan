@@ -61,7 +61,6 @@ type DayWithInfo struct {
 type ControlData struct {
 	CursorPos ui.MouseCursorPos
 
-	Categories      []model.Category
 	CurrentCategory model.CategoryName
 
 	EnvData EnvData

@@ -715,23 +715,35 @@ func NewController(
 	toolsInputTree, err := input.ConstructInputTree(
 		map[input.Keyspec]action.Action{
 			"j": action.NewSimple(func() string { return "switch to next category" }, func() {
-				for i, cat := range controller.data.Categories {
+				controller.log.Debug().Msg("will try to switch to next category")
+				cats := getCategoriesInOrder()
+				for i, cat := range cats {
 					if cat.Name == controller.data.CurrentCategory {
-						for ii := i + 1; ii < len(controller.data.Categories); ii++ {
-							if !controller.data.Categories[ii].Deprecated {
-								controller.data.CurrentCategory = controller.data.Categories[ii].Name
+						for ii := i + 1; ii < len(cats); ii++ {
+							if !cats[ii].Deprecated {
+								prevCategory := controller.data.CurrentCategory
+								nextCategory := cats[ii].Name
+								controller.data.CurrentCategory = nextCategory
+								controller.log.Debug().Msgf("Switched category in tools from '%s' to '%s'", prevCategory, nextCategory)
 								return
 							}
 						}
+						controller.log.Warn().Msg("could not find a non-deprecated next category")
 					}
 				}
+				controller.log.Error().Interface("categories", cats).Str("currentCategory", string(controller.data.CurrentCategory)).Msg("Could not find current category in list.")
 			}),
 			"k": action.NewSimple(func() string { return "switch to previous category" }, func() {
-				for i, cat := range controller.data.Categories {
+				controller.log.Debug().Msg("will try to switch to prev category")
+				cats := getCategoriesInOrder()
+				for i, cat := range cats {
 					if cat.Name == controller.data.CurrentCategory {
 						for ii := i - 1; ii >= 0; ii-- {
-							if !controller.data.Categories[ii].Deprecated {
-								controller.data.CurrentCategory = controller.data.Categories[ii].Name
+							if !cats[ii].Deprecated {
+								prevCategory := controller.data.CurrentCategory
+								nextCategory := cats[ii].Name
+								controller.data.CurrentCategory = nextCategory
+								controller.log.Debug().Msgf("Switched category in tools from '%s' to '%s'", prevCategory, nextCategory)
 								return
 							}
 						}
