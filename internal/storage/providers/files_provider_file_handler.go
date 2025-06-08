@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -20,7 +21,20 @@ type fileHandler struct {
 	basePath string
 	date     model.Date
 
+	lastChange time.Time
+	lastWrite  time.Time
+
 	data model.EventList
+}
+
+func (h *fileHandler) updateLastChange() {
+	h.lastChange = time.Now()
+}
+func (h *fileHandler) updateLastWrite() {
+	h.lastWrite = time.Now()
+}
+func (h *fileHandler) onDiskIsUpToDate() bool {
+	return h.lastChange.IsZero() || (h.lastChange.Before(h.lastWrite))
 }
 
 func newFileHandlerWithDataReadFromDisk(basePath string, date model.Date) (*fileHandler, error) {
@@ -32,9 +46,18 @@ func newFileHandlerWithDataReadFromDisk(basePath string, date model.Date) (*file
 	return &f, nil
 }
 
+func (h *fileHandler) OnDiskIsUpToDate() bool {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	return h.onDiskIsUpToDate()
+}
 func (h *fileHandler) Write() error {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
+	if h.onDiskIsUpToDate() {
+		log.Debug().Msgf("Skipping write of %s because up to date.", h.date.String())
+		return nil
+	}
 	return h.writeUnsafe()
 }
 
@@ -53,6 +76,7 @@ func (h *fileHandler) writeUnsafe() error {
 	writer.Flush()
 	f.Close()
 
+	h.updateLastWrite()
 	return nil
 }
 
@@ -63,6 +87,7 @@ func (h *fileHandler) Filename() string {
 
 // AddEvent ...
 func (h *fileHandler) AddEvent(e *model.Event) error {
+	defer h.updateLastChange()
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -75,6 +100,7 @@ func (h *fileHandler) AddEvent(e *model.Event) error {
 
 // RemoveEvent ...
 func (h *fileHandler) RemoveEvent(e model.EventID) error {
+	defer h.updateLastChange()
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -105,6 +131,7 @@ func (h *fileHandler) GetEvent(id model.EventID) (*model.Event, error) {
 
 // UpdateEvent updates an existing event identified by its ID.
 func (h *fileHandler) UpdateEvent(e *model.Event) error {
+	defer h.updateLastChange()
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -121,11 +148,6 @@ func (h *fileHandler) UpdateEvent(e *model.Event) error {
 
 	// Update the event details
 	h.data.Events[indexOfEvent] = e
-
-	// Optionally, write to disk to ensure data persistence
-	if err := h.writeUnsafe(); err != nil {
-		return fmt.Errorf("could not write updated event to disk (%w)", err)
-	}
 
 	return nil
 }
@@ -166,6 +188,9 @@ func (h *fileHandler) readFromDisk() error {
 	return nil
 }
 
+// TODO: this seems to certainly only parse the "legacy" format.
+//
+//	one way or another I need to address this format gap I guess.
 func newEventFromDaywiseFileLine(date model.Date, line string) *model.Event {
 	var e model.Event
 

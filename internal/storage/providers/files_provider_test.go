@@ -22,15 +22,22 @@ func TestFilesProvider(t *testing.T) {
 		},
 	})
 
-	tempDir := t.TempDir()
-	var p storage.DataProvider
-	var err error
-	p, err = providers.NewFilesDataProvider(tempDir, &providers.CPPOC{M: make(map[model.CategoryName]*model.Category)})
-	assert.Nil(t, err)
-
 	yearZero := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
 	yearTenK := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
-	doEmpty := func(t *testing.T) {
+
+	fresh := func(t *testing.T) storage.DataProvider {
+		tempDir := t.TempDir()
+		var p storage.DataProvider
+		var err error
+		p, err = providers.NewFilesDataProvider(tempDir, &providers.CPPOC{M: make(map[model.CategoryName]*model.Category)})
+		assert.Nil(t, err)
+
+		allEventsBefore, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
+		assert.Nil(t, err, "could not get events after removing all events")
+		assert.Empty(t, allEventsBefore, "not all events were removed")
+		return p
+	}
+	refreshCleanEvents := func(t *testing.T, p storage.DataProvider) {
 		allEventsBefore, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
 		assert.Nil(t, err, "could not get all events before test")
 		for _, e := range allEventsBefore {
@@ -43,7 +50,7 @@ func TestFilesProvider(t *testing.T) {
 	}
 
 	t.Run("create-event", func(t *testing.T) {
-		doEmpty(t)
+		p := fresh(t)
 
 		id, err := p.AddEvent(model.Event{
 			Name:     "thing",
@@ -61,6 +68,8 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("remove-event", func(t *testing.T) {
+		p := fresh(t)
+
 		id, err := p.AddEvent(model.Event{
 			Name:     "another event",
 			Category: "remove-test",
@@ -79,6 +88,8 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("set-event-start", func(t *testing.T) {
+		p := fresh(t)
+
 		id, err := p.AddEvent(model.Event{
 			Name:     "test event",
 			Category: "test",
@@ -124,6 +135,8 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("set-event-end", func(t *testing.T) {
+		p := fresh(t)
+
 		id, err := p.AddEvent(model.Event{
 			Name:     "test event",
 			Category: "test",
@@ -169,6 +182,8 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("offset-event-start", func(t *testing.T) {
+		p := fresh(t)
+
 		id, err := p.AddEvent(model.Event{
 			Name:     "test event",
 			Category: "test",
@@ -209,6 +224,8 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("offset-event-end", func(t *testing.T) {
+		p := fresh(t)
+
 		id, err := p.AddEvent(model.Event{
 			Name:     "test event",
 			Category: "test",
@@ -258,6 +275,8 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("offset-event-times", func(t *testing.T) {
+		p := fresh(t)
+
 		id, err := p.AddEvent(model.Event{
 			Name:     "test event",
 			Category: "test",
@@ -299,7 +318,7 @@ func TestFilesProvider(t *testing.T) {
 
 	t.Run("get-preceding-event", func(t *testing.T) {
 		t.Run("simple", func(t *testing.T) {
-			doEmpty(t)
+			p := fresh(t)
 
 			id1, err := p.AddEvent(model.Event{
 				Name:     "first event",
@@ -395,7 +414,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("get-preceding-event-overlapping", func(t *testing.T) {
-			doEmpty(t)
+			p := fresh(t)
 
 			// Add some events to work with
 			id1, err := p.AddEvent(model.Event{
@@ -472,7 +491,7 @@ func TestFilesProvider(t *testing.T) {
 
 	t.Run("get-following-event", func(t *testing.T) {
 		t.Run("simple", func(t *testing.T) {
-			doEmpty(t)
+			p := fresh(t)
 
 			id1, err := p.AddEvent(model.Event{
 				Name:     "first event",
@@ -546,7 +565,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("overlap", func(t *testing.T) {
-			doEmpty(t)
+			p := fresh(t)
 
 			// Add some events to work with
 			id1, err := p.AddEvent(model.Event{
@@ -621,7 +640,7 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("get-event-before", func(t *testing.T) {
-		doEmpty(t)
+		p := fresh(t)
 
 		// Add some events to work with
 		id1, err := p.AddEvent(model.Event{
@@ -679,7 +698,7 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("get-event-after", func(t *testing.T) {
-		doEmpty(t)
+		p := fresh(t)
 
 		// Add some events to work with
 		_, err := p.AddEvent(model.Event{
@@ -737,8 +756,8 @@ func TestFilesProvider(t *testing.T) {
 		})
 	})
 
-	setupWithSingleEventTimes := func(t *testing.T, start time.Time, end time.Time) string {
-		doEmpty(t)
+	setupWithSingleEventTimes := func(t *testing.T, p storage.DataProvider, start time.Time, end time.Time) string {
+		refreshCleanEvents(t, p)
 		id, err := p.AddEvent(model.Event{
 			Name:     "test event",
 			Category: "test",
@@ -750,9 +769,10 @@ func TestFilesProvider(t *testing.T) {
 	}
 
 	t.Run("snap-event-start", func(t *testing.T) {
+		p := fresh(t)
 
 		t.Run("basic", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 13, 17, 0, 0, time.UTC),
 			)
@@ -768,7 +788,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-start-to-nearest-hour", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 13, 50, 0, 0, time.UTC),
 			)
@@ -784,7 +804,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("invalid-snap-start-after-end", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
 			)
@@ -794,7 +814,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-start-edge-case", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 14, 29, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 15, 30, 0, 0, time.UTC),
 			)
@@ -810,7 +830,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-start-edge-case-round-up-at-half", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 14, 30, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
 			)
@@ -826,7 +846,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-start-edge-case-round-up", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 14, 31, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
 			)
@@ -843,9 +863,10 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("snap-event-end", func(t *testing.T) {
+		p := fresh(t)
 
 		t.Run("basic", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 14, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 13, 12, 0, 0, time.UTC),
 			)
@@ -861,7 +882,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-end-to-nearest-hour", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 14, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 13, 12, 0, 0, time.UTC),
 			)
@@ -877,7 +898,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("invalid-snap-end-before-start", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
 			)
@@ -887,7 +908,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-end-edge-case-round-down-below-half", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 14, 29, 59, 59, time.UTC),
 			)
@@ -903,7 +924,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-end-edge-case-round-up-at-half", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 14, 30, 0, 0, time.UTC),
 			)
@@ -919,7 +940,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-end-edge-case-round-up", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 14, 31, 0, 0, time.UTC),
 			)
@@ -936,8 +957,10 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("snap-event-times", func(t *testing.T) {
+		p := fresh(t)
+
 		t.Run("basic", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 13, 17, 0, 0, time.UTC),
 			)
@@ -956,7 +979,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-times-to-nearest-hour", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 13, 40, 0, 0, time.UTC),
 			)
@@ -975,7 +998,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("invalid-snap-times-start-after-end", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 50, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 13, 10, 0, 0, time.UTC),
 			)
@@ -985,7 +1008,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("snap-times-edge-case", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t,
+			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 14, 29, 0, 0, time.UTC),
 				time.Date(2023, 1, 1, 14, 31, 0, 0, time.UTC),
 			)
@@ -1005,11 +1028,13 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("split-event", func(t *testing.T) {
+		p := fresh(t)
+
 		originalStart := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
 		originalEnd := time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)
 
 		t.Run("basic", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			id := setupWithSingleEventTimes(t, p, originalStart, originalEnd)
 			splitTime := time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)
 
 			err := p.SplitEvent(id, splitTime)
@@ -1034,7 +1059,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("split-at-start", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			id := setupWithSingleEventTimes(t, p, originalStart, originalEnd)
 			splitTime := originalStart
 
 			err := p.SplitEvent(id, splitTime)
@@ -1054,7 +1079,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("split-at-end", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			id := setupWithSingleEventTimes(t, p, originalStart, originalEnd)
 			splitTime := originalEnd
 
 			err := p.SplitEvent(id, splitTime)
@@ -1074,7 +1099,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("invalid-split-time-before-start", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			id := setupWithSingleEventTimes(t, p, originalStart, originalEnd)
 			splitTime := originalStart.Add(-1 * time.Minute)
 
 			err := p.SplitEvent(id, splitTime)
@@ -1093,7 +1118,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("invalid-split-time-after-end", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			id := setupWithSingleEventTimes(t, p, originalStart, originalEnd)
 			splitTime := originalEnd.Add(1 * time.Minute)
 
 			err := p.SplitEvent(id, splitTime)
@@ -1101,7 +1126,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 
 		t.Run("invalid-split-same-as-end", func(t *testing.T) {
-			id := setupWithSingleEventTimes(t, originalStart, originalEnd)
+			id := setupWithSingleEventTimes(t, p, originalStart, originalEnd)
 			splitTime := originalEnd
 
 			err := p.SplitEvent(id, splitTime)
@@ -1121,8 +1146,9 @@ func TestFilesProvider(t *testing.T) {
 	})
 
 	t.Run("set-event-times", func(t *testing.T) {
+		p := fresh(t)
 		setupWithSingleEvent := func(t *testing.T, start time.Time, end time.Time) string {
-			doEmpty(t)
+			refreshCleanEvents(t, p)
 			id, err := p.AddEvent(model.Event{
 				Name:     "test event",
 				Category: "test",
@@ -1218,6 +1244,39 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, originalStart, event.Start)
 			assert.Equal(t, originalEnd, event.End)
 		})
+	})
+
+	t.Run("change-and-write", func(t *testing.T) {
+		p := fresh(t)
+
+		fullyCommitted, err := p.FullyCommitted()
+		assert.Nil(t, err)
+		assert.True(t, fullyCommitted)
+
+		err = p.CommitState()
+		assert.Nil(t, err)
+
+		fullyCommitted, err = p.FullyCommitted()
+		assert.Nil(t, err)
+		assert.True(t, fullyCommitted)
+
+		p.AddEvent(model.Event{
+			Name:     "thing",
+			Category: "cat",
+			Start:    time.Date(2021, 1, 1, 14, 30, 0, 0, time.UTC),
+			End:      time.Date(2021, 1, 1, 16, 45, 0, 0, time.UTC),
+		})
+
+		fullyCommitted, err = p.FullyCommitted()
+		assert.Nil(t, err)
+		assert.False(t, fullyCommitted)
+
+		err = p.CommitState()
+		assert.Nil(t, err)
+
+		fullyCommitted, err = p.FullyCommitted()
+		assert.Nil(t, err)
+		assert.True(t, fullyCommitted)
 	})
 
 }

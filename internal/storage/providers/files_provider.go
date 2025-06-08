@@ -950,8 +950,21 @@ func (p *FilesDataProvider) SetEventAllData(id model.EventID, newEventData model
 
 // TODO: doc CommitState
 func (p *FilesDataProvider) CommitState() error {
-	p.log.Fatal().Msg("TODO IMPL(CommitState)")
+	for _, fh := range p.FileHandlers {
+		fh.Write()
+	}
 	return nil
+}
+
+func (p *FilesDataProvider) FullyCommitted() (bool, error) {
+	p.fhMutex.RLock()
+	defer p.fhMutex.RUnlock()
+	for _, fh := range p.FileHandlers {
+		if !fh.OnDiskIsUpToDate() {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // TODO: doc SumUpTimespanByCategory
