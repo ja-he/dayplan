@@ -857,7 +857,13 @@ func NewController(
 			} else {
 				newEvent.End = newEvent.Start.Add(60 * time.Minute)
 			}
-			controller.dataProvider.AddEvent(*newEvent)
+			eventID, err := controller.dataProvider.AddEvent(*newEvent)
+			if err != nil {
+				controller.log.Error().Err(err).Msg("Unable to create event.")
+				return
+			}
+			controller.log.Info().Interface("id", eventID).Msgf("Created new event.")
+			controller.data.CurrentEventID = &eventID
 			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.End)
 		}),
 		"O": action.NewSimple(func() string { return "add event before selected" }, func() {
@@ -891,7 +897,13 @@ func NewController(
 			} else {
 				newEvent.Start = newEvent.End.Add(-60 * time.Minute)
 			}
-			controller.dataProvider.AddEvent(*newEvent)
+			eventID, err := controller.dataProvider.AddEvent(*newEvent)
+			if err != nil {
+				controller.log.Error().Err(err).Msg("Unable to create event.")
+				return
+			}
+			controller.log.Info().Interface("id", eventID).Msgf("Created new event.")
+			controller.data.CurrentEventID = &eventID
 			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.Start)
 		}),
 		"<c-o>": action.NewSimple(func() string { return "add event now" }, func() {
