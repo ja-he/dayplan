@@ -55,7 +55,7 @@ func NewFilesDataProvider(
 		FileHandlers:     make(map[model.Date]*fileHandler),
 		eventsDateMap:    make(map[model.EventID]model.Date),
 		categoryProvider: categoryProvider,
-		log:              log.With().Str("component", "files-data-provider").Logger(),
+		log:              log.Level(zerolog.WarnLevel).With().Str("component", "files-data-provider").Logger(),
 	}
 	result.log.Debug().Msgf("created new files data provider with base path '%s'", basePath)
 
@@ -126,7 +126,9 @@ func (p *FilesDataProvider) AddEvent(e model.Event) (model.EventID, error) {
 	if err != nil {
 		return "", fmt.Errorf("error loading file handler for date (%w)", err)
 	}
-	fh.AddEvent(&e)
+	if err := fh.AddEvent(&e); err != nil {
+		return "", fmt.Errorf("Unable to add event to day's (%s) file handler (%w).", d, err)
+	}
 	return e.ID, nil
 }
 

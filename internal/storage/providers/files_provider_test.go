@@ -806,10 +806,10 @@ func TestFilesProvider(t *testing.T) {
 		t.Run("invalid-snap-start-after-end", func(t *testing.T) {
 			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
-				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 12, 40, 0, 0, time.UTC),
 			)
 
-			_, err := p.SnapEventStart(id, 2*time.Hour)
+			_, err := p.SnapEventStart(id, 1*time.Hour) // should snap 12:34 to 13:00 which is after end 12:40
 			assert.NotNil(t, err)
 		})
 
@@ -900,7 +900,7 @@ func TestFilesProvider(t *testing.T) {
 		t.Run("invalid-snap-end-before-start", func(t *testing.T) {
 			id := setupWithSingleEventTimes(t, p,
 				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
-				time.Date(2023, 1, 1, 12, 34, 0, 0, time.UTC),
+				time.Date(2023, 1, 1, 12, 40, 0, 0, time.UTC),
 			)
 
 			_, err := p.SnapEventEnd(id, -1*time.Hour)

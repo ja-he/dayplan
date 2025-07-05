@@ -833,13 +833,21 @@ func NewController(
 				if c == nil {
 					return nil, nil
 				}
-				return controller.dataProvider.GetEvent(*c)
+				e, err := controller.dataProvider.GetEvent(*c)
+				if err != nil {
+					return nil, fmt.Errorf("Could not get event (%w).", err)
+				}
+				startDate := model.DateFromGotime(e.Start)
+				if startDate != controller.data.CurrentDate {
+					return nil, fmt.Errorf("Current event somehow not on current date (%s != %s).", startDate, controller.data.CurrentDate)
+				}
+				return e, nil
 			}()
 			if err != nil {
 				controller.log.Error().Err(err).Msg("could not get current event")
 				return
 			}
-			newEvent := &model.Event{
+			newEvent := model.Event{
 				Name:     "",
 				Category: controller.data.CurrentCategory,
 			}
@@ -852,12 +860,12 @@ func NewController(
 			if err != nil {
 				log.Warn().Err(err).Msg("could not get event after")
 			}
-			if eventAfter != nil && eventAfter.Start.Sub(newEvent.Start).Minutes() < 60 {
-				newEvent.End = eventAfter.Start
-			} else {
+			if eventAfter == nil || eventAfter.Start.Sub(newEvent.Start) <= 0 || eventAfter.Start.Sub(newEvent.Start) > (60*time.Minute) {
 				newEvent.End = newEvent.Start.Add(60 * time.Minute)
+			} else {
+				newEvent.End = eventAfter.Start
 			}
-			eventID, err := controller.dataProvider.AddEvent(*newEvent)
+			eventID, err := controller.dataProvider.AddEvent(newEvent)
 			if err != nil {
 				controller.log.Error().Err(err).Msg("Unable to create event.")
 				return
@@ -872,13 +880,21 @@ func NewController(
 				if c == nil {
 					return nil, nil
 				}
-				return controller.dataProvider.GetEvent(*c)
+				e, err := controller.dataProvider.GetEvent(*c)
+				if err != nil {
+					return nil, fmt.Errorf("Could not get event (%w).", err)
+				}
+				startDate := model.DateFromGotime(e.Start)
+				if startDate != controller.data.CurrentDate {
+					return nil, fmt.Errorf("Current event somehow not on current date (%s != %s).", startDate, controller.data.CurrentDate)
+				}
+				return e, nil
 			}()
 			if err != nil {
 				controller.log.Error().Err(err).Msg("could not get current event")
 				return
 			}
-			newEvent := &model.Event{
+			newEvent := model.Event{
 				Name:     "",
 				Category: controller.data.CurrentCategory,
 			}
@@ -892,12 +908,12 @@ func NewController(
 				log.Warn().Err(err).Msgf("could not get event before %s from data provider", newEvent.End.String())
 				return
 			}
-			if eventBefore != nil && newEvent.End.Sub(eventBefore.End).Minutes() < 60 {
-				newEvent.Start = eventBefore.End
-			} else {
+			if eventBefore == nil || newEvent.End.Sub(eventBefore.End) <= 0 || newEvent.End.Sub(eventBefore.End) > (60*time.Minute) {
 				newEvent.Start = newEvent.End.Add(-60 * time.Minute)
+			} else {
+				newEvent.Start = eventBefore.End
 			}
-			eventID, err := controller.dataProvider.AddEvent(*newEvent)
+			eventID, err := controller.dataProvider.AddEvent(newEvent)
 			if err != nil {
 				controller.log.Error().Err(err).Msg("Unable to create event.")
 				return
@@ -1762,6 +1778,7 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 func (c *Controller) goToDay(newDate model.Date) {
 	log.Debug().Str("new-date", newDate.String()).Msg("going to new date")
 	if c.data.CurrentDate == newDate {
+		c.log.Debug().Msgf("Since current date (%s) is new date (%s) nothing to do switching dates.", c.data.CurrentDate, newDate)
 		return
 	}
 	c.data.CurrentDate = newDate
@@ -2171,9 +2188,30 @@ func (c *Controller) switchToNextEventInDay() {
 		return
 	}
 
-	next, err := c.dataProvider.GetFollowingEvent(*c.data.CurrentEventID)
+	currentEventID := *c.data.CurrentEventID
+	{
+		e, err := c.dataProvider.GetEvent(currentEventID)
+		if err != nil {
+			c.log.Error().
+				Str("ID", currentEventID).
+				Msg("Could not find current event to check validity, will set to nil.")
+			c.data.CurrentEventID = nil
+			return
+		}
+		currentDate := c.data.CurrentDate
+		eStartDate := model.DateFromGotime(e.Start)
+		if currentDate != eStartDate {
+			c.log.Error().
+				Stringer("currentDate", currentDate).
+				Stringer("eStartDate", eStartDate).
+				Str("ID", currentEventID).
+				Msg("Current event is not on current date.")
+		}
+	}
+
+	next, err := c.dataProvider.GetFollowingEvent(currentEventID)
 	if err != nil {
-		c.log.Error().Err(err).Str("id", string(*c.data.CurrentEventID)).Msg("could not get following event of current event")
+		c.log.Error().Err(err).Str("id", string(currentEventID)).Msg("could not get following event of current event")
 		return
 	}
 	if next == nil {

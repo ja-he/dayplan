@@ -177,7 +177,10 @@ func (h *fileHandler) readFromDisk() error {
 		e := newEventFromDaywiseFileLine(h.date, s)
 		if e.ID == "" {
 			newID := filesProviderIDGenerator()
-			log.Warn().Msgf("generated temporary (until write) event ID '%s' to cope with legacy format", newID)
+			log.Warn().
+				Stringer("e.Start", e.Start).
+				Stringer("e.End", e.End).
+				Msgf("generated temporary (until write) event ID '%s' to cope with legacy format", newID)
 			e.ID = newID
 		} else if !filesProviderIDValidator(e.ID) {
 			return fmt.Errorf("invalid event ID '%s' in file '%s'", e.ID, h.Filename())
