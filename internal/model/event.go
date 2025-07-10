@@ -22,8 +22,8 @@ func (e *Event) Duration() time.Duration {
 
 func (e *Event) String() string {
 	id := e.ID
-	start := e.Start.String()
-	end := e.End.String()
+	start := e.Start.Format(time.RFC3339)
+	end := e.End.Format(time.RFC3339)
 	catName := e.Category
 	eventName := e.Name
 

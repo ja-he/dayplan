@@ -69,12 +69,22 @@ func (h *fileHandler) writeUnsafe() error {
 	}
 
 	writer := bufio.NewWriter(f)
-	// TODO: don't ignore the errors, obviously
+	var errs []error
 	for _, e := range h.data.Events {
-		_, _ = writer.WriteString(e.String() + "\n")
+		_, err = writer.WriteString(e.String() + "\n")
+		if err != nil {
+			errs = append(errs, fmt.Errorf("Unable to write (%w)", err))
+		}
 	}
-	writer.Flush()
-	f.Close()
+	if err := writer.Flush(); err != nil {
+		errs = append(errs, fmt.Errorf("Unable flush (%w)", err))
+	}
+	if err := f.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("Unable close file (%w)", err))
+	}
+	if errs != nil {
+		return fmt.Errorf("Unable to write data to file '%s' (%w)", filename, errors.Join(errs...))
+	}
 
 	h.updateLastWrite()
 	return nil
@@ -174,10 +184,20 @@ func (h *fileHandler) readFromDisk() error {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		s := scanner.Text()
-		e := newEventFromDaywiseFileLine(h.date, s)
+		var e *model.Event
+		var err error
+		if strings.Count(s, "|") == 3 {
+			e = newEventFromDaywiseFileLineLegacy(h.date, s)
+		} else {
+			e, err = newEventFromDaywiseFileLineNew(s)
+		}
+		if err != nil {
+			return fmt.Errorf("Unable to parse event line '%s' (%w)", s, err)
+		}
 		if e.ID == "" {
 			newID := filesProviderIDGenerator()
 			log.Warn().
+				Str("e.Name", e.Name).
 				Stringer("e.Start", e.Start).
 				Stringer("e.End", e.End).
 				Msgf("generated temporary (until write) event ID '%s' to cope with legacy format", newID)
@@ -191,10 +211,7 @@ func (h *fileHandler) readFromDisk() error {
 	return nil
 }
 
-// TODO: this seems to certainly only parse the "legacy" format.
-//
-//	one way or another I need to address this format gap I guess.
-func newEventFromDaywiseFileLine(date model.Date, line string) *model.Event {
+func newEventFromDaywiseFileLineLegacy(date model.Date, line string) *model.Event {
 	var e model.Event
 
 	args := strings.SplitN(line, "|", 4)
@@ -213,4 +230,33 @@ func newEventFromDaywiseFileLine(date model.Date, line string) *model.Event {
 	e.Category = model.CategoryName(catString)
 
 	return &e
+}
+
+func newEventFromDaywiseFileLineNew(line string) (*model.Event, error) {
+	var e model.Event
+
+	args := strings.SplitN(line, "|", 5)
+	idString := args[0]
+	startString := args[1]
+	endString := args[2]
+	catString := args[3]
+	nameString := args[4]
+
+	var err error
+
+	e.Start, err = time.Parse(time.RFC3339, startString)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse start timestamp '%s' (%w).", startString, err)
+	}
+	e.End, err = time.Parse(time.RFC3339, endString)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse end timestamp '%s' (%w).", endString, err)
+	}
+
+	e.Name = nameString
+	e.Category = model.CategoryName(catString)
+
+	e.ID = idString
+
+	return &e, nil
 }
