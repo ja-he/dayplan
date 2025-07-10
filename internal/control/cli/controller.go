@@ -1184,8 +1184,12 @@ func NewController(
 						controller.log.Info().Msg("no current event selected, so nothing to move")
 						return
 					}
-					controller.dataProvider.SnapEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
-					_, newEnd, err := controller.dataProvider.OffsetEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					_, _, err := controller.dataProvider.SnapEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1))
+					if err != nil {
+						controller.log.Error().Err(err).Msg("could not snap event")
+						return
+					}
+					_, newEnd, err := controller.dataProvider.OffsetEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1))
 					if err != nil {
 						controller.log.Error().Err(err).Msg("could not move event")
 						return
@@ -1198,8 +1202,12 @@ func NewController(
 						controller.log.Info().Msg("no current event selected, so nothing to move")
 						return
 					}
-					controller.dataProvider.SnapEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
-					newStart, _, err := controller.dataProvider.OffsetEventTimes(*currentID, -controller.data.MainTimelineViewParams.DurationOfHeight(1)/time.Minute)
+					_, _, err := controller.dataProvider.SnapEventTimes(*currentID, controller.data.MainTimelineViewParams.DurationOfHeight(1))
+					if err != nil {
+						controller.log.Error().Err(err).Msg("could not snap event")
+						return
+					}
+					newStart, _, err := controller.dataProvider.OffsetEventTimes(*currentID, -controller.data.MainTimelineViewParams.DurationOfHeight(1))
 					if err != nil {
 						controller.log.Error().Err(err).Msg("could not move event")
 						return

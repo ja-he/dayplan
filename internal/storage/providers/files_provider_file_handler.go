@@ -158,6 +158,7 @@ func (h *fileHandler) UpdateEvent(e *model.Event) error {
 
 	// Update the event details
 	h.data.Events[indexOfEvent] = e
+	h.data.UpdateEventOrder()
 
 	return nil
 }
