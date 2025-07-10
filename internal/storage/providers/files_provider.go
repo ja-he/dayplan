@@ -1033,7 +1033,19 @@ func eventStartsAndEndsOnSameDate(e *model.Event) bool {
 }
 
 func timesOnSameDate(a, b time.Time) bool {
+	if isMidnight(a) {
+		return timesOnSameDateStrict(a.Add(-24*time.Hour), b)
+	}
+	if isMidnight(b) {
+		return timesOnSameDateStrict(a, b.Add(-24*time.Hour))
+	}
+	return timesOnSameDateStrict(a, b)
+}
+func timesOnSameDateStrict(a, b time.Time) bool {
 	return a.Year() == b.Year() && a.YearDay() == b.YearDay()
+}
+func isMidnight(t time.Time) bool {
+	return t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0
 }
 
 // NOTE: this function is fine, but its use could be improved, because we really should only need to call this once

@@ -757,6 +757,7 @@ func NewController(
 	}
 
 	// TODO(ja-he): move elsewhere
+	// TODO(ja-he): There is a bug with this for midnight while moving down; probably need to rethink
 	controller.ensureEventsPaneTimestampWithinVisibleScroll = func(t time.Time) {
 		ts := *model.NewTimestampFromGotime(t)
 		topRowTime := controller.data.MainTimelineViewParams.TimeAtY(0)
