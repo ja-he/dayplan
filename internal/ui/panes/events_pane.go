@@ -58,6 +58,10 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 	return p.getEventForPos(x, y)
 }
 
+func gotimeToTimestampString(t time.Time) string {
+	return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
+}
+
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
 	p.log.Debug().Msg("drawing...")
@@ -151,12 +155,12 @@ func (p *EventsPane) Draw() {
 		p.Renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
 
 		if p.drawTimestamps {
-			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, topTimestampStyling, e.Start.String())
+			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, topTimestampStyling, gotimeToTimestampString(e.Start))
 		}
 
 		p.Renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
 		if p.drawTimestamps {
-			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, e.End.String())
+			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, gotimeToTimestampString(e.End))
 		}
 
 		if p.drawNames {
