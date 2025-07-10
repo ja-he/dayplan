@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -950,12 +951,17 @@ func (p *FilesDataProvider) SetEventAllData(id model.EventID, newEventData model
 	return nil
 }
 
-// TODO: doc CommitState
+// CommitState iterates all file handlers and compels them to commit their
+// state to disk if necessary.
 func (p *FilesDataProvider) CommitState() error {
+	var errs []error
 	for _, fh := range p.FileHandlers {
-		fh.Write()
+		err := fh.Write()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("Unable to write %s (%w).", fh.Filename(), err))
+		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (p *FilesDataProvider) FullyCommitted() (bool, error) {
