@@ -621,7 +621,9 @@ func (p *FilesDataProvider) SetEventStart(id model.EventID, start time.Time) err
 		return fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	fh.UpdateEvent(e)
+	if err := fh.UpdateEvent(e); err != nil {
+		return fmt.Errorf("TODO (%w)", err)
+	}
 	return nil
 }
 
@@ -647,7 +649,9 @@ func (p *FilesDataProvider) SetEventEnd(id model.EventID, end time.Time) error {
 		return fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	fh.UpdateEvent(e)
+	if err := fh.UpdateEvent(e); err != nil {
+		return fmt.Errorf("TODO (%w)", err)
+	}
 	return nil
 }
 
@@ -672,7 +676,9 @@ func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, 
 		e.Start = newStart
 		e.End = newEnd
 
-		fh.UpdateEvent(e)
+		if err := fh.UpdateEvent(e); err != nil {
+			return fmt.Errorf("TODO (%w)", err)
+		}
 		return nil
 	}
 
@@ -730,7 +736,9 @@ func (p *FilesDataProvider) OffsetEventStart(id model.EventID, offset time.Durat
 		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	fh.UpdateEvent(e)
+	if err := fh.UpdateEvent(e); err != nil {
+		return time.Time{}, fmt.Errorf("TODO (%w)", err)
+	}
 	return e.Start, nil
 }
 
@@ -757,7 +765,9 @@ func (p *FilesDataProvider) OffsetEventEnd(id model.EventID, offset time.Duratio
 		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	fh.UpdateEvent(e)
+	if err := fh.UpdateEvent(e); err != nil {
+		return time.Time{}, fmt.Errorf("TODO (%w)", err)
+	}
 	return e.End, nil
 }
 
@@ -768,20 +778,29 @@ func (p *FilesDataProvider) OffsetEventTimes(id model.EventID, offset time.Durat
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	e.Start = e.Start.Add(offset)
-	e.End = e.End.Add(offset)
+	newStart := e.Start.Add(offset)
+	newEnd := e.End.Add(offset)
 
 	// Ensure start and end are on the same date
-	if !eventStartsAndEndsOnSameDate(e) {
+	if !timesOnSameDate(e.Start, newStart) || !timesOnSameDate(e.End, newEnd) {
+		return time.Time{}, time.Time{}, fmt.Errorf("This data provider unable to move events across day boundaries.")
+	}
+	if !timesOnSameDate(newStart, newEnd) {
 		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
 	}
+
+	e.Start = newStart
+	e.End = newEnd
 
 	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	fh.UpdateEvent(e)
+	err = fh.UpdateEvent(e)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("unable to update event with new times (%w)", err)
+	}
 	return e.Start, e.End, nil
 }
 
@@ -809,7 +828,9 @@ func (p *FilesDataProvider) SnapEventStart(id model.EventID, interval time.Durat
 		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	fh.UpdateEvent(e)
+	if err := fh.UpdateEvent(e); err != nil {
+		return time.Time{}, fmt.Errorf("TODO (%w)", err)
+	}
 	return e.Start, nil
 }
 
@@ -837,7 +858,9 @@ func (p *FilesDataProvider) SnapEventEnd(id model.EventID, interval time.Duratio
 		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	fh.UpdateEvent(e)
+	if err := fh.UpdateEvent(e); err != nil {
+		return time.Time{}, fmt.Errorf("TODO (%w)", err)
+	}
 	return e.End, nil
 }
 
@@ -866,7 +889,9 @@ func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Durat
 		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	fh.UpdateEvent(e)
+	if err := fh.UpdateEvent(e); err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("TODO (%w)", err)
+	}
 	return e.Start, e.End, nil
 }
 
@@ -964,6 +989,9 @@ func (p *FilesDataProvider) CommitState() error {
 	return errors.Join(errs...)
 }
 
+// FullyCommitted returns whether each file handler has its state fully
+// committed to disk. In the case that on any file handler a change was made
+// that has not yet been written, this will return false.
 func (p *FilesDataProvider) FullyCommitted() (bool, error) {
 	p.fhMutex.RLock()
 	defer p.fhMutex.RUnlock()
@@ -1033,15 +1061,12 @@ func eventStartsAndEndsOnSameDate(e *model.Event) bool {
 }
 
 func timesOnSameDate(a, b time.Time) bool {
-	if isMidnight(a) {
-		return timesOnSameDateStrict(a.Add(-24*time.Hour), b)
+	if a.After(b) {
+		a, b = b, a
 	}
-	if isMidnight(b) {
-		return timesOnSameDateStrict(a, b.Add(-24*time.Hour))
+	if isMidnight(b) && (!isMidnight(a) || a.YearDay() < b.YearDay()) {
+		b = b.Add(-1)
 	}
-	return timesOnSameDateStrict(a, b)
-}
-func timesOnSameDateStrict(a, b time.Time) bool {
 	return a.Year() == b.Year() && a.YearDay() == b.YearDay()
 }
 func isMidnight(t time.Time) bool {
