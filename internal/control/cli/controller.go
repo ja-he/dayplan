@@ -760,6 +760,15 @@ func NewController(
 	// TODO(ja-he): There is a bug with this for midnight while moving down; probably need to rethink
 	controller.ensureEventsPaneTimestampWithinVisibleScroll = func(t time.Time) {
 		ts := *model.NewTimestampFromGotime(t)
+		if !controller.data.CurrentDate.Is(t) {
+			// If it's not on this date, either we make 00:00 visible or 24:00,
+			// depending on whether its before the current date or after it.
+			if !t.After(controller.data.CurrentDate.ToGotime()) {
+				ts = model.Timestamp{Hour: 0, Minute: 0}
+			} else {
+				ts = model.Timestamp{Hour: 24, Minute: 0}
+			}
+		}
 		topRowTime := controller.data.MainTimelineViewParams.TimeAtY(0)
 		if topRowTime.IsAfter(ts) {
 			controller.data.MainTimelineViewParams.ScrollOffset += (controller.data.MainTimelineViewParams.YForTime(ts))
