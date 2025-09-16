@@ -31,6 +31,9 @@ type Composite struct {
 	quitCallback func()
 
 	log zerolog.Logger
+
+	obj     any
+	onWrite func(any) error
 }
 
 func (e *Composite) getCurrentFieldIndex() int {
@@ -76,7 +79,7 @@ func (e *Composite) EnterField() {
 }
 
 // ConstructEditor constructs a new editor...
-func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor *Composite) (edit.Editor, error) {
+func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor *Composite, onWrite func(any) error) (edit.Editor, error) {
 	structPtr := reflect.ValueOf(obj)
 
 	if structPtr.Kind() != reflect.Ptr {
@@ -98,6 +101,8 @@ func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor 
 		id:            id,
 		parent:        parentEditor,
 		log:           log.With().Str("component", fmt.Sprintf("editor_%s", id)).Logger(),
+		obj:           obj,
+		onWrite:       onWrite,
 	}
 
 	// go through all tags
@@ -163,7 +168,7 @@ func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor 
 							fAsPtr = f.Addr().Interface()
 						}
 						constructedCompositeEditor.log.Debug().Msgf("constructing subeditor for field '%s' (tagged '%s') of type '%s'", field.Name, editspec.ID, field.Type.String())
-						sube, err := ConstructEditor(editspec.ID, fAsPtr, nil, constructedCompositeEditor)
+						sube, err := ConstructEditor(editspec.ID, fAsPtr, nil, constructedCompositeEditor, nil)
 						if err != nil {
 							return nil, fmt.Errorf("unable to construct subeditor for field '%s' (tagged '%s') of type '%s' (%s)", field.Name, editspec.ID, field.Type.String(), err.Error())
 						}
@@ -251,10 +256,14 @@ func (e *Composite) GetFieldOrder() []EditorID { return e.fieldOrder }
 // Write writes the content of the editor back to the underlying data structure
 // by calling the write functions of all subeditors.
 func (e *Composite) Write() {
+	// TODO: need to see if the model of recursive write makes sense in the API design!
 	e.log.Debug().Msg("Writing")
 	for i, subeditor := range e.fields {
 		e.log.Trace().Msgf("Writing subeditor %s", i)
 		subeditor.Write()
+	}
+	if e.onWrite != nil {
+		e.onWrite(e.obj)
 	}
 }
 

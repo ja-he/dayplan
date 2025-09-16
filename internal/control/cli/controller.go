@@ -504,7 +504,7 @@ func NewController(
 			log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
 		}
 		var err error
-		taskEditor, err := editors.ConstructEditor("root", task, nil, nil)
+		taskEditor, err := editors.ConstructEditor("root", task, nil, nil, nil /* TODO: pass write fn? */)
 		if err != nil {
 			log.Error().Err(err).Interface("task", task).Msg("was not able to construct editor for task")
 			return
@@ -805,7 +805,20 @@ func NewController(
 				log.Warn().Msgf("was about to construct new event editor but still have old one")
 				return
 			}
-			newEventEditor, err := editors.ConstructEditor("event", event, nil, nil)
+			newEventEditor, err := editors.ConstructEditor("event", event, nil, nil, func(eventToBeWritten any) error {
+				event, ok := eventToBeWritten.(*model.Event)
+				if !ok {
+					return fmt.Errorf("Expected event pointer, got %t.", eventToBeWritten)
+				}
+				if event.ID != *eventID {
+					return fmt.Errorf("Illegally, event ID has changed.")
+				}
+				err := controller.dataProvider.SetEventAllData(*eventID, *event)
+				if err != nil {
+					return fmt.Errorf("Unable to set all event data with data provider: %w", err)
+				}
+				return nil
+			})
 			if err != nil {
 				log.Warn().Err(err).Msgf("unable to construct event editor")
 				return
