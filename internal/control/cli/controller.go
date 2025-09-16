@@ -791,10 +791,14 @@ func NewController(
 			}
 		}),
 		"<cr>": action.NewSimple(func() string { return "open the event editor" }, func() {
-			event := controller.data.CurrentEventID
-			if event == nil {
+			eventID := controller.data.CurrentEventID
+			if eventID == nil {
 				log.Warn().Msgf("ignoring event editing request since no current event selected")
 				return
+			}
+			event, err := controller.dataProvider.GetEvent(*eventID)
+			if err != nil {
+				log.Error().Err(err).Msgf("unable to find event for stored ID of current %s", *eventID)
 			}
 
 			if controller.data.EventEditor != nil {
