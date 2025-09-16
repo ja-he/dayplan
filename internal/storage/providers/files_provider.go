@@ -171,6 +171,14 @@ func (p *FilesDataProvider) RemoveEvents(ids []model.EventID) error {
 
 // GetEvent retrieves the event with the specified ID.
 func (p *FilesDataProvider) GetEvent(id model.EventID) (*model.Event, error) {
+	e, err := p.GetEventRaw(id)
+	if err != nil {
+		return nil, err
+	}
+	clonedEvent := e.Clone()
+	return &clonedEvent, nil
+}
+func (p *FilesDataProvider) GetEventRaw(id model.EventID) (*model.Event, error) {
 	_, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return nil, err
@@ -189,7 +197,7 @@ func (p *FilesDataProvider) getEventWithFH(id model.EventID) (*fileHandler, *mod
 	d, ok := p.getEventDateFromMap(id)
 
 	if ok {
-		p.log.Trace().Msgf("found event ID '%s' in map", id)
+		p.log.Trace().Msgf("found event ID '%s' in map for date %s", id, d)
 		fh, err := p.getFileHandler(d)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting file handler for date '%s' (%w)", d.String(), err)
@@ -760,13 +768,13 @@ func (p *FilesDataProvider) OffsetEventEnd(id model.EventID, offset time.Duratio
 
 	e.End = newEnd
 
-	fh, err := p.getFileHandler(model.DateFromGotime(e.End))
+	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
 	if err != nil {
 		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
 	if err := fh.UpdateEvent(e); err != nil {
-		return time.Time{}, fmt.Errorf("TODO (%w)", err)
+		return time.Time{}, fmt.Errorf("Could not update event (%w)", err)
 	}
 	return e.End, nil
 }

@@ -59,3 +59,13 @@ func (b *Event) StartsDuring(a *Event) bool {
 
 	return a.End.After(b.Start)
 }
+
+func (e Event) Clone() Event {
+	return Event{
+		ID:       e.ID,
+		Name:     e.Name,
+		Category: e.Category,
+		Start:    e.Start,
+		End:      e.End,
+	}
+}

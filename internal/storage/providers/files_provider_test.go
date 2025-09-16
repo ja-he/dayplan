@@ -272,6 +272,50 @@ func TestFilesProvider(t *testing.T) {
 
 			assert.Equal(t, endBefore, e.End, "event end was changed despite error")
 		})
+
+		t.Run("resize exactly to midnight", func(t *testing.T) {
+			e, err := p.GetEvent(id)
+			assert.Nil(t, err, "event was not retrieved: %s", err)
+
+			endBefore := e.End
+			midnight := e.End.Truncate(24 * time.Hour).Add(24 * time.Hour)
+			durationTilMidnight := midnight.Sub(e.End)
+
+			_, err = p.OffsetEventEnd(id, durationTilMidnight)
+			assert.Nil(t, err, "could not offset event end: %s", err)
+
+			e, err = p.GetEvent(id)
+			assert.Nil(t, err, "event was not retrieved: %s", err)
+
+			assert.NotEqual(t, endBefore, e.End, "event end was not changed")
+			assert.Equal(t, midnight, e.End, "event end was not changed to exactly midnight")
+
+			_, err = p.OffsetEventEnd(id, -durationTilMidnight)
+			assert.Nil(t, err, "could not offset event end: %s", err)
+		})
+
+		t.Run("invalid then valid", func(t *testing.T) {
+			e, err := p.GetEvent(id)
+			assert.Nil(t, err, "event was not found")
+			t.Logf("Found event %s (%s).", id, e.ID)
+
+			endBefore := e.End
+			invalidDuration := -(e.End.Sub(e.Start) + (10 * time.Minute))
+			midnight := e.End.Truncate(24 * time.Hour).Add(24 * time.Hour)
+			validDuration := midnight.Sub(e.End)
+
+			_, err = p.OffsetEventEnd(id, invalidDuration)
+			assert.NotNil(t, err, "no error occurred despite changing event end to before start")
+
+			e, err = p.GetEvent(id)
+			assert.Nil(t, err, "event was not found")
+			t.Logf("Found event %s (%s) again.", id, e.ID)
+			assert.Equal(t, endBefore, e.End, "event end was changed despite error")
+
+			_, err = p.OffsetEventEnd(id, validDuration)
+			assert.Nil(t, err, "an error was detected when resizing the event to end at midnight at end of current day")
+		})
+
 	})
 
 	t.Run("offset-event-times", func(t *testing.T) {
