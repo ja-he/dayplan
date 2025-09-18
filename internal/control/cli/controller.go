@@ -881,6 +881,13 @@ func NewController(
 			if current == nil {
 				newEvent.Start = time.Now()
 			} else {
+				isMidnight := func(t time.Time) bool {
+					return t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0
+				}
+				if isMidnight(current.End) {
+					controller.log.Warn().Msgf("Unable to add event after current event, which ends at midnight.")
+					return
+				}
 				newEvent.Start = current.End
 			}
 			eventAfter, err := controller.dataProvider.GetEventAfter(newEvent.Start)
@@ -888,7 +895,12 @@ func NewController(
 				log.Warn().Err(err).Msg("could not get event after")
 			}
 			if eventAfter == nil || eventAfter.Start.Sub(newEvent.Start) <= 0 || eventAfter.Start.Sub(newEvent.Start) > (60*time.Minute) {
-				newEvent.End = newEvent.Start.Add(60 * time.Minute)
+				if newEvent.Start.Add(60*time.Minute).YearDay() != newEvent.Start.YearDay() {
+					midnightBeforeTomorrow := newEvent.Start.Truncate(60 * time.Minute).Add(60 * time.Minute)
+					newEvent.End = midnightBeforeTomorrow
+				} else {
+					newEvent.End = newEvent.Start.Add(60 * time.Minute)
+				}
 			} else {
 				newEvent.End = eventAfter.Start
 			}
