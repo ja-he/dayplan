@@ -459,45 +459,44 @@ func NewController(
 	var backlogSetCurrentToBottommost func()
 	var getBacklogBottomScrollOffset func() int
 	var offsetCurrentTask func(tl []*model.Task, setToNext bool) bool
-	popAndScheduleCurrentTask := func(when *time.Time) {
-		// pass nil time to not schedule
+	popAndScheduleCurrentTask := func(when *time.Time) error {
 		if currentTask == nil {
-			return
+			return fmt.Errorf("Have no current task")
 		}
 		scheduledTask := currentTask
 		prev, next, parentage, err := backlog.Pop(scheduledTask)
 		if err != nil {
-			log.Error().
-				Err(err).
-				Interface("task", currentTask).
-				Interface("backlog", backlog).
-				Msg("could not find task")
-		} else {
-			// update current task
-			currentTask = func() *model.Task {
-				switch {
-				case next != nil:
-					return next
-				case prev != nil:
-					return prev
-				case len(parentage) > 0:
-					return parentage[0]
-				default:
-					return nil
-				}
-			}()
-			// schedule task, if time for that was given
-			if when != nil {
-				namePrefix := ""
-				for _, parent := range parentage {
-					namePrefix = parent.Name + ": " + namePrefix
-				}
-				newEvents := scheduledTask.ToEvent(*when, namePrefix)
-				for _, newEvent := range newEvents {
-					controller.dataProvider.AddEvent(*newEvent)
+			return fmt.Errorf("Could not find current task (%w)", err)
+		}
+
+		// update current task
+		currentTask = func() *model.Task {
+			switch {
+			case next != nil:
+				return next
+			case prev != nil:
+				return prev
+			case len(parentage) > 0:
+				return parentage[0]
+			default:
+				return nil
+			}
+		}()
+		// schedule task, if time for that was given
+		if when != nil {
+			namePrefix := ""
+			for _, parent := range parentage {
+				namePrefix = parent.Name + ": " + namePrefix
+			}
+			newEvents := scheduledTask.ToEvent(*when, namePrefix)
+			for _, newEvent := range newEvents {
+				_, err := controller.dataProvider.AddEvent(*newEvent)
+				if err != nil {
+					return fmt.Errorf("Unable to add event (%w)", err)
 				}
 			}
 		}
+		return nil
 	}
 	createAndEnableTaskEditor := func(task *model.Task) {
 		if controller.data.TaskEditor != nil {
@@ -593,10 +592,15 @@ func NewController(
 			}),
 			"sn": action.NewSimple(func() string { return "schedule now" }, func() {
 				when := time.Now()
-				popAndScheduleCurrentTask(&when)
+				if err := popAndScheduleCurrentTask(&when); err != nil {
+					controller.log.Error().Err(err).Msg("Unable to schedule current task now.")
+				}
 			}),
 			"d": action.NewSimple(func() string { return "delete task" }, func() {
-				popAndScheduleCurrentTask(nil)
+				if err := popAndScheduleCurrentTask(nil); err != nil {
+					// NOTE: really this is a poor use of a function called "schedule..." which actually is used to just pop and do nothing after
+					controller.log.Error().Err(err).Msg("Unable to 'schedule' current task.")
+				}
 			}),
 			"l": action.NewSimple(func() string { return "step into subtasks" }, func() {
 				if currentTask == nil {
