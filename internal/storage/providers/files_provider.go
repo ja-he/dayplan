@@ -204,7 +204,7 @@ func (p *FilesDataProvider) getEventWithFH(id model.EventID) (*fileHandler, *mod
 		}
 		e, err := fh.GetEvent(id)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error getting event with ID '%s' from file handler (%w)", id, err)
+			return nil, nil, fmt.Errorf("error getting event with ID '%s' from file handler %s (%w)", id, fh.date, err)
 		}
 		return fh, e, nil
 	}
@@ -790,25 +790,47 @@ func (p *FilesDataProvider) OffsetEventTimes(id model.EventID, offset time.Durat
 	newEnd := e.End.Add(offset)
 
 	// Ensure start and end are on the same date
-	if !timesOnSameDate(e.Start, newStart) || !timesOnSameDate(e.End, newEnd) {
-		return time.Time{}, time.Time{}, fmt.Errorf("This data provider unable to move events across day boundaries.")
-	}
 	if !timesOnSameDate(newStart, newEnd) {
 		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
 	}
-
-	e.Start = newStart
-	e.End = newEnd
 
 	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
-	err = fh.UpdateEvent(e)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("unable to update event with new times (%w)", err)
+	// The times are on the same date, but the new times are not on the same date as the old times.
+	moveToOtherDay := !timesOnSameDate(e.Start, newEnd)
+
+	e.Start = newStart
+	e.End = newEnd
+
+	if moveToOtherDay {
+		oldFileHandler := fh
+		newFileHandler, err := p.getFileHandler(model.DateFromGotime(newStart))
+
+		err = oldFileHandler.RemoveEvent(e.ID)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("Unable to remove event %s from file handler %s (%w)", e.ID, oldFileHandler.date, err)
+		}
+
+		addErr := newFileHandler.AddEvent(e)
+		if addErr != nil {
+			addErr2 := oldFileHandler.AddEvent(e)
+			if addErr2 != nil {
+				return time.Time{}, time.Time{}, fmt.Errorf("Unable to add event %s to FH %s and then unable to even re-add to %s (%w; %w).", e.ID, newFileHandler.date, oldFileHandler.date, addErr, addErr2)
+			}
+			return time.Time{}, time.Time{}, fmt.Errorf("Unable to add event %s to FH %s (%w).", e.ID, newFileHandler.date, addErr)
+		}
+		p.setEventDateInMap(e.ID, newFileHandler.date)
+
+	} else {
+		err = fh.UpdateEvent(e)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("unable to update event with new times (%w)", err)
+		}
 	}
+
 	return e.Start, e.End, nil
 }
 

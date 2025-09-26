@@ -1256,11 +1256,16 @@ func NewController(
 				"h": action.NewSimple(func() string { return "move to previous day" }, func() {
 					currentEventID := controller.data.CurrentEventID
 					if currentEventID == nil {
-						controller.log.Info().Msg("no current event selected, so nothing to move")
+						controller.log.Warn().Msg("no current event selected, so nothing to move")
 						return
 					}
-					controller.dataProvider.OffsetEventTimes(*currentEventID, (-24)*time.Hour)
+					_, _, err := controller.dataProvider.OffsetEventTimes(*currentEventID, (-24)*time.Hour)
+					if err != nil {
+						controller.log.Error().Err(err).Msgf("Unable to event %s to previous day.", *currentEventID)
+						return
+					}
 					controller.goToPreviousDay()
+					controller.data.CurrentEventID = currentEventID
 				}),
 				"l": action.NewSimple(func() string { return "move to next day" }, func() {
 					currentEventID := controller.data.CurrentEventID
@@ -1268,8 +1273,13 @@ func NewController(
 						controller.log.Info().Msg("no current event selected, so nothing to move")
 						return
 					}
-					controller.dataProvider.OffsetEventTimes(*currentEventID, (+24)*time.Hour)
-					controller.goToPreviousDay()
+					_, _, err := controller.dataProvider.OffsetEventTimes(*currentEventID, (+24)*time.Hour)
+					if err != nil {
+						controller.log.Error().Err(err).Msgf("Unable to event %s to next day.", *currentEventID)
+						return
+					}
+					controller.goToNextDay()
+					controller.data.CurrentEventID = currentEventID
 				}),
 				"m":     action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
 				"<esc>": action.NewSimple(func() string { return "exit move mode" }, func() { dayEventsPane.PopModalOverlay(); controller.data.EventEditMode = edit.EventEditModeNormal }),
