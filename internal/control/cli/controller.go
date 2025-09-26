@@ -879,7 +879,13 @@ func NewController(
 				Category: controller.data.CurrentCategory,
 			}
 			if current == nil {
-				newEvent.Start = time.Now()
+				now := time.Now()
+				if controller.data.CurrentDate.Is(now) {
+					newEvent.Start = now
+				} else {
+					topRowShownTime := controller.data.MainTimelineViewParams.TimeAtY(0)
+					newEvent.Start = model.DateAndTimestampToGotime(controller.data.CurrentDate, topRowShownTime)
+				}
 			} else {
 				isMidnight := func(t time.Time) bool {
 					return t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0
