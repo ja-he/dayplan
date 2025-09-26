@@ -108,6 +108,14 @@ type DataProvider interface {
 	// If the resulting start time is not before the resulting end time of the
 	// event, an error will be returned.
 	SnapEventTimes(model.EventID, time.Duration) (time.Time, time.Time, error)
+	// SnapEventStartPreseveDuration adjusts the start of the event to a multiple
+	// of the given duration, but preserves the overall previous duration of the
+	// event by adjusting the end of the event by the delta.
+	SnapEventStartPreseveDuration(model.EventID, time.Duration) (time.Time, time.Time, error)
+	// SnapEventEndPreseveDuration adjusts the end of the event to a multiple of
+	// the given duration, but preserves the overall previous duration of the
+	// event by adjusting the start of the event by the delta.
+	SnapEventEndPreseveDuration(model.EventID, time.Duration) (time.Time, time.Time, error)
 	// SetEventName sets the name of the event with the given ID to the given
 	// string.
 	SetEventName(model.EventID, string) error

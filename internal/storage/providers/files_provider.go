@@ -836,65 +836,86 @@ func (p *FilesDataProvider) OffsetEventTimes(id model.EventID, offset time.Durat
 
 // SnapEventStart snaps the start time of an event with the specified ID to the nearest interval.
 func (p *FilesDataProvider) SnapEventStart(id model.EventID, interval time.Duration) (time.Time, error) {
+	newStart, _, err := p.snapEventStart(id, interval, false)
+	return newStart, err
+}
+func (p *FilesDataProvider) snapEventStart(id model.EventID, interval time.Duration, preserveDuration bool) (time.Time, time.Time, error) {
 	e, err := p.GetEvent(id)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
 	newStart := snapToInterval(e.Start, interval)
 
 	if !timesOnSameDate(newStart, e.End) {
-		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
+		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
 	}
 
 	if !newStart.Before(e.End) {
-		return time.Time{}, fmt.Errorf("resulting start time would not be before end time")
+		return time.Time{}, time.Time{}, fmt.Errorf("resulting start time would not be before end time")
 	}
 
+	if preserveDuration {
+		delta := newStart.Sub(e.Start)
+		newEnd := e.End.Add(delta)
+		e.End = newEnd
+	}
 	e.Start = newStart
 
 	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
 	if err != nil {
-		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
 	if err := fh.UpdateEvent(e); err != nil {
-		return time.Time{}, fmt.Errorf("TODO (%w)", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("TODO (%w)", err)
 	}
-	return e.Start, nil
+	return e.Start, e.End, nil
 }
 
 // SnapEventEnd snaps the end time of an event with the specified ID to the nearest interval.
 func (p *FilesDataProvider) SnapEventEnd(id model.EventID, interval time.Duration) (time.Time, error) {
+	_, end, err := p.snapEventEnd(id, interval, false)
+	return end, err
+}
+
+func (p *FilesDataProvider) snapEventEnd(id model.EventID, interval time.Duration, preserveDuration bool) (time.Time, time.Time, error) {
 	e, err := p.GetEvent(id)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
 	newEnd := snapToInterval(e.End, interval)
 
 	if !eventStartsAndEndsOnSameDate(e) {
-		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
+		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
 	}
 
 	if !e.Start.Before(newEnd) {
-		return time.Time{}, fmt.Errorf("resulting end time would not be after start time")
+		return time.Time{}, time.Time{}, fmt.Errorf("resulting end time would not be after start time")
 	}
 
+	if preserveDuration {
+		delta := newEnd.Sub(e.End)
+		newStart := e.Start.Add(delta)
+		e.Start = newStart
+	}
 	e.End = newEnd
 
 	fh, err := p.getFileHandler(model.DateFromGotime(e.End))
 	if err != nil {
-		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
 	}
 
 	if err := fh.UpdateEvent(e); err != nil {
-		return time.Time{}, fmt.Errorf("TODO (%w)", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("TODO (%w)", err)
 	}
-	return e.End, nil
+	return e.Start, e.End, nil
 }
 
-// SnapEventTimes snaps both the start and end times of an event with the specified ID to the nearest interval.
+// SnapEventTimes snaps the start and end times of the event with the given ID to the nearest times that are multiples of the given duration.
+// This may result in a change of the duration of the event.
+// If the resulting start time is not before the resulting end time of the event, an error will be returned.
 func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Duration) (time.Time, time.Time, error) {
 	e, err := p.GetEvent(id)
 	if err != nil {
@@ -923,6 +944,15 @@ func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Durat
 		return time.Time{}, time.Time{}, fmt.Errorf("TODO (%w)", err)
 	}
 	return e.Start, e.End, nil
+}
+
+func (p *FilesDataProvider) SnapEventStartPreseveDuration(id model.EventID, interval time.Duration) (time.Time, time.Time, error) {
+	newStart, newEnd, err := p.snapEventStart(id, interval, true)
+	return newStart, newEnd, err
+}
+func (p *FilesDataProvider) SnapEventEndPreseveDuration(id model.EventID, interval time.Duration) (time.Time, time.Time, error) {
+	newStart, newEnd, err := p.snapEventEnd(id, interval, true)
+	return newStart, newEnd, err
 }
 
 func (p *FilesDataProvider) SetEventName(id model.EventID, newName string) error {
