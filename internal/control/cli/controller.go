@@ -921,7 +921,7 @@ func NewController(
 			}
 			controller.log.Info().Interface("id", eventID).Msgf("Created new event.")
 			controller.data.CurrentEventID = &eventID
-			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.End)
+			controller.ensureCurrentEventVisible()
 		}),
 		"O": action.NewSimple(func() string { return "add event before selected" }, func() {
 			current, err := func() (*model.Event, error) {
@@ -969,7 +969,7 @@ func NewController(
 			}
 			controller.log.Info().Interface("id", eventID).Msgf("Created new event.")
 			controller.data.CurrentEventID = &eventID
-			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.Start)
+			controller.ensureCurrentEventVisible()
 		}),
 		"<c-o>": action.NewSimple(func() string { return "add event now" }, func() {
 			newEvent := &model.Event{
