@@ -2017,11 +2017,12 @@ func (c *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 
 func (c *Controller) updateWeather() {
 	go func() {
+		c.log.Debug().Msgf("updating weather..")
 		err := c.data.Weather.Update()
 		if err != nil {
-			log.Error().Err(err).Msg("could not update weather data")
+			c.log.Error().Err(err).Msg("could not update weather data")
 		} else {
-			log.Debug().Msg("successfully retrieved weather data")
+			c.log.Debug().Msg("successfully retrieved weather data")
 		}
 		c.controllerEvents <- controllerEventRender
 	}()
