@@ -1970,7 +1970,7 @@ func (c *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 			var err error
 			err = c.dataProvider.SetEventEnd(*eventID, visualCursorTime)
 			if err != nil {
-				log.Warn().Err(err).Msg("unable to resize")
+				log.Warn().Err(err).Msgf("unable to resize event %s to end at %s", *eventID, visualCursorTime)
 			}
 
 		case tcell.ButtonNone:

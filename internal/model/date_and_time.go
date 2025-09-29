@@ -450,7 +450,7 @@ func (t Timestamp) toGotime() time.Time {
 // DateAndTimestampToGotime returns a time.Time object from a given date and a
 // given timestamp.
 func DateAndTimestampToGotime(date Date, ts Timestamp) time.Time {
-	return time.Date(date.Year, time.Month(date.Month), date.Day, ts.Hour, ts.Minute, 0, 0, time.UTC)
+	return time.Date(date.Year, time.Month(date.Month), date.Day, ts.Hour, ts.Minute, 0, 0, time.Local)
 }
 
 func DateFromGotime(t time.Time) Date {

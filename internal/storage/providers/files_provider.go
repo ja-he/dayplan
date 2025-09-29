@@ -643,7 +643,7 @@ func (p *FilesDataProvider) SetEventEnd(id model.EventID, end time.Time) error {
 	}
 
 	if !e.Start.Before(end) {
-		return fmt.Errorf("start time is not before end time")
+		return fmt.Errorf("start time %s is not before end time %s", e.Start, end)
 	}
 
 	// Ensure start and end are on the same date
