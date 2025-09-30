@@ -302,6 +302,26 @@ func NewTimestampFromGotime(time time.Time) *Timestamp {
 	return &t
 }
 
+func (t Timestamp) Truncate(durationMinutes uint) Timestamp {
+	if durationMinutes == 0 {
+		// bad, could warn
+		return t
+	}
+
+	tAsDurationInMinutes := uint(t.Hour*60 + t.Minute)
+	remainder := tAsDurationInMinutes % durationMinutes
+	if remainder == 0 {
+		return t
+	}
+
+	truncatedDuration := tAsDurationInMinutes - remainder
+
+	return Timestamp{
+		Hour:   int(truncatedDuration) / 60,
+		Minute: int(truncatedDuration) % 60,
+	}
+}
+
 func NewTimestamp(s string) *Timestamp {
 	components := strings.Split(s, ":")
 	if len(components) != 2 {
