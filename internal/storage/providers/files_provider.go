@@ -1076,23 +1076,34 @@ func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Ti
 
 	sort.Sort(model.DateSlice(allDates))
 
+	startDate := model.DateFromGotime(start)
+	endDate := model.DateFromGotime(end)
+	if isMidnight(end) {
+		endDate = endDate.Prev()
+	}
+
 	firstDateIndex, afterLastDateIndex := -1, -1
 	for i, d := range allDates {
 		if firstDateIndex == -1 {
-			if !d.IsAfter(model.DateFromGotime(start)) {
+			if !d.IsBefore(startDate) {
 				firstDateIndex = i
 			}
 		}
-		if d.IsAfter(model.DateFromGotime(end)) {
+		if d.IsAfter(endDate) {
 			afterLastDateIndex = i
 			break
 		}
 	}
-	if firstDateIndex == -1 || afterLastDateIndex == -1 {
-		return nil, fmt.Errorf("could not find first or last date in available dates")
-	}
 
-	datesInRange := allDates[firstDateIndex:afterLastDateIndex]
+	var datesInRange []model.Date
+	if firstDateIndex == -1 {
+		datesInRange = []model.Date{}
+	} else {
+		if afterLastDateIndex == -1 {
+			afterLastDateIndex = len(allDates)
+		}
+		datesInRange = allDates[firstDateIndex:afterLastDateIndex]
+	}
 
 	for _, d := range datesInRange {
 		fh, err := p.getFileHandler(d)

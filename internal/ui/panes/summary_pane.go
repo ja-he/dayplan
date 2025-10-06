@@ -88,7 +88,6 @@ func (p *SummaryPane) Draw() {
 		for _, category := range categories {
 			duration := summary[category.Name]
 
-			p.log.Fatal().Msgf("TODO: get draw styling")
 			var err error
 			var categoryStyling styling.DrawStyling
 			categoryStyling, err = p.categoryStyle(category.Name)
