@@ -145,7 +145,17 @@ func NewController(
 	backlog, err := func() (*model.Backlog, error) {
 		backlogReader, err := os.Open(backlogFilePath)
 		if err != nil {
-			return &model.Backlog{}, err
+			if os.IsNotExist(err) {
+				if err := os.WriteFile(backlogFilePath, []byte{}, 0644); err != nil {
+					return nil, fmt.Errorf("Could not create backlog file at '%s' (%w)", backlogFilePath, err)
+				}
+				backlogReader, err = os.Open(backlogFilePath)
+				if err != nil {
+					return nil, fmt.Errorf("Unable to create an empty backlog file (%w)", err)
+				}
+			} else {
+				return nil, fmt.Errorf("Unable to read backlog file at '%s' and it is not because of non-existence (%w)", backlogFilePath, err)
+			}
 		}
 		defer backlogReader.Close()
 		return model.BacklogFromReader(backlogReader)
@@ -154,7 +164,7 @@ func NewController(
 		return nil, fmt.Errorf("could not read backlog at '%s' (%w)", backlogFilePath, err)
 	}
 
-	log.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
+	controller.log.Info().Str("file", backlogFilePath).Msg("successfully read backlog")
 
 	tasksWidth := 40
 	toolsWidth := func() int {
