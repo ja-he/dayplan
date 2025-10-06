@@ -55,6 +55,14 @@ func (p *SummaryPane) Draw() {
 
 		summary, err := p.summary()
 		if err != nil {
+			msg1 := "ERROR"
+			msg2 := "(see log)"
+			p.Renderer.DrawText(x+(w/2-len(msg1)/2), y+(h/2-1), len(msg1), 1,
+				p.Stylesheet.CategoryFallback.Bolded(),
+				msg1)
+			p.Renderer.DrawText(x+(w/2-len(msg2)/2), y+(h/2), len(msg2), 1,
+				p.Stylesheet.CategoryFallback.Italicized(),
+				msg2)
 			p.log.Error().Err(err).Msg("could not get summary")
 			return
 		}
