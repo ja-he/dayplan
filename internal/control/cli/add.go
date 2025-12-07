@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -10,7 +12,7 @@ import (
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/storage"
-	"github.com/rs/zerolog/log"
+	"github.com/ja-he/dayplan/internal/storage/providers"
 )
 
 // AddCommand contains flags for the `summarize` command line command, for
@@ -40,13 +42,25 @@ func (command *AddCommand) Execute(args []string) error {
 	}
 
 	// read config from file (for the category priorities)
-	yamlData, err := os.ReadFile(envData.BaseDirPath + "/" + "config.yaml")
-	if err != nil {
-		panic(fmt.Sprintf("ERROR: can't read config file: '%s'", err))
-	}
-	configData, err := config.ParseConfigAugmentDefaults(config.Light, yamlData)
-	if err != nil {
-		panic(fmt.Sprintf("ERROR: can't parse config data: '%s'", err))
+	var configData config.Config
+	configFilePath := path.Join(envData.BaseDirPath, "config.yaml")
+	if info, err := os.Stat(configFilePath); err == nil {
+		if info.IsDir() {
+			return fmt.Errorf("Config file path '%s' is a directory?", configFilePath)
+		}
+		yamlData, err := os.ReadFile(configFilePath)
+		if err != nil {
+			panic(fmt.Sprintf("ERROR: can't read config file: '%s'", err))
+		}
+		configData, err = config.ParseConfigAugmentDefaults(config.Light, yamlData)
+		if err != nil {
+			panic(fmt.Sprintf("ERROR: can't parse config data: '%s'", err))
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintf(os.Stderr, "Did not find config at '%s', assuming defaults.\n", configFilePath)
+		configData = config.Default(config.Dark)
+	} else {
+		return fmt.Errorf("Unable to stat config file at '%s' (%v)", configFilePath, err)
 	}
 
 	// verify category
@@ -92,8 +106,16 @@ func (command *AddCommand) Execute(args []string) error {
 		}
 	}
 
-	log.Fatal().Msg("TODO: need to implement provider setup i suppose")
+	categoriesByName, err := providers.GetCategoriesByNameFromConfig(configData)
+	if err != nil {
+		return fmt.Errorf("can't get categories from config (%w)", err)
+	}
+	categoryProvider := &providers.CPPOC{M: categoriesByName}
 	var provider storage.DataProvider
+	provider, err = providers.NewFilesDataProvider(
+		path.Join(envData.BaseDirPath, "days"),
+		categoryProvider,
+	)
 
 	var events []model.Event
 	events = append(events, model.Event{
@@ -136,7 +158,6 @@ func (command *AddCommand) Execute(args []string) error {
 	}
 
 	// write at the end, so we don't add partial data if we panicked somewhere
-	fmt.Println("writing to:")
 	for _, event := range events {
 		fmt.Printf(" + %s\n", event.String())
 		_, err := provider.AddEvent(event)
@@ -144,7 +165,12 @@ func (command *AddCommand) Execute(args []string) error {
 			fmt.Fprintf(os.Stderr, "ERROR: could not add event to provider (%s)\n", err.Error())
 		}
 	}
+	if err := provider.CommitState(); err != nil {
+		return fmt.Errorf("Could not commit provider state (%w)", err)
+	}
 
+	storageLocation, _ := provider.GetStorageLocationInfo()
+	fmt.Printf("Wrote to '%s'.\n", storageLocation)
 	os.Exit(0)
 	return nil
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
+	"github.com/ja-he/dayplan/internal/storage/providers"
 	"github.com/ja-he/dayplan/internal/styling"
 )
 
@@ -112,33 +113,9 @@ func (command *TUICommand) Execute(_ []string) error {
 	}
 
 	// get categories from config
-	categoriesByName := map[model.CategoryName]*model.Category{}
-	for _, category := range configData.Categories {
-
-		var goal model.Goal
-		var err error
-		switch {
-		case category.Goal.Ranged != nil:
-			goal, err = model.NewRangedGoalFromConfig(*category.Goal.Ranged)
-		case category.Goal.Workweek != nil:
-			goal, err = model.NewWorkweekGoalFromConfig(*category.Goal.Workweek)
-		}
-		if err != nil {
-			return err
-		}
-
-		color, err := styling.ColorfulColorFromHexString(category.Color)
-		if err != nil {
-			return fmt.Errorf("could not parse color from hex string: %w", err)
-		}
-		cat := model.Category{
-			Name:       model.CategoryName(category.Name),
-			Priority:   category.Priority,
-			Goal:       goal,
-			Deprecated: category.Deprecated,
-			Color:      color,
-		}
-		categoriesByName[model.CategoryName(category.Name)] = &cat
+	categoriesByName, err := providers.GetCategoriesByNameFromConfig(configData)
+	if err != nil {
+		return fmt.Errorf("can't get categories from config (%w)", err)
 	}
 
 	stylesheet, err := styling.NewStylesheetFromConfig(configData.Stylesheet, theme)

@@ -1039,6 +1039,17 @@ func (p *FilesDataProvider) SetEventAllData(id model.EventID, newEventData model
 // CommitState iterates all file handlers and compels them to commit their
 // state to disk if necessary.
 func (p *FilesDataProvider) CommitState() error {
+	if info, err := os.Stat(p.BasePath); err != nil && errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(p.BasePath, 0755); err != nil {
+			return fmt.Errorf("Base path '%s' did not exist and could not be created (%w)", p.BasePath, err)
+		}
+		p.log.Info().Str("path", p.BasePath).Msg("Base path created")
+	} else if err != nil {
+		return fmt.Errorf("Base path could not be stat'd (%w)", err)
+	} else if !info.IsDir() {
+		return fmt.Errorf("Base path is not a dir (according to stat)")
+	}
+
 	var errs []error
 	for _, fh := range p.FileHandlers {
 		err := fh.Write()
