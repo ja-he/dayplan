@@ -1063,6 +1063,10 @@ func (p *FilesDataProvider) FullyCommitted() (bool, error) {
 	return true, nil
 }
 
+func (p *FilesDataProvider) GetStorageLocationInfo() (string, error) {
+	return fmt.Sprintf("files:%s", p.BasePath), nil
+}
+
 // TODO: doc SumUpTimespanByCategory
 func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Time) (map[model.CategoryName]time.Duration, error) {
 	fullEventList := model.EventList{

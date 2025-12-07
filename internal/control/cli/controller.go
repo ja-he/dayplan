@@ -452,6 +452,7 @@ func NewController(
 		},
 		func() int { return timelineWidth },
 		func() edit.EventEditMode { return controller.data.EventEditMode },
+		controller.dataProvider,
 	)
 
 	cursorWrangler := ui.NewCursorWrangler(renderer)

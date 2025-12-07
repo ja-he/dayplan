@@ -6,6 +6,19 @@ import (
 	"github.com/ja-he/dayplan/internal/model"
 )
 
+type DataProviderInfo interface {
+	GetStorageLocationInfo() (string, error)
+
+	// FullyCommitted indicates whether the state of this provider is fully
+	// committed, i.e., whether it exactly matches the committed state of the
+	// provider.
+	// For a filesystem-backed provider, this would be true if all data on disk
+	// matches the potentially cached in-memory state. For a database-backed
+	// provider which always retrieves data via queries this would potentially
+	// always be true. Etc.
+	FullyCommitted() (bool, error)
+}
+
 // DataProvider is the abstracted data provider, which can be implemented over
 // various storage systems.
 //
@@ -17,6 +30,7 @@ import (
 //     potentially configure the desired behaviour of automatically storing
 //     changes to the backend or waiting for commits.
 type DataProvider interface {
+	DataProviderInfo
 
 	// AddEvent adds a new event to the data provider and returns the ID of the
 	// event.
@@ -133,15 +147,6 @@ type DataProvider interface {
 	// need something here for mutability, e.g. constructing an editor...
 
 	CommitState() error
-
-	// FullyCommitted indicates whether the state of this provider is fully
-	// committed, i.e., whether it exactly matches the committed state of the
-	// provider.
-	// For a filesystem-backed provider, this would be true if all data on disk
-	// matches the potentially cached in-memory state. For a database-backed
-	// provider which always retrieves data via queries this would potentially
-	// always be true. Etc.
-	FullyCommitted() (bool, error)
 }
 
 // SunTimesProvider
