@@ -2256,6 +2256,10 @@ func (c *Controller) switchToNextEventInDay() {
 			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get next for current date")
 			return
 		}
+		if candidate == nil {
+			c.log.Warn().Msgf("No model after exists.")
+			return
+		}
 		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
 			c.data.CurrentEventID = new(model.EventID)
 			*c.data.CurrentEventID = candidate.ID
@@ -2315,6 +2319,10 @@ func (c *Controller) switchToPreviousEventInDay() {
 			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
 			return
 		}
+		if candidate == nil {
+			c.log.Warn().Msgf("No model before exists.")
+			return
+		}
 		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
 			c.data.CurrentEventID = new(model.EventID)
 			*c.data.CurrentEventID = candidate.ID
@@ -2345,14 +2353,14 @@ func (c *Controller) switchToPreviousEventInDay() {
 }
 
 func (c *Controller) moveEventsForwardPushing() error {
-	pushDuration := c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute
-	pushResolution := c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute
+	pushDuration := c.data.MainTimelineViewParams.DurationOfHeight(1)
+	pushResolution := c.data.MainTimelineViewParams.DurationOfHeight(1)
 	return c.moveEventsPushingBy(pushDuration, pushResolution)
 }
 
 func (c *Controller) moveEventsBackwardPushing() error {
-	pushDuration := -c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute
-	pushResolution := c.data.MainTimelineViewParams.DurationOfHeight(1) / time.Minute
+	pushDuration := -c.data.MainTimelineViewParams.DurationOfHeight(1)
+	pushResolution := c.data.MainTimelineViewParams.DurationOfHeight(1)
 	return c.moveEventsPushingBy(pushDuration, pushResolution)
 }
 
