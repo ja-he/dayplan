@@ -247,9 +247,12 @@ func (b *BacklogYamlIoProvider) GetLocationContext(id model.TaskID) (storage.Tas
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	_, _, ctx, err := b.locateUnsafe(id)
+	t, _, ctx, err := b.locateUnsafe(id)
 	if err != nil {
 		return storage.TaskLocationContext{}, fmt.Errorf("Unable to locate task '%s' (%w)", id, err)
+	}
+	if t == nil {
+		return storage.TaskLocationContext{}, fmt.Errorf("Unable to locate task '%s' (but no error!)", id)
 	}
 
 	return ctx, nil
@@ -332,7 +335,7 @@ func (b *BacklogYamlIoProvider) InsertAfter(data model.ReadableTask, afterID mod
 	if idx == -1 {
 		return "", fmt.Errorf("Could not find given task in child tasks of '%s'.", p.ID)
 	}
-	p.Subtasks = slices.Insert(p.Subtasks, idx, newTask)
+	p.Subtasks = slices.Insert(p.Subtasks, idx+1, newTask)
 	return newTask.ID, nil
 }
 func (b *BacklogYamlIoProvider) InsertFront(data model.ReadableTask, parentID *model.TaskID) (model.TaskID, error) {
