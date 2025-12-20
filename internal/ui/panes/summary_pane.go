@@ -126,7 +126,7 @@ func NewSummaryPane(
 	return &SummaryPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID:             ui.GeneratePaneID(),
+				ID:             "summary",
 				InputProcessor: inputProcessor,
 				Visible:        condition,
 			},

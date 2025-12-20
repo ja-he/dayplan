@@ -62,12 +62,13 @@ type ControlData struct {
 	CursorPos ui.MouseCursorPos
 
 	CurrentCategory model.CategoryName
+	CurrentTask     *model.TaskID
 
 	EnvData EnvData
 
 	CurrentDate    model.Date
 	CurrentEventID *model.EventID
-	Weather        weather.Handler
+	Weather        *weather.Handler
 
 	EventEditor *editors.Composite
 	TaskEditor  *editors.Composite
@@ -78,6 +79,7 @@ type ControlData struct {
 	ShowDebug   bool
 
 	MainTimelineViewParams ui.SingleDayViewParams
+	BacklogViewParams      ui.BacklogViewParams
 
 	ActiveView func() ui.ActiveView
 

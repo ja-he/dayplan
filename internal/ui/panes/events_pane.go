@@ -28,7 +28,7 @@ type EventsPane struct {
 	styleForCategory func(model.CategoryName) (styling.DrawStyling, error)
 
 	viewParams ui.TimespanViewParams
-	cursor     *ui.MouseCursorPos
+	cursor     func() ui.MouseCursorPos
 
 	pad               int
 	drawTimestamps    bool
@@ -105,6 +105,7 @@ func (p *EventsPane) Draw() {
 
 		// based on event state, draw a box or maybe a smaller one, or ...
 		pos := p.positions[e]
+		cursor := p.cursor()
 		var timestampWidth int
 		if p.drawTimestamps {
 			timestampWidth = 5
@@ -113,7 +114,7 @@ func (p *EventsPane) Draw() {
 		}
 		var hovered *ui.EventsPanePositionInfo
 		if p.mouseMode() {
-			hovered = p.getEventForPos(p.cursor.X, p.cursor.Y)
+			hovered = p.getEventForPos(cursor.X, cursor.Y)
 		}
 
 		currentID := p.getCurrentEventID()
@@ -284,7 +285,7 @@ func NewEventsPane(
 	dayEvents func() (model.Date, *model.EventList, error),
 	styleForCategory func(model.CategoryName) (styling.DrawStyling, error),
 	viewParams ui.TimespanViewParams,
-	cursor *ui.MouseCursorPos,
+	getCursorPos func() ui.MouseCursorPos,
 	pad int,
 	drawTimestamps bool,
 	drawNames bool,
@@ -292,8 +293,8 @@ func NewEventsPane(
 	isCurrentDay func() bool,
 	getCurrentEvent func() *model.EventID,
 	mouseMode func() bool,
+	id string,
 ) *EventsPane {
-	id := ui.GeneratePaneID()
 	p := &EventsPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
@@ -307,7 +308,7 @@ func NewEventsPane(
 		dayEvents:         dayEvents,
 		styleForCategory:  styleForCategory,
 		viewParams:        viewParams,
-		cursor:            cursor,
+		cursor:            getCursorPos,
 		pad:               pad,
 		drawTimestamps:    drawTimestamps,
 		drawNames:         drawNames,
@@ -316,8 +317,8 @@ func NewEventsPane(
 		getCurrentEventID: getCurrentEvent,
 		mouseMode:         mouseMode,
 		positions:         make(map[*model.Event]util.Rect, 0),
-		log:               log.With().Str("component", fmt.Sprintf("events-pane-%d", id)).Logger(),
+		log:               log.With().Str("component", fmt.Sprintf("events-pane-%s", id)).Logger(),
 	}
-	defer p.log.Info().Msgf("constructed new events pane with id '%d'", p.Identify())
+	defer p.log.Info().Msgf("constructed new events pane with id '%s'", p.Identify())
 	return p
 }

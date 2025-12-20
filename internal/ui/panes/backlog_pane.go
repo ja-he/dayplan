@@ -4,12 +4,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
+	"github.com/ja-he/dayplan/internal/storage"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
-	"github.com/rs/zerolog/log"
 )
 
 // BacklogPane shows a tasks backlog from which tasks and prospective events can
@@ -17,12 +19,12 @@ import (
 type BacklogPane struct {
 	ui.LeafPane
 	viewParams            ui.TimeViewParams
-	getCurrentTask        func() *model.Task
-	backlog               *model.Backlog
+	getCurrentTask        func() *model.TaskID
+	backlog               storage.BacklogProvider
 	categoryStyleProvider func(model.CategoryName) (styling.DrawStyling, error)
 
 	uiBoundsMtx sync.RWMutex
-	uiBounds    map[*model.Task]taskUIYBounds
+	uiBounds    map[model.TaskID]taskUIYBounds
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -52,24 +54,27 @@ func (p *BacklogPane) Draw() {
 		p.Renderer.DrawBox(x, y, w, h, bgStyle)
 	}()
 
-	// draws task, taking into account view params, returns y space used
-	var drawTask func(xBase, yOffset, wBase int, t *model.Task, depth int, emphasize bool) (int, []func())
-	drawTask = func(xBase, yOffset, wBase int, t *model.Task, depth int, emphasize bool) (int, []func()) {
-		drawThis := []func(){}
+	currentTask := p.getCurrentTask()
+	log.Info().Interface("current-task", currentTask).Msgf("About to draw tasks.")
 
+	// draws task, taking into account view params, returns y space used
+	var drawTask func(xBase, yOffset, wBase int, t model.ReadableTask, depth int, emphasize bool) (int, []func())
+	drawTask = func(xBase, yOffset, wBase int, t model.ReadableTask, depth int, emphasize bool) (int, []func()) {
+		drawThis := []func(){}
 		var h int
-		if t.Duration == nil {
+		if t.GetDuration() == nil {
 			h = 2 * int(p.viewParams.GetZoomPercentage()/50.0)
 		} else {
-			h = int(p.viewParams.HeightOfDuration(*t.Duration))
+			h = int(p.viewParams.HeightOfDuration(*t.GetDuration()))
 		}
-		if len(t.Subtasks) > 0 {
+		subtasks := t.GetSubtasks()
+		if len(subtasks) > 0 {
 			yIter := yOffset + 1
-			for i, st := range t.Subtasks {
-				drawnHeight, drawCalls := drawTask(xBase+1, yIter, wBase-2, st, depth+1, emphasize || p.getCurrentTask() == st)
+			for i, st := range subtasks {
+				drawnHeight, drawCalls := drawTask(xBase+1, yIter, wBase-2, st, depth+1, emphasize || (currentTask != nil && *currentTask == st.GetID()))
 				drawThis = append(drawThis, drawCalls...)
 				effectiveYIncrease := drawnHeight
-				if i != len(t.Subtasks)-1 {
+				if i != len(subtasks)-1 {
 					effectiveYIncrease += 1
 				}
 				h += effectiveYIncrease
@@ -77,7 +82,7 @@ func (p *BacklogPane) Draw() {
 			}
 		}
 
-		style, err := p.categoryStyleProvider(t.Category)
+		style, err := p.categoryStyleProvider(t.GetCategory())
 		if err != nil {
 			style = p.Stylesheet.CategoryFallback
 		}
@@ -99,32 +104,29 @@ func (p *BacklogPane) Draw() {
 			p.Renderer.DrawText(
 				xBase+1+1, yOffset, wBase-2-1, 1,
 				style.Bolded(),
-				util.TruncateAt(t.Name, wBase-2-1),
+				util.TruncateAt(t.GetName(), wBase-2-1),
 			)
 			p.Renderer.DrawText(
 				xBase+3, yOffset+1, wBase-2-2, 1,
 				style.Italicized(),
-				util.TruncateAt(string(t.Category), wBase-2-2),
+				util.TruncateAt(string(t.GetCategory()), wBase-2-2),
 			)
-			if t.Deadline != nil {
-				deadline := t.Deadline.Format("2006-01-02 15:04:05")
+			if t.GetDeadline() != nil {
+				deadline := t.GetDeadline().Format("2006-01-02 15:04:05")
 				p.Renderer.DrawText(
 					xBase+wBase-len(deadline)-1, yOffset+1, len(deadline), 1,
 					style.Bolded(),
 					deadline,
 				)
 			}
-			p.uiBounds[t] = taskUIYBounds{yOffset, yOffset + h - 1}
+			p.uiBounds[t.GetID()] = taskUIYBounds{yOffset, yOffset + h - 1}
 		})
 
 		return h, drawThis
 	}
 
 	// draw tasks
-	func() {
-		p.backlog.Mtx.RLock()
-		defer p.backlog.Mtx.RUnlock()
-
+	drawTasks := func(roots []model.ReadableTask) {
 		yIter := y - p.viewParams.GetScrollOffset()
 
 		// draw top indicator
@@ -141,9 +143,9 @@ func (p *BacklogPane) Draw() {
 
 		yIter += 1
 
-		for _, task := range p.backlog.Tasks {
+		for _, task := range roots {
 			yIter += 1
-			heightDrawn, drawFuncs := drawTask(x+1, yIter, w-2, task, 0, p.getCurrentTask() == task)
+			heightDrawn, drawFuncs := drawTask(x+1, yIter, w-2, task, 0, currentTask != nil && *currentTask == task.GetID())
 			for i := range drawFuncs {
 				drawFuncs[len(drawFuncs)-1-i]()
 			}
@@ -160,7 +162,8 @@ func (p *BacklogPane) Draw() {
 				padFront+text+padBack,
 			)
 		}()
-	}()
+	}
+	p.backlog.WithRoots(drawTasks)
 
 	// draw title last
 	func() {
@@ -173,7 +176,7 @@ func (p *BacklogPane) Draw() {
 	}()
 }
 
-func (p *BacklogPane) GetTaskUIYBounds(t *model.Task) (lb, ub int) {
+func (p *BacklogPane) GetTaskUIYBounds(t model.TaskID) (lb, ub int) {
 	p.uiBoundsMtx.RLock()
 	defer p.uiBoundsMtx.RUnlock()
 	r, ok := p.uiBounds[t]
@@ -207,15 +210,15 @@ func NewBacklogPane(
 	stylesheet styling.Stylesheet,
 	inputProcessor input.ModalInputProcessor,
 	viewParams ui.TimeViewParams,
-	getCurrentTask func() *model.Task,
-	backlog *model.Backlog,
+	getCurrentTask func() *model.TaskID,
+	backlog storage.BacklogProvider,
 	categoryStyleProvider func(model.CategoryName) (styling.DrawStyling, error),
 	visible func() bool,
 ) *BacklogPane {
 	p := BacklogPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID:             ui.GeneratePaneID(),
+				ID:             "backlog",
 				InputProcessor: inputProcessor,
 				Visible:        visible,
 			},
@@ -227,7 +230,7 @@ func NewBacklogPane(
 		getCurrentTask:        getCurrentTask,
 		backlog:               backlog,
 		categoryStyleProvider: categoryStyleProvider,
-		uiBounds:              make(map[*model.Task]taskUIYBounds),
+		uiBounds:              make(map[model.TaskID]taskUIYBounds),
 	}
 	return &p
 }

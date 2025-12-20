@@ -83,7 +83,7 @@ func NewHelpPane(
 	p := &HelpPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID:      ui.GeneratePaneID(),
+				ID:      "help",
 				Visible: condition,
 			},
 			Renderer:   renderer,

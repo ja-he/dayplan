@@ -1,6 +1,8 @@
 package panes
 
 import (
+	"path"
+	"strings"
 	"sync"
 
 	"github.com/rs/zerolog"
@@ -14,7 +16,9 @@ import (
 // RootPane acts as the root UI pane, wrapping all subpanes, managing the
 // render cycle, invoking the subpanes' rendering, etc.
 type RootPane struct {
-	ID ui.PaneID
+	// TODO: why can root pane not inherit from base pane?
+
+	ID string
 
 	renderer       ui.RenderOrchestratorControl
 	cursorWrangler *ui.CursorWrangler
@@ -123,9 +127,9 @@ func (p *RootPane) Draw() {
 	// FIXME: probably simplify this
 	active, _ := p.getCurrentlyActivePanesInOrder()
 	for _, pane := range active {
-		p.log.Trace().Msgf("drawing %d...", pane.Identify())
+		p.log.Trace().Msgf("drawing %s...", pane.Identify())
 		pane.Draw()
-		p.log.Trace().Msgf("drew %d.", pane.Identify())
+		p.log.Trace().Msgf("drew %s.", pane.Identify())
 	}
 	// for _, pane := range _ {
 	// 	pane.Undraw()
@@ -231,13 +235,42 @@ func (p *RootPane) GetView() ui.ActiveView {
 	}
 }
 
-func (p *RootPane) Identify() ui.PaneID { return p.ID }
-func (p *RootPane) HasFocus() bool      { return true }
-func (p *RootPane) Focusses() ui.PaneID {
-	return p.focussedPane().Identify()
-}
+func (p *RootPane) Identify() string { return p.ID }
+func (p *RootPane) HasFocus() bool   { return true }
+func (p *RootPane) Focusses() string { return p.focussedPane().Identify() }
+
+// NOTE: these currently do not apply to root pane. perhaps a design oddity to be revisited..
 func (p *RootPane) FocusPrev() {}
 func (p *RootPane) FocusNext() {}
+
+func (p *RootPane) GetChild(pathToChild string) ui.PaneQuerier {
+	p.log.Debug().Msgf("asked for child '%s'", pathToChild)
+
+	if path.IsAbs(pathToChild) {
+		// When the path is absolute, as it is here, it starts with '/' therefore
+		// we know that SplitN(..., 2) will return 2 elements, the first being the
+		// empty string.
+		relativePath := strings.SplitN(pathToChild, "/", 2)[1]
+		return p.GetChild(relativePath)
+	}
+
+	p.subpanesMtx.Lock()
+	defer p.subpanesMtx.Unlock()
+
+	pathSplit := strings.SplitN(pathToChild, "/", 2)
+	activeChildren, inactiveChildren := p.getCurrentlyActivePanesInOrder()
+	for _, c := range append(activeChildren, inactiveChildren...) {
+		if c.Identify() == pathSplit[0] {
+			if len(pathSplit) > 1 {
+				p.log.Trace().Msgf("Deferring child request to '%s'", c.Identify())
+				return c.GetChild(pathSplit[1])
+			}
+			return c
+		}
+	}
+
+	return nil
+}
 
 func (p *RootPane) focussedPane() ui.Pane {
 	switch {
@@ -332,7 +365,7 @@ func NewRootPane(
 	focussedPane ui.Pane,
 ) *RootPane {
 	rootPane := &RootPane{
-		ID:                        ui.GeneratePaneID(),
+		ID:                        "/",
 		renderer:                  renderer,
 		cursorWrangler:            cursorWrangler,
 		dimensions:                dimensions,
@@ -347,7 +380,7 @@ func NewRootPane(
 		focussedViewPane:          focussedPane,
 		log:                       log.With().Str("component", "root-pane").Logger(),
 	}
-	defer rootPane.log.Trace().Msgf("created root pane with id '%d'", rootPane.Identify())
+	defer rootPane.log.Trace().Msgf("created root pane with id '%s'", rootPane.Identify())
 
 	dayViewMainPane.SetParent(rootPane)
 	weekViewMainPane.SetParent(rootPane)

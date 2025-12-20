@@ -137,7 +137,7 @@ func NewToolsPane(
 	return &ToolsPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID:             ui.GeneratePaneID(),
+				ID:             "tools",
 				InputProcessor: inputProcessor,
 				Visible:        visible,
 			},

@@ -93,7 +93,7 @@ func NewPerfPane(
 	return &PerfPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID:      ui.GeneratePaneID(),
+				ID:      "perf",
 				Visible: condition,
 			},
 			Renderer: renderer,

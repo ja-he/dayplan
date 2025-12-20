@@ -18,7 +18,7 @@ import (
 type StatusPane struct {
 	ui.LeafPane
 
-	currentDate *model.Date
+	getCurrentDate func() model.Date
 
 	dayWidth           func() int
 	totalDaysInPeriod  func() int
@@ -42,6 +42,8 @@ func (p *StatusPane) Draw() {
 	dateStyle := bgStyleEmph
 	weekdayStyle := dateStyle.LightenedFG(60)
 
+	currentDate := p.getCurrentDate()
+
 	// header background
 	p.Renderer.DrawBox(0, y, p.firstDayXOffset()+p.totalDaysInPeriod()*p.dayWidth(), h, bgStyle)
 	// header bar (filled for days until current)
@@ -49,9 +51,9 @@ func (p *StatusPane) Draw() {
 	// date box background
 	p.Renderer.DrawBox(0, y, dateWidth, h, bgStyleEmph)
 	// date string
-	p.Renderer.DrawText(0, y, dateWidth, 1, dateStyle, p.currentDate.String())
+	p.Renderer.DrawText(0, y, dateWidth, 1, dateStyle, currentDate.String())
 	// weekday string
-	p.Renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(p.currentDate.ToWeekday().String(), dateWidth))
+	p.Renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(currentDate.ToWeekday().String(), dateWidth))
 
 	// mode string
 	modeStr := eventEditModeToString(p.eventEditMode())
@@ -103,7 +105,7 @@ func NewStatusPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
-	currentDate *model.Date,
+	getCurrentDate func() model.Date,
 	dayWidth func() int,
 	totalDaysInPeriod func() int,
 	passedDaysInPeriod func() int,
@@ -114,13 +116,13 @@ func NewStatusPane(
 	return &StatusPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID: ui.GeneratePaneID(),
+				ID: "status",
 			},
 			Renderer:   renderer,
 			Dims:       dimensions,
 			Stylesheet: stylesheet,
 		},
-		currentDate:         currentDate,
+		getCurrentDate:      getCurrentDate,
 		dayWidth:            dayWidth,
 		totalDaysInPeriod:   totalDaysInPeriod,
 		passedDaysInPeriod:  passedDaysInPeriod,

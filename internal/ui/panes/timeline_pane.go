@@ -102,7 +102,7 @@ func NewTimelinePane(
 	return &TimelinePane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID: ui.GeneratePaneID(),
+				ID: "timeline",
 			},
 			Renderer:   renderer,
 			Dims:       dimensions,

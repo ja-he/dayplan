@@ -1,30 +1,19 @@
 package model
 
 import (
-	"fmt"
-	"io"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v3"
 )
 
-// Backlog holds Tasks which can be popped out of the backlog to a concrete
-// timeslot.
-// Backlogging Tasks is a planning mechanism; the Backlog can be seen as a
-// to-do list.
-type Backlog struct {
-	Tasks []*Task
-	Mtx   sync.RWMutex
-}
+type TaskID string
 
 // A Task remains to be done (or dropped) but is not yet scheduled.
 // It has a name and belongs to a category (by name);
 // it can further have a duration (estimate), a deadline (due date) and
 // subtasks.
 type Task struct {
+	ID       TaskID         `dpedit:",ignore"`
 	Name     string         `dpedit:"name"`
 	Category CategoryName   `dpedit:"category"`
 	Duration *time.Duration `dpedit:"duration"`
@@ -32,237 +21,64 @@ type Task struct {
 	Subtasks []*Task        `dpedit:",ignore"`
 }
 
-func (t Task) toBaseTask() BaseTask {
-	result := BaseTask{
-		Name:     t.Name,
-		Duration: t.Duration,
-		Deadline: t.Deadline,
-		Subtasks: make([]BaseTask, 0, len(t.Subtasks)),
+type ReadableTask interface {
+	GetID() TaskID
+	GetName() string
+	GetCategory() CategoryName
+	GetDuration() *time.Duration
+	GetDeadline() *time.Time
+	GetSubtasks() []ReadableTask
+
+	ToEvent(startTime time.Time, namePrefix string) []*Event
+}
+
+func (t *Task) Equal(t2 ReadableTask) bool {
+	if t.ID != t2.GetID() || t.Name == t2.GetName() || t.Category == t2.GetCategory() {
+		return false
 	}
-	for _, subtask := range t.Subtasks {
-		if t.Category != subtask.Category {
-			log.Warn().
-				Str("subtask", subtask.Name).
-				Str("parent-task", t.Name).
-				Str("subtask-category", string(subtask.Category)).
-				Str("parent-task-category", string(t.Category)).
-				Msg("subtask has different category from parent, which will be lost")
+	if t.Duration != t2.GetDuration() {
+		if t.Duration == nil || t2.GetDuration() == nil {
+			return false
 		}
-		result.Subtasks = append(result.Subtasks, subtask.toBaseTask())
+		if *(t.Duration) != *(t2.GetDuration()) {
+			return false
+		}
+	}
+	if t.Deadline != t2.GetDeadline() {
+		if t.Deadline == nil || t2.GetDeadline() == nil {
+			return false
+		}
+		if !t.Deadline.Equal(*t2.GetDeadline()) {
+			return false
+		}
+	}
+
+	t2subs := t2.GetSubtasks()
+	if len(t.Subtasks) != len(t2subs) {
+		return false
+	}
+	for i := range t.Subtasks {
+		if !t.Subtasks[i].Equal(t2subs[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (t *Task) GetID() TaskID               { return t.ID }
+func (t *Task) GetName() string             { return t.Name }
+func (t *Task) GetCategory() CategoryName   { return t.Category }
+func (t *Task) GetDuration() *time.Duration { return t.Duration }
+func (t *Task) GetDeadline() *time.Time     { return t.Deadline }
+
+func (t *Task) GetSubtasks() []ReadableTask {
+	// Convert to interface slice to prevent mutation
+	result := make([]ReadableTask, len(t.Subtasks))
+	for i, st := range t.Subtasks {
+		result[i] = st
 	}
 	return result
-}
-
-// BacklogStored.
-type BacklogStored struct {
-	TasksByCategory map[string][]BaseTask `yaml:",inline"`
-}
-
-// BaseTask.
-type BaseTask struct {
-	Name     string         `yaml:"name"`
-	Duration *time.Duration `yaml:"duration,omitempty"`
-	Deadline *time.Time     `yaml:"deadline,omitempty"`
-	Subtasks []BaseTask     `yaml:"subtasks,omitempty"`
-}
-
-// Write writes the Backlog to the given io.Writer, e.g., an opened file.
-func (b *Backlog) Write(w io.Writer) error {
-
-	toBeWritten := BacklogStored{
-		TasksByCategory: map[string][]BaseTask{},
-	}
-	for _, task := range b.Tasks {
-		categoryName := task.Category
-		toBeWritten.TasksByCategory[string(categoryName)] = append(
-			toBeWritten.TasksByCategory[string(categoryName)],
-			task.toBaseTask(),
-		)
-	}
-
-	data, err := yaml.Marshal(toBeWritten)
-	if err != nil {
-		return fmt.Errorf("unable to marshal backlog (%s)", err.Error())
-	}
-	_, err = w.Write(data)
-	if err != nil {
-		return fmt.Errorf("unable to write to backlog writer (%s)", err.Error())
-	}
-
-	return nil
-}
-
-// BacklogFromReader reads and deserializes a backlog from the io.Reader and returns the
-// backlog.
-func BacklogFromReader(r io.Reader) (*Backlog, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return &Backlog{}, fmt.Errorf("unable to read from reader (%s)", err.Error())
-	}
-
-	stored := BacklogStored{}
-	err = yaml.Unmarshal(data, &stored)
-	if err != nil {
-		return &Backlog{}, fmt.Errorf("yaml unmarshaling error (%s)", err.Error())
-	}
-	log.Debug().Int("N-Cats", len(stored.TasksByCategory)).Msg("read storeds")
-
-	var mapSubtasks func(cat CategoryName, tasks []BaseTask) []*Task
-	toTask := func(cat CategoryName, b BaseTask) *Task {
-		return &Task{
-			Name:     b.Name,
-			Category: cat,
-			Duration: b.Duration,
-			Deadline: b.Deadline,
-			Subtasks: mapSubtasks(cat, b.Subtasks),
-		}
-	}
-	mapSubtasks = func(cat CategoryName, tasks []BaseTask) []*Task {
-		result := []*Task{}
-		for _, t := range tasks {
-			result = append(result, toTask(cat, t))
-		}
-		return result
-	}
-
-	b := &Backlog{Tasks: []*Task{}}
-	for cat, tasks := range stored.TasksByCategory {
-		for _, task := range tasks {
-			b.Tasks = append(b.Tasks, toTask(CategoryName(cat), task))
-		}
-	}
-
-	// sort to ensure more consistent ordering
-	sort.Sort(TasksByDeadline(b.Tasks))
-
-	return b, nil
-}
-
-// Pop the given task out from wherever it is in this backlog, returning
-// that location (by surrounding tasks and parentage).
-func (b *Backlog) Pop(task *Task) (prev *Task, next *Task, parentage []*Task, err error) {
-	var indexAmongTasks int
-	prev, next, parentage, indexAmongTasks, err = b.Locate(task)
-	if err != nil {
-		return
-	}
-	parentTasks := func() *[]*Task {
-		if len(parentage) > 0 {
-			return &parentage[0].Subtasks
-		} else {
-			return &b.Tasks
-		}
-	}()
-
-	b.Mtx.Lock()
-	defer b.Mtx.Unlock()
-	*parentTasks = append((*parentTasks)[:indexAmongTasks], (*parentTasks)[indexAmongTasks+1:]...)
-	return
-}
-
-// Locate the given task, i.e. give its neighbors and parentage.
-// Returns an error when the task cannot be found.
-func (b *Backlog) Locate(task *Task) (prev *Task, next *Task, parentage []*Task, index int, err error) {
-
-	var locateRecursive func(t *Task, l []*Task, p []*Task) (prev *Task, next *Task, parentage []*Task, index int, err error)
-	locateRecursive = func(t *Task, l []*Task, p []*Task) (prev *Task, next *Task, parentage []*Task, index int, err error) {
-		for i, currentTask := range l {
-			if currentTask == t {
-				if i > 0 {
-					prev = l[i-1]
-				}
-				if i < len(l)-1 {
-					next = l[i+1]
-				}
-				parentage = p
-				index = i
-				err = nil
-				return
-			}
-			maybePrev, maybeNext, maybeParentage, maybeIndex, maybeErr := locateRecursive(t, currentTask.Subtasks, append([]*Task{currentTask}, p...))
-			if maybeErr == nil {
-				prev, next, parentage, index, err = maybePrev, maybeNext, maybeParentage, maybeIndex, maybeErr
-				return
-			}
-		}
-
-		return nil, nil, nil, -1, fmt.Errorf("not found")
-	}
-
-	b.Mtx.RLock()
-	defer b.Mtx.RUnlock()
-	return locateRecursive(task, b.Tasks, nil)
-}
-
-// AddFirst
-func (b *Backlog) AddLast() *Task {
-	newTask := new(Task)
-	b.Tasks = append(b.Tasks, newTask)
-	return newTask
-}
-
-// AddAfter adds a new task after the given anchorTask.
-func (b *Backlog) AddAfter(anchorTask *Task) (newTask *Task, parent *Task, err error) {
-	_, _, parentage, index, err := b.Locate(anchorTask)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not locate anchor task (%s)", err.Error())
-	}
-	taskList := b.Tasks
-	if len(parentage) > 0 {
-		parent = parentage[0]
-		taskList = parent.Subtasks
-	}
-
-	// sanity check
-	{
-		if taskList[index] != anchorTask {
-			return nil, nil, fmt.Errorf("implementation error: task[%d].Name == '%s' != '%s", index, taskList[index].Name, anchorTask.Name)
-		}
-	}
-
-	newTask = new(Task)
-
-	// insert new task after given index
-	taskList = append(taskList[:index+1], append([]*Task{newTask}, taskList[index+1:]...)...)
-	if parent != nil {
-		parent.Subtasks = taskList
-	} else {
-		b.Tasks = taskList
-	}
-
-	return newTask, parent, nil
-}
-
-// AddBefore adds a new task before the given anchorTask.
-func (b *Backlog) AddBefore(anchorTask *Task) (newTask *Task, parent *Task, err error) {
-	_, _, parentage, index, err := b.Locate(anchorTask)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not locate anchor task (%s)", err.Error())
-	}
-	taskList := b.Tasks
-	if len(parentage) > 0 {
-		parent = parentage[0]
-		taskList = parent.Subtasks
-	}
-
-	// sanity check
-	{
-		if taskList[index] != anchorTask {
-			return nil, nil, fmt.Errorf("implementation error: task[%d].Name == '%s' != '%s", index, taskList[index].Name, anchorTask.Name)
-		}
-	}
-
-	newTask = new(Task)
-
-	// insert new task after given index
-	taskList = append(taskList[:index], append([]*Task{newTask}, taskList[index:]...)...)
-	if parent != nil {
-		parent.Subtasks = taskList
-	} else {
-		b.Tasks = taskList
-	}
-
-	return newTask, parent, nil
 }
 
 func (t *Task) toEvent(startTime time.Time, namePrefix string) Event {

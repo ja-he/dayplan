@@ -129,7 +129,12 @@ func (command *TUICommand) Execute(_ []string) error {
 	log.Logger = tuiLogger
 	log.Debug().Msg("set up logging to only TUI")
 
-	controller, err := NewController(initialDay, envData, categoriesByName, *stylesheet)
+	weatherHandler, suntimesProvider, err := createWeatherAndSuntimes(envData)
+	if err != nil {
+		return fmt.Errorf("Unable to initialize weather or suntimes handling (%w)", err)
+	}
+
+	controller, err := NewController(initialDay, envData, categoriesByName, *stylesheet, weatherHandler, suntimesProvider)
 	if err != nil {
 		log.Logger = previouslySetLogger
 		log.Error().Err(err).Msgf("something went wrong setting up the TUI, will check unpublished logs and return error")
