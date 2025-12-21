@@ -1,4 +1,4 @@
-package providers
+package backend
 
 import (
 	"errors"
@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 )
 
 const notSameDayEventErrorMsg = string("event does not start and end on the same day")
@@ -39,7 +39,7 @@ type FilesDataProvider struct {
 	eventsDateMapMtx sync.RWMutex
 	eventsDateMap    map[model.EventID]model.Date
 
-	categoryProvider storage.CategoryProvider
+	categoryProvider provider.CategoryProvider
 
 	log zerolog.Logger
 }
@@ -47,7 +47,7 @@ type FilesDataProvider struct {
 // NewFilesDataProvider ...
 func NewFilesDataProvider(
 	basePath string,
-	categoryProvider storage.CategoryProvider,
+	categoryProvider provider.CategoryProvider,
 ) (*FilesDataProvider, error) {
 
 	result := &FilesDataProvider{

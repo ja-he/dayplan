@@ -10,7 +10,7 @@ import (
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/util"
 	"github.com/rs/zerolog/log"
 )
@@ -101,7 +101,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		model.EventList
 	}
 
-	var dataProvider storage.DataProvider
+	var dataProvider provider.EventProvider
 	log.Fatal().Msg("TODO: initialize data provider")
 
 	data := make([]dateAndDay, 0)

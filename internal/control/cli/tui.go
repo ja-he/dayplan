@@ -14,7 +14,7 @@ import (
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/provider/backend"
 	"github.com/ja-he/dayplan/internal/styling"
 )
 
@@ -113,7 +113,7 @@ func (command *TUICommand) Execute(_ []string) error {
 	}
 
 	// get categories from config
-	categoriesByName, err := providers.GetCategoriesByNameFromConfig(configData)
+	categoriesByName, err := backend.GetCategoriesByNameFromConfig(configData)
 	if err != nil {
 		return fmt.Errorf("can't get categories from config (%w)", err)
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/ja-he/dayplan/internal/input/processors"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/ui/panes"
@@ -170,10 +170,10 @@ func createUI(
 	getCurrentCategoryFn func() model.CategoryName,
 	getCurrentTaskFn func() *model.TaskID,
 
-	storageProviderInfo storage.DataProviderInfo,
-	suntimesProvider storage.SunTimesProvider,
-	categoryProvider storage.CategoryProvider,
-	backlogProvider storage.BacklogProvider,
+	storageProviderInfo provider.DataProviderInfo,
+	suntimesProvider provider.SunTimesProvider,
+	categoryProvider provider.CategoryProvider,
+	backlogProvider provider.TaskProvider,
 
 	perfPane ui.Pane,
 
@@ -478,8 +478,8 @@ func createDayViewMainPane(
 	toolsInputTree input.SimpleInputProcessor,
 	dayViewScrollablePaneInputTree input.SimpleInputProcessor,
 
-	suntimesProvider storage.SunTimesProvider,
-	backlogProvider storage.BacklogProvider,
+	suntimesProvider provider.SunTimesProvider,
+	backlogProvider provider.TaskProvider,
 
 	statusPane ui.Pane,
 ) (*panes.Composite, error) {

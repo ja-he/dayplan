@@ -10,8 +10,8 @@ import (
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/provider"
+	"github.com/ja-he/dayplan/internal/provider/backend"
 )
 
 // Flags for the `summarize` command line command, for `go-flags` to parse
@@ -84,10 +84,10 @@ func (command *SummarizeCommand) Execute(args []string) error {
 	}
 
 	// TODO: can probably make this mostly async?
-	var dataProvider storage.DataProvider
-	dataProvider, err = providers.NewFilesDataProvider(
+	var dataProvider provider.EventProvider
+	dataProvider, err = backend.NewFilesDataProvider(
 		path.Join(envData.BaseDirPath, "days"),
-		&providers.CPPOC{M: categories},
+		&backend.CPPOC{M: categories},
 	)
 	if err != nil {
 		return fmt.Errorf("can't create file data provider (%w)", err)

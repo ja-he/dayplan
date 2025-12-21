@@ -1,4 +1,4 @@
-package providers
+package backend
 
 import (
 	"fmt"

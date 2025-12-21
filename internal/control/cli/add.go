@@ -11,8 +11,8 @@ import (
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/provider"
+	"github.com/ja-he/dayplan/internal/provider/backend"
 )
 
 // AddCommand contains flags for the `summarize` command line command, for
@@ -106,13 +106,13 @@ func (command *AddCommand) Execute(args []string) error {
 		}
 	}
 
-	categoriesByName, err := providers.GetCategoriesByNameFromConfig(configData)
+	categoriesByName, err := backend.GetCategoriesByNameFromConfig(configData)
 	if err != nil {
 		return fmt.Errorf("can't get categories from config (%w)", err)
 	}
-	categoryProvider := &providers.CPPOC{M: categoriesByName}
-	var provider storage.DataProvider
-	provider, err = providers.NewFilesDataProvider(
+	categoryProvider := &backend.CPPOC{M: categoriesByName}
+	var provider provider.EventProvider
+	provider, err = backend.NewFilesDataProvider(
 		path.Join(envData.BaseDirPath, "days"),
 		categoryProvider,
 	)

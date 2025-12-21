@@ -1,4 +1,4 @@
-package providers
+package backend
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 )
 
 type BacklogYamlIoProvider struct {
@@ -243,16 +243,16 @@ func (b *BacklogYamlIoProvider) GetLastChildTaskID(id *model.TaskID) (*model.Tas
 	return nil, nil
 }
 
-func (b *BacklogYamlIoProvider) GetLocationContext(id model.TaskID) (storage.TaskLocationContext, error) {
+func (b *BacklogYamlIoProvider) GetLocationContext(id model.TaskID) (provider.TaskLocationContext, error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
 	t, _, ctx, err := b.locateUnsafe(id)
 	if err != nil {
-		return storage.TaskLocationContext{}, fmt.Errorf("Unable to locate task '%s' (%w)", id, err)
+		return provider.TaskLocationContext{}, fmt.Errorf("Unable to locate task '%s' (%w)", id, err)
 	}
 	if t == nil {
-		return storage.TaskLocationContext{}, fmt.Errorf("Unable to locate task '%s' (but no error!)", id)
+		return provider.TaskLocationContext{}, fmt.Errorf("Unable to locate task '%s' (but no error!)", id)
 	}
 
 	return ctx, nil
@@ -374,16 +374,16 @@ func (b *BacklogYamlIoProvider) InsertBack(data model.ReadableTask, parentID *mo
 	return newTask.ID, nil
 }
 
-func (b *BacklogYamlIoProvider) Remove(id model.TaskID) (model.ReadableTask, storage.TaskLocationContext, error) {
+func (b *BacklogYamlIoProvider) Remove(id model.TaskID) (model.ReadableTask, provider.TaskLocationContext, error) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
 	task, parent, ctx, err := b.locateUnsafe(id)
 	if err != nil {
-		return nil, storage.TaskLocationContext{}, fmt.Errorf("Unable to find task '%s' (%w)", id, err)
+		return nil, provider.TaskLocationContext{}, fmt.Errorf("Unable to find task '%s' (%w)", id, err)
 	}
 	if task == nil {
-		return nil, storage.TaskLocationContext{}, fmt.Errorf("No such task.")
+		return nil, provider.TaskLocationContext{}, fmt.Errorf("No such task.")
 	}
 
 	if len(ctx.Parentage) == 0 {
@@ -486,11 +486,11 @@ func (b *BacklogYamlIoProvider) Save() error {
 	return nil
 }
 
-func (b *BacklogYamlIoProvider) locateUnsafe(id model.TaskID) (*model.Task, *model.Task, storage.TaskLocationContext, error) {
+func (b *BacklogYamlIoProvider) locateUnsafe(id model.TaskID) (*model.Task, *model.Task, provider.TaskLocationContext, error) {
 	for i, rootTask := range b.tasks {
 		t, parent, ctx, err := locateInTask(rootTask, id)
 		if err != nil {
-			return nil, nil, storage.TaskLocationContext{}, fmt.Errorf("Error locating in root task '%s' (%w)", rootTask.ID, err)
+			return nil, nil, provider.TaskLocationContext{}, fmt.Errorf("Error locating in root task '%s' (%w)", rootTask.ID, err)
 		}
 		if t != nil {
 			if parent == nil {
@@ -507,11 +507,11 @@ func (b *BacklogYamlIoProvider) locateUnsafe(id model.TaskID) (*model.Task, *mod
 			return t, parent, ctx, nil
 		}
 	}
-	return nil, nil, storage.TaskLocationContext{}, nil
+	return nil, nil, provider.TaskLocationContext{}, nil
 }
-func locateInTask(t *model.Task, id model.TaskID) (*model.Task, *model.Task, storage.TaskLocationContext, error) {
+func locateInTask(t *model.Task, id model.TaskID) (*model.Task, *model.Task, provider.TaskLocationContext, error) {
 	if t.ID == id {
-		return t, nil, storage.TaskLocationContext{ /* filled by parents */ }, nil
+		return t, nil, provider.TaskLocationContext{ /* filled by parents */ }, nil
 	}
 	for i, st := range t.Subtasks {
 		if sst, parent, ctx, err := locateInTask(st, id); err != nil {
@@ -532,5 +532,5 @@ func locateInTask(t *model.Task, id model.TaskID) (*model.Task, *model.Task, sto
 			return sst, parent, ctx, nil
 		}
 	}
-	return nil, nil, storage.TaskLocationContext{}, nil
+	return nil, nil, provider.TaskLocationContext{}, nil
 }

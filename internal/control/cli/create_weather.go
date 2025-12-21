@@ -6,16 +6,16 @@ import (
 
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/weather"
 	"github.com/rs/zerolog/log"
 )
 
 func createWeatherAndSuntimes(
 	envData control.EnvData,
-) (*weather.Handler, storage.SunTimesProvider, error) {
+) (*weather.Handler, provider.SunTimesProvider, error) {
 	var w *weather.Handler
-	var s storage.SunTimesProvider
+	var s provider.SunTimesProvider
 
 	coordinatesProvided := (envData.Latitude != "" && envData.Longitude != "")
 	owmAPIKeyProvided := (envData.OWMAPIKey != "")

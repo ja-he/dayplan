@@ -6,7 +6,7 @@ import (
 
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
@@ -23,7 +23,7 @@ type SummaryPane struct {
 	titleString func() string
 	summary     func() (map[model.CategoryName]time.Duration, error)
 
-	categories    storage.CategoryProvider
+	categories    provider.CategoryProvider
 	categoryStyle func(model.CategoryName) (styling.DrawStyling, error)
 
 	log zerolog.Logger
@@ -119,7 +119,7 @@ func NewSummaryPane(
 	condition func() bool,
 	titleString func() string,
 	summary func() (map[model.CategoryName]time.Duration, error),
-	categories storage.CategoryProvider,
+	categories provider.CategoryProvider,
 	getCategoryStyle func(model.CategoryName) (styling.DrawStyling, error),
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {

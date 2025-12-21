@@ -5,7 +5,7 @@ import (
 
 	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
@@ -26,7 +26,7 @@ type StatusPane struct {
 	firstDayXOffset    func() int
 
 	eventEditMode       func() edit.EventEditMode
-	storageProviderInfo storage.DataProviderInfo
+	storageProviderInfo provider.DataProviderInfo
 
 	log zerolog.Logger
 }
@@ -111,7 +111,7 @@ func NewStatusPane(
 	passedDaysInPeriod func() int,
 	firstDayXOffset func() int,
 	eventEditMode func() edit.EventEditMode,
-	storageProviderInfo storage.DataProviderInfo,
+	storageProviderInfo provider.DataProviderInfo,
 ) *StatusPane {
 	return &StatusPane{
 		LeafPane: ui.LeafPane{

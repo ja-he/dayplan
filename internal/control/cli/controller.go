@@ -18,8 +18,8 @@ import (
 	"github.com/ja-he/dayplan/internal/control/edit/editors"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/provider"
+	"github.com/ja-he/dayplan/internal/provider/backend"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/tui"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -38,10 +38,10 @@ type Controller struct {
 	dayViewMainPane   *panes.Composite
 	dayViewEventsPane *panes.EventsPane
 
-	dataProvider     storage.DataProvider
-	suntimesProvider storage.SunTimesProvider
-	categoryProvider storage.CategoryProvider
-	backlogProvider  storage.BacklogProvider
+	dataProvider     provider.EventProvider
+	suntimesProvider provider.SunTimesProvider
+	categoryProvider provider.CategoryProvider
+	backlogProvider  provider.TaskProvider
 
 	controllerEvents chan controllerEvent
 
@@ -75,7 +75,7 @@ func NewController(
 	categoriesByName map[model.CategoryName]*model.Category,
 	stylesheet styling.Stylesheet,
 	weatherHandler *weather.Handler,
-	suntimesProvider storage.SunTimesProvider,
+	suntimesProvider provider.SunTimesProvider,
 ) (*Controller, error) {
 	controller := Controller{
 		log: log.With().Str("component", "controller").Logger(),
@@ -87,10 +87,10 @@ func NewController(
 	controller.suntimesProvider = suntimesProvider
 
 	{
-		categoryProvider := &providers.CPPOC{M: categoriesByName}
-		var dp storage.DataProvider
+		categoryProvider := &backend.CPPOC{M: categoriesByName}
+		var dp provider.EventProvider
 		var err error
-		dp, err = providers.NewFilesDataProvider(
+		dp, err = backend.NewFilesDataProvider(
 			path.Join(envData.BaseDirPath, "days"),
 			categoryProvider,
 		)
@@ -151,7 +151,7 @@ func NewController(
 
 	backlogFilePath := path.Join(envData.BaseDirPath, "days", "backlog.yml") // TODO(ja_he): Migrate 'days' -> 'data', perhaps subdir 'days'
 	var err error
-	controller.backlogProvider, err = providers.NewBacklogYamlIoProvider(backlogFilePath)
+	controller.backlogProvider, err = backend.NewBacklogYamlIoProvider(backlogFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create backlog provider for YAML file '%s' (%w)", backlogFilePath, err)
 	}

@@ -1,16 +1,16 @@
-package providers_test
+package backend_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 )
 
 // BacklogProviderFactory is a function type that creates a new BacklogProvider instance for testing.
 // Each test will get a fresh instance to ensure isolation.
-type BacklogProviderFactory func(t *testing.T) storage.BacklogProvider
+type BacklogProviderFactory func(t *testing.T) provider.TaskProvider
 
 // RunBacklogProviderTests runs a comprehensive test suite against any BacklogProvider implementation.
 // Pass a factory function that creates a fresh instance for each test.
@@ -18,7 +18,7 @@ type BacklogProviderFactory func(t *testing.T) storage.BacklogProvider
 // Example usage:
 //
 //	func TestMyBacklogProvider(t *testing.T) {
-//	    factory := func(t *testing.T) storage.BacklogProvider {
+//	    factory := func(t *testing.T) provider.TaskProvider {
 //	        provider, err := NewMyBacklogProvider()
 //	        require.NoError(t, err)
 //	        return provider

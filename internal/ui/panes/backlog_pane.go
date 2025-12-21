@@ -8,7 +8,7 @@ import (
 
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
@@ -20,7 +20,7 @@ type BacklogPane struct {
 	ui.LeafPane
 	viewParams            ui.TimeViewParams
 	getCurrentTask        func() *model.TaskID
-	backlog               storage.BacklogProvider
+	backlog               provider.TaskProvider
 	categoryStyleProvider func(model.CategoryName) (styling.DrawStyling, error)
 
 	uiBoundsMtx sync.RWMutex
@@ -211,7 +211,7 @@ func NewBacklogPane(
 	inputProcessor input.ModalInputProcessor,
 	viewParams ui.TimeViewParams,
 	getCurrentTask func() *model.TaskID,
-	backlog storage.BacklogProvider,
+	backlog provider.TaskProvider,
 	categoryStyleProvider func(model.CategoryName) (styling.DrawStyling, error),
 	visible func() bool,
 ) *BacklogPane {

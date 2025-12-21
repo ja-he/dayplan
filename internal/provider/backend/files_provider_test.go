@@ -1,4 +1,4 @@
-package providers_test
+package backend_test
 
 import (
 	"strings"
@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/provider"
+	"github.com/ja-he/dayplan/internal/provider/backend"
 )
 
 func TestFilesProvider(t *testing.T) {
@@ -25,11 +25,11 @@ func TestFilesProvider(t *testing.T) {
 	yearZero := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
 	yearTenK := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	fresh := func(t *testing.T) storage.DataProvider {
+	fresh := func(t *testing.T) provider.EventProvider {
 		tempDir := t.TempDir()
-		var p storage.DataProvider
+		var p provider.EventProvider
 		var err error
-		p, err = providers.NewFilesDataProvider(tempDir, &providers.CPPOC{M: make(map[model.CategoryName]*model.Category)})
+		p, err = backend.NewFilesDataProvider(tempDir, &backend.CPPOC{M: make(map[model.CategoryName]*model.Category)})
 		assert.Nil(t, err)
 
 		allEventsBefore, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
@@ -37,7 +37,7 @@ func TestFilesProvider(t *testing.T) {
 		assert.Empty(t, allEventsBefore, "not all events were removed")
 		return p
 	}
-	refreshCleanEvents := func(t *testing.T, p storage.DataProvider) {
+	refreshCleanEvents := func(t *testing.T, p provider.EventProvider) {
 		allEventsBefore, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
 		assert.Nil(t, err, "could not get all events before test")
 		for _, e := range allEventsBefore {
@@ -800,7 +800,7 @@ func TestFilesProvider(t *testing.T) {
 		})
 	})
 
-	setupWithSingleEventTimes := func(t *testing.T, p storage.DataProvider, start time.Time, end time.Time) string {
+	setupWithSingleEventTimes := func(t *testing.T, p provider.EventProvider, start time.Time, end time.Time) string {
 		refreshCleanEvents(t, p)
 		id, err := p.AddEvent(model.Event{
 			Name:     "test event",

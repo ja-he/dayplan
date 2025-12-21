@@ -1,4 +1,4 @@
-package storage
+package provider
 
 import "github.com/ja-he/dayplan/internal/model"
 
@@ -15,7 +15,7 @@ func (c TaskLocationContext) GetParentIDOrNil() *model.TaskID {
 	return nil
 }
 
-type BacklogProvider interface {
+type TaskProvider interface {
 	WithRoots(f func(roots []model.ReadableTask)) error
 	WithTask(id model.TaskID, f func(t model.ReadableTask)) error
 	WithTasks(ids []model.TaskID, f func(ts []model.ReadableTask)) error

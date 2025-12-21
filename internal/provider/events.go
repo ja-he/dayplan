@@ -1,4 +1,4 @@
-package storage
+package provider
 
 import (
 	"time"
@@ -19,7 +19,7 @@ type DataProviderInfo interface {
 	FullyCommitted() (bool, error)
 }
 
-// DataProvider is the abstracted data provider, which can be implemented over
+// EventProvider is the abstracted data provider, which can be implemented over
 // various storage systems.
 //
 // The data provider's responsibility are as follows:
@@ -29,7 +29,7 @@ type DataProviderInfo interface {
 //     I think my idea here is that the creation of the concrete povider will
 //     potentially configure the desired behaviour of automatically storing
 //     changes to the backend or waiting for commits.
-type DataProvider interface {
+type EventProvider interface {
 	DataProviderInfo
 
 	// AddEvent adds a new event to the data provider and returns the ID of the

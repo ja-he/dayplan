@@ -1,4 +1,4 @@
-package storage
+package provider
 
 import "github.com/ja-he/dayplan/internal/model"
 

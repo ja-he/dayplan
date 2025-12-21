@@ -1,4 +1,4 @@
-package providers_test
+package backend_test
 
 import (
 	"os"
@@ -6,19 +6,19 @@ import (
 	"testing"
 
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
-	"github.com/ja-he/dayplan/internal/storage/providers"
+	"github.com/ja-he/dayplan/internal/provider"
+	"github.com/ja-he/dayplan/internal/provider/backend"
 )
 
 // TestBacklogYamlIoProvider_Suite runs the comprehensive BacklogProvider test suite
 // against the BacklogYamlIoProvider implementation.
 func TestBacklogYamlIoProvider_Suite(t *testing.T) {
-	factory := func(t *testing.T) storage.BacklogProvider {
+	factory := func(t *testing.T) provider.TaskProvider {
 		// Create a temporary file for this test
 		tmpDir := t.TempDir()
 		filePath := filepath.Join(tmpDir, "backlog.yaml")
 
-		provider, err := providers.NewBacklogYamlIoProvider(filePath)
+		provider, err := backend.NewBacklogYamlIoProvider(filePath)
 		if err != nil {
 			t.Fatalf("Failed to create BacklogYamlIoProvider: %v", err)
 		}
@@ -42,7 +42,7 @@ func TestBacklogYamlIoProvider_PersistenceAcrossInstances(t *testing.T) {
 	filePath := filepath.Join(tmpDir, "backlog.yaml")
 
 	// Create first provider and add tasks
-	provider1, err := providers.NewBacklogYamlIoProvider(filePath)
+	provider1, err := backend.NewBacklogYamlIoProvider(filePath)
 	if err != nil {
 		t.Fatalf("Failed to create first provider: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestBacklogYamlIoProvider_PersistenceAcrossInstances(t *testing.T) {
 	}
 
 	// Create second provider instance and load
-	provider2, err := providers.NewBacklogYamlIoProvider(filePath)
+	provider2, err := backend.NewBacklogYamlIoProvider(filePath)
 	if err != nil {
 		t.Fatalf("Failed to create second provider: %v", err)
 	}
