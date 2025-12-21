@@ -173,6 +173,15 @@ func (p *BacklogPane) Draw() {
 
 		titleText := "Backlog"
 		p.Renderer.DrawText(x+(w/2)-(len(titleText)/2), y, len(titleText), 1, style.Bolded(), titleText)
+
+		commitStatusIndicator := ""
+		if y, err := p.backlog.FullyCommitted(); err != nil {
+			commitStatusIndicator = "?"
+		} else if !y {
+			commitStatusIndicator = "+"
+		}
+
+		p.Renderer.DrawText(x+(w/2)-(len(titleText)/2)-2, y, len(commitStatusIndicator), 1, style, commitStatusIndicator)
 	}()
 }
 
