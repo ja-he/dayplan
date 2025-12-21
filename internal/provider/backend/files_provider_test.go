@@ -29,7 +29,7 @@ func TestFilesProvider(t *testing.T) {
 		tempDir := t.TempDir()
 		var p provider.EventProvider
 		var err error
-		p, err = backend.NewFilesDataProvider(tempDir, &backend.CPPOC{M: make(map[model.CategoryName]*model.Category)})
+		p, err = backend.NewFilesDataProvider(tempDir, &backend.MemoryCategoryProvider{M: make(map[model.CategoryName]*model.Category)})
 		assert.Nil(t, err)
 
 		allEventsBefore, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)

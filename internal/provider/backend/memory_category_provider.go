@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/model"
@@ -9,11 +10,16 @@ import (
 )
 
 // TODO: move somewhere / rename
-type CPPOC struct {
+type MemoryCategoryProvider struct {
+	mtx sync.RWMutex
+
 	M map[model.CategoryName]*model.Category
 }
 
-func (c *CPPOC) GetCategory(name model.CategoryName) *model.Category {
+func (c *MemoryCategoryProvider) GetCategory(name model.CategoryName) *model.Category {
+	c.mtx.RLock()
+	defer c.mtx.RUnlock()
+
 	cat, ok := c.M[name]
 	if !ok {
 		return nil

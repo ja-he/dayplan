@@ -255,7 +255,7 @@ func (c *Controller) popAndScheduleCurrentTask(when *time.Time) error {
 		})
 		newEvents := taskToBeScheduled.ToEvent(*when, namePrefix)
 		for _, newEvent := range newEvents {
-			_, err := c.dataProvider.AddEvent(*newEvent)
+			_, err := c.eventsProvider.AddEvent(*newEvent)
 			if err != nil {
 				return fmt.Errorf("Unable to add event (%w)", err)
 			}

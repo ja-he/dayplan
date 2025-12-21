@@ -110,7 +110,7 @@ func (command *AddCommand) Execute(args []string) error {
 	if err != nil {
 		return fmt.Errorf("can't get categories from config (%w)", err)
 	}
-	categoryProvider := &backend.CPPOC{M: categoriesByName}
+	categoryProvider := &backend.MemoryCategoryProvider{M: categoriesByName}
 	var provider provider.EventProvider
 	provider, err = backend.NewFilesDataProvider(
 		path.Join(envData.BaseDirPath, "days"),

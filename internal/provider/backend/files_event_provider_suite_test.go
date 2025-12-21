@@ -13,7 +13,7 @@ import (
 func TestFilesDataProvider_EventProviderSuite(t *testing.T) {
 	factory := func(t *testing.T) provider.EventProvider {
 		tmpDir := t.TempDir()
-		categoryProvider := &backend.CPPOC{M: make(map[model.CategoryName]*model.Category)}
+		categoryProvider := &backend.MemoryCategoryProvider{M: make(map[model.CategoryName]*model.Category)}
 
 		p, err := backend.NewFilesDataProvider(tmpDir, categoryProvider)
 		if err != nil {

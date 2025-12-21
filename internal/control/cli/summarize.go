@@ -87,7 +87,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 	var dataProvider provider.EventProvider
 	dataProvider, err = backend.NewFilesDataProvider(
 		path.Join(envData.BaseDirPath, "days"),
-		&backend.CPPOC{M: categories},
+		&backend.MemoryCategoryProvider{M: categories},
 	)
 	if err != nil {
 		return fmt.Errorf("can't create file data provider (%w)", err)
