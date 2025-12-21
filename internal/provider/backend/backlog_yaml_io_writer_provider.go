@@ -24,6 +24,8 @@ type BacklogYamlIoProvider struct {
 
 	filePath string
 
+	dirty bool
+
 	log zerolog.Logger
 }
 
@@ -275,12 +277,14 @@ func (b *BacklogYamlIoProvider) GetCategory(id model.TaskID) (model.CategoryName
 func (b *BacklogYamlIoProvider) insertRootFrontUnsafe(data model.ReadableTask) (model.TaskID, error) {
 	newTask := taskFromReadable(data)
 	b.tasks = append([]*model.Task{newTask}, b.tasks...)
+	b.dirty = true
 
 	return newTask.ID, nil
 }
 func (b *BacklogYamlIoProvider) insertRootBackUnsafe(data model.ReadableTask) (model.TaskID, error) {
 	newTask := taskFromReadable(data)
 	b.tasks = append(b.tasks, newTask)
+	b.dirty = true
 
 	return newTask.ID, nil
 }
@@ -301,6 +305,7 @@ func (b *BacklogYamlIoProvider) InsertBefore(data model.ReadableTask, beforeID m
 			return "", fmt.Errorf("Could not find given task in root tasks.")
 		}
 		b.tasks = slices.Insert(b.tasks, idx, newTask)
+		b.dirty = true
 		return newTask.ID, nil
 	}
 
@@ -309,6 +314,7 @@ func (b *BacklogYamlIoProvider) InsertBefore(data model.ReadableTask, beforeID m
 		return "", fmt.Errorf("Could not find given task in child tasks of '%s'.", p.ID)
 	}
 	p.Subtasks = slices.Insert(p.Subtasks, idx, newTask)
+	b.dirty = true
 	return newTask.ID, nil
 }
 func (b *BacklogYamlIoProvider) InsertAfter(data model.ReadableTask, afterID model.TaskID) (model.TaskID, error) {
@@ -328,6 +334,7 @@ func (b *BacklogYamlIoProvider) InsertAfter(data model.ReadableTask, afterID mod
 			return "", fmt.Errorf("Could not find given task in root tasks.")
 		}
 		b.tasks = slices.Insert(b.tasks, idx+1, newTask)
+		b.dirty = true
 		return newTask.ID, nil
 	}
 
@@ -336,6 +343,7 @@ func (b *BacklogYamlIoProvider) InsertAfter(data model.ReadableTask, afterID mod
 		return "", fmt.Errorf("Could not find given task in child tasks of '%s'.", p.ID)
 	}
 	p.Subtasks = slices.Insert(p.Subtasks, idx+1, newTask)
+	b.dirty = true
 	return newTask.ID, nil
 }
 func (b *BacklogYamlIoProvider) InsertFront(data model.ReadableTask, parentID *model.TaskID) (model.TaskID, error) {
@@ -354,6 +362,7 @@ func (b *BacklogYamlIoProvider) InsertFront(data model.ReadableTask, parentID *m
 
 	newTask := taskFromReadable(data)
 	t.Subtasks = append([]*model.Task{newTask}, t.Subtasks...)
+	b.dirty = true
 	return newTask.ID, nil
 }
 func (b *BacklogYamlIoProvider) InsertBack(data model.ReadableTask, parentID *model.TaskID) (model.TaskID, error) {
@@ -371,6 +380,7 @@ func (b *BacklogYamlIoProvider) InsertBack(data model.ReadableTask, parentID *mo
 
 	newTask := taskFromReadable(data)
 	t.Subtasks = append(t.Subtasks, newTask)
+	b.dirty = true
 	return newTask.ID, nil
 }
 
@@ -391,6 +401,7 @@ func (b *BacklogYamlIoProvider) Remove(id model.TaskID) (model.ReadableTask, pro
 	} else {
 		parent.Subtasks = slices.DeleteFunc(parent.Subtasks, func(t *model.Task) bool { return t.ID == id })
 	}
+	b.dirty = true
 
 	return task, ctx, nil
 }
@@ -426,7 +437,10 @@ func (b *BacklogYamlIoProvider) Update(id model.TaskID, data model.ReadableTask)
 		}
 		return nil
 	}
-	updateTaskFromReader(task, data)
+	if err := updateTaskFromReader(task, data); err != nil {
+		return err
+	}
+	b.dirty = true
 
 	return nil
 }
@@ -453,10 +467,14 @@ func (b *BacklogYamlIoProvider) Load() error {
 	if err := b.loadFromReaderUnsafe(backlogReader); err != nil {
 		return fmt.Errorf("Unable to load backlog from reader over '%s' (%w)", b.filePath, err)
 	}
+	b.dirty = false
 	return nil
 }
 
 func (b *BacklogYamlIoProvider) Save() error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
 	writer, err := os.OpenFile(b.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("unable to write open backlog file '%s' for writing (%w)", b.filePath, err)
@@ -483,6 +501,7 @@ func (b *BacklogYamlIoProvider) Save() error {
 		return fmt.Errorf("unable to write to backlog writer (%w)", err)
 	}
 
+	b.dirty = false
 	return nil
 }
 
@@ -533,4 +552,14 @@ func locateInTask(t *model.Task, id model.TaskID) (*model.Task, *model.Task, pro
 		}
 	}
 	return nil, nil, provider.TaskLocationContext{}, nil
+}
+
+func (b *BacklogYamlIoProvider) GetStorageLocationInfo() (string, error) {
+	return fmt.Sprintf("yaml-file:%s", b.filePath), nil
+}
+
+func (b *BacklogYamlIoProvider) FullyCommitted() (bool, error) {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+	return !b.dirty, nil
 }

@@ -16,6 +16,8 @@ func (c TaskLocationContext) GetParentIDOrNil() *model.TaskID {
 }
 
 type TaskProvider interface {
+	DataProviderInfo
+
 	WithRoots(f func(roots []model.ReadableTask)) error
 	WithTask(id model.TaskID, f func(t model.ReadableTask)) error
 	WithTasks(ids []model.TaskID, f func(ts []model.ReadableTask)) error
