@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"github.com/ja-he/dayplan/internal/model"
 )
 
@@ -25,7 +27,7 @@ type TimelinePanePositionInfo struct{}
 // ToolsPanePositionInfo conveys information on a position in a tools pane,
 // importantly the possible category displayed at that position.
 type ToolsPanePositionInfo struct {
-	Category *model.Category
+	Category *model.CategoryName
 }
 
 // TasksPanePositionInfo provides information on a position in a tasks pane.
@@ -38,5 +40,5 @@ type StatusPanePositionInfo struct{}
 type EventsPanePositionInfo struct {
 	Event        *model.Event
 	EventBoxPart EventBoxPart
-	Time         model.Timestamp
+	Time         time.Time
 }

@@ -114,7 +114,7 @@ func NewLogPane(
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
 				Visible: condition,
-				ID:      ui.GeneratePaneID(),
+				ID:      "log",
 			},
 			Renderer:   renderer,
 			Dims:       dimensions,

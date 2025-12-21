@@ -99,11 +99,11 @@ func (p *MaybePane) GetHelp() input.Help {
 }
 
 // Focusses iff condition.
-func (p *MaybePane) Focusses() ui.PaneID {
+func (p *MaybePane) Focusses() string {
 	if p.condition() {
 		return p.pane.Identify()
 	} else {
-		return ui.NonePaneID
+		return ""
 	}
 }
 
@@ -113,11 +113,19 @@ func (p *MaybePane) HasFocus() bool {
 }
 
 // Identify by ID, iff condtion.
-func (p *MaybePane) Identify() ui.PaneID {
+func (p *MaybePane) Identify() string {
 	if p.condition() {
 		return p.pane.Identify()
 	} else {
-		return ui.NonePaneID
+		return ""
+	}
+}
+
+func (p *MaybePane) GetChild(c string) ui.PaneQuerier {
+	if p.condition() {
+		return p.pane.GetChild(c)
+	} else {
+		return nil
 	}
 }
 

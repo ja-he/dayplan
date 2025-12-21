@@ -185,18 +185,33 @@ func (s *FallbackStyling) clone() *FallbackStyling {
 //   - '#ff0000'
 //   - '#fff'
 //   - '#BEEF42'
-func StyleFromHexPair(fg, bg string) *FallbackStyling {
-	return &FallbackStyling{
-		fg: colorfulColorFromHexString(fg),
-		bg: colorfulColorFromHexString(bg),
+func StyleFromHexPair(fg, bg string) (*FallbackStyling, error) {
+	fgc, errFG := ColorfulColorFromHexString(fg)
+	bgc, errBG := ColorfulColorFromHexString(bg)
+	if errFG != nil || errBG != nil {
+		return nil, fmt.Errorf("could not parse colors from hex strings: %w, %w", errFG, errBG)
 	}
+	return &FallbackStyling{
+		fg: fgc,
+		bg: bgc,
+	}, nil
 }
 
 // StyleFromHexSingle takes the given hex color as a background and returns a
 // style in which the foreground is inferred from the background (same hue and
 // saturation, different luminance).
-func StyleFromHexSingle(hexString string, darkBG bool) *FallbackStyling {
-	accentColor := colorfulColorFromHexString(hexString)
+func StyleFromHexSingle(hexString string, darkBG bool) (*FallbackStyling, error) {
+	accentColor, err := ColorfulColorFromHexString(hexString)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse color from hex string: %w", err)
+	}
+	return StyleFromColorSingle(accentColor, darkBG)
+}
+
+// StyleFromColorSingle takes the given color as a background and returns a
+// style in which the foreground is inferred from the background (same hue and
+// saturation, different luminance).
+func StyleFromColorSingle(accentColor colorful.Color, darkBG bool) (*FallbackStyling, error) {
 	var bg, fg colorful.Color
 	lum := getLuminance(accentColor)
 	if darkBG && lum <= 0.5 || !darkBG && lum > 0.5 {
@@ -209,7 +224,7 @@ func StyleFromHexSingle(hexString string, darkBG bool) *FallbackStyling {
 	return &FallbackStyling{
 		fg: fg,
 		bg: bg,
-	}
+	}, nil
 }
 
 // StyleFromColors constructs a style by the given colors.
@@ -222,12 +237,15 @@ func StyleFromColors(fg, bg colorful.Color) *FallbackStyling {
 
 // StyleFromConfig takes a styling as specified in a configuration file and
 // converts it to a usable DrawStyling.
-func StyleFromConfig(config config.Styling) DrawStyling {
-	styling := StyleFromHexPair(config.Fg, config.Bg)
+func StyleFromConfig(config config.Styling) (DrawStyling, error) {
+	styling, err := StyleFromHexPair(config.Fg, config.Bg)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse colors from hex strings: %w", err)
+	}
 	if config.Style != nil {
 		styling.bold = config.Style.Bold
 		styling.italic = config.Style.Italic
 		styling.underlined = config.Style.Underlined
 	}
-	return styling
+	return styling, nil
 }

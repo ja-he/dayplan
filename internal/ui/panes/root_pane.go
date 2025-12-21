@@ -1,7 +1,12 @@
 package panes
 
 import (
+	"path"
+	"strings"
 	"sync"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -11,7 +16,9 @@ import (
 // RootPane acts as the root UI pane, wrapping all subpanes, managing the
 // render cycle, invoking the subpanes' rendering, etc.
 type RootPane struct {
-	ID ui.PaneID
+	// TODO: why can root pane not inherit from base pane?
+
+	ID string
 
 	renderer       ui.RenderOrchestratorControl
 	cursorWrangler *ui.CursorWrangler
@@ -24,10 +31,10 @@ type RootPane struct {
 	weekViewMainPane  ui.Pane
 	monthViewMainPane ui.Pane
 
-	summary ui.Pane
-	log     ui.Pane
+	summaryPane ui.Pane
+	logPane     ui.Pane
 
-	help ui.Pane
+	helpPane ui.Pane
 
 	subpanesMtx sync.Mutex
 	subpanes    []ui.Pane
@@ -38,6 +45,8 @@ type RootPane struct {
 
 	preDrawStackMtx sync.Mutex
 	preDrawStack    []func()
+
+	log zerolog.Logger
 }
 
 // Dimensions gives the dimensions (x-axis offset, y-axis offset, width,
@@ -68,10 +77,10 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 	// append day, week, or month pane
 	active = append(active, p.focussedViewPane)
 
-	if p.summary.IsVisible() {
-		active = append(active, p.summary)
+	if p.summaryPane.IsVisible() {
+		active = append(active, p.summaryPane)
 	} else {
-		inactive = append(inactive, p.summary)
+		inactive = append(inactive, p.summaryPane)
 	}
 
 	for i := range p.subpanes {
@@ -82,17 +91,17 @@ func (p *RootPane) getCurrentlyActivePanesInOrder() (active []ui.Pane, inactive 
 		}
 	}
 
-	if p.log.IsVisible() {
-		active = append(active, p.log)
+	if p.logPane.IsVisible() {
+		active = append(active, p.logPane)
 	} else {
-		inactive = append(inactive, p.log)
+		inactive = append(inactive, p.logPane)
 	}
 
 	// TODO: help should probably be a subpane? for now, always on top.
-	if p.help.IsVisible() {
-		active = append(active, p.help)
+	if p.helpPane.IsVisible() {
+		active = append(active, p.helpPane)
 	} else {
-		inactive = append(inactive, p.help)
+		inactive = append(inactive, p.helpPane)
 	}
 
 	return active, inactive
@@ -118,7 +127,9 @@ func (p *RootPane) Draw() {
 	// FIXME: probably simplify this
 	active, _ := p.getCurrentlyActivePanesInOrder()
 	for _, pane := range active {
+		p.log.Trace().Msgf("drawing %s...", pane.Identify())
 		pane.Draw()
+		p.log.Trace().Msgf("drew %s.", pane.Identify())
 	}
 	// for _, pane := range _ {
 	// 	pane.Undraw()
@@ -224,22 +235,51 @@ func (p *RootPane) GetView() ui.ActiveView {
 	}
 }
 
-func (p *RootPane) Identify() ui.PaneID { return p.ID }
-func (p *RootPane) HasFocus() bool      { return true }
-func (p *RootPane) Focusses() ui.PaneID {
-	return p.focussedPane().Identify()
-}
+func (p *RootPane) Identify() string { return p.ID }
+func (p *RootPane) HasFocus() bool   { return true }
+func (p *RootPane) Focusses() string { return p.focussedPane().Identify() }
+
+// NOTE: these currently do not apply to root pane. perhaps a design oddity to be revisited..
 func (p *RootPane) FocusPrev() {}
 func (p *RootPane) FocusNext() {}
 
+func (p *RootPane) GetChild(pathToChild string) ui.PaneQuerier {
+	p.log.Debug().Msgf("asked for child '%s'", pathToChild)
+
+	if path.IsAbs(pathToChild) {
+		// When the path is absolute, as it is here, it starts with '/' therefore
+		// we know that SplitN(..., 2) will return 2 elements, the first being the
+		// empty string.
+		relativePath := strings.SplitN(pathToChild, "/", 2)[1]
+		return p.GetChild(relativePath)
+	}
+
+	p.subpanesMtx.Lock()
+	defer p.subpanesMtx.Unlock()
+
+	pathSplit := strings.SplitN(pathToChild, "/", 2)
+	activeChildren, inactiveChildren := p.getCurrentlyActivePanesInOrder()
+	for _, c := range append(activeChildren, inactiveChildren...) {
+		if c.Identify() == pathSplit[0] {
+			if len(pathSplit) > 1 {
+				p.log.Trace().Msgf("Deferring child request to '%s'", c.Identify())
+				return c.GetChild(pathSplit[1])
+			}
+			return c
+		}
+	}
+
+	return nil
+}
+
 func (p *RootPane) focussedPane() ui.Pane {
 	switch {
-	case p.help.IsVisible():
-		return p.help
-	case p.summary.IsVisible():
-		return p.summary
-	case p.log.IsVisible():
-		return p.log
+	case p.helpPane.IsVisible():
+		return p.helpPane
+	case p.summaryPane.IsVisible():
+		return p.summaryPane
+	case p.logPane.IsVisible():
+		return p.logPane
 	default:
 		for i := range p.subpanes {
 			if p.subpanes[i].IsVisible() {
@@ -317,35 +357,38 @@ func NewRootPane(
 	dayViewMainPane *Composite,
 	weekViewMainPane *Composite,
 	monthViewMainPane *Composite,
-	summary ui.Pane,
-	log ui.Pane,
-	help ui.Pane,
+	summaryPane ui.Pane,
+	logPane ui.Pane,
+	helpPane ui.Pane,
 	performanceMetricsOverlay ui.Pane,
 	inputProcessor input.ModalInputProcessor,
 	focussedPane ui.Pane,
 ) *RootPane {
 	rootPane := &RootPane{
-		ID:                        ui.GeneratePaneID(),
+		ID:                        "/",
 		renderer:                  renderer,
 		cursorWrangler:            cursorWrangler,
 		dimensions:                dimensions,
 		dayViewMainPane:           dayViewMainPane,
 		weekViewMainPane:          weekViewMainPane,
 		monthViewMainPane:         monthViewMainPane,
-		summary:                   summary,
-		log:                       log,
-		help:                      help,
+		summaryPane:               summaryPane,
+		logPane:                   logPane,
+		helpPane:                  helpPane,
 		performanceMetricsOverlay: performanceMetricsOverlay,
 		inputProcessor:            inputProcessor,
 		focussedViewPane:          focussedPane,
+		log:                       log.With().Str("component", "root-pane").Logger(),
 	}
+	defer rootPane.log.Trace().Msgf("created root pane with id '%s'", rootPane.Identify())
+
 	dayViewMainPane.SetParent(rootPane)
 	weekViewMainPane.SetParent(rootPane)
 	monthViewMainPane.SetParent(rootPane)
 
-	summary.SetParent(rootPane)
-	help.SetParent(rootPane)
-	log.SetParent(rootPane)
+	summaryPane.SetParent(rootPane)
+	helpPane.SetParent(rootPane)
+	logPane.SetParent(rootPane)
 
 	return rootPane
 }

@@ -45,9 +45,18 @@ type Pane interface {
 // access.
 type PaneQuerier interface {
 	HasFocus() bool
-	Focusses() PaneID
+	Focusses() string
 	IsVisible() bool
-	Identify() PaneID
+	Identify() string
+	GetChild(string) PaneQuerier
+}
+
+func PanesToPaneQueries(b []Pane) []PaneQuerier {
+	a := make([]PaneQuerier, len(b))
+	for i, v := range b {
+		a[i] = v
+	}
+	return a
 }
 
 // PaneType is the type of the bottommost meaningful UI pane.
@@ -125,21 +134,6 @@ const (
 	ViewMonth
 )
 
-// PaneID uniquely identifies a pane. No two panes must ever share a PaneID.
-type PaneID uint
-
-// NonePaneID represents "no pane" or "invalid pane". Panes guaranteed to be
-// assigned different IDs by GeneratePaneID.
-const NonePaneID PaneID = 0
-
-var id = NonePaneID
-
-// GeneratePaneID generates a new unique pane ID.
-var GeneratePaneID = func() PaneID {
-	id++
-	return id
-}
-
 // EventBoxPart describes the part of an event box (the visual representation
 // of an event in the user interface).
 // For example this could describe what part of an event the mouse is hovering
@@ -204,6 +198,11 @@ type ConstrainedRenderer interface {
 type RenderOrchestratorControl interface {
 	Clear()
 	Show()
+}
+
+type RendererWithOrchestratorControl interface {
+	ConstrainedRenderer
+	RenderOrchestratorControl
 }
 
 // MouseCursorPos represents the position of a mouse cursor on the UI's

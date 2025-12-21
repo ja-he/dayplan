@@ -2,12 +2,16 @@ package panes
 
 import (
 	"sort"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 	"github.com/ja-he/dayplan/internal/util"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 // SummaryPane shows a summary of the set of days it is provided.
@@ -17,9 +21,12 @@ type SummaryPane struct {
 	ui.LeafPane
 
 	titleString func() string
-	days        func() []*model.Day
+	summary     func() (map[model.CategoryName]time.Duration, error)
 
-	categories *styling.CategoryStyling
+	categories    provider.CategoryProvider
+	categoryStyle func(model.CategoryName) (styling.DrawStyling, error)
+
+	log zerolog.Logger
 }
 
 // EnsureHidden informs the pane that it is not being shown so that it can take
@@ -46,25 +53,30 @@ func (p *SummaryPane) Draw() {
 		p.Renderer.DrawBox(x, y, w, 1, p.Stylesheet.SummaryTitleBox)
 		p.Renderer.DrawText(x+(w/2-len(title)/2), y, len(title), 1, p.Stylesheet.SummaryTitleBox, title)
 
-		summary := make(map[model.Category]int)
-
-		days := p.days()
-		for i := range days {
-			if days[i] == nil {
-				return
-			}
-			tmpSummary := days[i].SumUpByCategory()
-			for k, v := range tmpSummary {
-				summary[k] += v
-			}
+		summary, err := p.summary()
+		if err != nil {
+			msg1 := "ERROR"
+			msg2 := "(see log)"
+			p.Renderer.DrawText(x+(w/2-len(msg1)/2), y+(h/2-1), len(msg1), 1,
+				p.Stylesheet.CategoryFallback.Bolded(),
+				msg1)
+			p.Renderer.DrawText(x+(w/2-len(msg2)/2), y+(h/2), len(msg2), 1,
+				p.Stylesheet.CategoryFallback.Italicized(),
+				msg2)
+			p.log.Error().Err(err).Msg("could not get summary")
+			return
 		}
-
-		maxDuration := 0
-		categories := make([]model.Category, len(summary))
+		maxDuration := time.Duration(0)
+		categories := make([]*model.Category, len(summary))
 		{ // get sorted keys to have deterministic order
 			i := 0
-			for category, duration := range summary {
-				categories[i] = category
+			for categoryName, duration := range summary {
+				c := p.categories.GetCategory(categoryName)
+				if c == nil {
+					p.log.Error().Str("category", string(categoryName)).Msg("nil category (but ok)")
+					return
+				}
+				categories[i] = c
 				if duration > maxDuration {
 					maxDuration = duration
 				}
@@ -74,18 +86,21 @@ func (p *SummaryPane) Draw() {
 		}
 		row := 2
 		for _, category := range categories {
-			duration := summary[category]
-			style, err := p.categories.GetStyle(category)
+			duration := summary[category.Name]
+
+			var err error
+			var categoryStyling styling.DrawStyling
+			categoryStyling, err = p.categoryStyle(category.Name)
 			if err != nil {
-				style = p.Stylesheet.CategoryFallback
+				p.log.Warn().Msgf("Failed to get style for cat '%s', using fallback.", category.Name)
+				categoryStyling = p.Stylesheet.CategoryFallback
 			}
-			categoryStyling := style
 			catLen := 20
 			durationLen := 20
 			barWidth := int(float64(duration) / float64(maxDuration) * float64(w-catLen-durationLen))
 			p.Renderer.DrawBox(x+catLen+durationLen, y+row, barWidth, 1, categoryStyling)
-			p.Renderer.DrawText(x, y+row, catLen, 1, p.Stylesheet.SummaryDefault, util.TruncateAt(category.Name, catLen))
-			p.Renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+util.DurationToString(duration)+")")
+			p.Renderer.DrawText(x, y+row, catLen, 1, p.Stylesheet.SummaryDefault, util.TruncateAt(string(category.Name), catLen))
+			p.Renderer.DrawText(x+catLen, y+row, durationLen, 1, categoryStyling, "("+duration.String()+")")
 			row++
 		}
 	}
@@ -103,14 +118,15 @@ func NewSummaryPane(
 	stylesheet styling.Stylesheet,
 	condition func() bool,
 	titleString func() string,
-	days func() []*model.Day,
-	categories *styling.CategoryStyling,
+	summary func() (map[model.CategoryName]time.Duration, error),
+	categories provider.CategoryProvider,
+	getCategoryStyle func(model.CategoryName) (styling.DrawStyling, error),
 	inputProcessor input.ModalInputProcessor,
 ) *SummaryPane {
 	return &SummaryPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID:             ui.GeneratePaneID(),
+				ID:             "summary",
 				InputProcessor: inputProcessor,
 				Visible:        condition,
 			},
@@ -118,8 +134,10 @@ func NewSummaryPane(
 			Dims:       dimensions,
 			Stylesheet: stylesheet,
 		},
-		titleString: titleString,
-		days:        days,
-		categories:  categories,
+		titleString:   titleString,
+		summary:       summary,
+		categories:    categories,
+		categoryStyle: getCategoryStyle,
+		log:           log.With().Str("component", "summary-pane").Logger(),
 	}
 }

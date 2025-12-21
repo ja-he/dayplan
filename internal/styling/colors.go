@@ -64,10 +64,10 @@ func getLuminance(color colorful.Color) float64 {
 	return l
 }
 
-func colorfulColorFromHexString(hex string) colorful.Color {
+func ColorfulColorFromHexString(hex string) (colorful.Color, error) {
 	color, err := colorful.Hex(hex)
 	if err != nil {
-		panic(fmt.Sprintf("unable to create colorful.Color from '%s' due to error: '%s'", hex, err.Error()))
+		return colorful.Color{}, fmt.Errorf("could not parse color from hex string: %w", err)
 	}
-	return color
+	return color, nil
 }

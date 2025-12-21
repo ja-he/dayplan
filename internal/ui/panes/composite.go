@@ -3,6 +3,10 @@ package panes
 import (
 	"fmt"
 	"math"
+	"runtime/debug"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/ui"
@@ -18,6 +22,8 @@ type Composite struct {
 	focussables []ui.Pane
 
 	FocussedPane ui.Pane
+
+	log zerolog.Logger
 }
 
 // Draw draws this pane by drawing all its subpanes.
@@ -98,6 +104,16 @@ func (p *Composite) FocusPrev() {
 }
 
 func (p *Composite) EnsureFocusIsOnVisible() {
+	if p == nil {
+		log.Error().Str("stacktrace", string(debug.Stack())).Msg("Nil composite pane called.")
+		return
+	}
+
+	if p.FocussedPane == nil {
+		p.log.Warn().Msgf("Focussed pane is nil.")
+		return
+	}
+
 	if !p.FocussedPane.IsVisible() {
 		for i := range p.focussables {
 			if p.focussables[i].IsVisible() {
@@ -135,7 +151,7 @@ func (p *Composite) HasFocus() bool {
 }
 
 // Focusses returns the ID of the pane focussed by this composite.
-func (p *Composite) Focusses() ui.PaneID { return p.FocussedPane.Identify() }
+func (p *Composite) Focusses() string { return p.FocussedPane.Identify() }
 
 // SetParent sets the parent of this composite pane.
 func (p *Composite) SetParent(parent ui.PaneQuerier) { p.Parent = parent }
@@ -179,15 +195,19 @@ func NewWrapperPane(
 	drawables []ui.Pane,
 	focussables []ui.Pane,
 	inputProcessor input.ModalInputProcessor,
+	id string,
 ) *Composite {
 	p := &Composite{
 		focussables: focussables,
 		drawables:   drawables,
 		BasePane: ui.BasePane{
 			InputProcessor: inputProcessor,
-			ID:             ui.GeneratePaneID(),
+			ID:             id,
+			Children:       ui.PanesToPaneQueries(drawables),
 		},
+		log: log.With().Str("component", fmt.Sprintf("wrapper-pane-%s", id)).Logger(),
 	}
+	defer p.log.Trace().Msgf("constructed new wrapper pane for %d drawables with id '%s'", len(p.drawables), p.Identify())
 	if len(p.focussables) > 0 {
 		p.FocussedPane = p.focussables[0]
 	}

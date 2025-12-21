@@ -101,7 +101,7 @@ func NewStringEditorPane(
 	return &StringEditorPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID:             ui.GeneratePaneID(),
+				ID:             e.GetID(),
 				InputProcessor: inputProcessor,
 				Visible:        visible,
 			},

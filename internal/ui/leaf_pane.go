@@ -32,8 +32,8 @@ func (p *LeafPane) HasFocus() bool {
 	return p.Parent != nil && p.Parent.HasFocus() && p.Parent.Focusses() == p.Identify()
 }
 
-// Focusses returns the "none pane", as a leaf does not focus another pane.
-func (p *LeafPane) Focusses() PaneID { return NonePaneID }
+// Focusses returns the empty string, an invalid identifier, as a leaf does not focus another pane.
+func (p *LeafPane) Focusses() string { return "" }
 
 // CapturesInput returns whether this processor "captures" input, i.E. whether
 // it ought to take priority in processing over other processors.

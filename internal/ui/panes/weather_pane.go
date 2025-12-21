@@ -15,8 +15,8 @@ import (
 type WeatherPane struct {
 	ui.LeafPane
 
-	weather     *weather.Handler
-	currentDate *model.Date
+	weatherData func() map[model.DateAndTime]weather.Weather
+	currentDate func() model.Date
 	viewParams  ui.TimespanViewParams
 }
 
@@ -33,6 +33,7 @@ func (p *WeatherPane) Draw() {
 
 	p.Renderer.DrawBox(x, y, w, h, p.Stylesheet.Normal)
 
+	weatherData := p.weatherData()
 	for timestamp := *model.NewTimestamp("00:00"); timestamp.Legal(); timestamp.Hour++ {
 		row := p.toY(timestamp)
 		if row >= y+h {
@@ -40,11 +41,11 @@ func (p *WeatherPane) Draw() {
 		}
 
 		index := model.DateAndTime{
-			Date:      *p.currentDate,
+			Date:      p.currentDate(),
 			Timestamp: timestamp,
 		}
 
-		weather, ok := p.weather.Data[index]
+		weather, ok := weatherData[index]
 		if ok {
 			weatherStyling := p.Stylesheet.WeatherNormal
 			switch {
@@ -80,21 +81,21 @@ func NewWeatherPane(
 	renderer ui.ConstrainedRenderer,
 	dimensions func() (x, y, w, h int),
 	stylesheet styling.Stylesheet,
-	currentDate *model.Date,
-	weather *weather.Handler,
+	getCurrentDateFn func() model.Date,
+	getWeatherDataFn func() map[model.DateAndTime]weather.Weather,
 	viewParams ui.TimespanViewParams,
 ) *WeatherPane {
 	return &WeatherPane{
 		LeafPane: ui.LeafPane{
 			BasePane: ui.BasePane{
-				ID: ui.GeneratePaneID(),
+				ID: "weather",
 			},
 			Renderer:   renderer,
 			Dims:       dimensions,
 			Stylesheet: stylesheet,
 		},
-		currentDate: currentDate,
-		weather:     weather,
+		currentDate: getCurrentDateFn,
+		weatherData: getWeatherDataFn,
 		viewParams:  viewParams,
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ja-he/dayplan/internal/config"
+	"github.com/rs/zerolog/log"
 )
 
 // Goal defines a time goal.
@@ -46,11 +47,11 @@ func NewRangedGoalFromConfig(cfg []config.RangedGoal) (*RangedGoal, error) {
 	result := RangedGoal{}
 
 	for i := range cfg {
-		start, err := FromString(cfg[i].Start)
+		start, err := DateFromString(cfg[i].Start)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing start date of range no. %d: %w", i, err)
 		}
-		end, err := FromString(cfg[i].End)
+		end, err := DateFromString(cfg[i].End)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing start date of range no. %d: %w", i, err)
 		}
@@ -169,14 +170,7 @@ func NewWorkweekGoalFromConfig(cfg config.WorkweekGoal) (*WorkweekGoal, error) {
 
 // GoalForRange is a helper to sum up the duration for the given range expected
 // by the given Goal.
-func GoalForRange(goal Goal, startDate, endDate Date) time.Duration {
-	sum := time.Duration(0)
-
-	currentDate := startDate
-	for currentDate != endDate.Next() {
-		sum += goal.Requires(currentDate)
-		currentDate = currentDate.Next()
-	}
-
-	return sum
+func GoalForRange(goal Goal, start, end time.Time) time.Duration {
+	log.Fatal().Msgf("TODO: GoalForRange not implemented")
+	return 0
 }

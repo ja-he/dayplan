@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/gdamore/tcell/v2"
+
 	"github.com/ja-he/dayplan/internal/styling"
 	"github.com/ja-he/dayplan/internal/ui"
 )
@@ -13,11 +14,16 @@ import (
 type ScreenHandler struct {
 	screen    tcell.Screen
 	needsSync bool
+
+	fallbackStyle tcell.Style
 }
 
 // NewTUIScreenHandler initializes and returns a TUIScreenHandler.
 func NewTUIScreenHandler() *ScreenHandler {
-	r := &ScreenHandler{}
+	s, _ := styling.StyleFromHexPair("#ff99ff", "#662266")
+	r := &ScreenHandler{
+		fallbackStyle: s.AsTcell(),
+	}
 	r.init()
 
 	return r
@@ -100,7 +106,12 @@ func (s *ScreenHandler) DrawText(x, y, w, h int, style styling.DrawStyling, text
 		return
 	}
 
-	tcellStyle := style.AsTcell()
+	tcellStyle := s.fallbackStyle
+	if style != nil {
+		tcellStyle = style.AsTcell()
+	} else {
+		// TODO: warn?
+	}
 
 	col := x
 	row := y
@@ -120,7 +131,13 @@ func (s *ScreenHandler) DrawText(x, y, w, h int, style styling.DrawStyling, text
 // DrawBox draws a box of the given dimensions in the given style's background
 // color. Note that this overwrites contents within the dimensions.
 func (s *ScreenHandler) DrawBox(x, y, w, h int, style styling.DrawStyling) {
-	tcellStyle := style.AsTcell()
+	tcellStyle := s.fallbackStyle
+	if style != nil {
+		tcellStyle = style.AsTcell()
+	} else {
+		// TODO: warn
+	}
+
 	for row := y; row < y+h; row++ {
 		for col := x; col < x+w; col++ {
 			s.screen.SetContent(col, row, ' ', nil, tcellStyle)

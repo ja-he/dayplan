@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/ja-he/dayplan/internal/model"
+	"github.com/rs/zerolog/log"
 )
 
 // OWMWeather represents the weather data from OpenWeatherMap.
@@ -83,18 +85,23 @@ func (h *Handler) Update() error {
 	}
 
 	h.mutex.Lock()
+	defer h.mutex.Unlock()
 	h.queryCount++
 	owmdata, err := getHourlyInfo(h.lat, h.lon, h.apiKey)
+	if err != nil {
+		return fmt.Errorf("Unable to get hourly info (%w)", err)
+	}
+	if owmdata == nil {
+		return fmt.Errorf("Got nil data from OWM.")
+	}
+	log.Debug().Interface("owmdata", owmdata).Msg("Got OWM data.")
 	newData := convertHourlyDataToTimestamped(&owmdata)
 	if h.Data == nil {
 		h.Data = newData
 	} else {
-		for timestamp, data := range newData {
-			h.Data[timestamp] = data
-		}
+		maps.Copy(h.Data, newData)
 	}
-	h.mutex.Unlock()
-	return err
+	return nil
 }
 
 func kelvinToCelsius(kelvin float64) (celsius float64) {
@@ -127,18 +134,25 @@ func getHourlyInfo(lat, lon, apiKey string) ([]OWMHourly, error) {
 
 	response, err := http.Get(call)
 	if err != nil {
-		return make([]OWMHourly, 0), err
+		return nil, fmt.Errorf("Unable to retrieve OWM data (%w)", err)
 	}
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return make([]OWMHourly, 0), err
+	body, bodyReadErr := io.ReadAll(response.Body)
+	if response.StatusCode != http.StatusOK {
+		var msg string
+		var bodyErrorMessageData map[string]any
+		if err := json.Unmarshal(body, &bodyErrorMessageData); err == nil {
+			msg, _ = bodyErrorMessageData["message"].(string)
+		}
+		return nil, fmt.Errorf("Did not receive an OK status code (got %s, body says '%s')", response.Status, msg)
+	}
+	if bodyReadErr != nil {
+		return nil, fmt.Errorf("Unable to read response body (%w)", bodyReadErr)
 	}
 
 	data := OWMFull{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return make([]OWMHourly, 0), err
+		return nil, fmt.Errorf("Unable to parse response body JSON data (%w)", err)
 	}
 
 	return data.Hourly, nil

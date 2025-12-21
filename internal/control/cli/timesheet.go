@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -11,9 +10,9 @@ import (
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
-	"github.com/ja-he/dayplan/internal/storage"
-	"github.com/ja-he/dayplan/internal/styling"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/util"
+	"github.com/rs/zerolog/log"
 )
 
 // TimesheetCommand is the command `timesheet`, which produces a timesheet for
@@ -65,7 +64,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	if err != nil {
 		panic(fmt.Sprintf("can't parse config data: '%s'", err))
 	}
-	styledCategories := styling.EmptyCategoryStyling()
+	categories := map[model.CategoryName]*model.Category{}
 	for _, category := range configData.Categories {
 		var goal model.Goal
 		var err error
@@ -80,37 +79,41 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		}
 
 		cat := model.Category{
-			Name:     category.Name,
+			Name:     model.CategoryName(category.Name),
 			Priority: category.Priority,
 			Goal:     goal,
 		}
-		style := styling.StyleFromHexSingle(category.Color, false)
-		styledCategories.Add(cat, style)
+		categories[cat.Name] = &cat
 	}
 
-	startDate, err := model.FromString(command.FromDay)
+	startDate, err := model.DateFromString(command.FromDay)
 	if err != nil {
-		log.Fatalf("from date '%s' invalid", command.FromDay)
+		log.Fatal().Msgf("from date '%s' invalid", command.FromDay)
 	}
 	currentDate := startDate
-	finalDate, err := model.FromString(command.TilDay)
+	finalDate, err := model.DateFromString(command.TilDay)
 	if err != nil {
-		log.Fatalf("til date '%s' invalid", command.TilDay)
+		log.Fatal().Msgf("til date '%s' invalid", command.TilDay)
 	}
 
 	type dateAndDay struct {
 		model.Date
-		model.Day
+		model.EventList
 	}
+
+	var dataProvider provider.EventProvider
+	log.Fatal().Msg("TODO: initialize data provider")
 
 	data := make([]dateAndDay, 0)
 	for currentDate != finalDate.Next() {
-		fh := storage.NewFileHandler(envData.BaseDirPath + "/days/" + currentDate.ToString())
-		categories := make([]model.Category, 0)
-		for _, cat := range styledCategories.GetAll() {
-			categories = append(categories, cat.Cat)
+		events, err := dataProvider.GetEventsCoveringTimerange(currentDate.ToGotime(), currentDate.ToGotime().Add(24*time.Hour))
+		if err != nil {
+			return fmt.Errorf("error while getting events for %s (%w)", currentDate.String(), err)
 		}
-		data = append(data, dateAndDay{currentDate, *fh.Read(categories)})
+		data = append(data, dateAndDay{
+			currentDate,
+			model.EventList{Events: events},
+		})
 
 		currentDate = currentDate.Next()
 	}
@@ -128,11 +131,11 @@ func (command *TimesheetCommand) Execute(args []string) error {
 			return fmt.Errorf("category exclude filter regex is invalid (%s)", err.Error())
 		}
 	}
-	matcher := func(catName string) bool {
-		if includeRegex != nil && !includeRegex.MatchString(catName) {
+	matcher := func(catName model.CategoryName) bool {
+		if includeRegex != nil && !includeRegex.MatchString(string(catName)) {
 			return false
 		}
-		if excludeRegex != nil && excludeRegex.MatchString(catName) {
+		if excludeRegex != nil && excludeRegex.MatchString(string(catName)) {
 			return false
 		}
 		return true
@@ -141,14 +144,30 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	func() {
 		fmt.Fprintln(os.Stderr, "PROSPECTIVE MATCHES:")
 		for _, cat := range configData.Categories {
-			if matcher(cat.Name) {
+			if matcher(model.CategoryName(cat.Name)) {
 				fmt.Fprintf(os.Stderr, "  '%s'\n", cat.Name)
 			}
 		}
 	}()
 
+	categoryPriority := map[model.CategoryName]int{}
+	for _, cat := range configData.Categories {
+		categoryPriority[model.CategoryName(cat.Name)] = cat.Priority
+	}
+
+	categoryPriorityProvider := func(catName model.CategoryName) int {
+		prio, ok := categoryPriority[catName]
+		if !ok {
+			return 0
+		}
+		return prio
+	}
+
 	for _, dataEntry := range data {
-		timesheetEntry := dataEntry.Day.GetTimesheetEntry(matcher)
+		timesheetEntry, err := dataEntry.EventList.GetTimesheetEntry(matcher, categoryPriorityProvider)
+		if err != nil {
+			return fmt.Errorf("error while getting timesheet entry: %s", err)
+		}
 
 		if !command.IncludeEmpty && timesheetEntry.IsEmpty() {
 			continue
@@ -187,7 +206,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 			strings.Join(
 				[]string{
 					maybeEnquote(dataEntry.Date.ToGotime().Format(command.DateFormat)),
-					asCSVString(timesheetEntry, maybeEnquote, stringifyTimestamp, stringifyDuration, command.FieldSeparator),
+					asCSVString(*timesheetEntry, maybeEnquote, stringifyTimestamp, stringifyDuration, command.FieldSeparator),
 				},
 				command.FieldSeparator,
 			),

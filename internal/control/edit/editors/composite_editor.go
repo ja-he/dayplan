@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/control/action"
@@ -28,6 +29,11 @@ type Composite struct {
 
 	id           EditorID
 	quitCallback func()
+
+	log zerolog.Logger
+
+	obj     any
+	onWrite func(any) error
 }
 
 func (e *Composite) getCurrentFieldIndex() int {
@@ -36,7 +42,7 @@ func (e *Composite) getCurrentFieldIndex() int {
 			return i
 		}
 	}
-	log.Warn().Msg("could not find a composite editor field index (will provide 0)")
+	e.log.Warn().Msg("could not find a composite editor field index (will provide 0)")
 	return 0
 }
 
@@ -46,7 +52,7 @@ func (e *Composite) SwitchToNextField() {
 	indexOfCurrent := e.getCurrentFieldIndex()
 	nextIndex := (indexOfCurrent + 1) % len(e.fieldOrder)
 	nextID := e.fieldOrder[nextIndex]
-	log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[prevID].GetID(), e.fields[nextID].GetID())
+	e.log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[prevID].GetID(), e.fields[nextID].GetID())
 	// TODO: should _somehow_ signal deactivate to active field (or perhaps not, not necessary in the current design imo)
 	e.activeFieldID = e.fieldOrder[nextIndex]
 }
@@ -59,7 +65,7 @@ func (e *Composite) SwitchToPrevField() {
 	prevID := e.activeFieldID
 	indexOfCurrent := e.getCurrentFieldIndex()
 	nextIndex := (indexOfCurrent - 1 + len(e.fieldOrder)) % len(e.fieldOrder)
-	log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[prevID].GetID(), e.fields[e.fieldOrder[nextIndex]].GetID())
+	e.log.Debug().Msgf("switching fields '%s' -> '%s'", e.fields[prevID].GetID(), e.fields[e.fieldOrder[nextIndex]].GetID())
 	e.activeFieldID = e.fieldOrder[nextIndex]
 }
 
@@ -67,13 +73,13 @@ func (e *Composite) SwitchToPrevField() {
 // such that input processing is deferred to the field.
 func (e *Composite) EnterField() {
 	if e.inField {
-		log.Warn().Msgf("composite editor was prompted to enter a field despite alred being in a field; likely logic error")
+		e.log.Warn().Msgf("composite editor was prompted to enter a field despite alred being in a field; likely logic error")
 	}
 	e.inField = true
 }
 
 // ConstructEditor constructs a new editor...
-func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor *Composite) (edit.Editor, error) {
+func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor *Composite, onWrite func(any) error) (edit.Editor, error) {
 	structPtr := reflect.ValueOf(obj)
 
 	if structPtr.Kind() != reflect.Ptr {
@@ -94,6 +100,9 @@ func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor 
 		fieldOrder:    nil,             // NOTE: this must be done in the following
 		id:            id,
 		parent:        parentEditor,
+		log:           log.With().Str("component", fmt.Sprintf("editor_%s", id)).Logger(),
+		obj:           obj,
+		onWrite:       onWrite,
 	}
 
 	// go through all tags
@@ -148,7 +157,7 @@ func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor 
 				case reflect.Struct:
 
 					if editspec.Ignore {
-						log.Debug().Msgf("ignoring struct '%s' tagged '%s' (ignore:%t)", field.Name, editspec.ID, editspec.Ignore)
+						constructedCompositeEditor.log.Debug().Msgf("ignoring struct '%s' tagged '%s' (ignore:%t)", field.Name, editspec.ID, editspec.Ignore)
 					} else {
 						// construct the sub-editor for the struct
 						f := structValue.Field(i)
@@ -158,19 +167,19 @@ func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor 
 						} else {
 							fAsPtr = f.Addr().Interface()
 						}
-						log.Debug().Msgf("constructing subeditor for field '%s' (tagged '%s') of type '%s'", field.Name, editspec.ID, field.Type.String())
-						sube, err := ConstructEditor(editspec.ID, fAsPtr, nil, constructedCompositeEditor)
+						constructedCompositeEditor.log.Debug().Msgf("constructing subeditor for field '%s' (tagged '%s') of type '%s'", field.Name, editspec.ID, field.Type.String())
+						sube, err := ConstructEditor(editspec.ID, fAsPtr, nil, constructedCompositeEditor, nil)
 						if err != nil {
 							return nil, fmt.Errorf("unable to construct subeditor for field '%s' (tagged '%s') of type '%s' (%s)", field.Name, editspec.ID, field.Type.String(), err.Error())
 						}
 						sube.AddQuitCallback(func() { constructedCompositeEditor.inField = false })
-						log.Debug().Msgf("successfully constructed subeditor for field '%s' (tagged '%s') of type '%s'", field.Name, editspec.ID, field.Type.String())
+						constructedCompositeEditor.log.Debug().Msgf("successfully constructed subeditor for field '%s' (tagged '%s') of type '%s'", field.Name, editspec.ID, field.Type.String())
 						constructedCompositeEditor.fields[editspec.ID] = sube
 					}
 
 				case reflect.Ptr:
 					// TODO
-					log.Warn().Msgf("ignoring PTR    '%s' tagged '%s' (ignore:%t) of type '%s'", field.Name, editspec.ID, editspec.Ignore, field.Type.String())
+					constructedCompositeEditor.log.Warn().Msgf("ignoring PTR    '%s' tagged '%s' (ignore:%t) of type '%s'", field.Name, editspec.ID, editspec.Ignore, field.Type.String())
 				default:
 					return nil, fmt.Errorf("unable to edit non-ignored field '%s' (tagged '%s') of type '%s'", field.Name, editspec.ID, field.Type.Kind())
 				}
@@ -186,7 +195,7 @@ func ConstructEditor(id string, obj any, extraSpec map[string]any, parentEditor 
 		return nil, fmt.Errorf("could not find a field to set as active")
 	}
 
-	log.Debug().Msgf("have (sub?)editor with %d fields", len(constructedCompositeEditor.fields))
+	constructedCompositeEditor.log.Debug().Msgf("have (sub?)editor with %d fields", len(constructedCompositeEditor.fields))
 
 	return constructedCompositeEditor, nil
 }
@@ -227,7 +236,7 @@ func (e *Composite) GetStatus() edit.EditorStatus {
 		}
 		return edit.EditorInactive
 	default:
-		log.Error().Msgf("invalid edit state found (%s) likely logic error", parentStatus)
+		e.log.Error().Msgf("invalid edit state found (%s) likely logic error", parentStatus)
 		return edit.EditorInactive
 	}
 }
@@ -247,8 +256,14 @@ func (e *Composite) GetFieldOrder() []EditorID { return e.fieldOrder }
 // Write writes the content of the editor back to the underlying data structure
 // by calling the write functions of all subeditors.
 func (e *Composite) Write() {
-	for _, subeditor := range e.fields {
+	// TODO: need to see if the model of recursive write makes sense in the API design!
+	e.log.Debug().Msg("Writing")
+	for i, subeditor := range e.fields {
+		e.log.Trace().Msgf("Writing subeditor %s", i)
 		subeditor.Write()
+	}
+	if e.onWrite != nil {
+		e.onWrite(e.obj)
 	}
 }
 
@@ -273,7 +288,7 @@ func (e *Composite) Quit() {
 	if e.quitCallback != nil {
 		e.quitCallback()
 	} else {
-		log.Warn().Msgf("have no quit callback for editor '%s'", e.GetID())
+		e.log.Warn().Msgf("have no quit callback for editor '%s'", e.GetID())
 	}
 }
 
@@ -290,7 +305,7 @@ func (e *Composite) CreateInputProcessor(cfg input.InputConfig) (input.ModalInpu
 
 	mappings := map[input.Keyspec]action.Action{}
 	for keyspec, actionspec := range cfg.Editor {
-		log.Debug().Msgf("adding mapping '%s' -> '%s'", keyspec, actionspec)
+		e.log.Debug().Msgf("adding mapping '%s' -> '%s'", keyspec, actionspec)
 		actionspecCopy := actionspec
 		mappings[keyspec] = action.NewSimple(func() string { return string(actionspecCopy) }, actionspecToFunc[actionspecCopy])
 	}

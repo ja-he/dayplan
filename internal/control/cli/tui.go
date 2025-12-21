@@ -14,6 +14,7 @@ import (
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
+	"github.com/ja-he/dayplan/internal/provider/backend"
 	"github.com/ja-he/dayplan/internal/styling"
 )
 
@@ -23,6 +24,7 @@ type TUICommand struct {
 	Theme         string `short:"t" long:"theme" choice:"light" choice:"dark" description:"Select a 'dark' or a 'light' default theme (note: only sets defaults, which are individually overridden by settings in config.yaml"`
 	LogOutputFile string `short:"l" long:"log-output-file" description:"specify a log output file (otherwise logs dropped)"`
 	LogPretty     bool   `short:"p" long:"log-pretty" description:"prettify logs to file"`
+	LogLevel      string `long:"log-level" description:"set log level to 'trace', 'debug', 'info', 'warn', 'error'"`
 }
 
 // Execute runs the TUI command.
@@ -44,7 +46,22 @@ func (command *TUICommand) Execute(_ []string) error {
 	} else {
 		logWriter = &potatolog.GlobalMemoryLogReaderWriter
 	}
-	tuiLogger := zerolog.New(logWriter).With().Timestamp().Caller().Logger()
+	logLevel := func() zerolog.Level {
+		switch command.LogLevel {
+		case "trace":
+			return zerolog.TraceLevel
+		case "debug":
+			return zerolog.DebugLevel
+		case "info":
+			return zerolog.InfoLevel
+		case "warn":
+			return zerolog.WarnLevel
+		case "error":
+			return zerolog.ErrorLevel
+		}
+		return zerolog.WarnLevel
+	}()
+	tuiLogger := zerolog.New(logWriter).Level(logLevel).With().Timestamp().Caller().Logger()
 
 	var theme config.ColorschemeType
 	switch command.Theme {
@@ -73,7 +90,7 @@ func (command *TUICommand) Execute(_ []string) error {
 	if command.Day == "" {
 		initialDay = model.Date{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	} else {
-		initialDay, err = model.FromString(command.Day)
+		initialDay, err = model.DateFromString(command.Day)
 		if err != nil {
 			return fmt.Errorf("could not parse given date (%w)", err)
 		}
@@ -96,32 +113,15 @@ func (command *TUICommand) Execute(_ []string) error {
 	}
 
 	// get categories from config
-	categoryStyling := *styling.EmptyCategoryStyling()
-	for _, category := range configData.Categories {
-
-		var goal model.Goal
-		var err error
-		switch {
-		case category.Goal.Ranged != nil:
-			goal, err = model.NewRangedGoalFromConfig(*category.Goal.Ranged)
-		case category.Goal.Workweek != nil:
-			goal, err = model.NewWorkweekGoalFromConfig(*category.Goal.Workweek)
-		}
-		if err != nil {
-			return err
-		}
-
-		cat := model.Category{
-			Name:       category.Name,
-			Priority:   category.Priority,
-			Goal:       goal,
-			Deprecated: category.Deprecated,
-		}
-		style := styling.StyleFromHexSingle(category.Color, theme == config.Dark)
-		categoryStyling.Add(cat, style)
+	categoriesByName, err := backend.GetCategoriesByNameFromConfig(configData)
+	if err != nil {
+		return fmt.Errorf("can't get categories from config (%w)", err)
 	}
 
-	stylesheet := styling.NewStylesheetFromConfig(configData.Stylesheet)
+	stylesheet, err := styling.NewStylesheetFromConfig(configData.Stylesheet, theme)
+	if err != nil {
+		return fmt.Errorf("could not create stylsheet from config: %w", err)
+	}
 
 	// now that the screen is initialized, we'll always want the TUI logger, so
 	// we're making it the global logger
@@ -129,7 +129,12 @@ func (command *TUICommand) Execute(_ []string) error {
 	log.Logger = tuiLogger
 	log.Debug().Msg("set up logging to only TUI")
 
-	controller, err := NewController(initialDay, envData, categoryStyling, *stylesheet)
+	weatherHandler, suntimesProvider, err := createWeatherAndSuntimes(envData)
+	if err != nil {
+		return fmt.Errorf("Unable to initialize weather or suntimes handling (%w)", err)
+	}
+
+	controller, err := NewController(initialDay, envData, categoriesByName, *stylesheet, weatherHandler, suntimesProvider)
 	if err != nil {
 		log.Logger = previouslySetLogger
 		log.Error().Err(err).Msgf("something went wrong setting up the TUI, will check unpublished logs and return error")
