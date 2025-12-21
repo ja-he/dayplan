@@ -119,7 +119,7 @@ func (c *Controller) insertTaskAfterCurrent() {
 			Name:     "", // user should be hinted to change this quite quickly, i.e. via immediate editor activation
 			Category: c.data.CurrentCategory,
 		}
-		newTaskID, err := c.backlogProvider.InsertAfter(newTask, *c.data.CurrentTask)
+		newTaskID, err := c.backlogProvider.InsertBack(newTask, nil)
 		if err != nil {
 			c.log.Error().Err(err).Msg("Unable to insert new event after current.")
 			return
