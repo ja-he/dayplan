@@ -72,7 +72,8 @@ func (p *Composite) GetPositionInfo(x, y int) ui.PositionInfo {
 		}
 	}
 
-	panic(fmt.Sprint("none of the current wrapper pane's subpanes contains pos", x, y))
+	p.log.Warn().Msgf("none of the current wrapper pane's subpanes contains pos (%v,%v)", x, y)
+	return nil
 }
 
 // FocusNext focusses the next focussable in the composite.

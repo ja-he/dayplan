@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"path"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -1381,6 +1382,7 @@ func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 
 	positionInfo := c.rootPane.GetPositionInfo(x, y)
 	if positionInfo == nil {
+		c.log.Warn().Msgf("Dropping mouse event due to nil position info.")
 		return
 	}
 
@@ -1635,6 +1637,16 @@ func (c *Controller) Run() {
 	// Run the event tracking loop, that waits for and processes events and pings
 	// for a redraw (or program exit) after each event.
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error().
+					Interface("panic", r).
+					Str("stacktrace", string(debug.Stack())).
+					Msg("Caught a panic in event tracking.")
+				c.controllerEvents <- controllerEventExit
+			}
+		}()
+
 		for {
 			ev := c.screenEvents.PollEvent()
 
