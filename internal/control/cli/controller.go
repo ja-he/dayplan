@@ -157,12 +157,7 @@ func NewController(
 		return nil, fmt.Errorf("Unable to create backlog provider for YAML file '%s' (%w)", backlogFilePath, err)
 	}
 	controller.log.Info().Str("file", backlogFilePath).Msg("successfully created backlog provider")
-	go func() {
-		err := controller.backlogProvider.Load()
-		if err != nil {
-			controller.log.Error().Err(err).Msgf("Unable to load backlog")
-		}
-	}()
+	go controller.tryLoadBacklog()
 
 	tasksWidth := 40
 	toolsWidth := func() int {

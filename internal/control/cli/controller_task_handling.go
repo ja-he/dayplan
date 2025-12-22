@@ -309,3 +309,13 @@ func (c *Controller) ensureBacklogTaskVisible(t *model.TaskID) {
 		c.data.BacklogViewParams.SetScrollOffset(c.data.BacklogViewParams.GetScrollOffset() - (viewportUB - taskUB))
 	}
 }
+
+func (c *Controller) tryLoadBacklog() {
+	err := c.backlogProvider.Load()
+	if err != nil {
+		c.log.Error().Err(err).Msgf("Unable to load backlog")
+		return
+	}
+	info, _ := c.backlogProvider.GetStorageLocationInfo()
+	c.log.Info().Msgf("Backlog loaded from %s.", info)
+}
