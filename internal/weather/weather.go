@@ -130,7 +130,7 @@ func convertHourlyDataToTimestamped(data *[]OWMHourly) map[model.DateAndTime]Wea
 
 func getHourlyInfo(lat, lon, apiKey string) ([]OWMHourly, error) {
 
-	call := fmt.Sprintf("https://api.openweathermap.org/data/2.5/onecall?lat=%s&lon=%s&exclude=daily,minutely,current,alerts&appid=%s", lat, lon, apiKey)
+	call := fmt.Sprintf("https://api.openweathermap.org/data/3.0/onecall?lat=%s&lon=%s&exclude=daily,minutely,current,alerts&appid=%s", lat, lon, apiKey)
 
 	response, err := http.Get(call)
 	if err != nil {
