@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"regexp"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/config"
@@ -41,10 +43,48 @@ type TimesheetCommand struct {
 	Enquote        bool   `long:"enquote" description:"add quotes around field values"`
 	FieldSeparator string `long:"field-separator" value-name:"<CSV separator (default ',')>" default:","`
 	DurationFormat string `long:"duration-format" option:"golang" option:"colon-delimited" default:"golang"`
+
+	LogOutputFile string `long:"log-output-file" description:"specify a log output file (by default they go to stdout)"`
+	LogPretty     bool   `long:"log-pretty" description:"prettify log messages"`
+	LogLevel      string `long:"log-level" description:"set log level to 'trace', 'debug', 'info', 'warn', 'error'"`
 }
 
 // Execute executes the timesheet command.
 func (command *TimesheetCommand) Execute(args []string) error {
+	{
+		var logFileWriter io.Writer
+		if command.LogOutputFile != "" {
+			file, err := os.OpenFile(command.LogOutputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return fmt.Errorf("could not open file '%s' for logging (%w)", command.LogOutputFile, err)
+			}
+			if command.LogPretty {
+				logFileWriter = zerolog.ConsoleWriter{Out: file}
+			} else {
+				logFileWriter = file
+			}
+		}
+		logLevel := func() zerolog.Level {
+			switch command.LogLevel {
+			case "trace":
+				return zerolog.TraceLevel
+			case "debug":
+				return zerolog.DebugLevel
+			case "info":
+				return zerolog.InfoLevel
+			case "warn":
+				return zerolog.WarnLevel
+			case "error":
+				return zerolog.ErrorLevel
+			}
+			return zerolog.WarnLevel
+		}()
+		if logFileWriter != nil {
+			log.Logger = zerolog.New(logFileWriter)
+		}
+		log.Logger = log.Logger.Level(logLevel).With().Logger()
+	}
+
 	if command.CategoryIncludeFilter == "" && command.CategoryExcludeFilter == "" {
 		return fmt.Errorf("at least one of '--category-include-filter'/'-i' and '--category-exclude-filter'/'-e' is required")
 	}
