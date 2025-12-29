@@ -93,7 +93,6 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	if err != nil {
 		log.Fatal().Msgf("from date '%s' invalid", command.FromDay)
 	}
-	currentDate := startDate
 	finalDate, err := model.DateFromString(command.TilDay)
 	if err != nil {
 		log.Fatal().Msgf("til date '%s' invalid", command.TilDay)
@@ -116,18 +115,25 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		categoryProvider,
 	)
 
-	data := make([]dateAndDay, 0)
-	for currentDate != finalDate.Next() {
-		events, err := eventsProvider.GetEventsCoveringTimerange(currentDate.ToGotime(), currentDate.ToGotime().Add(24*time.Hour))
-		if err != nil {
-			return fmt.Errorf("error while getting events for %s (%w)", currentDate.String(), err)
-		}
-		data = append(data, dateAndDay{
-			currentDate,
-			model.EventList{Events: events},
-		})
+	isMidnight := func(t time.Time) bool {
+		return t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0
+	}
 
-		currentDate = currentDate.Next()
+	data := make(map[model.Date][]*model.Event)
+
+	events, err := eventsProvider.GetEventsCoveringTimerange(startDate.ToGotime(), finalDate.ToGotime().Add(24*time.Hour))
+	if err != nil {
+		return fmt.Errorf("error while getting events for %s-%s (%w)", startDate.String(), finalDate.String(), err)
+	}
+	for _, event := range events {
+		if model.DateFromGotime(event.Start) != model.DateFromGotime(event.End) && isMidnight(event.End) {
+			log.Warn().Msgf("Event '%s' spans more than one day, current timesheet implementation does not consider such events (TODO).", event.ID)
+			continue
+		}
+
+		eventDate := model.DateFromGotime(event.Start)
+		prev, _ := data[eventDate]
+		data[eventDate] = append(prev, event) // OK to use prev here without checking the OK-value (_) since if it's nil append can deal with it.
 	}
 
 	var includeRegex, excludeRegex *regexp.Regexp
@@ -175,8 +181,9 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		return prio
 	}
 
-	for _, dataEntry := range data {
-		timesheetEntry, err := dataEntry.EventList.GetTimesheetEntry(matcher, categoryPriorityProvider)
+	for date, events := range data {
+		eventList := model.EventList{Events: events}
+		timesheetEntry, err := eventList.GetTimesheetEntry(matcher, categoryPriorityProvider)
 		if err != nil {
 			return fmt.Errorf("error while getting timesheet entry: %s", err)
 		}
@@ -217,7 +224,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		fmt.Println(
 			strings.Join(
 				[]string{
-					maybeEnquote(dataEntry.Date.ToGotime().Format(command.DateFormat)),
+					maybeEnquote(date.ToGotime().Format(command.DateFormat)),
 					asCSVString(*timesheetEntry, maybeEnquote, stringifyTimestamp, stringifyDuration, command.FieldSeparator),
 				},
 				command.FieldSeparator,
