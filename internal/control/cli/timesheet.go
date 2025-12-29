@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -67,26 +68,9 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	if err != nil {
 		panic(fmt.Sprintf("can't parse config data: '%s'", err))
 	}
-	categories := map[model.CategoryName]*model.Category{}
-	for _, category := range configData.Categories {
-		var goal model.Goal
-		var err error
-		switch {
-		case category.Goal.Ranged != nil:
-			goal, err = model.NewRangedGoalFromConfig(*category.Goal.Ranged)
-		case category.Goal.Workweek != nil:
-			goal, err = model.NewWorkweekGoalFromConfig(*category.Goal.Workweek)
-		}
-		if err != nil {
-			return err
-		}
-
-		cat := model.Category{
-			Name:     model.CategoryName(category.Name),
-			Priority: category.Priority,
-			Goal:     goal,
-		}
-		categories[cat.Name] = &cat
+	categoriesByName, err := backend.GetCategoriesByNameFromConfig(configData)
+	if err != nil {
+		return fmt.Errorf("can't get categories from config (%w)", err)
 	}
 
 	startDate, err := model.DateFromString(command.FromDay)
@@ -98,15 +82,6 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		log.Fatal().Msgf("til date '%s' invalid", command.TilDay)
 	}
 
-	type dateAndDay struct {
-		model.Date
-		model.EventList
-	}
-
-	categoriesByName, err := backend.GetCategoriesByNameFromConfig(configData)
-	if err != nil {
-		return fmt.Errorf("can't get categories from config (%w)", err)
-	}
 	categoryProvider := &backend.MemoryCategoryProvider{M: categoriesByName}
 
 	var eventsProvider provider.EventProvider
@@ -181,8 +156,14 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		return prio
 	}
 
-	for date, events := range data {
-		eventList := model.EventList{Events: events}
+	var dates []model.Date
+	for date, _ := range data {
+		dates = append(dates, date)
+	}
+	sort.Sort(model.DateSlice(dates))
+
+	for _, date := range dates {
+		eventList := model.EventList{Events: data[date]}
 		timesheetEntry, err := eventList.GetTimesheetEntry(matcher, categoryPriorityProvider)
 		if err != nil {
 			return fmt.Errorf("error while getting timesheet entry: %s", err)
