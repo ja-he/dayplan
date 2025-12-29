@@ -218,7 +218,7 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCatego
 				dateOfAllEvents = DateFromGotime(firstStart)
 				startFound = true
 			} else {
-				breakDurationCumulative += lastEnd.Sub(firstStart)
+				breakDurationCumulative += event.Start.Sub(lastEnd)
 			}
 
 			dateOfStart, dateOfend := DateFromGotime(event.Start), DateFromGotime(event.End)
