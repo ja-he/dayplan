@@ -3,16 +3,19 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/provider"
+	"github.com/ja-he/dayplan/internal/provider/backend"
 	"github.com/ja-he/dayplan/internal/util"
-	"github.com/rs/zerolog/log"
 )
 
 // TimesheetCommand is the command `timesheet`, which produces a timesheet for
@@ -101,12 +104,21 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		model.EventList
 	}
 
-	var dataProvider provider.EventProvider
-	log.Fatal().Msg("TODO: initialize data provider")
+	categoriesByName, err := backend.GetCategoriesByNameFromConfig(configData)
+	if err != nil {
+		return fmt.Errorf("can't get categories from config (%w)", err)
+	}
+	categoryProvider := &backend.MemoryCategoryProvider{M: categoriesByName}
+
+	var eventsProvider provider.EventProvider
+	eventsProvider, err = backend.NewFilesDataProvider(
+		path.Join(envData.BaseDirPath, "days"),
+		categoryProvider,
+	)
 
 	data := make([]dateAndDay, 0)
 	for currentDate != finalDate.Next() {
-		events, err := dataProvider.GetEventsCoveringTimerange(currentDate.ToGotime(), currentDate.ToGotime().Add(24*time.Hour))
+		events, err := eventsProvider.GetEventsCoveringTimerange(currentDate.ToGotime(), currentDate.ToGotime().Add(24*time.Hour))
 		if err != nil {
 			return fmt.Errorf("error while getting events for %s (%w)", currentDate.String(), err)
 		}
