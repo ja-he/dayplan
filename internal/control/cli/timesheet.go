@@ -197,7 +197,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 	}
 
 	var dates []model.Date
-	for date, _ := range data {
+	for date := range data {
 		dates = append(dates, date)
 	}
 	sort.Sort(model.DateSlice(dates))
