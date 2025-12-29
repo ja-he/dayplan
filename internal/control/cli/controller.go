@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"path"
 	"runtime/debug"
 	"sort"
@@ -595,13 +596,13 @@ func NewController(
 		}),
 		"M": action.NewSimple(func() string { return "start move pushing" }, func() { startMovePushing() }),
 	}
+
+	// Assemble the events pane input map from the base input map of the events
+	// view and the extension.
 	eventsPaneDayInputMap := make(map[input.Keyspec]action.Action)
-	for input, action := range eventsViewBaseInputMap {
-		eventsPaneDayInputMap[input] = action
-	}
-	for input, action := range eventsPaneDayInputExtension {
-		eventsPaneDayInputMap[input] = action
-	}
+	maps.Copy(eventsPaneDayInputMap, eventsViewBaseInputMap)
+	maps.Copy(eventsPaneDayInputMap, eventsPaneDayInputExtension)
+
 	dayViewEventsPaneInputTree, err := input.ConstructInputTree(eventsPaneDayInputMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct input tree for day view pane's events subpane (%w)", err)
