@@ -194,7 +194,7 @@ func NewController(
 				controller.data.MainTimelineViewParams.NRowsPerHour /= 2
 				controller.data.MainTimelineViewParams.ScrollOffset /= 2
 			} else {
-				log.Warn().Msg(fmt.Sprintf("can't decrease resolution below %d", controller.data.MainTimelineViewParams.NRowsPerHour))
+				controller.log.Warn().Msg(fmt.Sprintf("can't decrease resolution below %d", controller.data.MainTimelineViewParams.NRowsPerHour))
 			}
 		}),
 	}
@@ -211,7 +211,7 @@ func NewController(
 		"w": action.NewSimple(func() string { return "write all events data" }, func() {
 			err := controller.eventsProvider.CommitState()
 			if err != nil {
-				log.Error().Err(err).Msg("could not write / commit")
+				controller.log.Error().Err(err).Msg("could not write / commit")
 			}
 		}),
 		"h": action.NewSimple(func() string { return "go to previous day" }, controller.goToPreviousDay),
@@ -219,14 +219,20 @@ func NewController(
 		"0D": action.NewSimple(func() string { return "clear day's events" }, func() {
 			events, err := controller.getCurrentDayEvents()
 			if err != nil {
-				log.Error().Err(err).Msg("could not get events for current day")
+				controller.log.Error().Err(err).Msg("could not get events for current day")
 				return
 			}
 			eventIDs := make([]string, len(events))
 			for i, e := range events {
 				eventIDs[i] = e.ID
 			}
-			controller.removeEvents(eventIDs)
+			err = controller.eventsProvider.RemoveEvents(eventIDs)
+			if err != nil {
+				controller.log.Error().Err(err).Msg("could not remove events")
+				return
+			}
+			// we should have cleared the days events, no candidate should exist
+			controller.data.CurrentEventID = nil
 		}),
 	}
 	weekdayPaneInputTree, err := input.ConstructInputTree(eventsViewBaseInputMap)
@@ -355,25 +361,20 @@ func NewController(
 	eventsPaneDayInputExtension := map[input.Keyspec]action.Action{
 		"j": action.NewSimple(func() string { return "switch to next event" }, controller.switchToNextEventInDay),
 		"k": action.NewSimple(func() string { return "switch to previous event" }, controller.switchToPreviousEventInDay),
-		"d": action.NewSimple(func() string { return "delete selected event" }, func() {
-			event := controller.data.CurrentEventID
-			if event != nil {
-				controller.removeEvent(*event)
-			}
-		}),
+		"d": action.NewSimple(func() string { return "delete selected event" }, controller.RemoveCurrentEvent),
 		"<cr>": action.NewSimple(func() string { return "open the event editor" }, func() {
 			eventID := controller.data.CurrentEventID
 			if eventID == nil {
-				log.Warn().Msgf("ignoring event editing request since no current event selected")
+				controller.log.Warn().Msgf("ignoring event editing request since no current event selected")
 				return
 			}
 			event, err := controller.eventsProvider.GetEvent(*eventID)
 			if err != nil {
-				log.Error().Err(err).Msgf("unable to find event for stored ID of current %s", *eventID)
+				controller.log.Error().Err(err).Msgf("unable to find event for stored ID of current %s", *eventID)
 			}
 
 			if controller.data.EventEditor != nil {
-				log.Warn().Msgf("was about to construct new event editor but still have old one")
+				controller.log.Warn().Msgf("was about to construct new event editor but still have old one")
 				return
 			}
 			newEventEditor, err := editors.ConstructEditor("event", event, nil, nil, func(eventToBeWritten any) error {
@@ -391,20 +392,20 @@ func NewController(
 				return nil
 			})
 			if err != nil {
-				log.Warn().Err(err).Msgf("unable to construct event editor")
+				controller.log.Warn().Err(err).Msgf("unable to construct event editor")
 				return
 			}
 			var ok bool
 			controller.data.EventEditor, ok = newEventEditor.(*editors.Composite)
 			if !ok {
-				log.Error().Msgf("something went _really_ wrong and the editor constructed for the event is _not_ a composite editor but a %T", newEventEditor)
+				controller.log.Error().Msgf("something went _really_ wrong and the editor constructed for the event is _not_ a composite editor but a %T", newEventEditor)
 				controller.data.EventEditor = nil
 				return
 			}
 
 			eventEditorPane, err := controller.createEventEditorPane()
 			if err != nil {
-				log.Fatal().Err(err).Msg("could not construct event editor pane (this is likely a serious programming error / omission)")
+				controller.log.Fatal().Err(err).Msg("could not construct event editor pane (this is likely a serious programming error / omission)")
 			}
 
 			controller.rootPane.PushSubpane(eventEditorPane)
@@ -461,7 +462,7 @@ func NewController(
 			}
 			eventAfter, err := controller.eventsProvider.GetEventAfter(newEvent.Start)
 			if err != nil {
-				log.Warn().Err(err).Msg("could not get event after")
+				controller.log.Warn().Err(err).Msg("could not get event after")
 			}
 			if eventAfter == nil || eventAfter.Start.Sub(newEvent.Start) <= 0 || eventAfter.Start.Sub(newEvent.Start) > (60*time.Minute) {
 				if newEvent.Start.Add(60*time.Minute).YearDay() != newEvent.Start.YearDay() {
@@ -513,7 +514,7 @@ func NewController(
 			}
 			eventBefore, err := controller.eventsProvider.GetEventBefore(newEvent.End)
 			if err != nil {
-				log.Warn().Err(err).Msgf("could not get event before %s from data provider", newEvent.End.String())
+				controller.log.Warn().Err(err).Msgf("could not get event before %s from data provider", newEvent.End.String())
 				return
 			}
 			if eventBefore == nil || newEvent.End.Sub(eventBefore.End) <= 0 || newEvent.End.Sub(eventBefore.End) > (60*time.Minute) {
@@ -538,7 +539,7 @@ func NewController(
 			newEvent.Start = time.Now()
 			eventAfter, err := controller.eventsProvider.GetEventAfter(newEvent.Start)
 			if err != nil {
-				log.Warn().Err(err).Msgf("could not get event after %s", newEvent.Start.String())
+				controller.log.Warn().Err(err).Msgf("could not get event after %s", newEvent.Start.String())
 				return
 			}
 			if eventAfter != nil && eventAfter.Start.Sub(newEvent.Start).Minutes() < 60 {
@@ -567,7 +568,7 @@ func NewController(
 			}
 			now := time.Now()
 			if err := controller.eventsProvider.SplitEvent(current.ID, now); err != nil {
-				log.Warn().Err(err).Msgf("could not split event at %s", now.String())
+				controller.log.Warn().Err(err).Msgf("could not split event at %s", now.String())
 				return
 			}
 		}),
@@ -588,7 +589,7 @@ func NewController(
 			}
 			center := current.Start.Add(current.End.Sub(current.Start) / 2)
 			if err := controller.eventsProvider.SplitEvent(current.ID, center); err != nil {
-				log.Warn().Err(err).Msgf("could not split event at %s", center.String())
+				controller.log.Warn().Err(err).Msgf("could not split event at %s", center.String())
 				return
 			}
 		}),
@@ -616,12 +617,12 @@ func NewController(
 				"n": action.NewSimple(func() string { return "move to now" }, func() { panic("TODO") }),
 				"j": action.NewSimple(func() string { return "move down" }, func() {
 					if err := controller.moveEventsForwardPushing(); err != nil {
-						log.Error().Err(err).Msg("could not move events")
+						controller.log.Error().Err(err).Msg("could not move events")
 					}
 				}),
 				"k": action.NewSimple(func() string { return "move up" }, func() {
 					if err := controller.moveEventsBackwardPushing(); err != nil {
-						log.Error().Err(err).Msg("could not move events")
+						controller.log.Error().Err(err).Msg("could not move events")
 					}
 				}),
 				"M": action.NewSimple(func() string { return "exit move mode" }, func() {
@@ -802,7 +803,7 @@ func NewController(
 						controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
 					if err != nil {
-						log.Warn().Err(err).Msg("unable to resize")
+						controller.log.Warn().Err(err).Msg("unable to resize")
 						return
 					}
 					var newEventEnd time.Time
@@ -811,7 +812,7 @@ func NewController(
 						controller.data.MainTimelineViewParams.DurationOfHeight(1),
 					)
 					if err != nil {
-						log.Warn().Err(err).Msg("unable to snap")
+						controller.log.Warn().Err(err).Msg("unable to snap")
 						return
 					}
 					controller.ensureEventsPaneTimestampWithinVisibleScroll(newEventEnd)
@@ -847,7 +848,7 @@ func NewController(
 			},
 		)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to construct input tree for event pane's resize mode (this should really never happen)")
+			controller.log.Error().Err(err).Msg("failed to construct input tree for event pane's resize mode (this should really never happen)")
 			return
 		}
 		controller.dayViewEventsPane.ApplyModalOverlay(input.CapturingOverlayWrap(eventResizeOverlay))
@@ -972,7 +973,7 @@ func NewController(
 			endOfDay := startOfDay.Add(24 * time.Hour)
 			events, err := controller.eventsProvider.GetEventsCoveringTimerange(startOfDay, endOfDay)
 			if err != nil {
-				log.Warn().Err(err).Time("start-of-day", startOfDay).Time("end-of-day", endOfDay).Msg("could not get events for day")
+				controller.log.Warn().Err(err).Time("start-of-day", startOfDay).Time("end-of-day", endOfDay).Msg("could not get events for day")
 				return model.Date{}, nil, fmt.Errorf("could not get events for day %d of this week (%w)", dayIndex, err)
 			}
 			return model.DateFromGotime(startOfDay), &model.EventList{Events: events}, nil
@@ -984,7 +985,7 @@ func NewController(
 			endOfDay := startOfDay.Add(24 * time.Hour)
 			events, err := controller.eventsProvider.GetEventsCoveringTimerange(startOfDay, endOfDay)
 			if err != nil {
-				log.Warn().Err(err).Time("start-of-day", startOfDay).Time("end-of-day", endOfDay).Msg("could not get events for day")
+				controller.log.Warn().Err(err).Time("start-of-day", startOfDay).Time("end-of-day", endOfDay).Msg("could not get events for day")
 				return model.Date{}, nil, fmt.Errorf("could not get events for day %d of month (%w)", dayIndex, err)
 			}
 			return model.DateFromGotime(startOfDay), &model.EventList{Events: events}, nil
@@ -1217,20 +1218,20 @@ func (c *Controller) ScrollUp(by int) {
 
 func (c *Controller) createAndEnableTaskEditor(id model.TaskID) {
 	if c.data.TaskEditor != nil {
-		log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
+		c.log.Warn().Msg("apparently, task editor was still active when a new one was activated, unexpected / error")
 	}
 	var taskEditor edit.Editor
 	c.backlogProvider.WithTask(id, func(task model.ReadableTask) {
 		var err error
 		taskEditor, err = editors.ConstructEditor("root", task, nil, nil, nil /* TODO: pass write fn? */)
 		if err != nil {
-			log.Error().Err(err).Interface("task", task).Msg("was not able to construct editor for task")
+			c.log.Error().Err(err).Interface("task", task).Msg("was not able to construct editor for task")
 		}
 	})
 	var ok bool
 	c.data.TaskEditor, ok = taskEditor.(*editors.Composite)
 	if !ok {
-		log.Error().Msgf("somehow, the editor is not a task editor but '%t'; this should never happen", taskEditor)
+		c.log.Error().Msgf("somehow, the editor is not a task editor but '%t'; this should never happen", taskEditor)
 		c.data.TaskEditor = nil
 		return
 	}
@@ -1286,7 +1287,7 @@ func (c *Controller) endEdit() {
 
 func (c *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
 	if eventsInfo.Event == nil {
-		log.Warn().Msg("no event to move, will not start moving")
+		c.log.Warn().Msg("no event to move, will not start moving")
 		return
 	}
 	c.data.MouseEditState = edit.MouseEditStateMoving
@@ -1297,7 +1298,7 @@ func (c *Controller) startMouseMove(eventsInfo *ui.EventsPanePositionInfo) {
 
 func (c *Controller) startMouseResize(eventsInfo *ui.EventsPanePositionInfo) {
 	if eventsInfo.Event == nil {
-		log.Warn().Msg("no event to resize, will not start resizing")
+		c.log.Warn().Msg("no event to resize, will not start resizing")
 		return
 	}
 	c.data.MouseEditState = edit.MouseEditStateResizing
@@ -1316,7 +1317,7 @@ func (c *Controller) getDateAtCursor() model.Date {
 	case ui.ViewMonth:
 		dateAtCursor = c.data.CurrentDate.GetDayInMonth(0)
 	default:
-		log.Fatal().Int("view", int(av)).Msg("unknown view encountered")
+		c.log.Fatal().Int("view", int(av)).Msg("unknown view encountered")
 	}
 	return dateAtCursor
 }
@@ -1326,7 +1327,7 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 
 	eventStartTime := timeAtCursor
 
-	log.Debug().Str("position-time", info.Time.String()).Msg("creation called")
+	c.log.Debug().Str("position-time", info.Time.String()).Msg("creation called")
 
 	// create event at time with cat etc.
 	e := model.Event{}
@@ -1337,7 +1338,7 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 
 	newEventID, err := c.eventsProvider.AddEvent(e)
 	if err != nil {
-		log.Error().Err(err).Interface("event", e).Msg("error occurred adding event")
+		c.log.Error().Err(err).Interface("event", e).Msg("error occurred adding event")
 		return
 	}
 	c.data.MouseEditedEventID = new(model.EventID)
@@ -1346,7 +1347,7 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 }
 
 func (c *Controller) goToDay(newDate model.Date) {
-	log.Debug().Str("new-date", newDate.String()).Msg("going to new date")
+	c.log.Debug().Str("new-date", newDate.String()).Msg("going to new date")
 	if c.data.CurrentDate == newDate {
 		c.log.Debug().Msgf("Since current date (%s) is new date (%s) nothing to do switching dates.", c.data.CurrentDate, newDate)
 		return
@@ -1409,7 +1410,7 @@ func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 		// if button clicked, handle
 		switch buttons {
 		case tcell.Button3:
-			c.removeEvent(eventsInfo.Event.ID)
+			c.removeEvent(&eventsInfo.Event.ID)
 		case tcell.Button2:
 			event := eventsInfo.Event
 			if event != nil && eventsInfo.Time.After(event.Start) {
@@ -1428,7 +1429,7 @@ func (c *Controller) handleMouseNoneEditEvent(e *tcell.EventMouse) {
 			case ui.EventBoxInterior:
 				c.startMouseMove(eventsInfo)
 			case ui.EventBoxTopEdge:
-				log.Info().Msgf("would construct editor here, once the programmer has figured out how to do so correctly")
+				c.log.Info().Msgf("would construct editor here, once the programmer has figured out how to do so correctly")
 			}
 
 		case tcell.WheelUp:
@@ -1474,7 +1475,7 @@ func (c *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 			var err error
 			err = c.eventsProvider.SetEventEnd(*eventID, visualCursorTime)
 			if err != nil {
-				log.Warn().Err(err).Msgf("unable to resize event %s to end at %s", *eventID, visualCursorTime)
+				c.log.Warn().Err(err).Msgf("unable to resize event %s to end at %s", *eventID, visualCursorTime)
 			}
 
 		case tcell.ButtonNone:
@@ -1501,7 +1502,7 @@ func (c *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 			}
 			event, err := c.eventsProvider.GetEvent(*eventID)
 			if err != nil {
-				log.Error().Err(err).Msg("could not get event")
+				c.log.Error().Err(err).Msg("could not get event")
 				return
 			}
 
@@ -1564,7 +1565,7 @@ func emptyRenderEvents(c chan controllerEvent) bool {
 
 // Run ...
 func (c *Controller) Run() {
-	log.Info().Msg("dayplan TUI started")
+	c.log.Info().Msg("dayplan TUI started")
 
 	c.controllerEvents = make(chan controllerEvent, 32)
 	var wg sync.WaitGroup
@@ -1593,21 +1594,21 @@ func (c *Controller) Run() {
 
 			case controllerEventTaskEditorExit:
 				if c.data.TaskEditor == nil {
-					log.Warn().Msgf("got task editor exit event, but no task editor active; likely logic error")
+					c.log.Warn().Msgf("got task editor exit event, but no task editor active; likely logic error")
 				} else {
 					c.data.TaskEditor = nil
 					c.rootPane.PopSubpane()
-					log.Debug().Msgf("removed (presumed) task-editor subpane from root")
+					c.log.Debug().Msgf("removed (presumed) task-editor subpane from root")
 					go func() { c.controllerEvents <- controllerEventRender }()
 				}
 
 			case controllerEventEventEditorExit:
 				if c.data.EventEditor == nil {
-					log.Warn().Msgf("got event editor exit event, but no event editor active; likely logic error")
+					c.log.Warn().Msgf("got event editor exit event, but no event editor active; likely logic error")
 				} else {
 					c.data.EventEditor = nil
 					c.rootPane.PopSubpane()
-					log.Debug().Msgf("removed (presumed) event-editor subpane from root")
+					c.log.Debug().Msgf("removed (presumed) event-editor subpane from root")
 					go func() { c.controllerEvents <- controllerEventRender }()
 				}
 
@@ -1615,7 +1616,7 @@ func (c *Controller) Run() {
 				return
 
 			default:
-				log.Error().Interface("event", controllerEvent).Msgf("unhandled controller event")
+				c.log.Error().Interface("event", controllerEvent).Msgf("unhandled controller event")
 			}
 		}
 	}()
@@ -1635,7 +1636,7 @@ func (c *Controller) Run() {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Error().
+				c.log.Error().
 					Interface("panic", r).
 					Str("stacktrace", string(debug.Stack())).
 					Msg("Caught a panic in event tracking.")
@@ -1657,7 +1658,7 @@ func (c *Controller) Run() {
 					key := input.KeyFromTcellEvent(e)
 					inputApplied := c.rootPane.ProcessInput(key)
 					if !inputApplied {
-						log.Warn().Str("key", key.ToDebugString()).Msg("could not apply key input")
+						c.log.Warn().Str("key", key.ToDebugString()).Msg("could not apply key input")
 					}
 
 				case *tcell.EventMouse:
@@ -1690,244 +1691,4 @@ func (c *Controller) Run() {
 	}()
 
 	wg.Wait()
-}
-
-func (c *Controller) getCurrentViewEvents() ([]*model.Event, error) {
-	av := c.data.ActiveView()
-	switch av {
-	case ui.ViewDay:
-		return c.getCurrentDayEvents()
-	case ui.ViewWeek:
-		return c.getCurrentWeekEvents()
-	case ui.ViewMonth:
-		return c.getCurrentMonthEvents()
-	default:
-		return nil, fmt.Errorf("unknown view (%d) in summary data gathering", av)
-	}
-}
-
-func (c *Controller) getCurrentDayEvents() ([]*model.Event, error) {
-	startTime := c.data.CurrentDate.ToGotime()
-	endTime := startTime.Add(24 * time.Hour)
-	events, err := c.eventsProvider.GetEventsCoveringTimerange(startTime, endTime)
-	if err != nil {
-		return nil, fmt.Errorf("could not get events for current day (%w)", err)
-	}
-	return events, nil
-}
-
-func (c *Controller) getCurrentWeekEvents() ([]*model.Event, error) {
-	startTime := c.data.CurrentDate.ToGotime()
-	endTime := startTime.Add(7 * 24 * time.Hour)
-	events, err := c.eventsProvider.GetEventsCoveringTimerange(startTime, endTime)
-	if err != nil {
-		return nil, fmt.Errorf("could not get events for current week (%w)", err)
-	}
-	return events, nil
-}
-
-func (c *Controller) getCurrentMonthEvents() ([]*model.Event, error) {
-	startTime := c.data.CurrentDate.ToGotime()
-	endTime := startTime.AddDate(0, 1, 0)
-	events, err := c.eventsProvider.GetEventsCoveringTimerange(startTime, endTime)
-	if err != nil {
-		return nil, fmt.Errorf("could not get events for current month (%w)", err)
-	}
-	return events, nil
-}
-
-func (c *Controller) ensureCurrentEventVisible() {
-	id := c.data.CurrentEventID
-	if id == nil {
-		c.log.Info().Msg("no current event selected, so nothing to ensure visible")
-		return
-	}
-	e, err := c.eventsProvider.GetEvent(*id)
-	if err != nil {
-		c.log.Error().Err(err).Msg("could not get current event while ensuring visibility")
-		return
-	}
-	c.ensureEventsPaneTimestampWithinVisibleScroll(e.Start)
-	c.ensureEventsPaneTimestampWithinVisibleScroll(e.End)
-}
-
-func (c *Controller) switchToNextEventInDay() {
-	defer c.ensureCurrentEventVisible()
-
-	if c.data.CurrentEventID == nil {
-		candidate, err := c.eventsProvider.GetEventAfter(c.data.CurrentDate.ToGotime())
-		if err != nil {
-			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get next for current date")
-			return
-		}
-		if candidate == nil {
-			c.log.Warn().Msgf("No model after exists.")
-			return
-		}
-		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
-			c.data.CurrentEventID = new(model.EventID)
-			*c.data.CurrentEventID = candidate.ID
-			c.log.Debug().Stringer("event", candidate).Msg("switched to next event")
-			return
-		}
-		c.log.Debug().Msg("no event on current day")
-		return
-	}
-
-	currentEventID := *c.data.CurrentEventID
-	{
-		e, err := c.eventsProvider.GetEvent(currentEventID)
-		if err != nil {
-			c.log.Error().
-				Str("ID", currentEventID).
-				Msg("Could not find current event to check validity, will set to nil.")
-			c.data.CurrentEventID = nil
-			return
-		}
-		currentDate := c.data.CurrentDate
-		eStartDate := model.DateFromGotime(e.Start)
-		if currentDate != eStartDate {
-			c.log.Error().
-				Stringer("currentDate", currentDate).
-				Stringer("eStartDate", eStartDate).
-				Str("ID", currentEventID).
-				Msg("Current event is not on current date.")
-		}
-	}
-
-	next, err := c.eventsProvider.GetFollowingEvent(currentEventID)
-	if err != nil {
-		c.log.Error().Err(err).Str("id", string(currentEventID)).Msg("could not get following event of current event")
-		return
-	}
-	if next == nil {
-		c.log.Info().Msg("there is no next event")
-		return
-	}
-	if model.DateFromGotime(next.Start) != c.data.CurrentDate {
-		c.log.Info().Msg("next event is on a different day")
-		return
-	}
-
-	c.data.CurrentEventID = new(model.EventID)
-	*c.data.CurrentEventID = next.ID
-	c.log.Debug().Stringer("event", next).Msg("switched to next event")
-}
-
-func (c *Controller) switchToPreviousEventInDay() {
-	defer c.ensureCurrentEventVisible()
-
-	if c.data.CurrentEventID == nil {
-		candidate, err := c.eventsProvider.GetEventBefore(c.data.CurrentDate.ToGotime().Add(24 * time.Hour))
-		if err != nil {
-			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
-			return
-		}
-		if candidate == nil {
-			c.log.Warn().Msgf("No model before exists.")
-			return
-		}
-		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
-			c.data.CurrentEventID = new(model.EventID)
-			*c.data.CurrentEventID = candidate.ID
-			c.log.Debug().Stringer("event", candidate).Msg("switched to prev event")
-			return
-		}
-		c.log.Debug().Msg("no event on current day")
-		return
-	}
-
-	prev, err := c.eventsProvider.GetPrecedingEvent(*c.data.CurrentEventID)
-	if err != nil {
-		c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
-		return
-	}
-	if prev == nil {
-		c.log.Info().Msg("there is no prev event")
-		return
-	}
-	if model.DateFromGotime(prev.Start) != c.data.CurrentDate {
-		c.log.Info().Msg("prev event is on a different day")
-		return
-	}
-
-	// current event ID is not nil, so we can just set it to the previous event's
-	*c.data.CurrentEventID = prev.ID
-	c.log.Debug().Stringer("event", prev).Msg("switched to prev event")
-}
-
-func (c *Controller) moveEventsForwardPushing() error {
-	pushDuration := c.data.MainTimelineViewParams.DurationOfHeight(1)
-	pushResolution := c.data.MainTimelineViewParams.DurationOfHeight(1)
-	return c.moveEventsPushingBy(pushDuration, pushResolution)
-}
-
-func (c *Controller) moveEventsBackwardPushing() error {
-	pushDuration := -c.data.MainTimelineViewParams.DurationOfHeight(1)
-	pushResolution := c.data.MainTimelineViewParams.DurationOfHeight(1)
-	return c.moveEventsPushingBy(pushDuration, pushResolution)
-}
-
-// moves events pushing other events
-//
-// d this is how "far" everything gets pushed.
-//
-// m is basically the "modulus", i.e. if something needs to get snapped to the
-// grid of visible resolution, this is that, not sure yet if needed really.
-func (c *Controller) moveEventsPushingBy(d, m time.Duration) error {
-	return fmt.Errorf("unimplemented (this should push for %s (with res %s))", d, m)
-}
-
-func (c *Controller) removeEvent(id model.EventID) {
-	isCurrentEvent := c.data.CurrentEventID != nil && *c.data.CurrentEventID == id
-	var newCurrentEventID *model.EventID
-	if isCurrentEvent {
-		nextEvent, err := c.eventsProvider.GetFollowingEvent(id)
-		if err != nil {
-			c.log.Error().Err(err).Msg("could not get following event")
-		} else if nextEvent == nil || !c.data.CurrentDate.Is(nextEvent.Start) {
-			prevEvent, err := c.eventsProvider.GetPrecedingEvent(id)
-			if err != nil {
-				c.log.Error().Err(err).Msg("could not get preceding event")
-			} else if nextEvent != nil && c.data.CurrentDate.Is(prevEvent.End) {
-				newCurrentEventID = new(model.EventID)
-				*newCurrentEventID = prevEvent.ID
-				log.Debug().Msgf("will switch to previous event: %s", *newCurrentEventID)
-			}
-		} else {
-			newCurrentEventID = new(model.EventID)
-			*newCurrentEventID = nextEvent.ID
-			log.Debug().Msgf("will switch to next event: %s", *newCurrentEventID)
-		}
-		if newCurrentEventID == nil {
-			c.log.Debug().Msg("no next/prev event to switch to")
-		}
-	}
-	err := c.eventsProvider.RemoveEvent(id)
-	if err != nil {
-		c.log.Error().Err(err).Msg("could not remove event")
-		return
-	}
-	if isCurrentEvent {
-		if newCurrentEventID != nil {
-			c.log.Debug().Msgf("updating current event to %s", *newCurrentEventID)
-			c.data.CurrentEventID = new(model.EventID)
-			*c.data.CurrentEventID = *newCurrentEventID
-			c.ensureCurrentEventVisible()
-		} else {
-			c.log.Debug().Msg("nilling current event")
-			c.data.CurrentEventID = nil
-		}
-	}
-}
-
-func (c *Controller) removeEvents(ids []model.EventID) {
-	err := c.eventsProvider.RemoveEvents(ids)
-	if err != nil {
-		c.log.Error().Err(err).Msg("could not remove events")
-		return
-	}
-
-	c.log.Warn().Msgf("missing implementation of current-event updating after removing multiple events (just nilling)")
-	c.data.CurrentEventID = nil
 }
