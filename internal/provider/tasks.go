@@ -29,6 +29,7 @@ type TaskProvider interface {
 
 	GetLocationContext(id model.TaskID) (TaskLocationContext, error)
 	GetCategory(id model.TaskID) (model.CategoryName, error)
+	Exists(id model.TaskID) (bool, error)
 
 	InsertFront(data model.ReadableTask, parentID *model.TaskID) (model.TaskID, error)
 	InsertBack(data model.ReadableTask, parentID *model.TaskID) (model.TaskID, error)

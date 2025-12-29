@@ -300,6 +300,7 @@ func NewController(
 				}
 			}),
 			"w": action.NewSimple(func() string { return "store backlog to file" }, controller.writeBacklog),
+			"L": action.NewSimple(func() string { return "load backlog" }, controller.tryLoadBacklog),
 		},
 	)
 	if err != nil {

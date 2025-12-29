@@ -318,4 +318,10 @@ func (c *Controller) tryLoadBacklog() {
 	}
 	info, _ := c.backlogProvider.GetStorageLocationInfo()
 	c.log.Info().Msgf("Backlog loaded from %s.", info)
+	if c.data.CurrentTask != nil {
+		exists, err := c.backlogProvider.Exists(*c.data.CurrentTask)
+		if err != nil || !exists {
+			c.data.CurrentTask = nil
+		}
+	}
 }

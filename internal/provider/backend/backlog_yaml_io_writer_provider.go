@@ -52,34 +52,74 @@ func (b *BacklogYamlIoProvider) loadFromReaderUnsafe(r io.Reader) error {
 	}
 	log.Debug().Int("N-Cats", len(stored.TasksByCategory)).Msg("read storeds")
 
-	var mapSubtasks func(cat model.CategoryName, tasks []BaseTask) []*model.Task
-	toTask := func(cat model.CategoryName, b BaseTask) *model.Task {
+	referencedTasks := make(map[model.TaskID]struct{})
+	alreadyFound := func(id model.TaskID) bool {
+		_, ok := referencedTasks[id]
+		return ok
+	}
+	markFound := func(id model.TaskID) {
+		referencedTasks[id] = struct{}{}
+	}
+	var findTaskByCatAndName func(s []*model.Task, cat model.CategoryName, name string, parentsOfTask []string, currentQueryPathParents []string) *model.TaskID
+	findTaskByCatAndName = func(s []*model.Task, cat model.CategoryName, name string, parentsOfTask []string, currentQueryPathParents []string) *model.TaskID {
+		b.log.Trace().Msgf("Will try to find task '%s':'%s' in %v", cat, name, s)
+		if len(parentsOfTask) == len(currentQueryPathParents) {
+			log.Debug().Msgf("Considering comps in %v.", s)
+			index := slices.IndexFunc(s, func(e *model.Task) bool { return e.Category == cat && e.Name == name })
+			if index != -1 && !alreadyFound(s[index].ID) {
+				markFound(s[index].ID)
+				return &s[index].ID
+			}
+		} else {
+			log.Debug().Msgf("Not considering comp in %v due to len diff %d != %d.", s, len(parentsOfTask), len(currentQueryPathParents))
+		}
+		for _, t := range s {
+			foundID := findTaskByCatAndName(t.Subtasks, cat, name, parentsOfTask, append(currentQueryPathParents, t.Name))
+			if foundID != nil {
+				return foundID
+			}
+		}
+		return nil
+	}
+	var mapSubtasks func(cat model.CategoryName, tasks []BaseTask, parentsOfTaskNames []string) []*model.Task
+	toTask := func(cat model.CategoryName, bt BaseTask, parentsOfTaskNames []string) *model.Task {
+		foundTaskID := findTaskByCatAndName(b.tasks, cat, bt.Name, parentsOfTaskNames, nil)
+		var id model.TaskID
+		if foundTaskID != nil {
+			id = *foundTaskID
+		} else {
+			log.Debug().Msgf("Could not relate task '%s':'%s' to existing.", cat, bt.Name)
+			id = model.TaskID(uuid.NewString())
+		}
+
 		return &model.Task{
-			ID:       model.TaskID(uuid.NewString()),
-			Name:     b.Name,
+			ID:       id,
+			Name:     bt.Name,
 			Category: cat,
-			Duration: b.Duration,
-			Deadline: b.Deadline,
-			Subtasks: mapSubtasks(cat, b.Subtasks),
+			Duration: bt.Duration,
+			Deadline: bt.Deadline,
+			Subtasks: mapSubtasks(cat, bt.Subtasks, append(parentsOfTaskNames, bt.Name)),
 		}
 	}
-	mapSubtasks = func(cat model.CategoryName, tasks []BaseTask) []*model.Task {
+	mapSubtasks = func(cat model.CategoryName, tasks []BaseTask, parentsOfTaskNames []string) []*model.Task {
 		result := []*model.Task{}
 		for _, t := range tasks {
-			result = append(result, toTask(cat, t))
+			result = append(result, toTask(cat, t, parentsOfTaskNames))
 		}
 		return result
 	}
 
-	b.tasks = nil
+	var newTasks []*model.Task
 	for cat, tasks := range stored.TasksByCategory {
+		catName := model.CategoryName(cat)
 		for _, task := range tasks {
-			b.tasks = append(b.tasks, toTask(model.CategoryName(cat), task))
+			newTasks = append(newTasks, toTask(catName, task, nil))
 		}
 	}
-
 	// sort to ensure more consistent ordering
-	sort.Sort(model.TasksByDeadline(b.tasks))
+	sort.Sort(model.TasksByDeadline(newTasks))
+
+	b.tasks = newTasks
 
 	return nil
 }
@@ -562,4 +602,15 @@ func (b *BacklogYamlIoProvider) FullyCommitted() (bool, error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 	return !b.dirty, nil
+}
+
+func (b *BacklogYamlIoProvider) Exists(id model.TaskID) (bool, error) {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	t, _, _, err := b.locateUnsafe(id)
+	if err != nil {
+		return false, fmt.Errorf("Error finding task (%w)", err)
+	}
+	return t != nil, nil
 }
