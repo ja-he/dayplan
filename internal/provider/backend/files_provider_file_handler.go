@@ -197,7 +197,7 @@ func (h *fileHandler) readFromDisk() error {
 		}
 		if e.ID == "" {
 			newID := filesProviderIDGenerator()
-			log.Warn().
+			log.Debug().
 				Str("e.Name", e.Name).
 				Stringer("e.Start", e.Start).
 				Stringer("e.End", e.End).
