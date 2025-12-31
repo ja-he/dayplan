@@ -15,9 +15,9 @@ import (
 	"github.com/ja-he/dayplan/internal/provider/backend"
 )
 
-// AddCommand contains flags for the `summarize` command line command, for
+// DayplanAddCommand contains flags for the `summarize` command line command, for
 // `go-flags` to parse command line args into.
-type AddCommand struct {
+type DayplanAddCommand struct {
 	Category string `short:"c" long:"category" description:"the category of the added event(s)" value-name:"<category>" required:"true"`
 	Name     string `short:"n" long:"name" description:"the name of the added event(s)" value-name:"<name>" required:"true"`
 
@@ -30,7 +30,7 @@ type AddCommand struct {
 
 // Execute executes the add command.
 // (This gets called by `go-flags` when `add` is provided on the command line)
-func (command *AddCommand) Execute(args []string) error {
+func (command *DayplanAddCommand) Execute(args []string) error {
 	var envData control.EnvData
 
 	// set up dir per option

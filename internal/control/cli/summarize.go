@@ -16,7 +16,7 @@ import (
 
 // Flags for the `summarize` command line command, for `go-flags` to parse
 // command line args into.
-type SummarizeCommand struct {
+type DayplanSummarizeCommand struct {
 	From time.Time `short:"f" long:"from" description:"the timestamp from which to start summarizing" value-name:"<TIME>" required:"true"`
 	Til  time.Time `short:"t" long:"til" description:"the timestamp until which to summarize" value-name:"<TIME>" required:"true"`
 
@@ -29,7 +29,7 @@ type SummarizeCommand struct {
 // Executes the summarize command.
 // (This gets called by `go-flags` when `summarize` is provided on the command
 // line)
-func (command *SummarizeCommand) Execute(args []string) error {
+func (command *DayplanSummarizeCommand) Execute(args []string) error {
 	var envData control.EnvData
 
 	// set up dir per option
@@ -75,10 +75,10 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		return fmt.Errorf("from-time must be before til-time")
 	}
 
-	filterCategories := len(Opts.SummarizeCommand.CategoryFilterString) > 0
+	filterCategories := len(DayplanOpts.SummarizeCommand.CategoryFilterString) > 0
 	includeCategoriesByName := make(map[model.CategoryName]struct{})
 	if filterCategories {
-		for _, name := range strings.Split(Opts.SummarizeCommand.CategoryFilterString, ",") {
+		for _, name := range strings.Split(DayplanOpts.SummarizeCommand.CategoryFilterString, ",") {
 			includeCategoriesByName[model.CategoryName(name)] = struct{}{}
 		}
 	}
@@ -103,7 +103,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		return fmt.Errorf("can't summarize timespan by category (%w)", err)
 	}
 
-	if Opts.SummarizeCommand.Verbose {
+	if DayplanOpts.SummarizeCommand.Verbose {
 		fmt.Println("dayplan time summary:")
 
 		fmt.Println("from:            ", command.From)
@@ -130,7 +130,7 @@ func (command *SummarizeCommand) Execute(args []string) error {
 		}
 
 		var durationStr string
-		if Opts.SummarizeCommand.HumanReadable {
+		if DayplanOpts.SummarizeCommand.HumanReadable {
 			durationStr = fmt.Sprint(duration.String())
 		} else {
 			durationStr = fmt.Sprint(duration, " min")
