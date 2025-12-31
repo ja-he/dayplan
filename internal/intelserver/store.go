@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ja-he/dayplan/internal/model"
 	_ "modernc.org/sqlite"
+
+	"github.com/ja-he/dayplan/internal/model"
 )
 
 // Store handles persistence of events.
@@ -49,19 +50,21 @@ func (s *Store) migrate() error {
 }
 
 // BeginEvent creates a new incomplete event with the given ID and name, starting now.
-func (s *Store) BeginEvent(id, name string) error {
+func (s *Store) BeginEvent(id string, name string, startTime time.Time) error {
 	_, err := s.db.Exec(
 		`INSERT INTO events (id, name, start_time) VALUES (?, ?, ?)`,
-		id, name, time.Now().UTC().Format(time.RFC3339Nano),
+		id, name, startTime.UTC().Format(time.RFC3339Nano),
 	)
 	return err
 }
 
 // EndEvent sets the end time for an event.
-func (s *Store) EndEvent(id string) error {
+func (s *Store) EndEvent(id string, endTime time.Time) error {
+	// TODO: check that end time after start time
+
 	result, err := s.db.Exec(
 		`UPDATE events SET end_time = ? WHERE id = ? AND end_time IS NULL`,
-		time.Now().UTC().Format(time.RFC3339Nano), id,
+		endTime.UTC().Format(time.RFC3339Nano), id,
 	)
 	if err != nil {
 		return err

@@ -3,6 +3,7 @@ package intelserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,7 +23,7 @@ type Server struct {
 func NewServer(listenAddr string) (*Server, error) {
 	store, err := NewStore(":memory:")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Unable to create data store (%w)", err)
 	}
 	return &Server{
 		listenAddr: listenAddr,
@@ -65,7 +66,8 @@ func (s *Server) Run() error {
 }
 
 type beginningRequest struct {
-	Name string `json:"name"`
+	Name      string     `json:"name"`
+	StartTime *time.Time `json:"start-time,omitempty"`
 }
 
 type beginningResponse struct {
@@ -75,6 +77,7 @@ type beginningResponse struct {
 func (s *Server) handleBeginning(w http.ResponseWriter, r *http.Request) {
 	var req beginningRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Warn().Err(err).Msg("Unable to serve beginning request due to malformed body.")
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
@@ -85,7 +88,13 @@ func (s *Server) handleBeginning(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := uuid.New().String()
-	if err := s.store.BeginEvent(id, req.Name); err != nil {
+	var startTime time.Time
+	if req.StartTime != nil {
+		startTime = *req.StartTime
+	} else {
+		startTime = time.Now()
+	}
+	if err := s.store.BeginEvent(id, req.Name, startTime); err != nil {
 		log.Error().Err(err).Msg("failed to create event")
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create event"})
 		return
@@ -96,12 +105,14 @@ func (s *Server) handleBeginning(w http.ResponseWriter, r *http.Request) {
 }
 
 type endRequest struct {
-	ID string `json:"id"`
+	ID      string     `json:"id"`
+	EndTime *time.Time `json:"end-time,omitempty"`
 }
 
 func (s *Server) handleEnd(w http.ResponseWriter, r *http.Request) {
 	var req endRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Warn().Err(err).Msg("Unable to serve end request due to malformed body.")
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
@@ -111,7 +122,13 @@ func (s *Server) handleEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.store.EndEvent(req.ID); err != nil {
+	var endTime time.Time
+	if req.EndTime != nil {
+		endTime = *req.EndTime
+	} else {
+		endTime = time.Now()
+	}
+	if err := s.store.EndEvent(req.ID, endTime); err != nil {
 		log.Error().Err(err).Str("id", req.ID).Msg("failed to end event")
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
 		return
