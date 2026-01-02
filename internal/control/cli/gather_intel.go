@@ -111,32 +111,23 @@ func (command *DayplanGatherIntelCommand) Execute(args []string) error {
 		}
 	}
 
-	if combinedErr := errors.Join(errs...); combinedErr != nil {
-		return fmt.Errorf("Some errors occurred on gathering intel (%w)", combinedErr)
-	}
-
-	errs = nil
 	for i := range events {
 		id, err := dataProvider.AddEvent(events[i])
 		if err != nil {
-			errs = append(errs, fmt.Errorf("Unable to add event %d.", i))
+			errs = append(errs, fmt.Errorf("Unable to add event %d (%w).", i, err))
 			continue
 		}
 		log.Debug().Msgf("Added even %d as %v.", i, id)
 	}
 
-	if combinedErr := errors.Join(errs...); combinedErr != nil {
-		return fmt.Errorf("Some errors occurred when adding events to provider (%w)", combinedErr)
-	}
-
 	if len(events) > 0 {
 		log.Debug().Msgf("Committing data provider state.")
 		if err := dataProvider.CommitState(); err != nil {
-			return fmt.Errorf("Unable to commit data provider state (%w)", err)
+			errs = append(errs, fmt.Errorf("Unable to commit data provider state (%w)", err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 func gatherHTTPIntel(name string, details config.HTTPIntelSourceTypeDetails) ([]model.Event, error) {
