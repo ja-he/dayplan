@@ -225,7 +225,7 @@ func (p *EventsPane) computeRects(date model.Date, l *model.EventList, offsetX, 
 	for _, e := range l.Events {
 		// remove all stacked elements that have finished
 		for i := len(activeStack) - 1; i >= 0; i-- {
-			if e.Start.After(activeStack[i].End) || e.Start == activeStack[i].End {
+			if e.Start.After(activeStack[i].End) || e.Start.Equal(activeStack[i].End) {
 				activeStack = activeStack[:i]
 			} else {
 				break

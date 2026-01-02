@@ -271,7 +271,7 @@ func (p *FilesDataProvider) GetEventAfter(t time.Time) (*model.Event, error) {
 			return nil, fmt.Errorf("error getting file handler for date '%s', which should not happen since the file should exist (%w)", d.String(), err)
 		}
 		for _, event := range fh.data.Events {
-			if event.Start == t || event.Start.After(t) {
+			if event.Start.Equal(t) || event.Start.After(t) {
 				p.log.Trace().Msgf("found event starting after target time: %s", event.String())
 				return event, nil
 			}
@@ -307,7 +307,7 @@ func (p *FilesDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
 		}
 		for i := len(fh.data.Events) - 1; i >= 0; i-- {
 			event := fh.data.Events[i]
-			if event.End == t || event.End.Before(t) {
+			if event.End.Equal(t) || event.End.Before(t) {
 				p.log.Trace().Msgf("found event ending before target time: %s", event.String())
 				return event, nil
 			}
@@ -512,7 +512,7 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 	if end.Before(start) {
 		return nil, fmt.Errorf("end time is before start time")
 	}
-	if start == end {
+	if start.Equal(end) {
 		return nil, fmt.Errorf("empty time range requested (start is end)")
 	}
 
