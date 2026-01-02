@@ -249,7 +249,10 @@ func NewController(
 	cursorWrangler := ui.NewCursorWrangler(renderer)
 
 	getCategoryStyle := func(n model.CategoryName) (styling.DrawStyling, error) {
-		c := categoriesByName[n]
+		c, ok := categoriesByName[n]
+		if !ok {
+			return stylesheet.CategoryFallback, fmt.Errorf("Category %v requested for styling, not present.", n)
+		}
 		return styling.StyleFromColorSingle(c.Color, stylesheet.Theme == config.Dark)
 	}
 	getCategoriesInOrder := func() []*model.Category {
