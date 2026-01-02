@@ -475,6 +475,7 @@ func DateAndTimestampToGotime(date Date, ts Timestamp) time.Time {
 }
 
 func DateFromGotime(t time.Time) Date {
+	t = t.Local()
 	return Date{
 		Year:  t.Year(),
 		Month: int(t.Month()),
