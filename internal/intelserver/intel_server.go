@@ -36,8 +36,8 @@ func (s *Server) Run() error {
 
 	mux.HandleFunc("POST /events/retrieve", s.handleRetrieveEvents)
 
-	mux.HandleFunc("POST /beginning", s.handleBeginning)
-	mux.HandleFunc("POST /end", s.handleEnd)
+	mux.HandleFunc("POST /events/begin", s.handleBeginning)
+	mux.HandleFunc("POST /events/end", s.handleEnd)
 
 	server := &http.Server{
 		Addr:         s.listenAddr,
