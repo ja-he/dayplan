@@ -24,6 +24,7 @@ type DateAndTime struct {
 
 // FromTime creates a DateAndTime from a time.Time.
 func FromTime(t time.Time) *DateAndTime {
+	t = t.Local()
 	return &DateAndTime{
 		Date:      Date{Year: t.Year(), Month: int(t.Month()), Day: t.Day()},
 		Timestamp: Timestamp{Hour: t.Hour(), Minute: t.Minute()},

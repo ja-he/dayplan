@@ -59,6 +59,7 @@ func (p *EventsPane) GetPositionInfo(x, y int) ui.PositionInfo {
 }
 
 func gotimeToTimestampString(t time.Time) string {
+	t = t.Local()
 	return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
 }
 
