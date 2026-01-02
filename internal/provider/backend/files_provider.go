@@ -506,6 +506,9 @@ func (p *FilesDataProvider) getLastEventFromFH(d model.Date) (*model.Event, erro
 
 // TODO: doc GetEventsCoveringTimerange
 func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]*model.Event, error) {
+	start = start.UTC()
+	end = end.UTC()
+
 	p.log.Debug().Msgf("getting events covering timerange %s to %s", start.String(), end.String())
 	defer log.Debug().Msgf("done getting events covering timerange %s to %s", start.String(), end.String())
 
@@ -520,10 +523,9 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 
 		var result []*fileHandler
 		startDate := model.DateFromGotime(start)
+		startDate = startDate.Prev() // We go one date early to allow getting any events in other timezones
 		endDate := model.DateFromGotime(end)
-		if end.Hour() == 0 && end.Minute() == 0 && end.Second() == 0 {
-			endDate = endDate.Prev()
-		}
+		endDate = endDate.Next() // We go one date later to allow getting any events in other timezones
 		p.log.Debug().Msgf("getting file handlers for dates %s to %s", startDate.String(), endDate.String())
 
 		availableDates, err := p.getAvailableDates()
@@ -547,7 +549,7 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 		return nil, fmt.Errorf("error getting file handlers for timerange (%w)", err)
 	}
 
-	p.log.Debug().Msgf("found %d file handlers for timerange %s to %s", len(fhs), start.String(), end.String())
+	p.log.Debug().Msgf("found %d file handlers which may be relevant for timerange %s to %s", len(fhs), start.String(), end.String())
 
 	// NOTE:
 	//   Yes, there is probably a small bit of efficiency to be gained here by
@@ -559,9 +561,11 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 	for _, fh := range fhs {
 		fh.mutex.Lock()
 		for _, e := range fh.data.Events {
-			if !e.Start.Before(start) && !e.End.After(end) {
-				events = append(events, e)
+			if e.End.Before(start) || e.Start.After(end) {
+				continue
 			}
+			ec := e.Clone()
+			events = append(events, &ec)
 		}
 		fh.mutex.Unlock()
 	}

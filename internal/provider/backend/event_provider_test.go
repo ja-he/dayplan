@@ -584,12 +584,28 @@ func testGetEventsCoveringTimerange(t *testing.T, factory EventProviderFactory) 
 		p.AddEvent(createEvent("Event 2", "cat", timeOnDay(12, 0), timeOnDay(14, 0)))
 		p.AddEvent(createEvent("Event 3", "cat", timeOnDay(16, 0), timeOnDay(18, 0)))
 
-		events, err := p.GetEventsCoveringTimerange(timeOnDay(10, 0), timeOnDay(17, 0))
+		events, err := p.GetEventsCoveringTimerange(timeOnDay(10, 0), timeOnDay(15, 0))
 		if err != nil {
 			t.Fatalf("GetEventsCoveringTimerange failed: %v", err)
 		}
 		if len(events) != 1 {
 			t.Errorf("Expected 1 event fully in range, got %d", len(events))
+		}
+	})
+
+	t.Run("get events in range with partials", func(t *testing.T) {
+		p := factory(t)
+
+		p.AddEvent(createEvent("Event 1", "cat", timeOnDay(8, 0), timeOnDay(9, 0)))
+		p.AddEvent(createEvent("Event 2", "cat", timeOnDay(12, 0), timeOnDay(14, 0)))
+		p.AddEvent(createEvent("Event 3", "cat", timeOnDay(16, 0), timeOnDay(18, 0)))
+
+		events, err := p.GetEventsCoveringTimerange(timeOnDay(10, 0), timeOnDay(17, 0))
+		if err != nil {
+			t.Fatalf("GetEventsCoveringTimerange failed: %v", err)
+		}
+		if len(events) != 2 {
+			t.Errorf("Expected 2 events fully in range, got %d", len(events))
 		}
 	})
 
