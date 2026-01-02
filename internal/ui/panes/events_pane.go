@@ -156,13 +156,18 @@ func (p *EventsPane) Draw() {
 
 		p.Renderer.DrawBox(pos.X, pos.Y, pos.W, pos.H, bodyStyling)
 
+		// Render start timestamp in box.
 		if p.drawTimestamps {
 			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y, 5, 1, topTimestampStyling, gotimeToTimestampString(e.Start))
 		}
 
-		p.Renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
-		if p.drawTimestamps {
-			p.Renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, gotimeToTimestampString(e.End))
+		// Render end timestamp in box, but only if the height is greater than 1,
+		// as otherwise it'd be on top of start timestamp.
+		if pos.H > 1 {
+			p.Renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
+			if p.drawTimestamps {
+				p.Renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, gotimeToTimestampString(e.End))
+			}
 		}
 
 		if p.drawNames {
@@ -256,6 +261,9 @@ func (p *EventsPane) computeRects(date model.Date, l *model.EventList, offsetX, 
 		y := p.viewParams.YForTime(startTS) + offsetY
 		w := width
 		h := p.viewParams.YForTime(endTS) + offsetY - y
+		if h < 1 {
+			h = 1
+		}
 
 		// scale the width by 3/4 for every extra item on the stack, so for one
 		// item stacked underneath the current items width will be (3/4) ** 1 = 75%
