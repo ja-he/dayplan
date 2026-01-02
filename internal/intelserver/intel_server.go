@@ -20,8 +20,8 @@ type Server struct {
 	store      *Store
 }
 
-func NewServer(listenAddr string) (*Server, error) {
-	store, err := NewStore(":memory:")
+func NewServer(listenAddr, dbPath string) (*Server, error) {
+	store, err := NewStore(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create data store (%w)", err)
 	}
