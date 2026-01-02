@@ -153,6 +153,8 @@ func (base Config) augmentWith(augment Config) Config {
 		result.Categories = augment.Categories
 	}
 
+	result.IntelSources = append(base.IntelSources, augment.IntelSources...)
+
 	return result
 }
 

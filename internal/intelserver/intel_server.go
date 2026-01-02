@@ -138,7 +138,7 @@ func (s *Server) handleEnd(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-type retrieveResponse struct {
+type RetrieveResponse struct {
 	Events []model.Event `json:"events"`
 }
 
@@ -155,7 +155,7 @@ func (s *Server) handleRetrieveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info().Msgf("Retrieval of %d events.", len(events))
-	writeJSON(w, http.StatusOK, retrieveResponse{Events: events})
+	writeJSON(w, http.StatusOK, RetrieveResponse{Events: events})
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
