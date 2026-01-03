@@ -618,6 +618,7 @@ func (p *FilesDataProvider) SetEventStart(id model.EventID, start time.Time) err
 	if err != nil {
 		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
+	originalStart := e.Start // only for potential restore-on-error purposes
 
 	start = start.UTC()
 
@@ -643,7 +644,7 @@ func (p *FilesDataProvider) SetEventStart(id model.EventID, start time.Time) err
 		return fmt.Errorf("error removing event from old file handler (%w)", err)
 	}
 	tryToAddBackDueToError := func() {
-		e.Start = start // restore original start for re-add
+		e.Start = originalStart
 		if err := fh.AddEvent(e); err != nil {
 			p.log.Warn().Msgf("error adding event back to file handler after (another) error: %v", err)
 		}
@@ -749,6 +750,8 @@ func (p *FilesDataProvider) OffsetEventStart(id model.EventID, offset time.Durat
 	if err != nil {
 		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
+	// for restore-on-error purposes
+	originalStart := e.Start
 
 	newStart := e.Start.Add(offset).UTC()
 	if !newStart.Before(e.End) {
@@ -772,6 +775,7 @@ func (p *FilesDataProvider) OffsetEventStart(id model.EventID, offset time.Durat
 		return time.Time{}, fmt.Errorf("error removing event from old file handler (%w)", err)
 	}
 	tryToAddBackDueToError := func() {
+		e.Start = originalStart
 		if err := fh.AddEvent(e); err != nil {
 			p.log.Warn().Msgf("error adding event back to file handler after (another) error: %v", err)
 		}
