@@ -2,11 +2,12 @@ package model
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // Date	represents a date, i.e. a year, month and day.
@@ -23,7 +24,8 @@ type DateAndTime struct {
 }
 
 // FromTime creates a DateAndTime from a time.Time.
-func FromTime(t time.Time) *DateAndTime {
+func FromTime(t time.Time, timezone *time.Location) *DateAndTime {
+	t = t.In(timezone)
 	return &DateAndTime{
 		Date:      Date{Year: t.Year(), Month: int(t.Month()), Day: t.Day()},
 		Timestamp: Timestamp{Hour: t.Hour(), Minute: t.Minute()},
@@ -241,14 +243,16 @@ func (d Date) isLeapYear() bool {
 }
 
 // Is returns whether the receiver is the same date as the given time.
-func (d Date) Is(t time.Time) bool {
+func (d Date) Is(t time.Time, timezone *time.Location) bool {
+	t = t.In(timezone)
 	tYear, tMonth, tDay := t.Date()
 	return tYear == d.Year && int(tMonth) == d.Month && tDay == d.Day
 }
 
 // WeekBounds returns the monday and sunday of the week the receiver is in.
 func (d Date) WeekBounds() (monday Date, sunday Date) {
-	for d.ToWeekday() != time.Monday {
+	irrelevantTZ := time.UTC // it does not matter for this inference
+	for d.ToWeekday(irrelevantTZ) != time.Monday {
 		d = d.Prev()
 	}
 	return d, d.Forward(6)
@@ -280,14 +284,14 @@ func (d Date) MonthBounds() (first Date, last Date) {
 }
 
 // ToWeekday returns the weekday of the receiver.
-func (d Date) ToWeekday() time.Weekday {
-	t := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.UTC)
+func (d Date) ToWeekday(timezone *time.Location) time.Weekday {
+	t := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, timezone)
 	return t.Weekday()
 }
 
 // ToGotime returns the date as a time.Time with the time set to midnight (at the start of the day).
-func (d Date) ToGotime() time.Time {
-	result := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, time.Now().Location())
+func (d Date) ToGotime(timezone *time.Location) time.Time {
+	result := time.Date(d.Year, time.Month(d.Month), d.Day, 0, 0, 0, 0, timezone)
 	return result
 }
 
@@ -295,11 +299,13 @@ type Timestamp struct {
 	Hour, Minute int
 }
 
-func NewTimestampFromGotime(time time.Time) *Timestamp {
-	t := Timestamp{}
-	t.Hour = time.Hour()
-	t.Minute = time.Minute()
-	return &t
+func NewTimestampFromGotime(t time.Time, timezone *time.Location) *Timestamp {
+	log.Trace().Msgf("Passed TS %s.", t.String())
+	t = t.In(timezone)
+	ts := Timestamp{}
+	ts.Hour = t.Hour()
+	ts.Minute = t.Minute()
+	return &ts
 }
 
 func (t Timestamp) Truncate(durationMinutes uint) Timestamp {
@@ -325,23 +331,23 @@ func (t Timestamp) Truncate(durationMinutes uint) Timestamp {
 func NewTimestamp(s string) *Timestamp {
 	components := strings.Split(s, ":")
 	if len(components) != 2 {
-		log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
+		log.Fatal().Msgf("given string '%s' which does not fit the HH:MM format", s)
 	}
 	hStr := components[0]
 	mStr := components[1]
 	if len(hStr) != 2 || len(mStr) != 2 {
-		log.Fatalf("given string '%s' which does not fit the HH:MM format", s)
+		log.Fatal().Msgf("given string '%s' which does not fit the HH:MM format", s)
 	}
 	h, err := strconv.Atoi(hStr)
 	if err != nil {
-		log.Fatalf("error converting hour string '%s' to a number", hStr)
+		log.Fatal().Msgf("error converting hour string '%s' to a number", hStr)
 	}
 	m, err := strconv.Atoi(mStr)
 	if err != nil {
-		log.Fatalf("error converting minute string '%s' to a number", mStr)
+		log.Fatal().Msgf("error converting minute string '%s' to a number", mStr)
 	}
 	if h < 0 || h > 23 || m < 0 || m > 59 {
-		log.Fatalf("error with string-to-timestamp conversion: one of the yielded values illegal (%d) (%d)", h, m)
+		log.Fatal().Msgf("error with string-to-timestamp conversion: one of the yielded values illegal (%d) (%d)", h, m)
 	}
 	return &Timestamp{h, m}
 }
@@ -469,11 +475,12 @@ func (t Timestamp) toGotime() time.Time {
 
 // DateAndTimestampToGotime returns a time.Time object from a given date and a
 // given timestamp.
-func DateAndTimestampToGotime(date Date, ts Timestamp) time.Time {
-	return time.Date(date.Year, time.Month(date.Month), date.Day, ts.Hour, ts.Minute, 0, 0, time.Local)
+func DateAndTimestampToGotime(date Date, ts Timestamp, timezone *time.Location) time.Time {
+	return time.Date(date.Year, time.Month(date.Month), date.Day, ts.Hour, ts.Minute, 0, 0, timezone)
 }
 
-func DateFromGotime(t time.Time) Date {
+func DateFromGotime(t time.Time, loc *time.Location) Date {
+	t = t.In(loc)
 	return Date{
 		Year:  t.Year(),
 		Month: int(t.Month()),

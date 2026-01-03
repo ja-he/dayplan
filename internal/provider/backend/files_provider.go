@@ -17,8 +17,6 @@ import (
 	"github.com/ja-he/dayplan/internal/provider"
 )
 
-const notSameDayEventErrorMsg = string("event does not start and end on the same day")
-
 var fileDateNamingRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 var filesProviderIDGenerator = func() model.EventID {
@@ -119,10 +117,14 @@ func (p *FilesDataProvider) AddEvent(e model.Event) (model.EventID, error) {
 		}
 	}
 
-	if !eventStartsAndEndsOnSameDate(&e) {
-		return "", fmt.Errorf(notSameDayEventErrorMsg)
+	e.Start = e.Start.UTC()
+	e.End = e.End.UTC()
+
+	if !e.Start.Before(e.End) {
+		return "", fmt.Errorf("start time is not before end time")
 	}
-	d := model.DateFromGotime(e.Start)
+
+	d := model.DateFromGotime(e.Start, time.UTC)
 	fh, err := p.getFileHandler(d)
 	if err != nil {
 		return "", fmt.Errorf("error loading file handler for date (%w)", err)
@@ -144,7 +146,7 @@ func (p *FilesDataProvider) RemoveEvent(id model.EventID) error {
 		return fmt.Errorf("error getting event with ID '%s' for removal (%w)", id, err)
 	}
 
-	d := model.DateFromGotime(e.Start)
+	d := model.DateFromGotime(e.Start, time.UTC)
 	fh, err := p.getFileHandler(d)
 	if err != nil {
 		return fmt.Errorf("error loading file handler for date (%w)", err)
@@ -258,7 +260,7 @@ func (p *FilesDataProvider) GetEventAfter(t time.Time) (*model.Event, error) {
 
 	sort.Sort(model.DateSlice(availableDates))
 
-	dateForT := model.DateFromGotime(t)
+	dateForT := model.DateFromGotime(t, time.UTC)
 
 	for _, d := range availableDates {
 		if d.IsBefore(dateForT) {
@@ -271,7 +273,7 @@ func (p *FilesDataProvider) GetEventAfter(t time.Time) (*model.Event, error) {
 			return nil, fmt.Errorf("error getting file handler for date '%s', which should not happen since the file should exist (%w)", d.String(), err)
 		}
 		for _, event := range fh.data.Events {
-			if event.Start == t || event.Start.After(t) {
+			if event.Start.Equal(t) || event.Start.After(t) {
 				p.log.Trace().Msgf("found event starting after target time: %s", event.String())
 				return event, nil
 			}
@@ -293,7 +295,7 @@ func (p *FilesDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
 
 	sort.Sort(sort.Reverse(model.DateSlice(availableDates)))
 
-	dateForT := model.DateFromGotime(t)
+	dateForT := model.DateFromGotime(t, time.UTC)
 
 	for _, d := range availableDates {
 		if d.IsAfter(dateForT) {
@@ -307,7 +309,7 @@ func (p *FilesDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
 		}
 		for i := len(fh.data.Events) - 1; i >= 0; i-- {
 			event := fh.data.Events[i]
-			if event.End == t || event.End.Before(t) {
+			if event.End.Equal(t) || event.End.Before(t) {
 				p.log.Trace().Msgf("found event ending before target time: %s", event.String())
 				return event, nil
 			}
@@ -506,24 +508,26 @@ func (p *FilesDataProvider) getLastEventFromFH(d model.Date) (*model.Event, erro
 
 // TODO: doc GetEventsCoveringTimerange
 func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]*model.Event, error) {
+	start = start.UTC()
+	end = end.UTC()
+
 	p.log.Debug().Msgf("getting events covering timerange %s to %s", start.String(), end.String())
 	defer log.Debug().Msgf("done getting events covering timerange %s to %s", start.String(), end.String())
 
 	if end.Before(start) {
 		return nil, fmt.Errorf("end time is before start time")
 	}
-	if start == end {
+	if start.Equal(end) {
 		return nil, fmt.Errorf("empty time range requested (start is end)")
 	}
 
 	fhs, err := func() ([]*fileHandler, error) {
 
 		var result []*fileHandler
-		startDate := model.DateFromGotime(start)
-		endDate := model.DateFromGotime(end)
-		if end.Hour() == 0 && end.Minute() == 0 && end.Second() == 0 {
-			endDate = endDate.Prev()
-		}
+		startDate := model.DateFromGotime(start, time.UTC)
+		startDate = startDate.Prev() // We go one date early to allow getting any events in other timezones
+		endDate := model.DateFromGotime(end, time.UTC)
+		endDate = endDate.Next() // We go one date later to allow getting any events in other timezones
 		p.log.Debug().Msgf("getting file handlers for dates %s to %s", startDate.String(), endDate.String())
 
 		availableDates, err := p.getAvailableDates()
@@ -547,7 +551,7 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 		return nil, fmt.Errorf("error getting file handlers for timerange (%w)", err)
 	}
 
-	p.log.Debug().Msgf("found %d file handlers for timerange %s to %s", len(fhs), start.String(), end.String())
+	p.log.Debug().Msgf("found %d file handlers which may be relevant for timerange %s to %s", len(fhs), start.String(), end.String())
 
 	// NOTE:
 	//   Yes, there is probably a small bit of efficiency to be gained here by
@@ -559,9 +563,11 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 	for _, fh := range fhs {
 		fh.mutex.Lock()
 		for _, e := range fh.data.Events {
-			if !e.Start.Before(start) && !e.End.After(end) {
-				events = append(events, e)
+			if e.End.Before(start) || e.Start.After(end) {
+				continue
 			}
+			ec := e.Clone()
+			events = append(events, &ec)
 		}
 		fh.mutex.Unlock()
 	}
@@ -582,7 +588,7 @@ func (p *FilesDataProvider) SplitEvent(id model.EventID, splitTime time.Time) er
 		return fmt.Errorf("split time is not between start and end time of event in question")
 	}
 
-	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
+	fh, err := p.getFileHandler(model.DateFromGotime(e.Start, time.UTC))
 	if err != nil {
 		return fmt.Errorf("error loading file handler for date (%w)", err)
 	}
@@ -608,69 +614,84 @@ func (p *FilesDataProvider) SplitEvent(id model.EventID, splitTime time.Time) er
 
 // SetEventStart sets the start time of an event with a specific ID.
 func (p *FilesDataProvider) SetEventStart(id model.EventID, start time.Time) error {
-	e, err := p.GetEvent(id)
+	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
+	originalStart := e.Start // only for potential restore-on-error purposes
+
+	start = start.UTC()
 
 	if !start.Before(e.End) {
 		return fmt.Errorf("start time is not before end time")
 	}
 
-	// Ensure start and end are on the same date
-	if !timesOnSameDate(start, e.End) {
-		return fmt.Errorf(notSameDayEventErrorMsg)
-	}
+	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
+	newStartDate := model.DateFromGotime(start, time.UTC)
 
 	e.Start = start
 
-	fh, err := p.getFileHandler(model.DateFromGotime(start))
-	if err != nil {
-		return fmt.Errorf("error loading file handler for date (%w)", err)
+	// If the start date hasn't changed, just update in place
+	if oldStartDate == newStartDate {
+		if err := fh.UpdateEvent(e); err != nil {
+			return fmt.Errorf("error updating event (%w)", err)
+		}
+		return nil
 	}
 
-	if err := fh.UpdateEvent(e); err != nil {
-		return fmt.Errorf("TODO (%w)", err)
+	// Start date changed - need to move event to a different file handler
+	if err := fh.RemoveEvent(id); err != nil {
+		return fmt.Errorf("error removing event from old file handler (%w)", err)
 	}
+	tryToAddBackDueToError := func() {
+		e.Start = originalStart
+		if err := fh.AddEvent(e); err != nil {
+			p.log.Warn().Msgf("error adding event back to file handler after (another) error: %v", err)
+		}
+	}
+
+	newFH, err := p.getFileHandler(newStartDate)
+	if err != nil {
+		tryToAddBackDueToError()
+		return fmt.Errorf("error loading file handler for new date (%w)", err)
+	}
+	if err := newFH.AddEvent(e); err != nil {
+		tryToAddBackDueToError()
+		return fmt.Errorf("error adding event to new file handler (%w)", err)
+	}
+
+	p.setEventDateInMap(id, newStartDate)
 	return nil
 }
 
 // SetEventEnd sets the end time of an event with a specific ID.
 func (p *FilesDataProvider) SetEventEnd(id model.EventID, end time.Time) error {
-	e, err := p.GetEvent(id)
+	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
+
+	end = end.UTC()
 
 	if !e.Start.Before(end) {
 		return fmt.Errorf("start time %s is not before end time %s", e.Start, end)
 	}
 
-	// Ensure start and end are on the same date
-	if !timesOnSameDate(e.Start, end) {
-		return fmt.Errorf(notSameDayEventErrorMsg)
-	}
-
 	e.End = end
-	fh, err := p.getFileHandler(model.DateFromGotime(end))
-	if err != nil {
-		return fmt.Errorf("error loading file handler for date (%w)", err)
-	}
 
 	if err := fh.UpdateEvent(e); err != nil {
-		return fmt.Errorf("TODO (%w)", err)
+		return fmt.Errorf("error updating event (%w)", err)
 	}
 	return nil
 }
 
 // TODO: doc SetEventTimes
 func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, newEnd time.Time) error {
+	newStart = newStart.UTC()
+	newEnd = newEnd.UTC()
+
 	if !newStart.Before(newEnd) {
 		return fmt.Errorf("start time is not before end time")
-	}
-
-	if !timesOnSameDate(newStart, newEnd) {
-		return fmt.Errorf(notSameDayEventErrorMsg)
 	}
 
 	fh, e, err := p.getEventWithFH(id)
@@ -678,14 +699,17 @@ func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, 
 		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	// if new times are on the same date as old times we just update the event
+	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
+	newStartDate := model.DateFromGotime(newStart, time.UTC)
+
+	// if new start date is same as old start date we just update the event
 	// with the file handler for that date
-	if timesOnSameDate(e.Start, newStart) {
+	if oldStartDate == newStartDate {
 		e.Start = newStart
 		e.End = newEnd
 
 		if err := fh.UpdateEvent(e); err != nil {
-			return fmt.Errorf("TODO (%w)", err)
+			return fmt.Errorf("error updating event (%w)", err)
 		}
 		return nil
 	}
@@ -705,8 +729,7 @@ func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, 
 	eventClone.Start = newStart
 	eventClone.End = newEnd
 
-	newDate := model.DateFromGotime(newStart)
-	newFH, err := p.getFileHandler(newDate)
+	newFH, err := p.getFileHandler(newStartDate)
 	if err != nil {
 		tryToAddBackDueToError()
 		return fmt.Errorf("error loading file handler for date (%w)", err)
@@ -716,121 +739,127 @@ func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, 
 		return fmt.Errorf("error adding event to new file handler (%w)", err)
 	}
 
-	p.setEventDateInMap(id, newDate)
+	p.setEventDateInMap(id, newStartDate)
 
 	return nil
 }
 
 // OffsetEventStart offsets the start time of an event with the specified ID by a duration.
 func (p *FilesDataProvider) OffsetEventStart(id model.EventID, offset time.Duration) (time.Time, error) {
-	e, err := p.GetEvent(id)
+	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
+	// for restore-on-error purposes
+	originalStart := e.Start
 
-	newStart := e.Start.Add(offset)
+	newStart := e.Start.Add(offset).UTC()
 	if !newStart.Before(e.End) {
 		return time.Time{}, fmt.Errorf("resulting start time would not be before end time")
 	}
 
-	if !timesOnSameDate(newStart, e.End) {
-		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
-	}
+	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
+	newStartDate := model.DateFromGotime(newStart, time.UTC)
 
 	e.Start = newStart
 
-	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	if oldStartDate == newStartDate {
+		if err := fh.UpdateEvent(e); err != nil {
+			return time.Time{}, fmt.Errorf("error updating event (%w)", err)
+		}
+		return e.Start, nil
 	}
 
-	if err := fh.UpdateEvent(e); err != nil {
-		return time.Time{}, fmt.Errorf("TODO (%w)", err)
+	// Start date changed - need to move event to a different file handler
+	if err := fh.RemoveEvent(id); err != nil {
+		return time.Time{}, fmt.Errorf("error removing event from old file handler (%w)", err)
 	}
+	tryToAddBackDueToError := func() {
+		e.Start = originalStart
+		if err := fh.AddEvent(e); err != nil {
+			p.log.Warn().Msgf("error adding event back to file handler after (another) error: %v", err)
+		}
+	}
+
+	newFH, err := p.getFileHandler(newStartDate)
+	if err != nil {
+		tryToAddBackDueToError()
+		return time.Time{}, fmt.Errorf("error loading file handler for new date (%w)", err)
+	}
+	if err := newFH.AddEvent(e); err != nil {
+		tryToAddBackDueToError()
+		return time.Time{}, fmt.Errorf("error adding event to new file handler (%w)", err)
+	}
+
+	p.setEventDateInMap(id, newStartDate)
 	return e.Start, nil
 }
 
 // OffsetEventEnd offsets the end time of an event with the specified ID by a duration.
 func (p *FilesDataProvider) OffsetEventEnd(id model.EventID, offset time.Duration) (time.Time, error) {
-	e, err := p.GetEvent(id)
+	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	newEnd := e.End.Add(offset)
+	newEnd := e.End.Add(offset).UTC()
 	if !e.Start.Before(newEnd) {
 		return time.Time{}, fmt.Errorf("resulting end time would not be after start time")
 	}
 
-	if !timesOnSameDate(e.Start, newEnd) {
-		return time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
-	}
-
 	e.End = newEnd
 
-	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
-	}
-
 	if err := fh.UpdateEvent(e); err != nil {
-		return time.Time{}, fmt.Errorf("Could not update event (%w)", err)
+		return time.Time{}, fmt.Errorf("error updating event (%w)", err)
 	}
 	return e.End, nil
 }
 
 // OffsetEventTimes offsets both the start and end times of an event with the specified ID by a duration.
 func (p *FilesDataProvider) OffsetEventTimes(id model.EventID, offset time.Duration) (time.Time, time.Time, error) {
-	e, err := p.GetEvent(id)
+	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	newStart := e.Start.Add(offset)
-	newEnd := e.End.Add(offset)
+	newStart := e.Start.Add(offset).UTC()
+	newEnd := e.End.Add(offset).UTC()
 
-	// Ensure start and end are on the same date
-	if !timesOnSameDate(newStart, newEnd) {
-		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
-	}
-
-	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
-	}
-
-	// The times are on the same date, but the new times are not on the same date as the old times.
-	moveToOtherDay := !timesOnSameDate(e.Start, newEnd)
+	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
+	newStartDate := model.DateFromGotime(newStart, time.UTC)
 
 	e.Start = newStart
 	e.End = newEnd
 
-	if moveToOtherDay {
-		oldFileHandler := fh
-		newFileHandler, err := p.getFileHandler(model.DateFromGotime(newStart))
-
-		err = oldFileHandler.RemoveEvent(e.ID)
-		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("Unable to remove event %s from file handler %s (%w)", e.ID, oldFileHandler.date, err)
+	if oldStartDate == newStartDate {
+		if err := fh.UpdateEvent(e); err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("error updating event (%w)", err)
 		}
-
-		addErr := newFileHandler.AddEvent(e)
-		if addErr != nil {
-			addErr2 := oldFileHandler.AddEvent(e)
-			if addErr2 != nil {
-				return time.Time{}, time.Time{}, fmt.Errorf("Unable to add event %s to FH %s and then unable to even re-add to %s (%w; %w).", e.ID, newFileHandler.date, oldFileHandler.date, addErr, addErr2)
-			}
-			return time.Time{}, time.Time{}, fmt.Errorf("Unable to add event %s to FH %s (%w).", e.ID, newFileHandler.date, addErr)
-		}
-		p.setEventDateInMap(e.ID, newFileHandler.date)
-
-	} else {
-		err = fh.UpdateEvent(e)
-		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("unable to update event with new times (%w)", err)
-		}
+		return e.Start, e.End, nil
 	}
 
+	// Start date changed - need to move event to a different file handler
+	if err := fh.RemoveEvent(e.ID); err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error removing event %s from file handler %s (%w)", e.ID, fh.date, err)
+	}
+
+	newFH, err := p.getFileHandler(newStartDate)
+	if err != nil {
+		// Try to add back to old handler
+		if addErr := fh.AddEvent(e); addErr != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("error loading new file handler and unable to re-add to old (%w; %w)", err, addErr)
+		}
+		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for new date (%w)", err)
+	}
+
+	if addErr := newFH.AddEvent(e); addErr != nil {
+		if addErr2 := fh.AddEvent(e); addErr2 != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("error adding event to new file handler and unable to re-add to old (%w; %w)", addErr, addErr2)
+		}
+		return time.Time{}, time.Time{}, fmt.Errorf("error adding event to new file handler (%w)", addErr)
+	}
+
+	p.setEventDateInMap(e.ID, newStartDate)
 	return e.Start, e.End, nil
 }
 
@@ -840,36 +869,54 @@ func (p *FilesDataProvider) SnapEventStart(id model.EventID, interval time.Durat
 	return newStart, err
 }
 func (p *FilesDataProvider) snapEventStart(id model.EventID, interval time.Duration, preserveDuration bool) (time.Time, time.Time, error) {
-	e, err := p.GetEvent(id)
+	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	newStart := snapToInterval(e.Start, interval)
-
-	if !timesOnSameDate(newStart, e.End) {
-		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
-	}
+	newStart := snapToInterval(e.Start, interval).UTC()
 
 	if !newStart.Before(e.End) {
 		return time.Time{}, time.Time{}, fmt.Errorf("resulting start time would not be before end time")
 	}
 
+	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
+	newStartDate := model.DateFromGotime(newStart, time.UTC)
+
 	if preserveDuration {
 		delta := newStart.Sub(e.Start)
-		newEnd := e.End.Add(delta)
+		newEnd := e.End.Add(delta).UTC()
 		e.End = newEnd
 	}
 	e.Start = newStart
 
-	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	if oldStartDate == newStartDate {
+		if err := fh.UpdateEvent(e); err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("error updating event (%w)", err)
+		}
+		return e.Start, e.End, nil
 	}
 
-	if err := fh.UpdateEvent(e); err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("TODO (%w)", err)
+	// Start date changed - need to move event to a different file handler
+	if err := fh.RemoveEvent(id); err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error removing event from old file handler (%w)", err)
 	}
+
+	newFH, err := p.getFileHandler(newStartDate)
+	if err != nil {
+		if addErr := fh.AddEvent(e); addErr != nil {
+			p.log.Warn().Msgf("error adding event back to file handler after error: %v", addErr)
+		}
+		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for new date (%w)", err)
+	}
+	if err := newFH.AddEvent(e); err != nil {
+		if addErr := fh.AddEvent(e); addErr != nil {
+			p.log.Warn().Msgf("error adding event back to file handler after error: %v", addErr)
+		}
+		return time.Time{}, time.Time{}, fmt.Errorf("error adding event to new file handler (%w)", err)
+	}
+
+	p.setEventDateInMap(id, newStartDate)
 	return e.Start, e.End, nil
 }
 
@@ -880,16 +927,12 @@ func (p *FilesDataProvider) SnapEventEnd(id model.EventID, interval time.Duratio
 }
 
 func (p *FilesDataProvider) snapEventEnd(id model.EventID, interval time.Duration, preserveDuration bool) (time.Time, time.Time, error) {
-	e, err := p.GetEvent(id)
+	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	newEnd := snapToInterval(e.End, interval)
-
-	if !eventStartsAndEndsOnSameDate(e) {
-		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
-	}
+	newEnd := snapToInterval(e.End, interval).UTC()
 
 	if !e.Start.Before(newEnd) {
 		return time.Time{}, time.Time{}, fmt.Errorf("resulting end time would not be after start time")
@@ -897,18 +940,13 @@ func (p *FilesDataProvider) snapEventEnd(id model.EventID, interval time.Duratio
 
 	if preserveDuration {
 		delta := newEnd.Sub(e.End)
-		newStart := e.Start.Add(delta)
+		newStart := e.Start.Add(delta).UTC()
 		e.Start = newStart
 	}
 	e.End = newEnd
 
-	fh, err := p.getFileHandler(model.DateFromGotime(e.End))
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
-	}
-
 	if err := fh.UpdateEvent(e); err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("TODO (%w)", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("error updating event (%w)", err)
 	}
 	return e.Start, e.End, nil
 }
@@ -917,32 +955,50 @@ func (p *FilesDataProvider) snapEventEnd(id model.EventID, interval time.Duratio
 // This may result in a change of the duration of the event.
 // If the resulting start time is not before the resulting end time of the event, an error will be returned.
 func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Duration) (time.Time, time.Time, error) {
-	e, err := p.GetEvent(id)
+	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
-	newStart := snapToInterval(e.Start, interval)
-	newEnd := snapToInterval(e.End, interval)
-
-	if !timesOnSameDate(newStart, newEnd) {
-		return time.Time{}, time.Time{}, fmt.Errorf(notSameDayEventErrorMsg)
-	}
+	newStart := snapToInterval(e.Start, interval).UTC()
+	newEnd := snapToInterval(e.End, interval).UTC()
 
 	if !newStart.Before(newEnd) {
 		return time.Time{}, time.Time{}, fmt.Errorf("resulting start time would not be before end time")
 	}
 
+	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
+	newStartDate := model.DateFromGotime(newStart, time.UTC)
+
 	e.Start, e.End = newStart, newEnd
 
-	fh, err := p.getFileHandler(model.DateFromGotime(e.Start))
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for date (%w)", err)
+	if oldStartDate == newStartDate {
+		if err := fh.UpdateEvent(e); err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("error updating event (%w)", err)
+		}
+		return e.Start, e.End, nil
 	}
 
-	if err := fh.UpdateEvent(e); err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("TODO (%w)", err)
+	// Start date changed - need to move event to a different file handler
+	if err := fh.RemoveEvent(id); err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error removing event from old file handler (%w)", err)
 	}
+
+	newFH, err := p.getFileHandler(newStartDate)
+	if err != nil {
+		if addErr := fh.AddEvent(e); addErr != nil {
+			p.log.Warn().Msgf("error adding event back to file handler after error: %v", addErr)
+		}
+		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for new date (%w)", err)
+	}
+	if err := newFH.AddEvent(e); err != nil {
+		if addErr := fh.AddEvent(e); addErr != nil {
+			p.log.Warn().Msgf("error adding event back to file handler after error: %v", addErr)
+		}
+		return time.Time{}, time.Time{}, fmt.Errorf("error adding event to new file handler (%w)", err)
+	}
+
+	p.setEventDateInMap(id, newStartDate)
 	return e.Start, e.End, nil
 }
 
@@ -991,8 +1047,12 @@ func (p *FilesDataProvider) SetEventAllData(id model.EventID, newEventData model
 	if newEventData.ID != "" && newEventData.ID != id {
 		return fmt.Errorf("new event data has different ID than specified")
 	}
-	if !timesOnSameDate(newEventData.Start, newEventData.End) {
-		return fmt.Errorf(notSameDayEventErrorMsg)
+
+	newEventData.Start = newEventData.Start.UTC()
+	newEventData.End = newEventData.End.UTC()
+
+	if !newEventData.Start.Before(newEventData.End) {
+		return fmt.Errorf("start time is not before end time")
 	}
 
 	newEventData.ID = id // ensure ID is correct
@@ -1000,7 +1060,11 @@ func (p *FilesDataProvider) SetEventAllData(id model.EventID, newEventData model
 	if err != nil {
 		return fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
-	if timesOnSameDate(e.Start, newEventData.Start) {
+
+	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
+	newStartDate := model.DateFromGotime(newEventData.Start, time.UTC)
+
+	if oldStartDate == newStartDate {
 		err = fh.UpdateEvent(&newEventData)
 		if err != nil {
 			return fmt.Errorf("error updating event with ID '%s' (%w)", id, err)
@@ -1018,7 +1082,6 @@ func (p *FilesDataProvider) SetEventAllData(id model.EventID, newEventData model
 		}
 	}
 
-	newStartDate := model.DateFromGotime(newEventData.Start)
 	newFH, err := p.getFileHandler(newStartDate)
 	if err != nil {
 		addBackDueToError()
@@ -1091,8 +1154,8 @@ func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Ti
 
 	sort.Sort(model.DateSlice(allDates))
 
-	startDate := model.DateFromGotime(start)
-	endDate := model.DateFromGotime(end)
+	startDate := model.DateFromGotime(start, time.UTC)
+	endDate := model.DateFromGotime(end, time.UTC)
 	if isMidnight(end) {
 		endDate = endDate.Prev()
 	}
@@ -1198,6 +1261,10 @@ func (p *FilesDataProvider) getAvailableDates() ([]model.Date, error) {
 			dates = append(dates, d)
 		}
 	}
+
+	// Ensure deterministic order
+	sort.Sort(model.DateSlice(dates))
+
 	return dates, nil
 
 }

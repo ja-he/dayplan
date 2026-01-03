@@ -15,7 +15,7 @@ func (c *Controller) switchToNextEventInDay() {
 	defer c.ensureCurrentEventVisible()
 
 	if c.data.CurrentEventID == nil {
-		candidate, err := c.eventsProvider.GetEventAfter(c.data.CurrentDate.ToGotime())
+		candidate, err := c.eventsProvider.GetEventAfter(c.data.CurrentDate.ToGotime(time.Local))
 		if err != nil {
 			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get next for current date")
 			return
@@ -24,7 +24,7 @@ func (c *Controller) switchToNextEventInDay() {
 			c.log.Warn().Msgf("No model after exists.")
 			return
 		}
-		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
+		if model.DateFromGotime(candidate.Start, time.Local) == c.data.CurrentDate {
 			c.data.CurrentEventID = new(model.EventID)
 			*c.data.CurrentEventID = candidate.ID
 			c.log.Debug().Stringer("event", candidate).Msg("switched to next event")
@@ -45,7 +45,7 @@ func (c *Controller) switchToNextEventInDay() {
 			return
 		}
 		currentDate := c.data.CurrentDate
-		eStartDate := model.DateFromGotime(e.Start)
+		eStartDate := model.DateFromGotime(e.Start, time.Local)
 		if currentDate != eStartDate {
 			c.log.Error().
 				Stringer("currentDate", currentDate).
@@ -64,7 +64,7 @@ func (c *Controller) switchToNextEventInDay() {
 		c.log.Info().Msg("there is no next event")
 		return
 	}
-	if model.DateFromGotime(next.Start) != c.data.CurrentDate {
+	if model.DateFromGotime(next.Start, time.Local) != c.data.CurrentDate {
 		c.log.Info().Msg("next event is on a different day")
 		return
 	}
@@ -78,7 +78,7 @@ func (c *Controller) switchToPreviousEventInDay() {
 	defer c.ensureCurrentEventVisible()
 
 	if c.data.CurrentEventID == nil {
-		candidate, err := c.eventsProvider.GetEventBefore(c.data.CurrentDate.ToGotime().Add(24 * time.Hour))
+		candidate, err := c.eventsProvider.GetEventBefore(c.data.CurrentDate.ToGotime(time.Local).Add(24 * time.Hour))
 		if err != nil {
 			c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
 			return
@@ -87,7 +87,7 @@ func (c *Controller) switchToPreviousEventInDay() {
 			c.log.Warn().Msgf("No model before exists.")
 			return
 		}
-		if model.DateFromGotime(candidate.Start) == c.data.CurrentDate {
+		if model.DateFromGotime(candidate.Start, time.Local) == c.data.CurrentDate {
 			c.data.CurrentEventID = new(model.EventID)
 			*c.data.CurrentEventID = candidate.ID
 			c.log.Debug().Stringer("event", candidate).Msg("switched to prev event")
@@ -106,7 +106,7 @@ func (c *Controller) switchToPreviousEventInDay() {
 		c.log.Info().Msg("there is no prev event")
 		return
 	}
-	if model.DateFromGotime(prev.Start) != c.data.CurrentDate {
+	if model.DateFromGotime(prev.Start, time.Local) != c.data.CurrentDate {
 		c.log.Info().Msg("prev event is on a different day")
 		return
 	}
@@ -117,7 +117,7 @@ func (c *Controller) switchToPreviousEventInDay() {
 }
 
 func (c *Controller) getCurrentDayEvents() ([]*model.Event, error) {
-	startTime := c.data.CurrentDate.ToGotime()
+	startTime := c.data.CurrentDate.ToGotime(time.Local)
 	endTime := startTime.Add(24 * time.Hour)
 	events, err := c.eventsProvider.GetEventsCoveringTimerange(startTime, endTime)
 	if err != nil {
@@ -175,11 +175,11 @@ func (c *Controller) removeEvent(id *model.EventID) {
 		nextEvent, err := c.eventsProvider.GetFollowingEvent(*id)
 		if err != nil {
 			c.log.Error().Err(err).Msg("could not get following event")
-		} else if nextEvent == nil || !c.data.CurrentDate.Is(nextEvent.Start) {
+		} else if nextEvent == nil || !c.data.CurrentDate.Is(nextEvent.Start, time.Local) {
 			prevEvent, err := c.eventsProvider.GetPrecedingEvent(*id)
 			if err != nil {
 				c.log.Error().Err(err).Msg("could not get preceding event")
-			} else if nextEvent != nil && c.data.CurrentDate.Is(prevEvent.End) {
+			} else if nextEvent != nil && c.data.CurrentDate.Is(prevEvent.End, time.Local) {
 				newCurrentEventID = new(model.EventID)
 				*newCurrentEventID = prevEvent.ID
 				c.log.Debug().Msgf("will switch to previous event: %s", *newCurrentEventID)

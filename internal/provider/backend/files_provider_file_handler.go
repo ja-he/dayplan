@@ -224,8 +224,8 @@ func newEventFromDaywiseFileLineLegacy(date model.Date, line string) *model.Even
 	startTime := *model.NewTimestamp(startString)
 	endTime := *model.NewTimestamp(endString)
 
-	e.Start = model.DateAndTimestampToGotime(date, startTime)
-	e.End = model.DateAndTimestampToGotime(date, endTime)
+	e.Start = model.DateAndTimestampToGotime(date, startTime, time.Local).UTC()
+	e.End = model.DateAndTimestampToGotime(date, endTime, time.Local).UTC()
 
 	e.Name = nameString
 	e.Category = model.CategoryName(catString)

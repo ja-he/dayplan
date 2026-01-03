@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // EventList is a list of events I suppose.
@@ -199,11 +201,10 @@ func (l *EventList) SumUpByCategory(getCategoryPriority func(CategoryName) int) 
 
 // GetTimesheetEntry returns the TimesheetEntry for this day for a given
 // category (e.g. "work").
-func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCategoryPriority func(CategoryName) int) (*TimesheetEntry, error) {
+func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCategoryPriority func(CategoryName) int, date Date, timezone *time.Location) (*TimesheetEntry, error) {
 	startFound := false
 	var firstStart time.Time
 	var lastEnd time.Time
-	var dateOfAllEvents Date
 	var breakDurationCumulative time.Duration
 
 	flattened := l.Clone()
@@ -215,27 +216,52 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCatego
 
 			if !startFound {
 				firstStart = event.Start
-				dateOfAllEvents = DateFromGotime(firstStart)
 				startFound = true
 			} else {
 				breakDurationCumulative += event.Start.Sub(lastEnd)
 			}
 
-			dateOfStart, dateOfend := DateFromGotime(event.Start), DateFromGotime(event.End)
-			if dateOfStart != dateOfAllEvents || dateOfend != dateOfAllEvents {
-				return nil, fmt.Errorf("events of different days in one entry")
-			}
-
+			// Since the list was flattened, this is the end of the last event.
 			lastEnd = event.End
-
 		}
 
 	}
+	if !startFound {
+		log.Debug().Msg("No events matched the category filter; returning an empty timesheet entry.")
+		return &TimesheetEntry{
+			Start:         Timestamp{0, 0},
+			BreakDuration: 0,
+			End:           Timestamp{0, 0},
+		}, nil
+	}
+
+	firstStartDate := DateFromGotime(firstStart, timezone)
+	lastEndDate := DateFromGotime(lastEnd, timezone)
+
+	var startTimestamp Timestamp
+	if firstStartDate == date {
+		startTimestamp = *NewTimestampFromGotime(firstStart, timezone)
+	} else if firstStartDate.IsAfter(date) {
+		return nil, fmt.Errorf("Somehow, have a start date of an event (%s) which is AFTER the timesheet date %s.", firstStartDate.String(), date.String())
+	} else {
+		// The start is before the date
+		startTimestamp = Timestamp{0, 0}
+	}
+
+	var endTimestamp Timestamp
+	if lastEndDate == date {
+		endTimestamp = *NewTimestampFromGotime(lastEnd, timezone)
+	} else if lastEndDate.IsBefore(date) {
+		return nil, fmt.Errorf("Somehow, have an end date of an event (%s) which is BEFORE the timesheet date %s.", lastEndDate.String(), date.String())
+	} else {
+		// The end is after the date
+		endTimestamp = Timestamp{24, 0}
+	}
 
 	return &TimesheetEntry{
-		Start:         *NewTimestampFromGotime(firstStart),
+		Start:         startTimestamp,
 		BreakDuration: breakDurationCumulative,
-		End:           *NewTimestampFromGotime(lastEnd),
+		End:           endTimestamp,
 	}, nil
 }
 

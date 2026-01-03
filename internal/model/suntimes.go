@@ -25,14 +25,10 @@ func (p *SuntimesProvider) Get(d Date) SunTimes {
 	// calculate sunrise sunset (UTC)
 	sunriseTime, sunsetTime := sunrise.SunriseSunset(p.Latitude, p.Longitude, d.Year, time.Month(d.Month), d.Day)
 
-	// convert time to current location
-	sunriseTime = sunriseTime.In(time.Now().Location())
-	sunsetTime = sunsetTime.In(time.Now().Location())
-
 	// convert to suntimes
 	suntimes := SunTimes{
-		*NewTimestampFromGotime(sunriseTime),
-		*NewTimestampFromGotime(sunsetTime),
+		*NewTimestampFromGotime(sunriseTime, time.Local),
+		*NewTimestampFromGotime(sunsetTime, time.Local),
 	}
 
 	return suntimes

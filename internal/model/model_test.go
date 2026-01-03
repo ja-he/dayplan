@@ -565,3 +565,57 @@ func eventsEqualExceptingIDs(a, b model.EventList) bool {
 
 	return true
 }
+
+func TestNewTimestampFromGotime(t *testing.T) {
+	type testDatum struct {
+		descriptor string
+		inputTime  time.Time
+		inputZone  *time.Location
+		output     *model.Timestamp
+	}
+
+	berlinTime, _ := time.LoadLocation("Europe/Berlin")
+	testData := []testDatum{
+		{
+			"utc-utc-basic",
+			time.Date(2025, 7, 24, 14, 01, 00, 00, time.UTC),
+			time.UTC,
+			&model.Timestamp{14, 01},
+		},
+		{
+			"utc-berlin-basic",
+			time.Date(2025, 7, 24, 14, 01, 00, 00, time.UTC),
+			berlinTime,
+			&model.Timestamp{16, 01},
+		},
+		{
+			"utc-berlin-basic-winter",
+			time.Date(2026, 1, 1, 14, 01, 00, 00, time.UTC),
+			berlinTime,
+			&model.Timestamp{15, 01},
+		},
+		{
+			"utc-berlin-basic-winter-midnightish",
+			time.Date(2026, 1, 1, 23, 45, 00, 00, time.UTC),
+			berlinTime,
+			&model.Timestamp{00, 45},
+		},
+	}
+
+	for i := range testData {
+		t.Run(testData[i].descriptor, func(t *testing.T) {
+			result := model.NewTimestampFromGotime(testData[i].inputTime, testData[i].inputZone)
+			if result == nil && testData[i].output != nil {
+				t.Errorf("Got nil for NewTimestampFromGotime('%s', '%s').", testData[i].inputTime.String(), testData[i].inputZone.String())
+			} else if *result != *testData[i].output {
+				t.Errorf(
+					"Expected NewTimestampFromGotime('%s', '%s') to give '%s' but got '%s'.",
+					testData[i].inputTime.String(),
+					testData[i].inputZone.String(),
+					testData[i].output.ToString(),
+					result.ToString(),
+				)
+			}
+		})
+	}
+}

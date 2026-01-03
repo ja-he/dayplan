@@ -272,7 +272,7 @@ func createUI(
 			case ui.ViewDay:
 				return 1
 			case ui.ViewWeek:
-				switch getCurrentDate().ToWeekday() {
+				switch getCurrentDate().ToWeekday(time.Local) {
 				case time.Monday:
 					return 1
 				case time.Tuesday:
@@ -422,7 +422,7 @@ func createUI(
 					start, end := c.WeekBounds()
 					dateString = fmt.Sprintf("week %s..%s", start.String(), end.String())
 				case ui.ViewMonth:
-					dateString = fmt.Sprintf("%s %d", c.ToGotime().Month().String(), c.Year)
+					dateString = fmt.Sprintf("%s %d", c.ToGotime(time.Local).Month().String(), c.Year)
 				}
 				return fmt.Sprintf("SUMMARY (%s)", dateString)
 			},
@@ -512,8 +512,8 @@ func createDayViewMainPane(
 				func() model.SunTimes { return suntimesProvider.Get(getCurrentDate()) },
 				func() *model.Timestamp {
 					now := time.Now()
-					if getCurrentDate().Is(now) {
-						return model.NewTimestampFromGotime(now)
+					if getCurrentDate().Is(now, time.Local) {
+						return model.NewTimestampFromGotime(now, time.Local)
 					}
 					return nil
 				},
