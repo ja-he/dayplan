@@ -231,7 +231,7 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCatego
 	if firstStartDate == date {
 		startTimestamp = *NewTimestampFromGotime(firstStart, timezone)
 	} else if firstStartDate.IsAfter(date) {
-		return nil, fmt.Errorf("Somehow, have a start of an event at %s which is AFTER the timesheet date %s.", startTimestamp.ToString(), date.String())
+		return nil, fmt.Errorf("Somehow, have a start date of an event (%s) which is AFTER the timesheet date %s.", firstStartDate.String(), date.String())
 	} else {
 		// The start is before the date
 		startTimestamp = Timestamp{0, 0}
@@ -241,7 +241,7 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCatego
 	if lastEndDate == date {
 		endTimestamp = *NewTimestampFromGotime(lastEnd, timezone)
 	} else if lastEndDate.IsBefore(date) {
-		return nil, fmt.Errorf("Somehow, have an end of an event at %s which is BEFORE the timesheet date %s.", endTimestamp.ToString(), date.String())
+		return nil, fmt.Errorf("Somehow, have an end date of an event (%s) which is BEFORE the timesheet date %s.", lastEndDate.String(), date.String())
 	} else {
 		// The end is after the date
 		endTimestamp = Timestamp{24, 0}
