@@ -244,7 +244,7 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCatego
 		return nil, fmt.Errorf("Somehow, have an end of an event at %s which is BEFORE the timesheet date %s.", endTimestamp.ToString(), date.String())
 	} else {
 		// The end is after the date
-		startTimestamp = Timestamp{24, 0}
+		endTimestamp = Timestamp{24, 0}
 	}
 
 	return &TimesheetEntry{
