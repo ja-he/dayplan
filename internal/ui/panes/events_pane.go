@@ -89,7 +89,7 @@ func (p *EventsPane) Draw() {
 	}
 	p.positions = p.computeRects(date, day, x+p.pad, y, w-(2*p.pad), h)
 	for _, e := range day.Events {
-		start, end := model.FromTime(e.Start), model.FromTime(e.End)
+		start, end := model.FromTime(e.Start, time.Local), model.FromTime(e.End, time.Local)
 		if start.Date.IsAfter(date) || end.Date.IsBefore(date) {
 			p.log.Warn().Stringer("date", date).Stringer("event", e).Msg("got an event where the start date is after the drawn date or end is before drawn date, which should not happen")
 			continue
@@ -210,7 +210,7 @@ func (p *EventsPane) getEventForPos(x, y int) *ui.EventsPanePositionInfo {
 				return &ui.EventsPanePositionInfo{
 					Event:        currentDay.Events[i],
 					EventBoxPart: hover,
-					Time:         model.DateAndTimestampToGotime(date, p.viewParams.TimeAtY(y)),
+					Time:         model.DateAndTimestampToGotime(date, p.viewParams.TimeAtY(y), time.Local),
 				}
 			}
 		}
@@ -239,7 +239,7 @@ func (p *EventsPane) computeRects(date model.Date, l *model.EventList, offsetX, 
 		activeStack = append(activeStack, e)
 
 		// the true start timestamps
-		start, end := model.FromTime(e.Start), model.FromTime(e.End)
+		start, end := model.FromTime(e.Start, time.Local), model.FromTime(e.End, time.Local)
 		if start.Date.IsAfter(date) || end.Date.IsBefore(date) {
 			p.log.Warn().Stringer("date", date).Stringer("event", e).Msg("got an event where the start date is after the drawn date or end is before drawn date, which should not happen")
 			continue

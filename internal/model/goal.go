@@ -91,7 +91,9 @@ type WorkweekGoal struct {
 //
 // It is just the duration defined for the date's weekday.
 func (g *WorkweekGoal) Requires(date Date) time.Duration {
-	switch date.ToWeekday() {
+	tz := time.UTC // Not sure timezone matters here really..
+	weekday := date.ToWeekday(tz)
+	switch weekday {
 	case time.Monday:
 		return g.Monday
 	case time.Tuesday:
@@ -107,7 +109,7 @@ func (g *WorkweekGoal) Requires(date Date) time.Duration {
 	case time.Sunday:
 		return g.Sunday
 	default:
-		panic(fmt.Sprintf("unknown weekday %d", date.ToWeekday()))
+		panic(fmt.Sprintf("unknown weekday %d", weekday))
 	}
 }
 

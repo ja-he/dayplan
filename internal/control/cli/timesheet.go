@@ -51,6 +51,8 @@ type TimesheetCommand struct {
 
 // Execute executes the timesheet command.
 func (command *TimesheetCommand) Execute(args []string) error {
+	timesheetTimezone := time.Local
+
 	{
 		var logFileWriter io.Writer
 		if command.LogOutputFile != "" {
@@ -136,17 +138,17 @@ func (command *TimesheetCommand) Execute(args []string) error {
 
 	data := make(map[model.Date][]*model.Event)
 
-	events, err := eventsProvider.GetEventsCoveringTimerange(startDate.ToGotime(), finalDate.ToGotime().Add(24*time.Hour))
+	events, err := eventsProvider.GetEventsCoveringTimerange(startDate.ToGotime(timesheetTimezone), finalDate.ToGotime(timesheetTimezone).Add(24*time.Hour))
 	if err != nil {
 		return fmt.Errorf("error while getting events for %s-%s (%w)", startDate.String(), finalDate.String(), err)
 	}
 	for _, event := range events {
-		if model.DateFromGotime(event.Start) != model.DateFromGotime(event.End) && isMidnight(event.End) {
+		if model.DateFromGotime(event.Start, timesheetTimezone) != model.DateFromGotime(event.End, timesheetTimezone) && isMidnight(event.End) {
 			log.Warn().Msgf("Event '%s' spans more than one day, current timesheet implementation does not consider such events (TODO).", event.ID)
 			continue
 		}
 
-		eventDate := model.DateFromGotime(event.Start)
+		eventDate := model.DateFromGotime(event.Start, timesheetTimezone)
 		prev, _ := data[eventDate]
 		data[eventDate] = append(prev, event) // OK to use prev here without checking the OK-value (_) since if it's nil append can deal with it.
 	}
@@ -204,7 +206,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 
 	for _, date := range dates {
 		eventList := model.EventList{Events: data[date]}
-		timesheetEntry, err := eventList.GetTimesheetEntry(matcher, categoryPriorityProvider)
+		timesheetEntry, err := eventList.GetTimesheetEntry(matcher, categoryPriorityProvider, date, timesheetTimezone)
 		if err != nil {
 			return fmt.Errorf("error while getting timesheet entry: %s", err)
 		}
@@ -245,7 +247,7 @@ func (command *TimesheetCommand) Execute(args []string) error {
 		fmt.Println(
 			strings.Join(
 				[]string{
-					maybeEnquote(date.ToGotime().Format(command.DateFormat)),
+					maybeEnquote(date.ToGotime(timesheetTimezone).Format(command.DateFormat)),
 					asCSVString(*timesheetEntry, maybeEnquote, stringifyTimestamp, stringifyDuration, command.FieldSeparator),
 				},
 				command.FieldSeparator,

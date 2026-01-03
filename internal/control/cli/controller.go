@@ -432,7 +432,7 @@ func NewController(
 				if err != nil {
 					return nil, fmt.Errorf("Could not get event (%w).", err)
 				}
-				startDate := model.DateFromGotime(e.Start)
+				startDate := model.DateFromGotime(e.Start, time.Local)
 				if startDate != controller.data.CurrentDate {
 					return nil, fmt.Errorf("Current event somehow not on current date (%s != %s).", startDate, controller.data.CurrentDate)
 				}
@@ -448,11 +448,11 @@ func NewController(
 			}
 			if current == nil {
 				now := time.Now()
-				if controller.data.CurrentDate.Is(now) {
+				if controller.data.CurrentDate.Is(now, time.Local) {
 					newEvent.Start = now
 				} else {
 					topRowShownTime := controller.data.MainTimelineViewParams.TimeAtY(0)
-					newEvent.Start = model.DateAndTimestampToGotime(controller.data.CurrentDate, topRowShownTime)
+					newEvent.Start = model.DateAndTimestampToGotime(controller.data.CurrentDate, topRowShownTime, time.Local)
 				}
 			} else {
 				isMidnight := func(t time.Time) bool {
@@ -497,7 +497,7 @@ func NewController(
 				if err != nil {
 					return nil, fmt.Errorf("Could not get event (%w).", err)
 				}
-				startDate := model.DateFromGotime(e.Start)
+				startDate := model.DateFromGotime(e.Start, time.Local)
 				if startDate != controller.data.CurrentDate {
 					return nil, fmt.Errorf("Current event somehow not on current date (%s != %s).", startDate, controller.data.CurrentDate)
 				}
@@ -973,33 +973,35 @@ func NewController(
 
 	createWeekViewDayEventsFn := func(dayIndex int) func() (model.Date, *model.EventList, error) {
 		return func() (model.Date, *model.EventList, error) {
-			startOfDay := controller.data.CurrentDate.GetDayInWeek(dayIndex).ToGotime()
+			date := controller.data.CurrentDate.GetDayInWeek(dayIndex)
+			startOfDay := date.ToGotime(time.Local)
 			endOfDay := startOfDay.Add(24 * time.Hour)
 			events, err := controller.eventsProvider.GetEventsCoveringTimerange(startOfDay, endOfDay)
 			if err != nil {
 				controller.log.Warn().Err(err).Time("start-of-day", startOfDay).Time("end-of-day", endOfDay).Msg("could not get events for day")
 				return model.Date{}, nil, fmt.Errorf("could not get events for day %d of this week (%w)", dayIndex, err)
 			}
-			return model.DateFromGotime(startOfDay), &model.EventList{Events: events}, nil
+			return date, &model.EventList{Events: events}, nil
 		}
 	}
 	createMonthViewDayEventsFn := func(dayIndex int) func() (model.Date, *model.EventList, error) {
 		return func() (model.Date, *model.EventList, error) {
-			startOfDay := controller.data.CurrentDate.GetDayInMonth(dayIndex).ToGotime()
+			date := controller.data.CurrentDate.GetDayInMonth(dayIndex)
+			startOfDay := date.ToGotime(time.Local)
 			endOfDay := startOfDay.Add(24 * time.Hour)
 			events, err := controller.eventsProvider.GetEventsCoveringTimerange(startOfDay, endOfDay)
 			if err != nil {
 				controller.log.Warn().Err(err).Time("start-of-day", startOfDay).Time("end-of-day", endOfDay).Msg("could not get events for day")
 				return model.Date{}, nil, fmt.Errorf("could not get events for day %d of month (%w)", dayIndex, err)
 			}
-			return model.DateFromGotime(startOfDay), &model.EventList{Events: events}, nil
+			return date, &model.EventList{Events: events}, nil
 		}
 	}
 	getMouseMode := func() bool { return controller.data.MouseMode }
 	getEventEditMode := func() edit.EventEditMode { return controller.data.EventEditMode }
 	summaryVisibleFn := func() bool { return controller.data.ShowSummary }
 	getSummary := func() (map[model.CategoryName]time.Duration, error) {
-		startOfDay := controller.data.CurrentDate.ToGotime()
+		startOfDay := controller.data.CurrentDate.ToGotime(time.Local)
 		endOfDay := startOfDay.Add(24 * time.Hour)
 		result, err := controller.eventsProvider.SumUpTimespanByCategory(startOfDay, endOfDay)
 		if err != nil {
@@ -1011,7 +1013,7 @@ func NewController(
 
 	getCurrentDateEventsFn := func() (model.Date, *model.EventList, error) {
 		d := controller.data.CurrentDate
-		startOfDay := d.ToGotime()
+		startOfDay := d.ToGotime(time.Local)
 		endOfDay := startOfDay.Add(24 * time.Hour)
 		l, err := controller.eventsProvider.GetEventsCoveringTimerange(startOfDay, endOfDay)
 		if err != nil {
@@ -1140,11 +1142,11 @@ func NewController(
 	// TODO(ja-he): move elsewhere
 	// TODO(ja-he): There is a bug with this for midnight while moving down; probably need to rethink
 	controller.ensureEventsPaneTimestampWithinVisibleScroll = func(t time.Time) {
-		ts := *model.NewTimestampFromGotime(t)
-		if !controller.data.CurrentDate.Is(t) {
+		ts := *model.NewTimestampFromGotime(t, time.Local)
+		if !controller.data.CurrentDate.Is(t, time.Local) {
 			// If it's not on this date, either we make 00:00 visible or 24:00,
 			// depending on whether its before the current date or after it.
-			if !t.After(controller.data.CurrentDate.ToGotime()) {
+			if !t.After(controller.data.CurrentDate.ToGotime(time.Local)) {
 				ts = model.Timestamp{Hour: 0, Minute: 0}
 			} else {
 				ts = model.Timestamp{Hour: 24, Minute: 0}
@@ -1473,7 +1475,7 @@ func (c *Controller) handleMouseResizeEditEvent(ev tcell.Event) {
 			}
 
 			cursorDate := c.getDateAtCursor()
-			cursorTime := model.DateAndTimestampToGotime(cursorDate, c.timestampGuesser(x, y))
+			cursorTime := model.DateAndTimestampToGotime(cursorDate, c.timestampGuesser(x, y), time.Local)
 			visualCursorTime := cursorTime.Add(c.data.MainTimelineViewParams.DurationOfHeight(1))
 
 			var err error
@@ -1512,7 +1514,7 @@ func (c *Controller) handleMouseMoveEditEvent(ev tcell.Event) {
 
 			cursorDate := c.getDateAtCursor()
 			cursorTimestamp := c.timestampGuesser(x, y)
-			cursorTime := model.DateAndTimestampToGotime(cursorDate, cursorTimestamp)
+			cursorTime := model.DateAndTimestampToGotime(cursorDate, cursorTimestamp, time.Local)
 			newStartOfEvent := cursorTime.Add(-c.data.CurrentMoveStartingOffset)
 			c.eventsProvider.OffsetEventTimes(event.ID, newStartOfEvent.Sub(event.Start))
 

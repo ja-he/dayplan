@@ -2,6 +2,7 @@ package panes
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ja-he/dayplan/internal/control/edit"
 	"github.com/ja-he/dayplan/internal/model"
@@ -43,6 +44,7 @@ func (p *StatusPane) Draw() {
 	weekdayStyle := dateStyle.LightenedFG(60)
 
 	currentDate := p.getCurrentDate()
+	weekdayStr := currentDate.ToWeekday(time.UTC /* irrelevant */).String()
 
 	// header background
 	p.Renderer.DrawBox(0, y, p.firstDayXOffset()+p.totalDaysInPeriod()*p.dayWidth(), h, bgStyle)
@@ -53,7 +55,7 @@ func (p *StatusPane) Draw() {
 	// date string
 	p.Renderer.DrawText(0, y, dateWidth, 1, dateStyle, currentDate.String())
 	// weekday string
-	p.Renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(currentDate.ToWeekday().String(), dateWidth))
+	p.Renderer.DrawText(0, y+1, dateWidth, 1, weekdayStyle, util.TruncateAt(weekdayStr, dateWidth))
 
 	// mode string
 	modeStr := eventEditModeToString(p.eventEditMode())

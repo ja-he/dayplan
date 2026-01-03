@@ -133,7 +133,7 @@ func TestToWeekday(t *testing.T) {
 	{
 		date := Date{2021, 11, 12}
 		expected := time.Friday
-		result := date.ToWeekday()
+		result := date.ToWeekday(time.UTC)
 		if result != expected {
 			log.Fatalf("%s should be weekday %s not %s", date.String(), expected.String(), result.String())
 		}

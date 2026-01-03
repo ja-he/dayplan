@@ -115,7 +115,7 @@ func convertHourlyDataToTimestamped(data *[]OWMHourly) map[model.DateAndTime]Wea
 		hourly := (*data)[i]
 		t := time.Unix(int64(hourly.Dt), 0)
 
-		result[*model.FromTime(t)] = Weather{
+		result[*model.FromTime(t, time.Local)] = Weather{
 			Info:                     hourly.Weather[0].Description,
 			TempC:                    kelvinToCelsius(hourly.Temp),
 			Clouds:                   hourly.Clouds,

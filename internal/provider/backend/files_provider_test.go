@@ -123,14 +123,13 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC), event.Start)
 		})
 
-		// for he files provider we expect this not to work because it does not
-		// support this.
-		t.Run("try-different-date", func(t *testing.T) {
-			err = p.SetEventStart(id, time.Date(2022, 12, 31, 14, 0, 0, 0, time.UTC))
-			assert.NotNil(t, err)
+		t.Run("move-to-different-date", func(t *testing.T) {
+			newStart := time.Date(2022, 12, 31, 14, 0, 0, 0, time.UTC)
+			err = p.SetEventStart(id, newStart)
+			assert.Nil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC), event.Start)
+			assert.Equal(t, newStart, event.Start)
 		})
 	})
 
@@ -170,14 +169,13 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
 		})
 
-		// for the files provider we expect this not to work because it does not
-		// support this.
-		t.Run("try-different-date", func(t *testing.T) {
-			err = p.SetEventEnd(id, time.Date(2023, 1, 2, 14, 0, 0, 0, time.UTC))
-			assert.NotNil(t, err)
+		t.Run("extend-to-different-date", func(t *testing.T) {
+			newEnd := time.Date(2023, 1, 2, 14, 0, 0, 0, time.UTC)
+			err = p.SetEventEnd(id, newEnd)
+			assert.Nil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
+			assert.Equal(t, newEnd, event.End)
 		})
 	})
 
@@ -1261,32 +1259,32 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, originalEnd, event.End)
 		})
 
-		t.Run("invalid-start-to-different-date", func(t *testing.T) {
+		t.Run("multi-day-event-allowed", func(t *testing.T) {
 			id := setupWithSingleEvent(t, originalStart, originalEnd)
 			newStart := time.Date(2023, 1, 5, 18, 0, 0, 0, time.UTC)
 			newEnd := time.Date(2023, 1, 6, 16, 0, 0, 0, time.UTC)
 
 			err := p.SetEventTimes(id, newStart, newEnd)
-			assert.NotNil(t, err)
+			assert.Nil(t, err)
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, originalEnd, event.End)
+			assert.Equal(t, newStart, event.Start)
+			assert.Equal(t, newEnd, event.End)
 		})
 
-		t.Run("invalid-end-to-different-date", func(t *testing.T) {
+		t.Run("multi-day-event-allowed-2", func(t *testing.T) {
 			id := setupWithSingleEvent(t, originalStart, originalEnd)
 			newStart := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
 			newEnd := time.Date(2023, 1, 2, 14, 0, 0, 0, time.UTC)
 
 			err := p.SetEventTimes(id, newStart, newEnd)
-			assert.NotNil(t, err)
+			assert.Nil(t, err)
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, originalEnd, event.End)
+			assert.Equal(t, newStart, event.Start)
+			assert.Equal(t, newEnd, event.End)
 		})
 	})
 
