@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // EventList is a list of events I suppose.
@@ -224,6 +226,15 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCatego
 		}
 
 	}
+	if !startFound {
+		log.Debug().Msg("No events matched the category filter; returning an empty timesheet entry.")
+		return &TimesheetEntry{
+			Start:         Timestamp{0, 0},
+			BreakDuration: 0,
+			End:           Timestamp{0, 0},
+		}, nil
+	}
+
 	firstStartDate := DateFromGotime(firstStart, timezone)
 	lastEndDate := DateFromGotime(lastEnd, timezone)
 
