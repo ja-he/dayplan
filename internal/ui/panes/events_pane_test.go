@@ -1073,3 +1073,39 @@ func TestComputeRects_MixedEventsComplexScenario(t *testing.T) {
 		t.Errorf("work: expected H=48, got H=%d", rectWork.H)
 	}
 }
+
+// This test shows the correct behavior with properly sorted input
+func TestComputeRects_SortedEventList(t *testing.T) {
+	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	prevDate := date.Prev()
+	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
+	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
+
+	// PREV 22:00  +------------------22:00
+	//      23:00  | overnight            |
+	// THIS 00:00  +------------------00:50
+	//      01:00
+	//       ...
+	//      08:00
+	//      09:00  +------------------09:00
+	//      10:00  | morning              |
+	//      11:00  +------------------11:00
+	overnight := makeMultiDayEvent(prevDate, 22, 0, date, 0, 50, "sleep")
+	morning := makeEvent(date, 9, 0, 11, 0, "morning")
+
+	// CORRECT ORDER: overnight first (starts earlier), then morning
+	eventListCorrectOrder := &model.EventList{Events: []*model.Event{overnight, morning}}
+
+	result := pane.computeRects(date, eventListCorrectOrder, 0, 0, 100, 144)
+
+	rectOvernight := result[overnight]
+	rectMorning := result[morning]
+
+	// With correct order, both should have full width
+	if rectOvernight.W != 100 {
+		t.Errorf("overnight: expected W=100, got W=%d", rectOvernight.W)
+	}
+	if rectMorning.W != 100 {
+		t.Errorf("morning: expected W=100, got W=%d", rectMorning.W)
+	}
+}

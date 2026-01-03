@@ -656,6 +656,44 @@ func testGetEventsCoveringTimerange(t *testing.T, factory EventProviderFactory) 
 			t.Error("Expected error for empty range (start equals end)")
 		}
 	})
+
+	t.Run("events from multiple days returned in sorted order", func(t *testing.T) {
+		// This test verifies that events spanning multiple days (stored in
+		// different file handlers) are returned in start-time sorted order.
+		// This is critical for correct stacking in the UI.
+		p := factory(t)
+
+		// Add events in non-chronological order to different days
+		// Day 0: morning event at 09:00-10:00
+		p.AddEvent(createEvent("Morning", "cat", timeOnDay(9, 0), timeOnDay(10, 0)))
+		// Day -1 to Day 0: overnight event 22:00 yesterday to 00:50 today
+		p.AddEvent(createEvent("Overnight", "cat", timeOnDayOffset(-1, 22, 0), timeOnDay(0, 50)))
+		// Day 0: afternoon event at 14:00-15:00
+		p.AddEvent(createEvent("Afternoon", "cat", timeOnDay(14, 0), timeOnDay(15, 0)))
+
+		// Query for all events covering day 0
+		events, err := p.GetEventsCoveringTimerange(timeOnDay(0, 0), timeOnDay(23, 59))
+		if err != nil {
+			t.Fatalf("GetEventsCoveringTimerange failed: %v", err)
+		}
+		if len(events) != 3 {
+			t.Fatalf("Expected 3 events, got %d", len(events))
+		}
+
+		// Events should be sorted by start time
+		for i := 0; i < len(events)-1; i++ {
+			if events[i].Start.After(events[i+1].Start) {
+				t.Errorf("Events not sorted by start time: event[%d] (%s, start=%v) comes before event[%d] (%s, start=%v)",
+					i, events[i].Name, events[i].Start,
+					i+1, events[i+1].Name, events[i+1].Start)
+			}
+		}
+
+		// Specifically verify overnight event comes first (it started earliest)
+		if events[0].Name != "Overnight" {
+			t.Errorf("Expected 'Overnight' to be first (earliest start), got '%s'", events[0].Name)
+		}
+	})
 }
 
 // Test SplitEvent functionality
