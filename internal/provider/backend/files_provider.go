@@ -1257,6 +1257,10 @@ func (p *FilesDataProvider) getAvailableDates() ([]model.Date, error) {
 			dates = append(dates, d)
 		}
 	}
+
+	// Ensure deterministic order
+	sort.Sort(model.DateSlice(dates))
+
 	return dates, nil
 
 }
