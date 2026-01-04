@@ -80,6 +80,16 @@ func (s *Store) EndEvent(id string, endTime time.Time) error {
 	return nil
 }
 
+func (s *Store) AddNewEvent(id string, name string, startTime time.Time, endTime time.Time) error {
+	// TODO: check that end time after start time
+
+	_, err := s.db.Exec(
+		`INSERT INTO events (id, name, start_time) VALUES (?, ?, ?)`,
+		id, name, startTime.UTC().Format(time.RFC3339Nano),
+	)
+	return err
+}
+
 // RetrieveEvents returns all completed, unretrieved events and marks them as retrieved.
 func (s *Store) RetrieveEvents() ([]model.Event, error) {
 	tx, err := s.db.Begin()

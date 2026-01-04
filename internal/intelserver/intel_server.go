@@ -38,6 +38,7 @@ func (s *Server) Run() error {
 
 	mux.HandleFunc("POST /events/begin", s.handleBeginning)
 	mux.HandleFunc("POST /events/end", s.handleEnd)
+	mux.HandleFunc("POST /events/new", s.handleNew)
 
 	server := &http.Server{
 		Addr:         s.listenAddr,
@@ -109,6 +110,12 @@ type endRequest struct {
 	EndTime *time.Time `json:"end-time,omitempty"`
 }
 
+type newRequest struct {
+	Name      string    `json:"name"`
+	StartTime time.Time `json:"start-time"`
+	EndTime   time.Time `json:"end-time"`
+}
+
 func (s *Server) handleEnd(w http.ResponseWriter, r *http.Request) {
 	var req endRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -130,12 +137,31 @@ func (s *Server) handleEnd(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.EndEvent(req.ID, endTime); err != nil {
 		log.Error().Err(err).Str("id", req.ID).Msg("failed to end event")
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "unable to find event"})
 		return
 	}
 
 	log.Info().Msgf("Event '%s' was ended.", req.ID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleNew(w http.ResponseWriter, r *http.Request) {
+	var req newRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Warn().Err(err).Msg("Unable to serve end request due to malformed body.")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	id := uuid.New().String()
+	if err := s.store.AddNewEvent(id, req.Name, req.StartTime, req.EndTime); err != nil {
+		log.Error().Err(err).Msgf("Unable to add new event.")
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "unable to add event"})
+		return
+	}
+
+	log.Info().Msgf("New event '%s' was added.", id)
+	writeJSON(w, http.StatusCreated, map[string]string{"status": "ok"})
 }
 
 type RetrieveResponse struct {
