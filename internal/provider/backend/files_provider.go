@@ -1137,6 +1137,24 @@ func (p *FilesDataProvider) FullyCommitted() (bool, error) {
 	return true, nil
 }
 
+// HasExternalChanges checks if any loaded file has been modified on disk by
+// another process since we last read it. This can be used to detect stale
+// in-memory state and prompt the user to reload.
+func (p *FilesDataProvider) HasExternalChanges() (bool, error) {
+	p.fhMutex.RLock()
+	defer p.fhMutex.RUnlock()
+	for _, fh := range p.FileHandlers {
+		changed, err := fh.DiskHasChanged()
+		if err != nil {
+			return false, fmt.Errorf("error checking if disk has changed for %s (%w)", fh.date, err)
+		}
+		if changed {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (p *FilesDataProvider) GetStorageLocationInfo() (string, error) {
 	return fmt.Sprintf("files:%s", p.BasePath), nil
 }
