@@ -84,8 +84,8 @@ func (s *Store) AddNewEvent(id string, name string, startTime time.Time, endTime
 	// TODO: check that end time after start time
 
 	_, err := s.db.Exec(
-		`INSERT INTO events (id, name, start_time) VALUES (?, ?, ?)`,
-		id, name, startTime.UTC().Format(time.RFC3339Nano),
+		`INSERT INTO events (id, name, start_time, end_time) VALUES (?, ?, ?, ?)`,
+		id, name, startTime.UTC().Format(time.RFC3339Nano), endTime.UTC().Format(time.RFC3339Nano),
 	)
 	return err
 }
