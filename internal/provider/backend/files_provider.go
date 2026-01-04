@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"sync"
@@ -29,7 +30,8 @@ var filesProviderIDValidator = func(id model.EventID) bool {
 
 // FilesDataProvider ...
 type FilesDataProvider struct {
-	BasePath string
+	BasePath      string
+	storeLockPath string // Global lock file for cross-process synchronization
 
 	fhMutex      sync.RWMutex
 	FileHandlers map[model.Date]*fileHandler
@@ -50,6 +52,7 @@ func NewFilesDataProvider(
 
 	result := &FilesDataProvider{
 		BasePath:         basePath,
+		storeLockPath:    path.Join(basePath, ".lock"),
 		fhMutex:          sync.RWMutex{},
 		FileHandlers:     make(map[model.Date]*fileHandler),
 		eventsDateMap:    make(map[model.EventID]model.Date),
@@ -81,7 +84,7 @@ func (p *FilesDataProvider) getFileHandler(date model.Date) (*fileHandler, error
 	// add the new handler
 	p.fhMutex.Lock()
 	defer p.fhMutex.Unlock()
-	fh, err := newFileHandlerWithDataReadFromDisk(p.BasePath, date)
+	fh, err := newFileHandlerWithDataReadFromDisk(p.BasePath, p.storeLockPath, date)
 	if err != nil {
 		return nil, fmt.Errorf("could not load file handler for '%s' (%w)", date.String(), err)
 	}

@@ -18,8 +18,9 @@ import (
 type fileHandler struct {
 	mutex sync.Mutex
 
-	basePath string
-	date     model.Date
+	basePath     string
+	storeLockPath string // Global lock file for cross-process synchronization
+	date         model.Date
 
 	lastChange time.Time
 	lastWrite  time.Time
@@ -76,9 +77,32 @@ func (h *fileHandler) clearLocalModifications() {
 	h.locallyRemovedEvents = make(map[model.EventID]struct{})
 }
 
-func newFileHandlerWithDataReadFromDisk(basePath string, date model.Date) (*fileHandler, error) {
+// acquireStoreLock acquires an exclusive lock on the global store lock file.
+// Returns the lock file handle which must be closed to release the lock.
+func (h *fileHandler) acquireStoreLock() (*os.File, error) {
+	lockFile, err := os.OpenFile(h.storeLockPath, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("could not open store lock file '%s' (%w)", h.storeLockPath, err)
+	}
+	if err := lockFileExclusive(lockFile); err != nil {
+		lockFile.Close()
+		return nil, fmt.Errorf("could not acquire store lock (%w)", err)
+	}
+	return lockFile, nil
+}
+
+// releaseStoreLock releases the store lock by closing the file.
+func (h *fileHandler) releaseStoreLock(lockFile *os.File) {
+	if lockFile != nil {
+		unlockFile(lockFile)
+		lockFile.Close()
+	}
+}
+
+func newFileHandlerWithDataReadFromDisk(basePath string, storeLockPath string, date model.Date) (*fileHandler, error) {
 	f := fileHandler{
 		basePath:              basePath,
+		storeLockPath:         storeLockPath,
 		date:                  date,
 		locallyModifiedEvents: make(map[model.EventID]struct{}),
 		locallyAddedEvents:    make(map[model.EventID]struct{}),
@@ -122,21 +146,15 @@ func (h *fileHandler) writeUnsafe() error {
 	filename := h.Filename()
 	tempFilename := filename + ".tmp"
 
-	// Open the target file with exclusive lock for reading current state
-	targetFile, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
+	// Acquire global store lock
+	storeLock, err := h.acquireStoreLock()
 	if err != nil {
-		return fmt.Errorf("could not open file '%s' for locking (%w)", filename, err)
+		return fmt.Errorf("could not acquire store lock for writing (%w)", err)
 	}
-	defer targetFile.Close()
-
-	// Acquire exclusive lock
-	if err := lockFileExclusive(targetFile); err != nil {
-		return fmt.Errorf("could not acquire exclusive lock on '%s' (%w)", filename, err)
-	}
-	defer unlockFile(targetFile)
+	defer h.releaseStoreLock(storeLock)
 
 	// Merge with current disk state
-	mergedEvents, err := h.mergeWithDiskState(targetFile)
+	mergedEvents, err := h.mergeWithDiskState()
 	if err != nil {
 		return fmt.Errorf("could not merge with disk state (%w)", err)
 	}
@@ -194,7 +212,8 @@ func (h *fileHandler) writeUnsafe() error {
 
 // mergeWithDiskState reads the current disk state and merges our local changes with it.
 // Returns the merged list of events to be written.
-func (h *fileHandler) mergeWithDiskState(f *os.File) ([]*model.Event, error) {
+// Assumes the global store lock is already held.
+func (h *fileHandler) mergeWithDiskState() ([]*model.Event, error) {
 	// Build a map of our local events for quick lookup
 	localEventsByID := make(map[model.EventID]*model.Event)
 	for _, e := range h.data.Events {
@@ -202,7 +221,7 @@ func (h *fileHandler) mergeWithDiskState(f *os.File) ([]*model.Event, error) {
 	}
 
 	// Read current disk state
-	diskEvents, err := h.parseEventsFromFile(f)
+	diskEvents, err := h.readEventsFromDiskFile()
 	if err != nil {
 		return nil, fmt.Errorf("could not read disk events (%w)", err)
 	}
@@ -247,12 +266,18 @@ func (h *fileHandler) mergeWithDiskState(f *os.File) ([]*model.Event, error) {
 	return merged, nil
 }
 
-// parseEventsFromFile reads events from an already-open and locked file.
-func (h *fileHandler) parseEventsFromFile(f *os.File) ([]*model.Event, error) {
-	// Seek to beginning of file
-	if _, err := f.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("could not seek to beginning of file (%w)", err)
+// readEventsFromDiskFile reads events from the data file on disk.
+// Assumes the global store lock is already held.
+func (h *fileHandler) readEventsFromDiskFile() ([]*model.Event, error) {
+	f, err := os.Open(h.Filename())
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// File doesn't exist - return empty list
+			return nil, nil
+		}
+		return nil, fmt.Errorf("could not open file '%s' (%w)", h.Filename(), err)
 	}
+	defer f.Close()
 
 	var events []*model.Event
 	scanner := bufio.NewScanner(f)
@@ -385,6 +410,13 @@ func (h *fileHandler) readFromDisk() error {
 		Events: make([]*model.Event, 0),
 	}
 
+	// Acquire global store lock
+	storeLock, err := h.acquireStoreLock()
+	if err != nil {
+		return fmt.Errorf("could not acquire store lock for reading (%w)", err)
+	}
+	defer h.releaseStoreLock(storeLock)
+
 	f, err := os.Open(h.Filename())
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -395,12 +427,6 @@ func (h *fileHandler) readFromDisk() error {
 		return fmt.Errorf("could not read file '%s' from disk (%w)", h.Filename(), err)
 	}
 	defer f.Close()
-
-	// Acquire shared lock for reading
-	if err := lockFileShared(f); err != nil {
-		return fmt.Errorf("could not acquire shared lock on '%s' (%w)", h.Filename(), err)
-	}
-	defer unlockFile(f)
 
 	// Get file modification time for stale detection
 	info, err := f.Stat()
