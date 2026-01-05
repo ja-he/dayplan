@@ -1,4 +1,4 @@
-package intelserver
+package intel
 
 import (
 	"context"

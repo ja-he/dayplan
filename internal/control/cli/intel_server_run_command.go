@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/ja-he/dayplan/internal/intelserver"
+	"github.com/ja-he/dayplan/internal/intel"
 	"github.com/rs/zerolog/log"
 )
 
@@ -14,7 +14,7 @@ type DayplanIntelServerRunCommand struct {
 
 func (c *DayplanIntelServerRunCommand) Execute(_ []string) error {
 
-	server, err := intelserver.NewServer(c.ListenAddr, c.DBPath)
+	server, err := intel.NewServer(c.ListenAddr, c.DBPath)
 	if err != nil {
 		return fmt.Errorf("Unable to create server (%w)", err)
 	}

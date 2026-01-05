@@ -13,7 +13,7 @@ import (
 
 	"github.com/ja-he/dayplan/internal/config"
 	"github.com/ja-he/dayplan/internal/control"
-	"github.com/ja-he/dayplan/internal/intelserver"
+	"github.com/ja-he/dayplan/internal/intel"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/provider/backend"
@@ -141,7 +141,7 @@ func gatherHTTPIntel(name string, details config.HTTPIntelSourceTypeDetails) ([]
 		return nil, fmt.Errorf("Unable to read response body data (%w)", err)
 	}
 
-	parsedResponse := intelserver.RetrieveResponse{}
+	parsedResponse := intel.RetrieveResponse{}
 	if err := json.Unmarshal(respBodyData, &parsedResponse); err != nil {
 		return nil, fmt.Errorf("Unable to parse response (may be an error response) (%w)", err)
 	}
