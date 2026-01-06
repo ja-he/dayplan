@@ -15,9 +15,9 @@ import (
 	"github.com/ja-he/dayplan/internal/provider/backend"
 )
 
-// AddCommand contains flags for the `summarize` command line command, for
+// DayplanAddCommand contains flags for the `summarize` command line command, for
 // `go-flags` to parse command line args into.
-type AddCommand struct {
+type DayplanAddCommand struct {
 	Category string `short:"c" long:"category" description:"the category of the added event(s)" value-name:"<category>" required:"true"`
 	Name     string `short:"n" long:"name" description:"the name of the added event(s)" value-name:"<name>" required:"true"`
 
@@ -26,11 +26,13 @@ type AddCommand struct {
 
 	RepeatInterval string `short:"r" long:"repeat-interval" description:"the repeat interval; if omitted, no repetition is assumed; requires end (til) date to be specified" choice:"daily" choice:"weekly" choice:"monthly"`
 	RepeatTil      string `short:"t" long:"repeat-til" description:"the date until which to repeat the event; requires repeat inteval to be specified" value-name:"<yyyy-mm-dd>"`
+
+	Timezone string `long:"timezone" default:"local" description:"may be 'local' (default), 'utc', otherwise assumed to be a 'Europe/Berlin' style string and treated as such."`
 }
 
 // Execute executes the add command.
 // (This gets called by `go-flags` when `add` is provided on the command line)
-func (command *AddCommand) Execute(args []string) error {
+func (command *DayplanAddCommand) Execute(args []string) error {
 	var envData control.EnvData
 
 	// set up dir per option
@@ -80,12 +82,25 @@ func (command *AddCommand) Execute(args []string) error {
 	}
 
 	// verify times
+	var loc *time.Location
+	switch command.Timezone {
+	case "local":
+		loc = time.Local
+	case "utc":
+		loc = time.UTC
+	default:
+		var err error
+		loc, err = time.LoadLocation("Europe/Berlin")
+		if err != nil {
+			return fmt.Errorf("Invalid timezone '%s' (%w)", command.Timezone, err)
+		}
+	}
 	layout := "2006-01-02 15:04:05"
-	start, err := time.Parse(layout, command.Start)
+	start, err := time.ParseInLocation(layout, command.Start, loc)
 	if err != nil {
 		return fmt.Errorf("could not parse start time '%s' (%w)", command.Start, err)
 	}
-	end, err := time.Parse(layout, command.End)
+	end, err := time.ParseInLocation(layout, command.End, loc)
 	if err != nil {
 		return fmt.Errorf("could not parse end time '%s' (%w)", command.End, err)
 	}
@@ -97,7 +112,7 @@ func (command *AddCommand) Execute(args []string) error {
 	if command.RepeatInterval != "" && command.RepeatTil == "" || command.RepeatInterval == "" && command.RepeatTil != "" {
 		panic("ERROR: either both repeat interval and 'til' date need to be specified, or neither")
 	} else if command.RepeatTil != "" {
-		repeatTilTime, err = time.Parse(layout, command.RepeatTil)
+		repeatTilTime, err = time.ParseInLocation(layout, command.RepeatTil, loc)
 		if err != nil {
 			return fmt.Errorf("could not parse repeat-til time '%s' (%w)", command.RepeatTil, err)
 		}

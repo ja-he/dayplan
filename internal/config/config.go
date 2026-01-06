@@ -1,7 +1,10 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
+	"regexp"
 
 	"gopkg.in/yaml.v3"
 )
@@ -11,6 +14,8 @@ import (
 type Config struct {
 	Stylesheet Stylesheet `yaml:"stylesheet"`
 	Categories []Category `yaml:"categories"`
+
+	IntelSources []IntelSource `yaml:"intel-sources,omitempty"`
 }
 
 // A Stylesheet is the stylesheet contents defined in a config file.
@@ -96,6 +101,24 @@ type RangedGoal struct {
 	Time  string `yaml:"time"`
 }
 
+type IntelSource struct {
+	Name string `yaml:"name"`
+
+	SourceType IntelSourceType `yaml:"type"`
+
+	HTTPDetails *HTTPIntelSourceTypeDetails `yaml:",inline"`
+}
+
+type IntelSourceType string
+
+const (
+	IntelSourceTypeHTTP IntelSourceType = "http"
+)
+
+type HTTPIntelSourceTypeDetails struct {
+	URL string `yaml:"url"`
+}
+
 // ParseConfigAugmentDefaults parses the configuration specified in
 // YAML-formatted data and uses it to augment a given default configuration.
 func ParseConfigAugmentDefaults(defaultTheme ColorschemeType, yamlData []byte) (Config, error) {
@@ -112,6 +135,9 @@ func ParseConfigAugmentDefaults(defaultTheme ColorschemeType, yamlData []byte) (
 	if err != nil {
 		return defaultConfig, fmt.Errorf("error unmarshaling yaml (%s)", err)
 	}
+	if err := parsedConfig.validateIntelSources(); err != nil {
+		return defaultConfig, fmt.Errorf("There is an issue with the intel sources format: %w", err)
+	}
 
 	result := defaultConfig.augmentWith(parsedConfig)
 
@@ -127,7 +153,47 @@ func (base Config) augmentWith(augment Config) Config {
 		result.Categories = augment.Categories
 	}
 
+	result.IntelSources = append(base.IntelSources, augment.IntelSources...)
+
 	return result
+}
+
+func (base Config) validateIntelSources() error {
+	var errs []error
+	for _, src := range base.IntelSources {
+		if ok, _ := regexp.MatchString(`[a-zA-Z0-9_-]+`, src.Name); !ok {
+			errs = append(errs, fmt.Errorf("Source name '%s' is not valid.", src.Name))
+			continue
+		}
+
+		switch src.SourceType {
+
+		case IntelSourceTypeHTTP:
+			if src.HTTPDetails == nil {
+				errs = append(errs, fmt.Errorf("No HTTP intel source details provided in HTTP intel source '%s'", src.Name))
+				continue
+			}
+			if u, err := url.Parse(src.HTTPDetails.URL); err != nil {
+				errs = append(errs, fmt.Errorf("HTTP intel source '%s' details provide an invalid URL: %w", src.Name, err))
+				continue
+			} else if u.Scheme == "" {
+				errs = append(errs, fmt.Errorf("HTTP intel source '%s' details provide an invalid URL: missing scheme", src.Name))
+				continue
+			} else if u.Scheme != "http" && u.Scheme != "https" {
+				errs = append(errs, fmt.Errorf("HTTP intel source '%s' details provide an invalid URL: non-HTTP scheme", src.Name))
+				continue
+			} else if u.Host == "" {
+				errs = append(errs, fmt.Errorf("HTTP intel source '%s' details provide an invalid URL: missing host", src.Name))
+				continue
+			}
+
+		default:
+			errs = append(errs, fmt.Errorf("Unknown intel source type '%s' (for source named '%s')", src.SourceType, src.Name))
+
+		}
+
+	}
+	return errors.Join(errs...)
 }
 
 func (base Stylesheet) augmentWith(augment Stylesheet) Stylesheet {

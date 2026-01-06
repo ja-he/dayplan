@@ -18,8 +18,8 @@ import (
 	"github.com/ja-he/dayplan/internal/styling"
 )
 
-// TUICommand is the struct for the TUI command.
-type TUICommand struct {
+// DayplanTUICommand is the struct for the TUI command.
+type DayplanTUICommand struct {
 	Day           string `short:"d" long:"day" description:"Specify the day to plan" value-name:"<file>"`
 	Theme         string `short:"t" long:"theme" choice:"light" choice:"dark" description:"Select a 'dark' or a 'light' default theme (note: only sets defaults, which are individually overridden by settings in config.yaml"`
 	LogOutputFile string `short:"l" long:"log-output-file" description:"specify a log output file (otherwise logs dropped)"`
@@ -28,7 +28,7 @@ type TUICommand struct {
 }
 
 // Execute runs the TUI command.
-func (command *TUICommand) Execute(_ []string) error {
+func (command *DayplanTUICommand) Execute(_ []string) error {
 	// create TUI logger
 	var logWriter io.Writer
 	if command.LogOutputFile != "" {

@@ -21,7 +21,7 @@ import (
 	"github.com/ja-he/dayplan/internal/util"
 )
 
-// TimesheetCommand is the command `timesheet`, which produces a timesheet for
+// DayplanTimesheetCommand is the command `timesheet`, which produces a timesheet for
 // a given category.
 //
 // A timesheet has entries per day, each of the form
@@ -31,7 +31,7 @@ import (
 // e.g.
 //
 //	08:50,45min,16:20
-type TimesheetCommand struct {
+type DayplanTimesheetCommand struct {
 	FromDay string `short:"f" long:"from" description:"the day from which to start summarizing" value-name:"<yyyy-mm-dd>" required:"true"`
 	TilDay  string `short:"t" long:"til" description:"the day til which to summarize (inclusive)" value-name:"<yyyy-mm-dd>" required:"true"`
 
@@ -50,7 +50,7 @@ type TimesheetCommand struct {
 }
 
 // Execute executes the timesheet command.
-func (command *TimesheetCommand) Execute(args []string) error {
+func (command *DayplanTimesheetCommand) Execute(args []string) error {
 	timesheetTimezone := time.Local
 
 	{

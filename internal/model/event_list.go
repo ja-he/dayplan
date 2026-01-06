@@ -43,7 +43,7 @@ func (l *EventList) GetEventByID(id EventID) *Event {
 // ...
 func (l *EventList) AddEvent(e *Event) error {
 	if !(e.End.After(e.Start)) {
-		return fmt.Errorf("refusing to add negative length event %s", e.String())
+		return fmt.Errorf("refusing to add negative length or instant event %s", e.String())
 	}
 	l.Events = append(l.Events, e)
 	l.UpdateEventOrder()
