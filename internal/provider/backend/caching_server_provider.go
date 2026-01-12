@@ -544,28 +544,38 @@ func (p *CachingServerClientDataProvider) GetEventBefore(t time.Time) (*model.Ev
 	return &e, nil
 }
 
-// GetPrecedingEvent returns the event immediately before the given event.
-// For overlapping events, "preceding" is determined by start time order.
+// GetPrecedingEvent returns the event immediately before the given event in the total ordering.
+// Events are ordered by: start_time ASC, end_time DESC (longer events first for same start), id ASC.
+// This ensures all events are reachable via prev/next navigation.
 func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, error) {
-	// First get the event to find its start time
 	e, err := p.GetEvent(id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find the event with the largest start_time that is still before this event's start.
-	// For ties on start_time, prefer longer events (consistent with ByStartConsideringDuration).
+	startStr := e.Start.Format(time.RFC3339)
+	endStr := e.End.Format(time.RFC3339)
+
+	// Find the event immediately before this one in total ordering.
+	// Total order: start_time ASC, end_time DESC, id ASC
+	// "Before" means: start < e.start, OR (start = e.start AND end > e.end),
+	//                 OR (start = e.start AND end = e.end AND id < e.id)
+	// To get the closest preceding event, order by: start DESC, end ASC, id DESC
 	row := p.db.QueryRow(
 		`SELECT id, name, category, start_time, end_time FROM events
-		 WHERE deleted = 0 AND start_time < ?
-		 ORDER BY start_time DESC, (julianday(end_time) - julianday(start_time)) DESC
+		 WHERE deleted = 0 AND (
+		   start_time < ?
+		   OR (start_time = ? AND end_time > ?)
+		   OR (start_time = ? AND end_time = ? AND id < ?)
+		 )
+		 ORDER BY start_time DESC, end_time ASC, id DESC
 		 LIMIT 1`,
-		e.Start.Format(time.RFC3339),
+		startStr, startStr, endStr, startStr, endStr, id,
 	)
 
 	var prev model.Event
-	var startStr, endStr string
-	err = row.Scan(&prev.ID, &prev.Name, &prev.Category, &startStr, &endStr)
+	var prevStartStr, prevEndStr string
+	err = row.Scan(&prev.ID, &prev.Name, &prev.Category, &prevStartStr, &prevEndStr)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -573,31 +583,44 @@ func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*
 		return nil, fmt.Errorf("error getting preceding event: %w", err)
 	}
 
-	prev.Start, _ = time.Parse(time.RFC3339, startStr)
-	prev.End, _ = time.Parse(time.RFC3339, endStr)
+	prev.Start, _ = time.Parse(time.RFC3339, prevStartStr)
+	prev.End, _ = time.Parse(time.RFC3339, prevEndStr)
 
 	return &prev, nil
 }
 
-// GetFollowingEvent returns the event immediately after the given event.
+// GetFollowingEvent returns the event immediately after the given event in the total ordering.
+// Events are ordered by: start_time ASC, end_time DESC (longer events first for same start), id ASC.
+// This ensures all events are reachable via prev/next navigation.
 func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, error) {
-	// First get the event to find its end time
 	e, err := p.GetEvent(id)
 	if err != nil {
 		return nil, err
 	}
 
+	startStr := e.Start.Format(time.RFC3339)
+	endStr := e.End.Format(time.RFC3339)
+
+	// Find the event immediately after this one in total ordering.
+	// Total order: start_time ASC, end_time DESC, id ASC
+	// "After" means: start > e.start, OR (start = e.start AND end < e.end),
+	//                OR (start = e.start AND end = e.end AND id > e.id)
+	// To get the closest following event, order by: start ASC, end DESC, id ASC
 	row := p.db.QueryRow(
 		`SELECT id, name, category, start_time, end_time FROM events
-		 WHERE deleted = 0 AND start_time >= ?
-		 ORDER BY start_time, end_time DESC
+		 WHERE deleted = 0 AND (
+		   start_time > ?
+		   OR (start_time = ? AND end_time < ?)
+		   OR (start_time = ? AND end_time = ? AND id > ?)
+		 )
+		 ORDER BY start_time ASC, end_time DESC, id ASC
 		 LIMIT 1`,
-		e.End.Format(time.RFC3339),
+		startStr, startStr, endStr, startStr, endStr, id,
 	)
 
 	var next model.Event
-	var startStr, endStr string
-	err = row.Scan(&next.ID, &next.Name, &next.Category, &startStr, &endStr)
+	var nextStartStr, nextEndStr string
+	err = row.Scan(&next.ID, &next.Name, &next.Category, &nextStartStr, &nextEndStr)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -605,8 +628,8 @@ func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*
 		return nil, fmt.Errorf("error getting following event: %w", err)
 	}
 
-	next.Start, _ = time.Parse(time.RFC3339, startStr)
-	next.End, _ = time.Parse(time.RFC3339, endStr)
+	next.Start, _ = time.Parse(time.RFC3339, nextStartStr)
+	next.End, _ = time.Parse(time.RFC3339, nextEndStr)
 
 	return &next, nil
 }

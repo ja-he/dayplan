@@ -528,6 +528,95 @@ func testGetPrecedingEvent(t *testing.T, factory EventProviderFactory) {
 			t.Error("Expected Event 2 as preceding Event 3")
 		}
 	})
+
+	// Test: Events with same start time - all should be reachable via prev navigation
+	t.Run("same start time events all reachable via prev", func(t *testing.T) {
+		p := factory(t)
+
+		// Two events start at the same time with different durations
+		// Event A: 10:00-12:00 (short)
+		// Event B: 10:00-14:00 (long)
+		// Event C: 15:00-16:00 (later)
+		idA, _ := p.AddEvent(createEvent("Short", "cat", timeOnDay(10, 0), timeOnDay(12, 0)))
+		idB, _ := p.AddEvent(createEvent("Long", "cat", timeOnDay(10, 0), timeOnDay(14, 0)))
+		idC, _ := p.AddEvent(createEvent("Later", "cat", timeOnDay(15, 0), timeOnDay(16, 0)))
+
+		// Navigate backward from C, collecting all visited events
+		visited := make(map[model.EventID]bool)
+		current := idC
+		for i := 0; i < 10; i++ { // safety limit
+			event, err := p.GetPrecedingEvent(current)
+			if err != nil {
+				t.Fatalf("GetPrecedingEvent failed: %v", err)
+			}
+			if event == nil {
+				break
+			}
+			visited[event.ID] = true
+			current = event.ID
+		}
+
+		// Both A and B should be reachable
+		if !visited[idA] {
+			t.Error("Event A (Short) is unreachable via prev navigation from C")
+		}
+		if !visited[idB] {
+			t.Error("Event B (Long) is unreachable via prev navigation from C")
+		}
+	})
+
+	// Test: Full backward navigation reaches all events
+	t.Run("backward navigation visits all stacked events", func(t *testing.T) {
+		p := factory(t)
+
+		// Create a stack of overlapping events
+		// A: 10:00-11:00
+		// B: 10:15-11:30 (overlaps A, starts after A)
+		// C: 10:30-12:00 (overlaps A and B)
+		// D: 13:00-14:00 (gap, then this)
+		idA, _ := p.AddEvent(createEvent("A", "cat", timeOnDay(10, 0), timeOnDay(11, 0)))
+		idB, _ := p.AddEvent(createEvent("B", "cat", timeOnDay(10, 15), timeOnDay(11, 30)))
+		idC, _ := p.AddEvent(createEvent("C", "cat", timeOnDay(10, 30), timeOnDay(12, 0)))
+		idD, _ := p.AddEvent(createEvent("D", "cat", timeOnDay(13, 0), timeOnDay(14, 0)))
+
+		// Navigate backward from D, should visit C, B, A in that order
+		visited := make(map[model.EventID]bool)
+		var visitOrder []model.EventID
+		current := idD
+		for i := 0; i < 10; i++ {
+			event, err := p.GetPrecedingEvent(current)
+			if err != nil {
+				t.Fatalf("GetPrecedingEvent failed: %v", err)
+			}
+			if event == nil {
+				break
+			}
+			visited[event.ID] = true
+			visitOrder = append(visitOrder, event.ID)
+			current = event.ID
+		}
+
+		// All events should be visited
+		allEvents := []model.EventID{idA, idB, idC}
+		for _, id := range allEvents {
+			if !visited[id] {
+				t.Errorf("Event %s is unreachable via backward navigation from D", id)
+			}
+		}
+
+		// Should visit in reverse start order: C (10:30), B (10:15), A (10:00)
+		if len(visitOrder) >= 3 {
+			if visitOrder[0] != idC {
+				t.Errorf("First visited should be C, got %s", visitOrder[0])
+			}
+			if visitOrder[1] != idB {
+				t.Errorf("Second visited should be B, got %s", visitOrder[1])
+			}
+			if visitOrder[2] != idA {
+				t.Errorf("Third visited should be A, got %s", visitOrder[2])
+			}
+		}
+	})
 }
 
 // Test GetFollowingEvent functionality
@@ -571,6 +660,115 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		_, err := p.GetFollowingEvent("non-existent")
 		if err == nil {
 			t.Error("Expected error for non-existent event ID")
+		}
+	})
+
+	// Test: Events with same start time - all should be reachable via next navigation
+	t.Run("same start time events all reachable via next", func(t *testing.T) {
+		p := factory(t)
+
+		// Event A: 08:00-09:00 (earlier)
+		// Event B: 10:00-12:00 (short, same start as C)
+		// Event C: 10:00-14:00 (long, same start as B)
+		idA, _ := p.AddEvent(createEvent("Earlier", "cat", timeOnDay(8, 0), timeOnDay(9, 0)))
+		idB, _ := p.AddEvent(createEvent("Short", "cat", timeOnDay(10, 0), timeOnDay(12, 0)))
+		idC, _ := p.AddEvent(createEvent("Long", "cat", timeOnDay(10, 0), timeOnDay(14, 0)))
+
+		// Navigate forward from A, collecting all visited events
+		visited := make(map[model.EventID]bool)
+		current := idA
+		for i := 0; i < 10; i++ { // safety limit
+			event, err := p.GetFollowingEvent(current)
+			if err != nil {
+				t.Fatalf("GetFollowingEvent failed: %v", err)
+			}
+			if event == nil {
+				break
+			}
+			visited[event.ID] = true
+			current = event.ID
+		}
+
+		// Both B and C should be reachable
+		if !visited[idB] {
+			t.Error("Event B (Short) is unreachable via next navigation from A")
+		}
+		if !visited[idC] {
+			t.Error("Event C (Long) is unreachable via next navigation from A")
+		}
+	})
+
+	// Test: Stacked events where middle event starts before first ends
+	t.Run("stacked events middle unreachable via next", func(t *testing.T) {
+		p := factory(t)
+
+		// A: 10:00-12:00
+		// B: 11:00-13:00 (starts during A, so next(A) might skip B)
+		// C: 14:00-15:00 (starts after A ends)
+		idA, _ := p.AddEvent(createEvent("A", "cat", timeOnDay(10, 0), timeOnDay(12, 0)))
+		idB, _ := p.AddEvent(createEvent("B", "cat", timeOnDay(11, 0), timeOnDay(13, 0)))
+		idC, _ := p.AddEvent(createEvent("C", "cat", timeOnDay(14, 0), timeOnDay(15, 0)))
+
+		// Navigate forward from A
+		visited := make(map[model.EventID]bool)
+		current := idA
+		for i := 0; i < 10; i++ {
+			event, err := p.GetFollowingEvent(current)
+			if err != nil {
+				t.Fatalf("GetFollowingEvent failed: %v", err)
+			}
+			if event == nil {
+				break
+			}
+			visited[event.ID] = true
+			current = event.ID
+		}
+
+		// B starts at 11:00 which is before A ends at 12:00
+		// So next(A) looks for start >= 12:00, which finds C (14:00), skipping B!
+		if !visited[idB] {
+			t.Error("Event B is unreachable via forward navigation from A - it starts before A ends")
+		}
+		if !visited[idC] {
+			t.Error("Event C should be reachable")
+		}
+	})
+
+	// Test: Forward navigation from all events should eventually visit all
+	t.Run("forward navigation visits all stacked events", func(t *testing.T) {
+		p := factory(t)
+
+		// Create overlapping stack
+		// A: 10:00-11:00
+		// B: 10:15-11:30
+		// C: 10:30-12:00
+		// D: 13:00-14:00
+		idA, _ := p.AddEvent(createEvent("A", "cat", timeOnDay(10, 0), timeOnDay(11, 0)))
+		idB, _ := p.AddEvent(createEvent("B", "cat", timeOnDay(10, 15), timeOnDay(11, 30)))
+		idC, _ := p.AddEvent(createEvent("C", "cat", timeOnDay(10, 30), timeOnDay(12, 0)))
+		idD, _ := p.AddEvent(createEvent("D", "cat", timeOnDay(13, 0), timeOnDay(14, 0)))
+
+		// Navigate forward from A
+		visited := make(map[model.EventID]bool)
+		current := idA
+		for i := 0; i < 10; i++ {
+			event, err := p.GetFollowingEvent(current)
+			if err != nil {
+				t.Fatalf("GetFollowingEvent failed: %v", err)
+			}
+			if event == nil {
+				break
+			}
+			visited[event.ID] = true
+			current = event.ID
+		}
+
+		// Check which events were visited
+		allEvents := map[model.EventID]string{idB: "B", idC: "C", idD: "D"}
+		for id, name := range allEvents {
+			if !visited[id] {
+				t.Errorf("Event %s is unreachable via forward navigation from A", name)
+			}
 		}
 	})
 }
