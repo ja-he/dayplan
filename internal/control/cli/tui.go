@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ja-he/dayplan/internal/control"
 	"github.com/ja-he/dayplan/internal/model"
 	"github.com/ja-he/dayplan/internal/potatolog"
+	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/provider/backend"
 	"github.com/ja-he/dayplan/internal/styling"
 )
@@ -25,6 +27,13 @@ type DayplanTUICommand struct {
 	LogOutputFile string `short:"l" long:"log-output-file" description:"specify a log output file (otherwise logs dropped)"`
 	LogPretty     bool   `short:"p" long:"log-pretty" description:"prettify logs to file"`
 	LogLevel      string `long:"log-level" description:"set log level to 'trace', 'debug', 'info', 'warn', 'error'"`
+
+	// TODO: probably remove in favor of config before integration
+	// Server backend options
+	ServerURL      string `long:"server" description:"Use server backend with specified URL (e.g., http://localhost:8080)"`
+	ServerUser     string `long:"server-user" description:"Username for server authentication (or set DAYPLAN_SERVER_USER env var)"`
+	ServerPassword string `long:"server-password" description:"Password for server authentication (or set DAYPLAN_SERVER_PASSWORD env var)"`
+	ServerDBPath   string `long:"server-db" description:"Path to local SQLite cache for server backend (default: $DAYPLAN_HOME/cache.db)"`
 }
 
 // Execute runs the TUI command.
@@ -134,7 +143,17 @@ func (command *DayplanTUICommand) Execute(_ []string) error {
 		return fmt.Errorf("Unable to initialize weather or suntimes handling (%w)", err)
 	}
 
-	controller, err := NewController(initialDay, envData, categoriesByName, *stylesheet, weatherHandler, suntimesProvider)
+	// Create the event provider based on configuration
+	categoryProvider := &backend.MemoryCategoryProvider{M: categoriesByName}
+	eventsProvider, providerCleanup, err := command.createEventsProvider(envData, categoryProvider)
+	if err != nil {
+		return fmt.Errorf("Unable to create events provider (%w)", err)
+	}
+	if providerCleanup != nil {
+		defer providerCleanup()
+	}
+
+	controller, err := NewController(initialDay, envData, categoriesByName, *stylesheet, weatherHandler, suntimesProvider, eventsProvider)
 	if err != nil {
 		log.Logger = previouslySetLogger
 		log.Error().Err(err).Msgf("something went wrong setting up the TUI, will check unpublished logs and return error")
@@ -189,4 +208,105 @@ func (command *DayplanTUICommand) Execute(_ []string) error {
 
 	controller.Run()
 	return nil
+}
+
+// createEventsProvider creates the appropriate EventProvider based on configuration.
+// It returns the provider, an optional cleanup function (for graceful shutdown), and any error.
+func (command *DayplanTUICommand) createEventsProvider(
+	envData control.EnvData,
+	categoryProvider provider.CategoryProvider,
+) (provider.EventProvider, func(), error) {
+
+	// Check if server backend is requested
+	serverURL := command.ServerURL
+	if serverURL == "" {
+		serverURL = os.Getenv("DAYPLAN_SERVER_URL")
+	}
+
+	if serverURL != "" {
+		// Use server backend
+		return command.createServerProvider(envData, categoryProvider, serverURL)
+	}
+
+	// Use files backend (default)
+	p, err := backend.NewFilesDataProvider(
+		path.Join(envData.BaseDirPath, "days"),
+		categoryProvider,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot initialize files data provider (%w)", err)
+	}
+	return p, nil, nil
+}
+
+// createServerProvider creates a CachingServerClientDataProvider and handles login.
+func (command *DayplanTUICommand) createServerProvider(
+	envData control.EnvData,
+	categoryProvider provider.CategoryProvider,
+	serverURL string,
+) (provider.EventProvider, func(), error) {
+
+	// Determine local cache DB path
+	dbPath := command.ServerDBPath
+	if dbPath == "" {
+		dbPath = os.Getenv("DAYPLAN_SERVER_DB")
+	}
+	if dbPath == "" {
+		dbPath = path.Join(envData.BaseDirPath, "cache.db")
+	}
+
+	// Get credentials
+	username := command.ServerUser
+	if username == "" {
+		username = os.Getenv("DAYPLAN_SERVER_USER")
+	}
+	password := command.ServerPassword
+	if password == "" {
+		password = os.Getenv("DAYPLAN_SERVER_PASSWORD")
+	}
+
+	if username == "" || password == "" {
+		return nil, nil, fmt.Errorf("server backend requires username and password (use --server-user/--server-password or DAYPLAN_SERVER_USER/DAYPLAN_SERVER_PASSWORD env vars)")
+	}
+
+	log.Info().Str("server", serverURL).Str("cache", dbPath).Msg("initializing server backend")
+
+	// Create the provider
+	p, err := backend.NewCachingServerClientDataProvider(
+		backend.CachingServerClientConfig{
+			DBPath:    dbPath,
+			ServerURL: serverURL,
+		},
+		categoryProvider,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot initialize server data provider (%w)", err)
+	}
+
+	// Cleanup function for graceful shutdown
+	cleanup := func() {
+		log.Debug().Msg("closing server provider")
+		if err := p.Close(); err != nil {
+			log.Error().Err(err).Msg("error closing server provider")
+		}
+	}
+
+	// Attempt login
+	log.Info().Str("user", username).Msg("logging in to server")
+	if err := p.Login(username, password); err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("server login failed (%w)", err)
+	}
+	log.Info().Msg("successfully logged in to server")
+
+	// Trigger initial sync
+	log.Info().Msg("performing initial sync")
+	syncErr := <-p.TriggerSync()
+	if syncErr != nil {
+		log.Warn().Err(syncErr).Msg("initial sync failed (will continue with local cache)")
+	} else {
+		log.Info().Msg("initial sync completed")
+	}
+
+	return p, cleanup, nil
 }

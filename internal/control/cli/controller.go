@@ -78,6 +78,7 @@ func NewController(
 	stylesheet styling.Stylesheet,
 	weatherHandler *weather.Handler,
 	suntimesProvider provider.SunTimesProvider,
+	eventsProvider provider.EventProvider,
 ) (*Controller, error) {
 	controller := Controller{
 		log: log.With().Str("component", "controller").Logger(),
@@ -90,16 +91,7 @@ func NewController(
 
 	{
 		categoryProvider := &backend.MemoryCategoryProvider{M: categoriesByName}
-		var p provider.EventProvider
-		var err error
-		p, err = backend.NewFilesDataProvider(
-			path.Join(envData.BaseDirPath, "days"),
-			categoryProvider,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("cannot initialize data provider (%w)", err)
-		}
-		controller.eventsProvider = p
+		controller.eventsProvider = eventsProvider
 		controller.categoryProvider = categoryProvider
 	}
 
