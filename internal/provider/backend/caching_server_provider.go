@@ -191,10 +191,18 @@ func NewCachingServerClientDataProvider(
 	categoryProvider provider.CategoryProvider,
 ) (*CachingServerClientDataProvider, error) {
 	// Open local SQLite
-	db, err := sql.Open("sqlite", cfg.DBPath+"?_journal_mode=WAL&_busy_timeout=5000")
+	// - WAL mode allows concurrent reads while writing
+	// - busy_timeout waits up to 10s for locks before returning SQLITE_BUSY
+	// - _txlock=immediate acquires write lock at BEGIN rather than first write (avoids upgrade deadlocks)
+	db, err := sql.Open("sqlite", cfg.DBPath+"?_journal_mode=WAL&_busy_timeout=10000&_txlock=immediate")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+
+	// Limit to a single connection to eliminate SQLITE_BUSY from connection pool contention.
+	// Since this is a local single-user database, concurrent connections provide no benefit
+	// and only create lock contention. A single connection serializes all access.
+	db.SetMaxOpenConns(1)
 
 	// Run migrations
 	if err := runMigrations(db); err != nil {
@@ -326,6 +334,47 @@ func setMeta(db *sql.DB, key, value string) error {
 		key, value,
 	)
 	return err
+}
+
+// isSQLiteBusy checks if an error is a SQLite busy error.
+func isSQLiteBusy(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "SQLITE_BUSY") ||
+		strings.Contains(errStr, "database is locked") ||
+		strings.Contains(errStr, "database table is locked")
+}
+
+// beginTxWithRetry attempts to begin a transaction with retry on SQLITE_BUSY.
+// This provides defense-in-depth against transient busy conditions.
+func (p *CachingServerClientDataProvider) beginTxWithRetry() (*sql.Tx, error) {
+	const maxRetries = 5
+	var lastErr error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		tx, err := p.db.Begin()
+		if err == nil {
+			return tx, nil
+		}
+
+		if !isSQLiteBusy(err) {
+			return nil, err
+		}
+
+		lastErr = err
+		// Exponential backoff: 10ms, 20ms, 40ms, 80ms, 160ms
+		backoff := time.Duration(10<<attempt) * time.Millisecond
+		p.log.Debug().
+			Err(err).
+			Int("attempt", attempt+1).
+			Dur("backoff", backoff).
+			Msg("SQLITE_BUSY on begin transaction, retrying")
+		time.Sleep(backoff)
+	}
+
+	return nil, fmt.Errorf("failed to begin transaction after %d retries: %w", maxRetries, lastErr)
 }
 
 // syncNotify signals the sync goroutine to attempt a sync.
@@ -496,6 +545,7 @@ func (p *CachingServerClientDataProvider) GetEventBefore(t time.Time) (*model.Ev
 }
 
 // GetPrecedingEvent returns the event immediately before the given event.
+// For overlapping events, "preceding" is determined by start time order.
 func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, error) {
 	// First get the event to find its start time
 	e, err := p.GetEvent(id)
@@ -503,10 +553,12 @@ func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*
 		return nil, err
 	}
 
+	// Find the event with the largest start_time that is still before this event's start.
+	// For ties on start_time, prefer longer events (consistent with ByStartConsideringDuration).
 	row := p.db.QueryRow(
 		`SELECT id, name, category, start_time, end_time FROM events
-		 WHERE deleted = 0 AND end_time <= ?
-		 ORDER BY end_time DESC, start_time
+		 WHERE deleted = 0 AND start_time < ?
+		 ORDER BY start_time DESC, (julianday(end_time) - julianday(start_time)) DESC
 		 LIMIT 1`,
 		e.Start.Format(time.RFC3339),
 	)
@@ -601,8 +653,8 @@ func (p *CachingServerClientDataProvider) AddEvent(e model.Event) (model.EventID
 
 	now := time.Now().UTC()
 
-	// Start transaction
-	tx, err := p.db.Begin()
+	// Start transaction with retry for transient busy conditions
+	tx, err := p.beginTxWithRetry()
 	if err != nil {
 		return "", fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -645,7 +697,7 @@ func (p *CachingServerClientDataProvider) AddEvent(e model.Event) (model.EventID
 func (p *CachingServerClientDataProvider) RemoveEvent(id model.EventID) error {
 	now := time.Now().UTC()
 
-	tx, err := p.db.Begin()
+	tx, err := p.beginTxWithRetry()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -699,7 +751,7 @@ func (p *CachingServerClientDataProvider) RemoveEvents(ids []model.EventID) erro
 func (p *CachingServerClientDataProvider) updateEventLocal(e *model.Event) error {
 	now := time.Now().UTC()
 
-	tx, err := p.db.Begin()
+	tx, err := p.beginTxWithRetry()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -1026,14 +1078,14 @@ func (p *CachingServerClientDataProvider) CommitState() error {
 	return err
 }
 
-// FullyCommitted returns whether there are no pending changes.
+// FullyCommitted returns whether local state is durably persisted.
+// This checks local SQLite persistence, not server sync state.
+// Use SyncStatus() to check sync state (pending changes, conflicts, etc.).
 func (p *CachingServerClientDataProvider) FullyCommitted() (bool, error) {
-	var count int
-	err := p.db.QueryRow("SELECT COUNT(*) FROM pending_changes").Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count == 0, nil
+	// Local SQLite with WAL mode persists data immediately on write.
+	// CommitState() checkpoints the WAL, but data is durable even without explicit checkpoint.
+	// Return true since all writes are immediately persisted to the local database.
+	return true, nil
 }
 
 // GetStorageLocationInfo returns information about the storage location.
@@ -1111,7 +1163,7 @@ func (p *CachingServerClientDataProvider) ResolveConflict(recordType, recordID s
 		return fmt.Errorf("conflict not found: %w", err)
 	}
 
-	tx, err := p.db.Begin()
+	tx, err := p.beginTxWithRetry()
 	if err != nil {
 		return err
 	}
