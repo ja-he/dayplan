@@ -252,7 +252,7 @@ func (command *DayplanTUICommand) createServerProvider(
 		dbPath = os.Getenv("DAYPLAN_SERVER_DB")
 	}
 	if dbPath == "" {
-		dbPath = path.Join(envData.BaseDirPath, "cache.db")
+		dbPath = "/tmp/dayplan-cache.sqlite"
 	}
 
 	// Get credentials
