@@ -771,6 +771,316 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 			}
 		}
 	})
+
+	// Test: Navigation symmetry - if next(A) = B then prev(B) = A
+	t.Run("navigation symmetry basic", func(t *testing.T) {
+		p := factory(t)
+
+		// Simple sequential events
+		idA, _ := p.AddEvent(createEvent("A", "cat", timeOnDay(10, 0), timeOnDay(11, 0)))
+		idB, _ := p.AddEvent(createEvent("B", "cat", timeOnDay(12, 0), timeOnDay(13, 0)))
+		idC, _ := p.AddEvent(createEvent("C", "cat", timeOnDay(14, 0), timeOnDay(15, 0)))
+
+		// next(A) should be B
+		nextA, err := p.GetFollowingEvent(idA)
+		if err != nil || nextA == nil || nextA.ID != idB {
+			t.Fatalf("Expected next(A) = B, got %v", nextA)
+		}
+
+		// prev(B) should be A (symmetry)
+		prevB, err := p.GetPrecedingEvent(idB)
+		if err != nil || prevB == nil || prevB.ID != idA {
+			t.Errorf("Symmetry broken: next(A)=B but prev(B)=%v, expected A", prevB)
+		}
+
+		// next(B) should be C
+		nextB, err := p.GetFollowingEvent(idB)
+		if err != nil || nextB == nil || nextB.ID != idC {
+			t.Fatalf("Expected next(B) = C, got %v", nextB)
+		}
+
+		// prev(C) should be B (symmetry)
+		prevC, err := p.GetPrecedingEvent(idC)
+		if err != nil || prevC == nil || prevC.ID != idB {
+			t.Errorf("Symmetry broken: next(B)=C but prev(C)=%v, expected B", prevC)
+		}
+	})
+
+	// Test: Fully nested events (one event completely contains another)
+	t.Run("fully nested events", func(t *testing.T) {
+		p := factory(t)
+
+		// Outer: 10:00-14:00 (contains Inner)
+		// Inner: 11:00-13:00 (fully inside Outer)
+		// After: 15:00-16:00
+		idOuter, _ := p.AddEvent(createEvent("Outer", "cat", timeOnDay(10, 0), timeOnDay(14, 0)))
+		idInner, _ := p.AddEvent(createEvent("Inner", "cat", timeOnDay(11, 0), timeOnDay(13, 0)))
+		idAfter, _ := p.AddEvent(createEvent("After", "cat", timeOnDay(15, 0), timeOnDay(16, 0)))
+
+		// Total order should be: Outer (10:00, 14:00), Inner (11:00, 13:00), After (15:00, 16:00)
+
+		// Navigate forward from Outer
+		nextOuter, err := p.GetFollowingEvent(idOuter)
+		if err != nil {
+			t.Fatalf("GetFollowingEvent(Outer) failed: %v", err)
+		}
+		if nextOuter == nil {
+			t.Fatal("Expected Inner as next after Outer, got nil")
+		}
+		if nextOuter.ID != idInner {
+			t.Errorf("Expected Inner as next after Outer, got %s", nextOuter.Name)
+		}
+
+		// Navigate forward from Inner
+		nextInner, err := p.GetFollowingEvent(idInner)
+		if err != nil {
+			t.Fatalf("GetFollowingEvent(Inner) failed: %v", err)
+		}
+		if nextInner == nil {
+			t.Fatal("Expected After as next after Inner, got nil")
+		}
+		if nextInner.ID != idAfter {
+			t.Errorf("Expected After as next after Inner, got %s", nextInner.Name)
+		}
+
+		// Verify symmetry: prev(Inner) should be Outer
+		prevInner, err := p.GetPrecedingEvent(idInner)
+		if err != nil {
+			t.Fatalf("GetPrecedingEvent(Inner) failed: %v", err)
+		}
+		if prevInner == nil || prevInner.ID != idOuter {
+			t.Errorf("Symmetry broken: next(Outer)=Inner but prev(Inner)=%v, expected Outer", prevInner)
+		}
+
+		// Verify symmetry: prev(After) should be Inner
+		prevAfter, err := p.GetPrecedingEvent(idAfter)
+		if err != nil {
+			t.Fatalf("GetPrecedingEvent(After) failed: %v", err)
+		}
+		if prevAfter == nil || prevAfter.ID != idInner {
+			t.Errorf("Symmetry broken: next(Inner)=After but prev(After)=%v, expected Inner", prevAfter)
+		}
+	})
+
+	// Test: Multi-level nesting (A contains B, B contains C)
+	t.Run("multi-level nesting", func(t *testing.T) {
+		p := factory(t)
+
+		// L1: 10:00-18:00 (outermost)
+		// L2: 11:00-17:00 (inside L1)
+		// L3: 12:00-16:00 (inside L2)
+		// After: 19:00-20:00
+		idL1, _ := p.AddEvent(createEvent("L1", "cat", timeOnDay(10, 0), timeOnDay(18, 0)))
+		idL2, _ := p.AddEvent(createEvent("L2", "cat", timeOnDay(11, 0), timeOnDay(17, 0)))
+		idL3, _ := p.AddEvent(createEvent("L3", "cat", timeOnDay(12, 0), timeOnDay(16, 0)))
+		idAfter, _ := p.AddEvent(createEvent("After", "cat", timeOnDay(19, 0), timeOnDay(20, 0)))
+
+		// Total order: L1 (10:00, 18:00), L2 (11:00, 17:00), L3 (12:00, 16:00), After (19:00, 20:00)
+
+		// Forward navigation: L1 -> L2 -> L3 -> After
+		allIDs := []model.EventID{idL1, idL2, idL3, idAfter}
+		names := []string{"L1", "L2", "L3", "After"}
+
+		for i := 0; i < len(allIDs)-1; i++ {
+			next, err := p.GetFollowingEvent(allIDs[i])
+			if err != nil {
+				t.Fatalf("GetFollowingEvent(%s) failed: %v", names[i], err)
+			}
+			if next == nil || next.ID != allIDs[i+1] {
+				t.Errorf("Expected next(%s) = %s, got %v", names[i], names[i+1], next)
+			}
+		}
+
+		// Backward navigation: After -> L3 -> L2 -> L1
+		for i := len(allIDs) - 1; i > 0; i-- {
+			prev, err := p.GetPrecedingEvent(allIDs[i])
+			if err != nil {
+				t.Fatalf("GetPrecedingEvent(%s) failed: %v", names[i], err)
+			}
+			if prev == nil || prev.ID != allIDs[i-1] {
+				t.Errorf("Expected prev(%s) = %s, got %v", names[i], names[i-1], prev)
+			}
+		}
+	})
+
+	// Test: Multiple overlapping events with same start but different end times
+	t.Run("same start different end times", func(t *testing.T) {
+		p := factory(t)
+
+		// All start at 10:00, but end at different times
+		// Order should be: Long (ends 18:00), Medium (ends 14:00), Short (ends 12:00)
+		idShort, _ := p.AddEvent(createEvent("Short", "cat", timeOnDay(10, 0), timeOnDay(12, 0)))
+		idMedium, _ := p.AddEvent(createEvent("Medium", "cat", timeOnDay(10, 0), timeOnDay(14, 0)))
+		idLong, _ := p.AddEvent(createEvent("Long", "cat", timeOnDay(10, 0), timeOnDay(18, 0)))
+		idAfter, _ := p.AddEvent(createEvent("After", "cat", timeOnDay(19, 0), timeOnDay(20, 0)))
+
+		// Total order: Long (end DESC for same start), Medium, Short, After
+
+		// Verify forward navigation from Long
+		nextLong, err := p.GetFollowingEvent(idLong)
+		if err != nil {
+			t.Fatalf("GetFollowingEvent(Long) failed: %v", err)
+		}
+		if nextLong == nil || nextLong.ID != idMedium {
+			t.Errorf("Expected next(Long) = Medium, got %v (id: %v)", nextLong, nextLong)
+		}
+
+		nextMedium, err := p.GetFollowingEvent(idMedium)
+		if err != nil {
+			t.Fatalf("GetFollowingEvent(Medium) failed: %v", err)
+		}
+		if nextMedium == nil || nextMedium.ID != idShort {
+			t.Errorf("Expected next(Medium) = Short, got %v", nextMedium)
+		}
+
+		nextShort, err := p.GetFollowingEvent(idShort)
+		if err != nil {
+			t.Fatalf("GetFollowingEvent(Short) failed: %v", err)
+		}
+		if nextShort == nil || nextShort.ID != idAfter {
+			t.Errorf("Expected next(Short) = After, got %v", nextShort)
+		}
+
+		// Verify backward navigation: After -> Short -> Medium -> Long
+		prevAfter, _ := p.GetPrecedingEvent(idAfter)
+		if prevAfter == nil || prevAfter.ID != idShort {
+			t.Errorf("Expected prev(After) = Short, got %v", prevAfter)
+		}
+
+		prevShort, _ := p.GetPrecedingEvent(idShort)
+		if prevShort == nil || prevShort.ID != idMedium {
+			t.Errorf("Expected prev(Short) = Medium, got %v", prevShort)
+		}
+
+		prevMedium, _ := p.GetPrecedingEvent(idMedium)
+		if prevMedium == nil || prevMedium.ID != idLong {
+			t.Errorf("Expected prev(Medium) = Long, got %v", prevMedium)
+		}
+	})
+
+	// Test: Complex overlapping scenario
+	t.Run("complex overlapping with nesting", func(t *testing.T) {
+		p := factory(t)
+
+		// A: 10:00-14:00
+		// B: 10:30-11:30 (inside A, after A starts)
+		// C: 12:00-13:00 (inside A, after B)
+		// D: 13:30-15:00 (overlaps A's end)
+		// E: 16:00-17:00 (after all)
+
+		idA, _ := p.AddEvent(createEvent("A", "cat", timeOnDay(10, 0), timeOnDay(14, 0)))
+		idB, _ := p.AddEvent(createEvent("B", "cat", timeOnDay(10, 30), timeOnDay(11, 30)))
+		idC, _ := p.AddEvent(createEvent("C", "cat", timeOnDay(12, 0), timeOnDay(13, 0)))
+		idD, _ := p.AddEvent(createEvent("D", "cat", timeOnDay(13, 30), timeOnDay(15, 0)))
+		idE, _ := p.AddEvent(createEvent("E", "cat", timeOnDay(16, 0), timeOnDay(17, 0)))
+
+		// Total order: A, B, C, D, E
+		allIDs := []model.EventID{idA, idB, idC, idD, idE}
+		names := []string{"A", "B", "C", "D", "E"}
+
+		// Forward navigation should visit all in order
+		current := idA
+		visited := []model.EventID{idA}
+		for i := 0; i < 10; i++ {
+			next, err := p.GetFollowingEvent(current)
+			if err != nil {
+				t.Fatalf("GetFollowingEvent failed: %v", err)
+			}
+			if next == nil {
+				break
+			}
+			visited = append(visited, next.ID)
+			current = next.ID
+		}
+
+		if len(visited) != 5 {
+			t.Errorf("Expected to visit 5 events, visited %d", len(visited))
+		}
+
+		// Verify navigation symmetry for all adjacent pairs
+		for i := 0; i < len(allIDs)-1; i++ {
+			next, _ := p.GetFollowingEvent(allIDs[i])
+			if next == nil || next.ID != allIDs[i+1] {
+				t.Errorf("next(%s) should be %s, got %v", names[i], names[i+1], next)
+			}
+
+			prev, _ := p.GetPrecedingEvent(allIDs[i+1])
+			if prev == nil || prev.ID != allIDs[i] {
+				t.Errorf("Asymmetry: next(%s)=%s but prev(%s)=%v", names[i], names[i+1], names[i+1], prev)
+			}
+		}
+	})
+
+	// Test: Round-trip navigation (go forward N steps, then back N steps, should return to start)
+	t.Run("round-trip navigation", func(t *testing.T) {
+		p := factory(t)
+
+		// Create a chain of events
+		idA, _ := p.AddEvent(createEvent("A", "cat", timeOnDay(8, 0), timeOnDay(9, 0)))
+		p.AddEvent(createEvent("B", "cat", timeOnDay(10, 0), timeOnDay(11, 0)))
+		p.AddEvent(createEvent("C", "cat", timeOnDay(12, 0), timeOnDay(13, 0)))
+		p.AddEvent(createEvent("D", "cat", timeOnDay(14, 0), timeOnDay(15, 0)))
+		p.AddEvent(createEvent("E", "cat", timeOnDay(16, 0), timeOnDay(17, 0)))
+
+		// Navigate forward 3 steps
+		current := idA
+		for i := 0; i < 3; i++ {
+			next, err := p.GetFollowingEvent(current)
+			if err != nil || next == nil {
+				t.Fatalf("Forward navigation failed at step %d", i)
+			}
+			current = next.ID
+		}
+
+		// Now navigate backward 3 steps
+		for i := 0; i < 3; i++ {
+			prev, err := p.GetPrecedingEvent(current)
+			if err != nil || prev == nil {
+				t.Fatalf("Backward navigation failed at step %d", i)
+			}
+			current = prev.ID
+		}
+
+		// Should be back at A
+		if current != idA {
+			t.Errorf("Round-trip failed: expected to return to A, got %s", current)
+		}
+	})
+
+	// Test: Nested events with same end time
+	t.Run("same end time different start times", func(t *testing.T) {
+		p := factory(t)
+
+		// All end at 14:00, but start at different times
+		// Outer: 10:00-14:00
+		// Middle: 11:00-14:00
+		// Inner: 12:00-14:00
+		idOuter, _ := p.AddEvent(createEvent("Outer", "cat", timeOnDay(10, 0), timeOnDay(14, 0)))
+		idMiddle, _ := p.AddEvent(createEvent("Middle", "cat", timeOnDay(11, 0), timeOnDay(14, 0)))
+		idInner, _ := p.AddEvent(createEvent("Inner", "cat", timeOnDay(12, 0), timeOnDay(14, 0)))
+		idAfter, _ := p.AddEvent(createEvent("After", "cat", timeOnDay(15, 0), timeOnDay(16, 0)))
+
+		// Total order: Outer (10:00), Middle (11:00), Inner (12:00), After (15:00)
+
+		// Verify forward navigation
+		allIDs := []model.EventID{idOuter, idMiddle, idInner, idAfter}
+		names := []string{"Outer", "Middle", "Inner", "After"}
+
+		for i := 0; i < len(allIDs)-1; i++ {
+			next, _ := p.GetFollowingEvent(allIDs[i])
+			if next == nil || next.ID != allIDs[i+1] {
+				t.Errorf("next(%s) should be %s, got %v", names[i], names[i+1], next)
+			}
+		}
+
+		// Verify backward navigation
+		for i := len(allIDs) - 1; i > 0; i-- {
+			prev, _ := p.GetPrecedingEvent(allIDs[i])
+			if prev == nil || prev.ID != allIDs[i-1] {
+				t.Errorf("prev(%s) should be %s, got %v", names[i], names[i-1], prev)
+			}
+		}
+	})
 }
 
 // Test GetEventsCoveringTimerange functionality
