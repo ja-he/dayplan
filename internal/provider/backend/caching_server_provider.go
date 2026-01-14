@@ -1452,7 +1452,9 @@ func (p *CachingServerClientDataProvider) push(ctx context.Context) ([]Conflict,
 
 	// 4. Apply server versions to local DB
 	for _, e := range pushResp.Events {
-		p.upsertEventFromServer(e)
+		if err := p.upsertEventFromServer(e); err != nil {
+			p.log.Error().Err(err).Str("eventID", e.ID).Msg("failed to upsert event during push response")
+		}
 	}
 
 	// 5. Store conflicts
@@ -1520,7 +1522,9 @@ func (p *CachingServerClientDataProvider) pull(ctx context.Context) (int, error)
 				p.log.Error().Err(err).Msg("failed to store conflict")
 			}
 		} else {
-			p.upsertEventFromServer(e)
+			if err := p.upsertEventFromServer(e); err != nil {
+				p.log.Error().Err(err).Str("eventID", e.ID).Msg("failed to upsert event during pull")
+			}
 		}
 		count++
 	}
@@ -1562,12 +1566,12 @@ func (p *CachingServerClientDataProvider) hasPendingChange(recordType, recordID 
 }
 
 // upsertEventFromServer inserts or updates an event from server data.
-func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) {
+func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) error {
 	deleted := 0
 	if e.Deleted {
 		deleted = 1
 	}
-	p.db.Exec(
+	_, err := p.db.Exec(
 		`INSERT INTO events (id, name, category, start_time, end_time, deleted, updated_at, server_updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
@@ -1580,6 +1584,16 @@ func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) {
 		   server_updated_at = excluded.server_updated_at`,
 		e.ID, e.Name, e.Category, e.StartTime, e.EndTime, deleted, e.UpdatedAt, e.UpdatedAt,
 	)
+	if err != nil {
+		p.log.Error().Err(err).
+			Str("eventID", e.ID).
+			Str("name", e.Name).
+			Str("startTime", e.StartTime).
+			Str("endTime", e.EndTime).
+			Msg("failed to upsert event from server")
+		return fmt.Errorf("failed to upsert event %s: %w", e.ID, err)
+	}
+	return nil
 }
 
 // storeConflict stores a conflict between local and server versions.
@@ -1633,7 +1647,7 @@ func (p *CachingServerClientDataProvider) runSSE(ctx context.Context) {
 
 		err := p.connectSSE(ctx)
 		if err != nil {
-			p.log.Debug().Err(err).Msg("SSE connection failed")
+			p.log.Error().Err(err).Dur("backoff", backoff).Msg("SSE connection failed, will retry")
 			time.Sleep(backoff)
 			if backoff < 30*time.Second {
 				backoff *= 2
@@ -1662,8 +1676,10 @@ func (p *CachingServerClientDataProvider) connectSSE(ctx context.Context) error 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("SSE connection failed: %d", resp.StatusCode)
+		return fmt.Errorf("SSE connection failed with status: %d", resp.StatusCode)
 	}
+
+	p.log.Info().Str("url", p.serverURL+"/api/v1/events/stream").Msg("SSE connection established")
 
 	p.statusMu.Lock()
 	p.status.Online = true
@@ -1679,6 +1695,7 @@ func (p *CachingServerClientDataProvider) connectSSE(ctx context.Context) error 
 		if line == "" {
 			// End of event
 			if eventType == "change" && data != "" {
+				p.log.Debug().Str("eventType", eventType).Str("data", data).Msg("received SSE event")
 				p.handleSSEChange(data)
 			}
 			eventType = ""
@@ -1693,28 +1710,52 @@ func (p *CachingServerClientDataProvider) connectSSE(ctx context.Context) error 
 		}
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		p.log.Error().Err(err).Msg("SSE scanner error")
+		return err
+	}
+	return nil
 }
 
 // handleSSEChange processes an SSE change event.
 func (p *CachingServerClientDataProvider) handleSSEChange(data string) {
 	var change struct {
-		Type  string      `json:"type"`
-		Event serverEvent `json:"event,omitempty"`
+		Type   string      `json:"type"`
+		Action string      `json:"action"`
+		Record serverEvent `json:"record"` // Server sends "record", not "event"
 	}
 	if err := json.Unmarshal([]byte(data), &change); err != nil {
-		p.log.Error().Err(err).Msg("failed to parse SSE change")
+		p.log.Error().Err(err).Str("data", data).Msg("failed to parse SSE change")
 		return
 	}
 
+	p.log.Debug().
+		Str("type", change.Type).
+		Str("action", change.Action).
+		Str("recordID", change.Record.ID).
+		Msg("processing SSE change")
+
 	if change.Type == "event" {
-		if p.hasPendingChange("event", change.Event.ID) {
+		if p.hasPendingChange("event", change.Record.ID) {
 			// Conflict: server changed something we also changed locally
-			p.storeConflict("event", change.Event.ID, change.Event)
+			p.log.Warn().Str("eventID", change.Record.ID).Msg("SSE event conflicts with pending local change")
+			p.storeConflict("event", change.Record.ID, change.Record)
 		} else {
-			p.upsertEventFromServer(change.Event)
+			p.log.Info().
+				Str("eventID", change.Record.ID).
+				Str("name", change.Record.Name).
+				Str("start", change.Record.StartTime).
+				Str("end", change.Record.EndTime).
+				Bool("deleted", change.Record.Deleted).
+				Msg("upserting event from SSE")
+			if err := p.upsertEventFromServer(change.Record); err != nil {
+				p.log.Error().Err(err).Str("eventID", change.Record.ID).Msg("failed to upsert event from SSE")
+				return
+			}
 		}
 		p.updateStatus()
+	} else {
+		p.log.Warn().Str("type", change.Type).Msg("received SSE change with unknown type")
 	}
 }
 
