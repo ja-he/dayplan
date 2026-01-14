@@ -41,6 +41,7 @@ type Controller struct {
 	dayViewEventsPane *panes.EventsPane
 
 	eventsProvider   provider.EventProvider
+	syncProvider     backend.SyncProvider // optional, set if eventsProvider implements SyncProvider
 	suntimesProvider provider.SunTimesProvider
 	categoryProvider provider.CategoryProvider
 	backlogProvider  provider.TaskProvider
@@ -93,6 +94,10 @@ func NewController(
 		categoryProvider := &backend.MemoryCategoryProvider{M: categoriesByName}
 		controller.eventsProvider = eventsProvider
 		controller.categoryProvider = categoryProvider
+		// Check if eventsProvider implements SyncProvider for real-time updates
+		if sp, ok := eventsProvider.(backend.SyncProvider); ok {
+			controller.syncProvider = sp
+		}
 	}
 
 	inputConfig := input.InputConfig{
@@ -1628,6 +1633,17 @@ func (c *Controller) Run() {
 			c.controllerEvents <- controllerEventRender
 		}
 	}()
+
+	// Run the sync status watcher loop, to trigger UI refresh when server data changes
+	if c.syncProvider != nil {
+		go func() {
+			statusCh := c.syncProvider.WatchStatus()
+			for range statusCh {
+				c.log.Debug().Msg("sync status changed, triggering render")
+				c.controllerEvents <- controllerEventRender
+			}
+		}()
+	}
 
 	// Run the event tracking loop, that waits for and processes events and pings
 	// for a redraw (or program exit) after each event.
