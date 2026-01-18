@@ -311,6 +311,89 @@ func runMigrations(db *sql.DB) error {
 	`
 
 	_, err := db.Exec(schema)
+	if err != nil {
+		return err
+	}
+
+	// Migration: Normalize time strings to RFC3339 without fractional seconds.
+	// This fixes a bug where server-synced events had milliseconds (e.g., "2026-01-18T13:04:28.693Z")
+	// but queries used RFC3339 format without milliseconds ("2026-01-18T13:04:28Z").
+	// Lexicographic comparison differs because '.' < 'Z' in ASCII, causing navigation bugs.
+	if err := migrateNormalizeTimeStrings(db); err != nil {
+		return fmt.Errorf("failed to normalize time strings: %w", err)
+	}
+
+	return nil
+}
+
+// migrateNormalizeTimeStrings normalizes all event times to RFC3339 without fractional seconds.
+func migrateNormalizeTimeStrings(db *sql.DB) error {
+	// Check if migration already ran
+	var migrated string
+	err := db.QueryRow("SELECT value FROM sync_meta WHERE key = 'migration_normalize_times'").Scan(&migrated)
+	if err == nil && migrated == "done" {
+		return nil // Already migrated
+	}
+
+	log.Info().Msg("Running migration: normalizing event time strings to RFC3339 (removing fractional seconds)")
+
+	// Get all events with potentially non-normalized times
+	rows, err := db.Query("SELECT id, start_time, end_time, updated_at, server_updated_at FROM events")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type eventTime struct {
+		id                                             string
+		startTime, endTime, updatedAt, serverUpdatedAt string
+	}
+	var events []eventTime
+	for rows.Next() {
+		var e eventTime
+		var serverUpdatedAt sql.NullString
+		if err := rows.Scan(&e.id, &e.startTime, &e.endTime, &e.updatedAt, &serverUpdatedAt); err != nil {
+			return err
+		}
+		e.serverUpdatedAt = serverUpdatedAt.String
+		events = append(events, e)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	// Update each event with normalized times
+	updated := 0
+	for _, e := range events {
+		newStart := normalizeTimeString(e.startTime)
+		newEnd := normalizeTimeString(e.endTime)
+		newUpdatedAt := normalizeTimeString(e.updatedAt)
+		newServerUpdatedAt := ""
+		if e.serverUpdatedAt != "" {
+			newServerUpdatedAt = normalizeTimeString(e.serverUpdatedAt)
+		}
+
+		// Only update if something changed
+		if newStart != e.startTime || newEnd != e.endTime || newUpdatedAt != e.updatedAt || newServerUpdatedAt != e.serverUpdatedAt {
+			var serverUpdatedAtVal any = nil
+			if newServerUpdatedAt != "" {
+				serverUpdatedAtVal = newServerUpdatedAt
+			}
+			_, err := db.Exec(
+				"UPDATE events SET start_time = ?, end_time = ?, updated_at = ?, server_updated_at = ? WHERE id = ?",
+				newStart, newEnd, newUpdatedAt, serverUpdatedAtVal, e.id,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to update event %s: %w", e.id, err)
+			}
+			updated++
+		}
+	}
+
+	log.Info().Int("events_updated", updated).Int("events_total", len(events)).Msg("Migration complete: normalized event time strings")
+
+	// Mark migration as done
+	_, err = db.Exec("INSERT INTO sync_meta (key, value) VALUES ('migration_normalize_times', 'done') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
 	return err
 }
 
@@ -444,8 +527,32 @@ func (p *CachingServerClientDataProvider) GetEvent(id model.EventID) (*model.Eve
 		return nil, fmt.Errorf("error getting event: %w", err)
 	}
 
-	e.Start, _ = time.Parse(time.RFC3339, startStr)
-	e.End, _ = time.Parse(time.RFC3339, endStr)
+	var parseErr error
+	e.Start, parseErr = time.Parse(time.RFC3339, startStr)
+	if parseErr != nil {
+		log.Warn().
+			Err(parseErr).
+			Str("event_id", string(id)).
+			Str("start_str", startStr).
+			Msg("GetEvent: failed to parse start time")
+	}
+	e.End, parseErr = time.Parse(time.RFC3339, endStr)
+	if parseErr != nil {
+		log.Warn().
+			Err(parseErr).
+			Str("event_id", string(id)).
+			Str("end_str", endStr).
+			Msg("GetEvent: failed to parse end time")
+	}
+
+	log.Trace().
+		Str("event_id", string(e.ID)).
+		Str("event_name", e.Name).
+		Str("db_start_str", startStr).
+		Str("db_end_str", endStr).
+		Time("parsed_start", e.Start).
+		Time("parsed_end", e.End).
+		Msg("GetEvent: retrieved event")
 
 	return &e, nil
 }
@@ -548,13 +655,39 @@ func (p *CachingServerClientDataProvider) GetEventBefore(t time.Time) (*model.Ev
 // Events are ordered by: start_time ASC, end_time DESC (longer events first for same start), id ASC.
 // This ensures all events are reachable via prev/next navigation.
 func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, error) {
+	log.Debug().Str("input_id", string(id)).Msg("GetPrecedingEvent called")
+
 	e, err := p.GetEvent(id)
 	if err != nil {
+		log.Debug().Err(err).Str("input_id", string(id)).Msg("GetPrecedingEvent: failed to get current event")
 		return nil, err
 	}
 
 	startStr := e.Start.Format(time.RFC3339)
 	endStr := e.End.Format(time.RFC3339)
+
+	log.Debug().
+		Str("current_id", string(e.ID)).
+		Str("current_name", e.Name).
+		Str("current_start", startStr).
+		Str("current_end", endStr).
+		Time("current_start_time", e.Start).
+		Time("current_end_time", e.End).
+		Msg("GetPrecedingEvent: current event details")
+
+	// Also get the raw DB value to check for format mismatches
+	var dbStartStr, dbEndStr string
+	err = p.db.QueryRow("SELECT start_time, end_time FROM events WHERE id = ?", id).Scan(&dbStartStr, &dbEndStr)
+	if err == nil {
+		log.Trace().
+			Str("db_start_str", dbStartStr).
+			Str("db_end_str", dbEndStr).
+			Str("formatted_start_str", startStr).
+			Str("formatted_end_str", endStr).
+			Bool("start_matches", dbStartStr == startStr).
+			Bool("end_matches", dbEndStr == endStr).
+			Msg("GetPrecedingEvent: comparing DB vs formatted time strings")
+	}
 
 	// Find the event immediately before this one in total ordering.
 	// Total order: start_time ASC, end_time DESC, id ASC
@@ -577,14 +710,42 @@ func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*
 	var prevStartStr, prevEndStr string
 	err = row.Scan(&prev.ID, &prev.Name, &prev.Category, &prevStartStr, &prevEndStr)
 	if err == sql.ErrNoRows {
+		log.Debug().Str("current_id", string(id)).Msg("GetPrecedingEvent: no preceding event found")
 		return nil, nil
 	}
 	if err != nil {
+		log.Debug().Err(err).Str("current_id", string(id)).Msg("GetPrecedingEvent: error scanning result")
 		return nil, fmt.Errorf("error getting preceding event: %w", err)
 	}
 
-	prev.Start, _ = time.Parse(time.RFC3339, prevStartStr)
-	prev.End, _ = time.Parse(time.RFC3339, prevEndStr)
+	var parseErr error
+	prev.Start, parseErr = time.Parse(time.RFC3339, prevStartStr)
+	if parseErr != nil {
+		log.Warn().Err(parseErr).Str("prev_start_str", prevStartStr).Msg("GetPrecedingEvent: failed to parse prev start time")
+	}
+	prev.End, parseErr = time.Parse(time.RFC3339, prevEndStr)
+	if parseErr != nil {
+		log.Warn().Err(parseErr).Str("prev_end_str", prevEndStr).Msg("GetPrecedingEvent: failed to parse prev end time")
+	}
+
+	log.Debug().
+		Str("prev_id", string(prev.ID)).
+		Str("prev_name", prev.Name).
+		Str("prev_start", prevStartStr).
+		Str("prev_end", prevEndStr).
+		Bool("same_as_current", prev.ID == id).
+		Msg("GetPrecedingEvent: result")
+
+	if prev.ID == id {
+		log.Error().
+			Str("event_id", string(id)).
+			Str("event_name", e.Name).
+			Str("db_start", dbStartStr).
+			Str("db_end", dbEndStr).
+			Str("formatted_start", startStr).
+			Str("formatted_end", endStr).
+			Msg("BUG: GetPrecedingEvent returning same event as input!")
+	}
 
 	return &prev, nil
 }
@@ -593,13 +754,37 @@ func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*
 // Events are ordered by: start_time ASC, end_time DESC (longer events first for same start), id ASC.
 // This ensures all events are reachable via prev/next navigation.
 func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, error) {
+	log.Debug().Str("input_id", string(id)).Msg("GetFollowingEvent called")
+
 	e, err := p.GetEvent(id)
 	if err != nil {
+		log.Debug().Err(err).Str("input_id", string(id)).Msg("GetFollowingEvent: failed to get current event")
 		return nil, err
 	}
 
 	startStr := e.Start.Format(time.RFC3339)
 	endStr := e.End.Format(time.RFC3339)
+
+	log.Debug().
+		Str("current_id", string(e.ID)).
+		Str("current_name", e.Name).
+		Str("current_start", startStr).
+		Str("current_end", endStr).
+		Msg("GetFollowingEvent: current event details")
+
+	// Also get the raw DB value to check for format mismatches
+	var dbStartStr, dbEndStr string
+	err = p.db.QueryRow("SELECT start_time, end_time FROM events WHERE id = ?", id).Scan(&dbStartStr, &dbEndStr)
+	if err == nil {
+		log.Trace().
+			Str("db_start_str", dbStartStr).
+			Str("db_end_str", dbEndStr).
+			Str("formatted_start_str", startStr).
+			Str("formatted_end_str", endStr).
+			Bool("start_matches", dbStartStr == startStr).
+			Bool("end_matches", dbEndStr == endStr).
+			Msg("GetFollowingEvent: comparing DB vs formatted time strings")
+	}
 
 	// Find the event immediately after this one in total ordering.
 	// Total order: start_time ASC, end_time DESC, id ASC
@@ -622,14 +807,42 @@ func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*
 	var nextStartStr, nextEndStr string
 	err = row.Scan(&next.ID, &next.Name, &next.Category, &nextStartStr, &nextEndStr)
 	if err == sql.ErrNoRows {
+		log.Debug().Str("current_id", string(id)).Msg("GetFollowingEvent: no following event found")
 		return nil, nil
 	}
 	if err != nil {
+		log.Debug().Err(err).Str("current_id", string(id)).Msg("GetFollowingEvent: error scanning result")
 		return nil, fmt.Errorf("error getting following event: %w", err)
 	}
 
-	next.Start, _ = time.Parse(time.RFC3339, nextStartStr)
-	next.End, _ = time.Parse(time.RFC3339, nextEndStr)
+	var parseErr error
+	next.Start, parseErr = time.Parse(time.RFC3339, nextStartStr)
+	if parseErr != nil {
+		log.Warn().Err(parseErr).Str("next_start_str", nextStartStr).Msg("GetFollowingEvent: failed to parse next start time")
+	}
+	next.End, parseErr = time.Parse(time.RFC3339, nextEndStr)
+	if parseErr != nil {
+		log.Warn().Err(parseErr).Str("next_end_str", nextEndStr).Msg("GetFollowingEvent: failed to parse next end time")
+	}
+
+	log.Debug().
+		Str("next_id", string(next.ID)).
+		Str("next_name", next.Name).
+		Str("next_start", nextStartStr).
+		Str("next_end", nextEndStr).
+		Bool("same_as_current", next.ID == id).
+		Msg("GetFollowingEvent: result")
+
+	if next.ID == id {
+		log.Error().
+			Str("event_id", string(id)).
+			Str("event_name", e.Name).
+			Str("db_start", dbStartStr).
+			Str("db_end", dbEndStr).
+			Str("formatted_start", startStr).
+			Str("formatted_end", endStr).
+			Msg("BUG: GetFollowingEvent returning same event as input!")
+	}
 
 	return &next, nil
 }
@@ -1565,12 +1778,41 @@ func (p *CachingServerClientDataProvider) hasPendingChange(recordType, recordID 
 	return count > 0
 }
 
+// normalizeTimeString parses a time string and reformats it to RFC3339 without
+// fractional seconds. This ensures consistent string comparison in SQL queries.
+// Server may send times with milliseconds (e.g., "2026-01-18T13:04:28.693Z"),
+// but we need consistent format for lexicographic comparison.
+func normalizeTimeString(timeStr string) string {
+	// Try parsing with RFC3339Nano first (handles fractional seconds)
+	t, err := time.Parse(time.RFC3339Nano, timeStr)
+	if err != nil {
+		// Fall back to RFC3339
+		t, err = time.Parse(time.RFC3339, timeStr)
+		if err != nil {
+			// If all parsing fails, return original (will cause issues but at least logs will show it)
+			log.Warn().Str("time_str", timeStr).Msg("normalizeTimeString: failed to parse time, returning original")
+			return timeStr
+		}
+	}
+	// Format without fractional seconds
+	return t.UTC().Format(time.RFC3339)
+}
+
 // upsertEventFromServer inserts or updates an event from server data.
 func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) error {
 	deleted := 0
 	if e.Deleted {
 		deleted = 1
 	}
+
+	// Normalize time strings to RFC3339 without fractional seconds.
+	// Server sends times like "2026-01-18T13:04:28.693Z" but our queries use
+	// RFC3339 format "2026-01-18T13:04:28Z". Lexicographic comparison of these
+	// differs because '.' < 'Z' in ASCII, causing navigation bugs.
+	startTime := normalizeTimeString(e.StartTime)
+	endTime := normalizeTimeString(e.EndTime)
+	updatedAt := normalizeTimeString(e.UpdatedAt)
+
 	_, err := p.db.Exec(
 		`INSERT INTO events (id, name, category, start_time, end_time, deleted, updated_at, server_updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -1582,14 +1824,16 @@ func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) e
 		   deleted = excluded.deleted,
 		   updated_at = excluded.updated_at,
 		   server_updated_at = excluded.server_updated_at`,
-		e.ID, e.Name, e.Category, e.StartTime, e.EndTime, deleted, e.UpdatedAt, e.UpdatedAt,
+		e.ID, e.Name, e.Category, startTime, endTime, deleted, updatedAt, updatedAt,
 	)
 	if err != nil {
 		p.log.Error().Err(err).
 			Str("eventID", e.ID).
 			Str("name", e.Name).
-			Str("startTime", e.StartTime).
-			Str("endTime", e.EndTime).
+			Str("startTime", startTime).
+			Str("endTime", endTime).
+			Str("originalStartTime", e.StartTime).
+			Str("originalEndTime", e.EndTime).
 			Msg("failed to upsert event from server")
 		return fmt.Errorf("failed to upsert event %s: %w", e.ID, err)
 	}

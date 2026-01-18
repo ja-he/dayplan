@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ja-he/dayplan/internal/model"
 )
 
@@ -112,6 +114,10 @@ func (c *Controller) switchToPreviousEventInDay() {
 	}
 
 	// current event ID is not nil, so we can just set it to the previous event's
+	if prev.ID == *c.data.CurrentEventID {
+		log.Error().Msgf("Got same event ID back for previous event ('%s')", *c.data.CurrentEventID)
+		return
+	}
 	*c.data.CurrentEventID = prev.ID
 	c.log.Debug().Stringer("event", prev).Msg("switched to prev event")
 }
