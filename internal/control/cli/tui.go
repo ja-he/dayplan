@@ -145,7 +145,14 @@ func (command *DayplanTUICommand) Execute(_ []string) error {
 
 	// Create the event provider based on configuration
 	categoryProvider := &backend.MemoryCategoryProvider{M: categoriesByName}
-	eventsProvider, providerCleanup, err := command.createEventsProvider(envData, categoryProvider)
+	eventsProvider, providerCleanup, err := createEventsProvider(
+		envData,
+		categoryProvider,
+		command.ServerURL,
+		command.ServerDBPath,
+		command.ServerUser,
+		command.ServerPassword,
+	)
 	if err != nil {
 		return fmt.Errorf("Unable to create events provider (%w)", err)
 	}
@@ -212,20 +219,30 @@ func (command *DayplanTUICommand) Execute(_ []string) error {
 
 // createEventsProvider creates the appropriate EventProvider based on configuration.
 // It returns the provider, an optional cleanup function (for graceful shutdown), and any error.
-func (command *DayplanTUICommand) createEventsProvider(
+func createEventsProvider(
 	envData control.EnvData,
 	categoryProvider provider.CategoryProvider,
+	serverURLOverride string,
+	serverDBPathOverride string,
+	serverUserOverride string,
+	serverPasswordOverride string,
 ) (provider.EventProvider, func(), error) {
 
 	// Check if server backend is requested
-	serverURL := command.ServerURL
+	serverURL := serverURLOverride
 	if serverURL == "" {
 		serverURL = os.Getenv("DAYPLAN_SERVER_URL")
 	}
 
 	if serverURL != "" {
-		// Use server backend
-		return command.createServerProvider(envData, categoryProvider, serverURL)
+		return createServerProvider(
+			envData,
+			categoryProvider,
+			serverURL,
+			serverDBPathOverride,
+			serverUserOverride,
+			serverPasswordOverride,
+		)
 	}
 
 	// Use files backend (default)
@@ -240,14 +257,17 @@ func (command *DayplanTUICommand) createEventsProvider(
 }
 
 // createServerProvider creates a CachingServerClientDataProvider and handles login.
-func (command *DayplanTUICommand) createServerProvider(
+func createServerProvider(
 	envData control.EnvData,
 	categoryProvider provider.CategoryProvider,
 	serverURL string,
+	dbPathOverride string,
+	serverUserOverride string,
+	serverPasswordOverride string,
 ) (provider.EventProvider, func(), error) {
 
 	// Determine local cache DB path
-	dbPath := command.ServerDBPath
+	dbPath := dbPathOverride
 	if dbPath == "" {
 		dbPath = os.Getenv("DAYPLAN_SERVER_DB")
 	}
@@ -256,11 +276,11 @@ func (command *DayplanTUICommand) createServerProvider(
 	}
 
 	// Get credentials
-	username := command.ServerUser
+	username := serverUserOverride
 	if username == "" {
 		username = os.Getenv("DAYPLAN_SERVER_USER")
 	}
-	password := command.ServerPassword
+	password := serverPasswordOverride
 	if password == "" {
 		password = os.Getenv("DAYPLAN_SERVER_PASSWORD")
 	}

@@ -127,10 +127,19 @@ func (command *DayplanAddCommand) Execute(args []string) error {
 	}
 	categoryProvider := &backend.MemoryCategoryProvider{M: categoriesByName}
 	var provider provider.EventProvider
-	provider, err = backend.NewFilesDataProvider(
-		path.Join(envData.BaseDirPath, "days"),
+	// TODO: use reut
+	provider, cleanup, err := createEventsProvider(
+		envData,
 		categoryProvider,
+		// no overrides currently, env data will determine which provider
+		"", "", "", "",
 	)
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err != nil {
+		return fmt.Errorf("Unable to construct provider (%w).", err)
+	}
 
 	var events []model.Event
 	events = append(events, model.Event{
