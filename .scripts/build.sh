@@ -25,7 +25,7 @@ fi
 case ${1} in
   install)
     printf "installing version '%s' at '%s'...\n" "${version}" "${hash}"
-    go install -o dayplan -ldflags="-X '${source_root}/control/cli.version=${version}' -X '${source_root}/control/cli.hash=${hash}'" cmd/dayplan/main.go
+    go install -v -ldflags="-X '${source_root}/control/cli.version=${version}' -X '${source_root}/control/cli.hash=${hash}'" ./cmd/dayplan
     printf "done\n"
     ;;
   "")
