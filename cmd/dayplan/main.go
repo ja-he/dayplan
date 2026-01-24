@@ -5,17 +5,19 @@ import (
 	"os"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ja-he/dayplan/internal/control/cli"
+	"github.com/ja-he/dayplan/internal/potatolog"
 )
 
 // MAIN
 func main() {
-	// set up stderr logger by default, subcommands (such as tui) may choose to
-	// change this
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	// Set up the global logger with a switchable writer, initially targeting stderr.
+	// Subcommands (such as tui) can switch the target without breaking loggers
+	// that were created before the switch.
+	potatolog.SwitchToTTY(os.Stderr)
+	log.Logger = log.Output(potatolog.GlobalLogWriter)
 
 	// parse the flags
 	parser := flags.NewParser(&cli.DayplanOpts, flags.Default)

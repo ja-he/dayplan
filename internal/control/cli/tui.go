@@ -70,7 +70,10 @@ func (command *DayplanTUICommand) Execute(_ []string) error {
 		}
 		return zerolog.WarnLevel
 	}()
-	tuiLogger := zerolog.New(logWriter).Level(logLevel).With().Timestamp().Caller().Logger()
+	// Configure the global logger with the appropriate level and context.
+	// The actual output destination will be switched by the controller after
+	// screen initialization.
+	log.Logger = log.Logger.Level(logLevel).With().Timestamp().Caller().Logger()
 
 	var theme config.ColorschemeType
 	switch command.Theme {
@@ -154,10 +157,9 @@ func (command *DayplanTUICommand) Execute(_ []string) error {
 		defer providerCleanup()
 	}
 
-	ttyLogger := log.Logger
-	controller, err := NewController(ttyLogger, tuiLogger, initialDay, envData, categoriesByName, *stylesheet, weatherHandler, suntimesProvider, eventsProvider)
+	controller, err := NewController(logWriter, initialDay, envData, categoriesByName, *stylesheet, weatherHandler, suntimesProvider, eventsProvider)
 	if err != nil {
-		log.Logger = ttyLogger
+		potatolog.SwitchToTTY(os.Stderr)
 		log.Error().Err(err).Msgf("something went wrong setting up the TUI, will check unpublished logs and return error")
 
 		// The TUI was perhaps not set up and we have to assume that the logs have not been written anywhere.

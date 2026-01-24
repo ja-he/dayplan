@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"maps"
 	"path"
 	"runtime/debug"
@@ -20,6 +21,7 @@ import (
 	"github.com/ja-he/dayplan/internal/control/edit/editors"
 	"github.com/ja-he/dayplan/internal/input"
 	"github.com/ja-he/dayplan/internal/model"
+	"github.com/ja-he/dayplan/internal/potatolog"
 	"github.com/ja-he/dayplan/internal/provider"
 	"github.com/ja-he/dayplan/internal/provider/backend"
 	"github.com/ja-he/dayplan/internal/styling"
@@ -78,9 +80,10 @@ func (c *Controller) Now() time.Time {
 }
 
 // NewController creates a new Controller.
+// The tuiLogWriter is the io.Writer that logs should be directed to after the
+// screen is initialized (typically the TUI's in-memory log buffer).
 func NewController(
-	ttyLogger zerolog.Logger,
-	tuiLogger zerolog.Logger,
+	tuiLogWriter io.Writer,
 	date model.Date,
 	envData control.EnvData,
 	categoriesByName map[model.CategoryName]*model.Category,
@@ -90,7 +93,7 @@ func NewController(
 	eventsProvider provider.EventProvider,
 ) (*Controller, error) {
 	controller := Controller{
-		log: tuiLogger.With().Str("component", "controller").Logger(),
+		log: log.With().Str("component", "controller").Logger(),
 	}
 	defer controller.goToDay(date)
 
@@ -162,7 +165,7 @@ func NewController(
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create backlog provider for YAML file '%s' (%w)", backlogFilePath, err)
 	}
-	ttyLogger.Info().Str("file", backlogFilePath).Msg("successfully created backlog provider")
+	log.Info().Str("file", backlogFilePath).Msg("successfully created backlog provider")
 	go controller.tryLoadBacklog()
 
 	tasksWidth := 40
@@ -252,7 +255,8 @@ func NewController(
 
 	// this is where we initialize the screen
 	renderer := tui.NewTUIScreenHandler()
-	log.Logger = tuiLogger
+	// Switch log output from TTY to TUI now that the screen has taken over
+	potatolog.SwitchToWriter(tuiLogWriter)
 	cursorWrangler := ui.NewCursorWrangler(renderer)
 
 	getCategoryStyle := func(n model.CategoryName) (styling.DrawStyling, error) {
