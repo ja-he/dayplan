@@ -15,6 +15,11 @@ import (
 	"github.com/ja-he/dayplan/internal/provider/backend"
 )
 
+// timePtr returns a pointer to the given time value.
+func timePtr(t time.Time) *time.Time {
+	return &t
+}
+
 func TestFilesProvider(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out: &testWriter{
@@ -24,6 +29,7 @@ func TestFilesProvider(t *testing.T) {
 
 	yearZero := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
 	yearTenK := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
+	fallbackEnd := time.Date(2023, 12, 31, 23, 59, 59, 0, time.UTC)
 
 	fresh := func(t *testing.T) provider.EventProvider {
 		tempDir := t.TempDir()
@@ -56,7 +62,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "thing",
 			Category: "cat",
 			Start:    time.Date(2021, 1, 1, 14, 30, 0, 0, time.UTC),
-			End:      time.Date(2021, 1, 1, 16, 45, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2021, 1, 1, 16, 45, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err)
 		assert.True(t, validateUUID(id), "id '%s' is not a valid UUID", id)
@@ -74,7 +80,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "another event",
 			Category: "remove-test",
 			Start:    time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err)
 
@@ -94,7 +100,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "test event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err)
 
@@ -140,7 +146,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "test event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err)
 
@@ -150,7 +156,8 @@ func TestFilesProvider(t *testing.T) {
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), *event.End)
 		})
 
 		t.Run("try-before-start", func(t *testing.T) {
@@ -158,7 +165,8 @@ func TestFilesProvider(t *testing.T) {
 			assert.NotNil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), *event.End)
 		})
 
 		t.Run("try-equal-start", func(t *testing.T) {
@@ -166,7 +174,8 @@ func TestFilesProvider(t *testing.T) {
 			assert.NotNil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), *event.End)
 		})
 
 		t.Run("extend-to-different-date", func(t *testing.T) {
@@ -175,7 +184,8 @@ func TestFilesProvider(t *testing.T) {
 			assert.Nil(t, err)
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, newEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, newEnd, *event.End)
 		})
 	})
 
@@ -186,7 +196,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "test event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err)
 
@@ -228,7 +238,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "test event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err)
 
@@ -239,7 +249,8 @@ func TestFilesProvider(t *testing.T) {
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), *event.End)
 		})
 
 		t.Run("after-start", func(t *testing.T) {
@@ -254,7 +265,8 @@ func TestFilesProvider(t *testing.T) {
 
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 
 		t.Run("invalid-duration-would-move-end-before-start", func(t *testing.T) {
@@ -277,7 +289,7 @@ func TestFilesProvider(t *testing.T) {
 
 			endBefore := e.End
 			midnight := e.End.Truncate(24 * time.Hour).Add(24 * time.Hour)
-			durationTilMidnight := midnight.Sub(e.End)
+			durationTilMidnight := midnight.Sub(*e.End)
 
 			_, err = p.OffsetEventEnd(id, durationTilMidnight)
 			assert.Nil(t, err, "could not offset event end: %s", err)
@@ -286,7 +298,7 @@ func TestFilesProvider(t *testing.T) {
 			assert.Nil(t, err, "event was not retrieved: %s", err)
 
 			assert.NotEqual(t, endBefore, e.End, "event end was not changed")
-			assert.Equal(t, midnight, e.End, "event end was not changed to exactly midnight")
+			assert.Equal(t, midnight, *e.End, "event end was not changed to exactly midnight")
 
 			_, err = p.OffsetEventEnd(id, -durationTilMidnight)
 			assert.Nil(t, err, "could not offset event end: %s", err)
@@ -300,7 +312,7 @@ func TestFilesProvider(t *testing.T) {
 			endBefore := e.End
 			invalidDuration := -(e.End.Sub(e.Start) + (10 * time.Minute))
 			midnight := e.End.Truncate(24 * time.Hour).Add(24 * time.Hour)
-			validDuration := midnight.Sub(e.End)
+			validDuration := midnight.Sub(*e.End)
 
 			_, err = p.OffsetEventEnd(id, invalidDuration)
 			assert.NotNil(t, err, "no error occurred despite changing event end to before start")
@@ -323,7 +335,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "test event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err)
 
@@ -336,7 +348,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC), event.Start)
-			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC), *event.End)
 		})
 
 		t.Run("no-duration-change", func(t *testing.T) {
@@ -354,7 +367,7 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, startBefore, startAfter)
 			assert.Equal(t, endBefore, endAfter)
 			assert.Equal(t, startBefore, reportedNewStart)
-			assert.Equal(t, endBefore, reportedNewEnd)
+			assert.Equal(t, *endBefore, reportedNewEnd)
 		})
 	})
 
@@ -366,7 +379,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "first event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add first event")
 
@@ -374,7 +387,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "second event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add second event")
 
@@ -382,7 +395,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "third event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 20, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add third event")
 
@@ -390,12 +403,12 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "fourth event (different date)",
 				Category: "test",
 				Start:    time.Date(2023, 2, 12, 14, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 2, 12, 16, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 2, 12, 16, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add fourth event")
 
 			t.Run("preceding-event-present", func(t *testing.T) {
-				precedingEvent, err := p.GetPrecedingEvent(id2)
+				precedingEvent, err := p.GetPrecedingEvent(id2, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
 				assert.Equal(t, "first event", precedingEvent.Name, "preceding event name mismatch")
@@ -403,13 +416,13 @@ func TestFilesProvider(t *testing.T) {
 			})
 
 			t.Run("no-preceding-event", func(t *testing.T) {
-				precedingEvent, err := p.GetPrecedingEvent(id1)
+				precedingEvent, err := p.GetPrecedingEvent(id1, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.Nil(t, precedingEvent, "preceding event should be nil")
 			})
 
 			t.Run("preceding-event-for-third", func(t *testing.T) {
-				precedingEvent, err := p.GetPrecedingEvent(id3)
+				precedingEvent, err := p.GetPrecedingEvent(id3, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
 				assert.Equal(t, "second event", precedingEvent.Name, "preceding event name mismatch")
@@ -417,7 +430,7 @@ func TestFilesProvider(t *testing.T) {
 			})
 
 			t.Run("preceding-on-different-date", func(t *testing.T) {
-				precedingEvent, err := p.GetPrecedingEvent(id4)
+				precedingEvent, err := p.GetPrecedingEvent(id4, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
 				assert.Equal(t, "third event", precedingEvent.Name, "preceding event name mismatch")
@@ -433,13 +446,13 @@ func TestFilesProvider(t *testing.T) {
 					Name:     "inbetweener event",
 					Category: "test",
 					Start:    time.Date(2023, 1, 15, 12, 0, 0, 0, time.UTC),
-					End:      time.Date(2023, 1, 15, 14, 0, 0, 0, time.UTC),
+					End:      timePtr(time.Date(2023, 1, 15, 14, 0, 0, 0, time.UTC)),
 				})
 				assert.Nil(t, err, "could not add inbetweener event")
 				err = p.RemoveEvent(inbetweenerID)
 				assert.Nil(t, err, "could not remove inbetweener event")
 
-				precedingEvent, err := p.GetPrecedingEvent(id4)
+				precedingEvent, err := p.GetPrecedingEvent(id4, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
 				assert.Equal(t, "third event", precedingEvent.Name, "preceding event name mismatch")
@@ -448,7 +461,7 @@ func TestFilesProvider(t *testing.T) {
 
 			t.Run("non-existent-event-id", func(t *testing.T) {
 				invalidID := model.EventID("non-existent-id")
-				precedingEvent, err := p.GetPrecedingEvent(invalidID)
+				precedingEvent, err := p.GetPrecedingEvent(invalidID, fallbackEnd)
 				assert.NotNil(t, err, "error should occur for non-existent event ID")
 				assert.Nil(t, precedingEvent, "preceding event should be nil for non-existent event ID")
 			})
@@ -463,7 +476,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "first event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add first event")
 
@@ -471,7 +484,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "second event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add second event")
 
@@ -479,7 +492,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "third event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add third event")
 
@@ -487,12 +500,12 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "fourth event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add fourth event")
 
 			t.Run("preceding-event-present", func(t *testing.T) {
-				precedingEvent, err := p.GetPrecedingEvent(id3)
+				precedingEvent, err := p.GetPrecedingEvent(id3, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
 				assert.Equal(t, "second event", precedingEvent.Name, "preceding event name mismatch")
@@ -500,13 +513,13 @@ func TestFilesProvider(t *testing.T) {
 			})
 
 			t.Run("no-preceding-event", func(t *testing.T) {
-				precedingEvent, err := p.GetPrecedingEvent(id1)
+				precedingEvent, err := p.GetPrecedingEvent(id1, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.Nil(t, precedingEvent, "preceding event should be nil")
 			})
 
 			t.Run("preceding-event-for-fourth", func(t *testing.T) {
-				precedingEvent, err := p.GetPrecedingEvent(id4)
+				precedingEvent, err := p.GetPrecedingEvent(id4, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
 				assert.Equal(t, "third event", precedingEvent.Name, "preceding event name mismatch")
@@ -514,7 +527,7 @@ func TestFilesProvider(t *testing.T) {
 			})
 
 			t.Run("if two events overlap, the one that starts earlier will be considered preceding", func(t *testing.T) {
-				precedingEvent, err := p.GetPrecedingEvent(id2)
+				precedingEvent, err := p.GetPrecedingEvent(id2, fallbackEnd)
 				assert.Nil(t, err, "error retrieving preceding event")
 				assert.NotNil(t, precedingEvent, "preceding event should not be nil")
 				assert.Equal(t, "first event", precedingEvent.Name, "preceding event name mismatch")
@@ -523,7 +536,7 @@ func TestFilesProvider(t *testing.T) {
 
 			t.Run("non-existent-event-id", func(t *testing.T) {
 				invalidID := model.EventID("non-existent-id")
-				precedingEvent, err := p.GetPrecedingEvent(invalidID)
+				precedingEvent, err := p.GetPrecedingEvent(invalidID, fallbackEnd)
 				assert.NotNil(t, err, "error should occur for non-existent event ID")
 				assert.Nil(t, precedingEvent, "preceding event should be nil for non-existent event ID")
 			})
@@ -539,7 +552,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "first event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add first event")
 
@@ -547,7 +560,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "second event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add second event")
 
@@ -555,7 +568,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "third event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 20, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add third event")
 
@@ -563,12 +576,12 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "fourth event (different date)",
 				Category: "test",
 				Start:    time.Date(2023, 2, 12, 14, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 2, 12, 16, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 2, 12, 16, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add fourth event")
 
 			t.Run("following-event-present", func(t *testing.T) {
-				followingEvent, err := p.GetFollowingEvent(id1)
+				followingEvent, err := p.GetFollowingEvent(id1, fallbackEnd)
 				assert.Nil(t, err, "error retrieving following event")
 				assert.NotNil(t, followingEvent, "following event should not be nil")
 				assert.Equal(t, "second event", followingEvent.Name, "following event name mismatch")
@@ -576,13 +589,13 @@ func TestFilesProvider(t *testing.T) {
 			})
 
 			t.Run("no-following-event", func(t *testing.T) {
-				followingEvent, err := p.GetFollowingEvent(id4)
+				followingEvent, err := p.GetFollowingEvent(id4, fallbackEnd)
 				assert.Nil(t, err, "error retrieving following event")
 				assert.Nil(t, followingEvent, "following event should be nil")
 			})
 
 			t.Run("following-event-for-second", func(t *testing.T) {
-				followingEvent, err := p.GetFollowingEvent(id2)
+				followingEvent, err := p.GetFollowingEvent(id2, fallbackEnd)
 				assert.Nil(t, err, "error retrieving following event")
 				assert.NotNil(t, followingEvent, "following event should not be nil")
 				assert.Equal(t, "third event", followingEvent.Name, "following event name mismatch")
@@ -590,7 +603,7 @@ func TestFilesProvider(t *testing.T) {
 			})
 
 			t.Run("following-on-different-date", func(t *testing.T) {
-				followingEvent, err := p.GetFollowingEvent(id3)
+				followingEvent, err := p.GetFollowingEvent(id3, fallbackEnd)
 				assert.Nil(t, err, "error retrieving following event")
 				assert.NotNil(t, followingEvent, "following event should not be nil")
 				assert.Equal(t, "fourth event (different date)", followingEvent.Name, "following event name mismatch")
@@ -599,7 +612,7 @@ func TestFilesProvider(t *testing.T) {
 
 			t.Run("non-existent-event-id", func(t *testing.T) {
 				invalidID := model.EventID("non-existent-id")
-				followingEvent, err := p.GetFollowingEvent(invalidID)
+				followingEvent, err := p.GetFollowingEvent(invalidID, fallbackEnd)
 				assert.NotNil(t, err, "error should occur for non-existent event ID")
 				assert.Nil(t, followingEvent, "following event should be nil for non-existent event ID")
 			})
@@ -614,7 +627,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "first event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add first event")
 
@@ -622,7 +635,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "second event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add second event")
 
@@ -630,7 +643,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "third event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 15, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add third event")
 
@@ -638,12 +651,12 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "fourth event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add fourth event")
 
 			t.Run("following-event-present", func(t *testing.T) {
-				followingEvent, err := p.GetFollowingEvent(id1)
+				followingEvent, err := p.GetFollowingEvent(id1, fallbackEnd)
 				assert.Nil(t, err, "error retrieving following event")
 				assert.NotNil(t, followingEvent, "following event should not be nil")
 				assert.Equal(t, "second event", followingEvent.Name, "following event name mismatch")
@@ -651,13 +664,13 @@ func TestFilesProvider(t *testing.T) {
 			})
 
 			t.Run("no-following-event", func(t *testing.T) {
-				followingEvent, err := p.GetFollowingEvent(id4)
+				followingEvent, err := p.GetFollowingEvent(id4, fallbackEnd)
 				assert.Nil(t, err, "error retrieving following event")
 				assert.Nil(t, followingEvent, "following event should be nil")
 			})
 
 			t.Run("following-event-for-second", func(t *testing.T) {
-				followingEvent, err := p.GetFollowingEvent(id2)
+				followingEvent, err := p.GetFollowingEvent(id2, fallbackEnd)
 				assert.Nil(t, err, "error retrieving following event")
 				assert.NotNil(t, followingEvent, "following event should not be nil")
 				assert.Equal(t, "third event", followingEvent.Name, "following event name mismatch")
@@ -665,7 +678,7 @@ func TestFilesProvider(t *testing.T) {
 			})
 
 			t.Run("if two events overlap, the one that ends later will be considered following", func(t *testing.T) {
-				followingEvent, err := p.GetFollowingEvent(id2)
+				followingEvent, err := p.GetFollowingEvent(id2, fallbackEnd)
 				assert.Nil(t, err, "error retrieving following event")
 				assert.NotNil(t, followingEvent, "following event should not be nil")
 				assert.Equal(t, "third event", followingEvent.Name, "following event name mismatch")
@@ -674,7 +687,7 @@ func TestFilesProvider(t *testing.T) {
 
 			t.Run("non-existent-event-id", func(t *testing.T) {
 				invalidID := model.EventID("non-existent-id")
-				followingEvent, err := p.GetFollowingEvent(invalidID)
+				followingEvent, err := p.GetFollowingEvent(invalidID, fallbackEnd)
 				assert.NotNil(t, err, "error should occur for non-existent event ID")
 				assert.Nil(t, followingEvent, "following event should be nil for non-existent event ID")
 			})
@@ -689,7 +702,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "first event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err, "could not add first event")
 
@@ -697,7 +710,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "second event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err, "could not add second event")
 
@@ -705,7 +718,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "third event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 20, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err, "could not add third event")
 
@@ -728,7 +741,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "overlapping event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 13, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add overlapping event")
 
@@ -747,7 +760,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "first event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 14, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err, "could not add first event")
 
@@ -755,7 +768,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "second event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 18, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err, "could not add second event")
 
@@ -763,7 +776,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "third event",
 			Category: "test",
 			Start:    time.Date(2023, 1, 1, 20, 0, 0, 0, time.UTC),
-			End:      time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2023, 1, 1, 22, 0, 0, 0, time.UTC)),
 		})
 		assert.Nil(t, err, "could not add third event")
 
@@ -786,7 +799,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "concurrent event",
 				Category: "test",
 				Start:    time.Date(2023, 1, 1, 16, 0, 0, 0, time.UTC),
-				End:      time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC),
+				End:      timePtr(time.Date(2023, 1, 1, 17, 0, 0, 0, time.UTC)),
 			})
 			assert.Nil(t, err, "could not add concurrent event")
 
@@ -804,7 +817,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "test event",
 			Category: "test",
 			Start:    start,
-			End:      end,
+			End:      &end,
 		})
 		assert.Nil(t, err)
 		return id
@@ -920,7 +933,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, expectedEnd, newEnd)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 
 		t.Run("snap-end-to-nearest-hour", func(t *testing.T) {
@@ -936,7 +950,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, expectedEnd, newEnd)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 
 		t.Run("invalid-snap-end-before-start", func(t *testing.T) {
@@ -962,7 +977,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, expectedEnd, newEnd)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 
 		t.Run("snap-end-edge-case-round-up-at-half", func(t *testing.T) {
@@ -978,7 +994,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, expectedEnd, newEnd)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 
 		t.Run("snap-end-edge-case-round-up", func(t *testing.T) {
@@ -994,7 +1011,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, expectedEnd, newEnd)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 	})
 
@@ -1017,7 +1035,8 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, expectedStart, newStart)
 			assert.Equal(t, expectedEnd, newEnd)
 			assert.Equal(t, expectedStart, event.Start)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 
 		t.Run("snap-times-to-nearest-hour", func(t *testing.T) {
@@ -1036,7 +1055,8 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, expectedStart, newStart)
 			assert.Equal(t, expectedEnd, newEnd)
 			assert.Equal(t, expectedStart, event.Start)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 
 		t.Run("invalid-snap-times-start-after-end", func(t *testing.T) {
@@ -1065,7 +1085,8 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, expectedStart, newStart)
 			assert.Equal(t, expectedEnd, newEnd)
 			assert.Equal(t, expectedStart, event.Start)
-			assert.Equal(t, expectedEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, expectedEnd, *event.End)
 		})
 	})
 
@@ -1086,7 +1107,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, splitTime, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, splitTime, *event.End)
 
 			// Verify the new split event
 			events, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
@@ -1095,9 +1117,11 @@ func TestFilesProvider(t *testing.T) {
 			assert.Equal(t, id, events[0].ID)
 			assert.NotEqual(t, id, events[1].ID)
 			assert.Equal(t, originalStart, events[0].Start)
-			assert.Equal(t, splitTime, events[0].End)
+			assert.NotNil(t, events[0].End)
+			assert.Equal(t, splitTime, *events[0].End)
 			assert.Equal(t, splitTime, events[1].Start)
-			assert.Equal(t, originalEnd, events[1].End)
+			assert.NotNil(t, events[1].End)
+			assert.Equal(t, originalEnd, *events[1].End)
 		})
 
 		t.Run("split-at-start", func(t *testing.T) {
@@ -1111,7 +1135,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, originalEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, originalEnd, *event.End)
 
 			// Verifiy that there is no other created event
 			allEvents, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
@@ -1131,7 +1156,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, originalEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, originalEnd, *event.End)
 
 			// Verifiy that there is no other created event
 			allEvents, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
@@ -1151,7 +1177,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, originalEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, originalEnd, *event.End)
 
 			// Verifiy that there is no other created event
 			allEvents, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
@@ -1178,7 +1205,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, originalEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, originalEnd, *event.End)
 
 			// Verifiy that there is no other created event
 			allEvents, err := p.GetEventsCoveringTimerange(yearZero, yearTenK)
@@ -1195,7 +1223,7 @@ func TestFilesProvider(t *testing.T) {
 				Name:     "test event",
 				Category: "test",
 				Start:    start,
-				End:      end,
+				End:      &end,
 			})
 			assert.Nil(t, err)
 			return id
@@ -1215,7 +1243,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, newStart, event.Start)
-			assert.Equal(t, newEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, newEnd, *event.End)
 		})
 
 		t.Run("valid-change-to-different-date", func(t *testing.T) {
@@ -1229,7 +1258,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, newStart, event.Start)
-			assert.Equal(t, newEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, newEnd, *event.End)
 		})
 
 		t.Run("invalid-same-start-and-end", func(t *testing.T) {
@@ -1242,7 +1272,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, originalEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, originalEnd, *event.End)
 		})
 
 		t.Run("invalid-start-after-end", func(t *testing.T) {
@@ -1256,7 +1287,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, originalStart, event.Start)
-			assert.Equal(t, originalEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, originalEnd, *event.End)
 		})
 
 		t.Run("multi-day-event-allowed", func(t *testing.T) {
@@ -1270,7 +1302,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, newStart, event.Start)
-			assert.Equal(t, newEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, newEnd, *event.End)
 		})
 
 		t.Run("multi-day-event-allowed-2", func(t *testing.T) {
@@ -1284,7 +1317,8 @@ func TestFilesProvider(t *testing.T) {
 			event, err := p.GetEvent(id)
 			assert.Nil(t, err)
 			assert.Equal(t, newStart, event.Start)
-			assert.Equal(t, newEnd, event.End)
+			assert.NotNil(t, event.End)
+			assert.Equal(t, newEnd, *event.End)
 		})
 	})
 
@@ -1306,7 +1340,7 @@ func TestFilesProvider(t *testing.T) {
 			Name:     "thing",
 			Category: "cat",
 			Start:    time.Date(2021, 1, 1, 14, 30, 0, 0, time.UTC),
-			End:      time.Date(2021, 1, 1, 16, 45, 0, 0, time.UTC),
+			End:      timePtr(time.Date(2021, 1, 1, 16, 45, 0, 0, time.UTC)),
 		})
 
 		fullyCommitted, err = p.FullyCommitted()

@@ -98,7 +98,7 @@ func (command *DayplanSummarizeCommand) Execute(args []string) error {
 		return ok
 	}
 
-	totalSummary, err := dataProvider.SumUpTimespanByCategory(command.From, command.Til)
+	totalSummary, err := dataProvider.SumUpTimespanByCategory(command.From, command.Til, time.Now())
 	if err != nil {
 		return fmt.Errorf("can't summarize timespan by category (%w)", err)
 	}

@@ -84,7 +84,7 @@ func (t *Task) GetSubtasks() []ReadableTask {
 func (t *Task) toEvent(startTime time.Time, namePrefix string) Event {
 	return Event{
 		Start:    startTime,
-		End:      startTime.Add(t.getDurationNormalized()),
+		End:      func() *time.Time { r := new(time.Time); *r = startTime.Add(t.getDurationNormalized()); return r }(),
 		Name:     namePrefix + t.Name,
 		Category: t.Category,
 	}

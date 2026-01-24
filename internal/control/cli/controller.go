@@ -71,8 +71,16 @@ type Controller struct {
 	log zerolog.Logger
 }
 
+// Now returns the current time. This provides a seam for testing and future
+// flexibility (e.g., for time-travel debugging or replay functionality).
+func (c *Controller) Now() time.Time {
+	return time.Now()
+}
+
 // NewController creates a new Controller.
 func NewController(
+	ttyLogger zerolog.Logger,
+	tuiLogger zerolog.Logger,
 	date model.Date,
 	envData control.EnvData,
 	categoriesByName map[model.CategoryName]*model.Category,
@@ -82,7 +90,7 @@ func NewController(
 	eventsProvider provider.EventProvider,
 ) (*Controller, error) {
 	controller := Controller{
-		log: log.With().Str("component", "controller").Logger(),
+		log: tuiLogger.With().Str("component", "controller").Logger(),
 	}
 	defer controller.goToDay(date)
 
@@ -154,7 +162,7 @@ func NewController(
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create backlog provider for YAML file '%s' (%w)", backlogFilePath, err)
 	}
-	controller.log.Info().Str("file", backlogFilePath).Msg("successfully created backlog provider")
+	ttyLogger.Info().Str("file", backlogFilePath).Msg("successfully created backlog provider")
 	go controller.tryLoadBacklog()
 
 	tasksWidth := 40
@@ -242,7 +250,9 @@ func NewController(
 		return nil, fmt.Errorf("could not construct monthday pane input tree (%w)", err)
 	}
 
+	// this is where we initialize the screen
 	renderer := tui.NewTUIScreenHandler()
+	log.Logger = tuiLogger
 	cursorWrangler := ui.NewCursorWrangler(renderer)
 
 	getCategoryStyle := func(n model.CategoryName) (styling.DrawStyling, error) {
@@ -452,28 +462,33 @@ func NewController(
 					newEvent.Start = model.DateAndTimestampToGotime(controller.data.CurrentDate, topRowShownTime, time.Local)
 				}
 			} else {
+				newEventStart := time.Now()
+				if current.End != nil {
+					newEventStart = *current.End
+				}
 				isMidnight := func(t time.Time) bool {
 					return t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0
 				}
-				if isMidnight(current.End) {
-					controller.log.Warn().Msgf("Unable to add event after current event, which ends at midnight.")
+				if isMidnight(newEventStart) {
+					controller.log.Warn().Msgf("Unable to add event after at deduced start, which is midnight.")
 					return
 				}
-				newEvent.Start = current.End
+				newEvent.Start = newEventStart
 			}
 			eventAfter, err := controller.eventsProvider.GetEventAfter(newEvent.Start)
 			if err != nil {
 				controller.log.Warn().Err(err).Msg("could not get event after")
 			}
+			newEvent.End = new(time.Time)
 			if eventAfter == nil || eventAfter.Start.Sub(newEvent.Start) <= 0 || eventAfter.Start.Sub(newEvent.Start) > (60*time.Minute) {
 				if newEvent.Start.Add(60*time.Minute).YearDay() != newEvent.Start.YearDay() {
 					midnightBeforeTomorrow := newEvent.Start.Truncate(60 * time.Minute).Add(60 * time.Minute)
-					newEvent.End = midnightBeforeTomorrow
+					*newEvent.End = midnightBeforeTomorrow
 				} else {
-					newEvent.End = newEvent.Start.Add(60 * time.Minute)
+					*newEvent.End = newEvent.Start.Add(60 * time.Minute)
 				}
 			} else {
-				newEvent.End = eventAfter.Start
+				*newEvent.End = eventAfter.Start
 			}
 			eventID, err := controller.eventsProvider.AddEvent(newEvent)
 			if err != nil {
@@ -508,20 +523,21 @@ func NewController(
 				Name:     "",
 				Category: controller.data.CurrentCategory,
 			}
+			newEvent.End = new(time.Time)
 			if current == nil {
-				newEvent.End = time.Now()
+				*newEvent.End = time.Now()
 			} else {
-				newEvent.End = current.Start
+				*newEvent.End = current.Start
 			}
-			eventBefore, err := controller.eventsProvider.GetEventBefore(newEvent.End)
+			eventBefore, err := controller.eventsProvider.GetEventBefore(*newEvent.End)
 			if err != nil {
 				controller.log.Warn().Err(err).Msgf("could not get event before %s from data provider", newEvent.End.String())
 				return
 			}
-			if eventBefore == nil || newEvent.End.Sub(eventBefore.End) <= 0 || newEvent.End.Sub(eventBefore.End) > (60*time.Minute) {
+			if eventBefore == nil || eventBefore.End == nil || newEvent.End.Sub(*eventBefore.End) <= 0 || newEvent.End.Sub(*eventBefore.End) > (60*time.Minute) {
 				newEvent.Start = newEvent.End.Add(-60 * time.Minute)
 			} else {
-				newEvent.Start = eventBefore.End
+				newEvent.Start = *eventBefore.End
 			}
 			eventID, err := controller.eventsProvider.AddEvent(newEvent)
 			if err != nil {
@@ -543,10 +559,11 @@ func NewController(
 				controller.log.Warn().Err(err).Msgf("could not get event after %s", newEvent.Start.String())
 				return
 			}
+			newEvent.End = new(time.Time)
 			if eventAfter != nil && eventAfter.Start.Sub(newEvent.Start).Minutes() < 60 {
-				newEvent.End = eventAfter.Start
+				*newEvent.End = eventAfter.Start
 			} else {
-				newEvent.End = newEvent.Start.Add(60 * time.Minute)
+				*newEvent.End = newEvent.Start.Add(60 * time.Minute)
 			}
 			controller.eventsProvider.AddEvent(*newEvent)
 			controller.ensureEventsPaneTimestampWithinVisibleScroll(newEvent.Start)
@@ -586,6 +603,10 @@ func NewController(
 				return
 			}
 			if current == nil {
+				return
+			}
+			if current.End == nil {
+				controller.log.Error().Msgf("Unable to split active current event (no end).")
 				return
 			}
 			center := current.Start.Add(current.End.Sub(current.Start) / 2)
@@ -687,6 +708,10 @@ func NewController(
 					}
 					if current == nil {
 						controller.log.Info().Msg("no current event selected, so nothing to move")
+						return
+					}
+					if current.End == nil {
+						controller.log.Info().Msg("Unable to move current event, since it is active (no end).")
 						return
 					}
 					newStart := time.Now()
@@ -1000,7 +1025,7 @@ func NewController(
 	getSummary := func() (map[model.CategoryName]time.Duration, error) {
 		startOfDay := controller.data.CurrentDate.ToGotime(time.Local)
 		endOfDay := startOfDay.Add(24 * time.Hour)
-		result, err := controller.eventsProvider.SumUpTimespanByCategory(startOfDay, endOfDay)
+		result, err := controller.eventsProvider.SumUpTimespanByCategory(startOfDay, endOfDay, controller.Now())
 		if err != nil {
 			return nil, fmt.Errorf("could not sum up timespans by category (%w)", err)
 		}
@@ -1337,7 +1362,8 @@ func (c *Controller) startMouseEventCreation(info *ui.EventsPanePositionInfo) {
 	e.Category = c.data.CurrentCategory
 	e.Name = ""
 	e.Start = eventStartTime
-	e.End = eventStartTime.Add(c.data.MainTimelineViewParams.DurationOfHeight(1))
+	e.End = new(time.Time)
+	*e.End = eventStartTime.Add(c.data.MainTimelineViewParams.DurationOfHeight(1))
 
 	newEventID, err := c.eventsProvider.AddEvent(e)
 	if err != nil {

@@ -264,7 +264,7 @@ func runMigrations(db *sql.DB) error {
 		name              TEXT NOT NULL,
 		category          TEXT,
 		start_time        TEXT NOT NULL,
-		end_time          TEXT NOT NULL,
+		end_time          TEXT,  -- NULL for active/ongoing events without an end time
 		deleted           INTEGER NOT NULL DEFAULT 0,
 		updated_at        TEXT NOT NULL,
 		server_updated_at TEXT  -- Last known updated_at from server (for conflict detection)
@@ -321,6 +321,12 @@ func runMigrations(db *sql.DB) error {
 	// Lexicographic comparison differs because '.' < 'Z' in ASCII, causing navigation bugs.
 	if err := migrateNormalizeTimeStrings(db); err != nil {
 		return fmt.Errorf("failed to normalize time strings: %w", err)
+	}
+
+	// Migration: Make end_time nullable for active/ongoing events.
+	// SQLite doesn't support ALTER COLUMN, so we recreate the table.
+	if err := migrateEndTimeNullable(db); err != nil {
+		return fmt.Errorf("failed to make end_time nullable: %w", err)
 	}
 
 	return nil
@@ -394,6 +400,113 @@ func migrateNormalizeTimeStrings(db *sql.DB) error {
 
 	// Mark migration as done
 	_, err = db.Exec("INSERT INTO sync_meta (key, value) VALUES ('migration_normalize_times', 'done') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+	return err
+}
+
+// migrateEndTimeNullable changes end_time from NOT NULL to nullable.
+// SQLite doesn't support ALTER COLUMN, so we recreate the table if needed.
+func migrateEndTimeNullable(db *sql.DB) error {
+	// Check if migration already ran
+	var migrated string
+	err := db.QueryRow("SELECT value FROM sync_meta WHERE key = 'migration_end_time_nullable'").Scan(&migrated)
+	if err == nil && migrated == "done" {
+		return nil // Already migrated
+	}
+
+	// Check if end_time column is already nullable by examining table info
+	// In SQLite, we can query pragma table_info to check the notnull flag
+	var cid int
+	var name, colType string
+	var notNull, pk int
+	var dfltValue sql.NullString
+	rows, err := db.Query("PRAGMA table_info(events)")
+	if err != nil {
+		return fmt.Errorf("failed to get table info: %w", err)
+	}
+	defer rows.Close()
+
+	endTimeIsNotNull := false
+	for rows.Next() {
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("failed to scan table info: %w", err)
+		}
+		if name == "end_time" && notNull == 1 {
+			endTimeIsNotNull = true
+			break
+		}
+	}
+
+	if !endTimeIsNotNull {
+		// Column is already nullable, just mark migration as done
+		_, err = db.Exec("INSERT INTO sync_meta (key, value) VALUES ('migration_end_time_nullable', 'done') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+		return err
+	}
+
+	log.Info().Msg("Running migration: making end_time nullable for active events")
+
+	// SQLite requires recreating the table to change column constraints
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// 1. Create new table with nullable end_time
+	_, err = tx.Exec(`
+		CREATE TABLE events_new (
+			id                TEXT PRIMARY KEY,
+			name              TEXT NOT NULL,
+			category          TEXT,
+			start_time        TEXT NOT NULL,
+			end_time          TEXT,
+			deleted           INTEGER NOT NULL DEFAULT 0,
+			updated_at        TEXT NOT NULL,
+			server_updated_at TEXT
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create new events table: %w", err)
+	}
+
+	// 2. Copy data
+	_, err = tx.Exec(`
+		INSERT INTO events_new (id, name, category, start_time, end_time, deleted, updated_at, server_updated_at)
+		SELECT id, name, category, start_time, end_time, deleted, updated_at, server_updated_at FROM events
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to copy events data: %w", err)
+	}
+
+	// 3. Drop old table
+	_, err = tx.Exec("DROP TABLE events")
+	if err != nil {
+		return fmt.Errorf("failed to drop old events table: %w", err)
+	}
+
+	// 4. Rename new table
+	_, err = tx.Exec("ALTER TABLE events_new RENAME TO events")
+	if err != nil {
+		return fmt.Errorf("failed to rename events table: %w", err)
+	}
+
+	// 5. Recreate indexes
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_events_timerange ON events(start_time, end_time)")
+	if err != nil {
+		return fmt.Errorf("failed to recreate timerange index: %w", err)
+	}
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_events_deleted ON events(deleted)")
+	if err != nil {
+		return fmt.Errorf("failed to recreate deleted index: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit migration: %w", err)
+	}
+
+	log.Info().Msg("Migration complete: end_time is now nullable")
+
+	// Mark migration as done
+	_, err = db.Exec("INSERT INTO sync_meta (key, value) VALUES ('migration_end_time_nullable', 'done') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
 	return err
 }
 
@@ -518,7 +631,8 @@ func (p *CachingServerClientDataProvider) GetEvent(id model.EventID) (*model.Eve
 	)
 
 	var e model.Event
-	var startStr, endStr string
+	var startStr string
+	var endStr sql.NullString
 	err := row.Scan(&e.ID, &e.Name, &e.Category, &startStr, &endStr)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("event with ID '%s' not found", id)
@@ -536,28 +650,36 @@ func (p *CachingServerClientDataProvider) GetEvent(id model.EventID) (*model.Eve
 			Str("start_str", startStr).
 			Msg("GetEvent: failed to parse start time")
 	}
-	e.End, parseErr = time.Parse(time.RFC3339, endStr)
-	if parseErr != nil {
-		log.Warn().
-			Err(parseErr).
-			Str("event_id", string(id)).
-			Str("end_str", endStr).
-			Msg("GetEvent: failed to parse end time")
+
+	// End time can be NULL for active/ongoing events
+	if endStr.Valid && endStr.String != "" {
+		end, parseErr := time.Parse(time.RFC3339, endStr.String)
+		if parseErr != nil {
+			log.Warn().
+				Err(parseErr).
+				Str("event_id", string(id)).
+				Str("end_str", endStr.String).
+				Msg("GetEvent: failed to parse end time")
+		} else {
+			e.End = &end
+		}
 	}
+	// If endStr is NULL or empty, e.End remains nil
 
 	log.Trace().
 		Str("event_id", string(e.ID)).
 		Str("event_name", e.Name).
 		Str("db_start_str", startStr).
-		Str("db_end_str", endStr).
+		Str("db_end_str", endStr.String).
 		Time("parsed_start", e.Start).
-		Time("parsed_end", e.End).
+		Interface("parsed_end", e.End).
 		Msg("GetEvent: retrieved event")
 
 	return &e, nil
 }
 
 // GetEventsCoveringTimerange returns all events that cover the given time range.
+// Events with NULL end_time (ongoing events) are included if they started before the range ends.
 func (p *CachingServerClientDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]*model.Event, error) {
 	start = start.UTC()
 	end = end.UTC()
@@ -569,9 +691,12 @@ func (p *CachingServerClientDataProvider) GetEventsCoveringTimerange(start, end 
 		return nil, fmt.Errorf("empty time range requested")
 	}
 
+	// An event covers the timerange if:
+	// - It started before the range ends (start_time < end)
+	// - AND either has no end (ongoing) OR its end is after the range starts (end_time > start OR end_time IS NULL)
 	rows, err := p.db.Query(
 		`SELECT id, name, category, start_time, end_time FROM events
-		 WHERE deleted = 0 AND start_time < ? AND end_time > ?
+		 WHERE deleted = 0 AND start_time < ? AND (end_time IS NULL OR end_time > ?)
 		 ORDER BY start_time, end_time DESC`,
 		end.Format(time.RFC3339), start.Format(time.RFC3339),
 	)
@@ -583,12 +708,16 @@ func (p *CachingServerClientDataProvider) GetEventsCoveringTimerange(start, end 
 	var events []*model.Event
 	for rows.Next() {
 		var e model.Event
-		var startStr, endStr string
+		var startStr string
+		var endStr sql.NullString
 		if err := rows.Scan(&e.ID, &e.Name, &e.Category, &startStr, &endStr); err != nil {
 			return nil, fmt.Errorf("error scanning event: %w", err)
 		}
 		e.Start, _ = time.Parse(time.RFC3339, startStr)
-		e.End, _ = time.Parse(time.RFC3339, endStr)
+		if endStr.Valid && endStr.String != "" {
+			end, _ := time.Parse(time.RFC3339, endStr.String)
+			e.End = &end
+		}
 		events = append(events, &e)
 	}
 
@@ -608,7 +737,8 @@ func (p *CachingServerClientDataProvider) GetEventAfter(t time.Time) (*model.Eve
 	)
 
 	var e model.Event
-	var startStr, endStr string
+	var startStr string
+	var endStr sql.NullString
 	err := row.Scan(&e.ID, &e.Name, &e.Category, &startStr, &endStr)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -618,25 +748,31 @@ func (p *CachingServerClientDataProvider) GetEventAfter(t time.Time) (*model.Eve
 	}
 
 	e.Start, _ = time.Parse(time.RFC3339, startStr)
-	e.End, _ = time.Parse(time.RFC3339, endStr)
+	if endStr.Valid && endStr.String != "" {
+		end, _ := time.Parse(time.RFC3339, endStr.String)
+		e.End = &end
+	}
 
 	return &e, nil
 }
 
 // GetEventBefore returns the event that ends before the given time.
+// Events with NULL end_time (ongoing) are excluded since they don't have a defined end.
 func (p *CachingServerClientDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
 	t = t.UTC()
 
+	// Only consider events with a defined end time (exclude ongoing events)
 	row := p.db.QueryRow(
 		`SELECT id, name, category, start_time, end_time FROM events
-		 WHERE deleted = 0 AND end_time <= ?
+		 WHERE deleted = 0 AND end_time IS NOT NULL AND end_time <= ?
 		 ORDER BY end_time DESC, start_time
 		 LIMIT 1`,
 		t.Format(time.RFC3339),
 	)
 
 	var e model.Event
-	var startStr, endStr string
+	var startStr string
+	var endStr sql.NullString
 	err := row.Scan(&e.ID, &e.Name, &e.Category, &startStr, &endStr)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -646,15 +782,19 @@ func (p *CachingServerClientDataProvider) GetEventBefore(t time.Time) (*model.Ev
 	}
 
 	e.Start, _ = time.Parse(time.RFC3339, startStr)
-	e.End, _ = time.Parse(time.RFC3339, endStr)
+	if endStr.Valid && endStr.String != "" {
+		end, _ := time.Parse(time.RFC3339, endStr.String)
+		e.End = &end
+	}
 
 	return &e, nil
 }
 
 // GetPrecedingEvent returns the event immediately before the given event in the total ordering.
 // Events are ordered by: start_time ASC, end_time DESC (longer events first for same start), id ASC.
+// For active events (nil End), fallbackEnd is used as the effective end time.
 // This ensures all events are reachable via prev/next navigation.
-func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, error) {
+func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID, fallbackEnd time.Time) (*model.Event, error) {
 	log.Debug().Str("input_id", string(id)).Msg("GetPrecedingEvent called")
 
 	e, err := p.GetEvent(id)
@@ -664,50 +804,45 @@ func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*
 	}
 
 	startStr := e.Start.Format(time.RFC3339)
-	endStr := e.End.Format(time.RFC3339)
+	fallbackEndStr := fallbackEnd.UTC().Format(time.RFC3339)
+	// Use fallbackEnd for active events (nil End)
+	endStr := fallbackEndStr
+	if e.End != nil {
+		endStr = e.End.Format(time.RFC3339)
+	}
 
 	log.Debug().
 		Str("current_id", string(e.ID)).
 		Str("current_name", e.Name).
 		Str("current_start", startStr).
 		Str("current_end", endStr).
-		Time("current_start_time", e.Start).
-		Time("current_end_time", e.End).
+		Interface("current_end_ptr", e.End).
 		Msg("GetPrecedingEvent: current event details")
 
-	// Also get the raw DB value to check for format mismatches
-	var dbStartStr, dbEndStr string
-	err = p.db.QueryRow("SELECT start_time, end_time FROM events WHERE id = ?", id).Scan(&dbStartStr, &dbEndStr)
-	if err == nil {
-		log.Trace().
-			Str("db_start_str", dbStartStr).
-			Str("db_end_str", dbEndStr).
-			Str("formatted_start_str", startStr).
-			Str("formatted_end_str", endStr).
-			Bool("start_matches", dbStartStr == startStr).
-			Bool("end_matches", dbEndStr == endStr).
-			Msg("GetPrecedingEvent: comparing DB vs formatted time strings")
-	}
-
 	// Find the event immediately before this one in total ordering.
-	// Total order: start_time ASC, end_time DESC, id ASC
-	// "Before" means: start < e.start, OR (start = e.start AND end > e.end),
-	//                 OR (start = e.start AND end = e.end AND id < e.id)
-	// To get the closest preceding event, order by: start DESC, end ASC, id DESC
+	// Total order: start_time ASC, effective_end DESC, id ASC
+	// For NULL end_time, use fallbackEnd as the effective end.
+	// "Before" means: start < e.start, OR (start = e.start AND effective_end > e.effective_end),
+	//                 OR (start = e.start AND effective_end = e.effective_end AND id < e.id)
+	// To get the closest preceding event, order by: start DESC, effective_end ASC, id DESC
 	row := p.db.QueryRow(
 		`SELECT id, name, category, start_time, end_time FROM events
 		 WHERE deleted = 0 AND (
 		   start_time < ?
-		   OR (start_time = ? AND end_time > ?)
-		   OR (start_time = ? AND end_time = ? AND id < ?)
+		   OR (start_time = ? AND COALESCE(end_time, ?) > ?)
+		   OR (start_time = ? AND COALESCE(end_time, ?) = ? AND id < ?)
 		 )
-		 ORDER BY start_time DESC, end_time ASC, id DESC
+		 ORDER BY start_time DESC, COALESCE(end_time, ?) ASC, id DESC
 		 LIMIT 1`,
-		startStr, startStr, endStr, startStr, endStr, id,
+		startStr,
+		startStr, fallbackEndStr, endStr,
+		startStr, fallbackEndStr, endStr, id,
+		fallbackEndStr,
 	)
 
 	var prev model.Event
-	var prevStartStr, prevEndStr string
+	var prevStartStr string
+	var prevEndStr sql.NullString
 	err = row.Scan(&prev.ID, &prev.Name, &prev.Category, &prevStartStr, &prevEndStr)
 	if err == sql.ErrNoRows {
 		log.Debug().Str("current_id", string(id)).Msg("GetPrecedingEvent: no preceding event found")
@@ -718,21 +853,17 @@ func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*
 		return nil, fmt.Errorf("error getting preceding event: %w", err)
 	}
 
-	var parseErr error
-	prev.Start, parseErr = time.Parse(time.RFC3339, prevStartStr)
-	if parseErr != nil {
-		log.Warn().Err(parseErr).Str("prev_start_str", prevStartStr).Msg("GetPrecedingEvent: failed to parse prev start time")
-	}
-	prev.End, parseErr = time.Parse(time.RFC3339, prevEndStr)
-	if parseErr != nil {
-		log.Warn().Err(parseErr).Str("prev_end_str", prevEndStr).Msg("GetPrecedingEvent: failed to parse prev end time")
+	prev.Start, _ = time.Parse(time.RFC3339, prevStartStr)
+	if prevEndStr.Valid && prevEndStr.String != "" {
+		end, _ := time.Parse(time.RFC3339, prevEndStr.String)
+		prev.End = &end
 	}
 
 	log.Debug().
 		Str("prev_id", string(prev.ID)).
 		Str("prev_name", prev.Name).
 		Str("prev_start", prevStartStr).
-		Str("prev_end", prevEndStr).
+		Str("prev_end", prevEndStr.String).
 		Bool("same_as_current", prev.ID == id).
 		Msg("GetPrecedingEvent: result")
 
@@ -740,10 +871,6 @@ func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*
 		log.Error().
 			Str("event_id", string(id)).
 			Str("event_name", e.Name).
-			Str("db_start", dbStartStr).
-			Str("db_end", dbEndStr).
-			Str("formatted_start", startStr).
-			Str("formatted_end", endStr).
 			Msg("BUG: GetPrecedingEvent returning same event as input!")
 	}
 
@@ -752,8 +879,9 @@ func (p *CachingServerClientDataProvider) GetPrecedingEvent(id model.EventID) (*
 
 // GetFollowingEvent returns the event immediately after the given event in the total ordering.
 // Events are ordered by: start_time ASC, end_time DESC (longer events first for same start), id ASC.
+// For active events (nil End), fallbackEnd is used as the effective end time.
 // This ensures all events are reachable via prev/next navigation.
-func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, error) {
+func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID, fallbackEnd time.Time) (*model.Event, error) {
 	log.Debug().Str("input_id", string(id)).Msg("GetFollowingEvent called")
 
 	e, err := p.GetEvent(id)
@@ -763,48 +891,45 @@ func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*
 	}
 
 	startStr := e.Start.Format(time.RFC3339)
-	endStr := e.End.Format(time.RFC3339)
+	fallbackEndStr := fallbackEnd.UTC().Format(time.RFC3339)
+	// Use fallbackEnd for active events (nil End)
+	endStr := fallbackEndStr
+	if e.End != nil {
+		endStr = e.End.Format(time.RFC3339)
+	}
 
 	log.Debug().
 		Str("current_id", string(e.ID)).
 		Str("current_name", e.Name).
 		Str("current_start", startStr).
 		Str("current_end", endStr).
+		Interface("current_end_ptr", e.End).
 		Msg("GetFollowingEvent: current event details")
 
-	// Also get the raw DB value to check for format mismatches
-	var dbStartStr, dbEndStr string
-	err = p.db.QueryRow("SELECT start_time, end_time FROM events WHERE id = ?", id).Scan(&dbStartStr, &dbEndStr)
-	if err == nil {
-		log.Trace().
-			Str("db_start_str", dbStartStr).
-			Str("db_end_str", dbEndStr).
-			Str("formatted_start_str", startStr).
-			Str("formatted_end_str", endStr).
-			Bool("start_matches", dbStartStr == startStr).
-			Bool("end_matches", dbEndStr == endStr).
-			Msg("GetFollowingEvent: comparing DB vs formatted time strings")
-	}
-
 	// Find the event immediately after this one in total ordering.
-	// Total order: start_time ASC, end_time DESC, id ASC
-	// "After" means: start > e.start, OR (start = e.start AND end < e.end),
-	//                OR (start = e.start AND end = e.end AND id > e.id)
-	// To get the closest following event, order by: start ASC, end DESC, id ASC
+	// Total order: start_time ASC, effective_end DESC, id ASC
+	// For NULL end_time, use fallbackEnd as the effective end.
+	// "After" means: start > e.start, OR (start = e.start AND effective_end < e.effective_end),
+	//                OR (start = e.start AND effective_end = e.effective_end AND id > e.id)
+	// To get the closest following event, order by: start ASC, effective_end DESC, id ASC
 	row := p.db.QueryRow(
 		`SELECT id, name, category, start_time, end_time FROM events
 		 WHERE deleted = 0 AND (
 		   start_time > ?
-		   OR (start_time = ? AND end_time < ?)
-		   OR (start_time = ? AND end_time = ? AND id > ?)
+		   OR (start_time = ? AND COALESCE(end_time, ?) < ?)
+		   OR (start_time = ? AND COALESCE(end_time, ?) = ? AND id > ?)
 		 )
-		 ORDER BY start_time ASC, end_time DESC, id ASC
+		 ORDER BY start_time ASC, COALESCE(end_time, ?) DESC, id ASC
 		 LIMIT 1`,
-		startStr, startStr, endStr, startStr, endStr, id,
+		startStr,
+		startStr, fallbackEndStr, endStr,
+		startStr, fallbackEndStr, endStr, id,
+		fallbackEndStr,
 	)
 
 	var next model.Event
-	var nextStartStr, nextEndStr string
+	var nextStartStr string
+	var nextEndStr sql.NullString
 	err = row.Scan(&next.ID, &next.Name, &next.Category, &nextStartStr, &nextEndStr)
 	if err == sql.ErrNoRows {
 		log.Debug().Str("current_id", string(id)).Msg("GetFollowingEvent: no following event found")
@@ -815,21 +940,17 @@ func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*
 		return nil, fmt.Errorf("error getting following event: %w", err)
 	}
 
-	var parseErr error
-	next.Start, parseErr = time.Parse(time.RFC3339, nextStartStr)
-	if parseErr != nil {
-		log.Warn().Err(parseErr).Str("next_start_str", nextStartStr).Msg("GetFollowingEvent: failed to parse next start time")
-	}
-	next.End, parseErr = time.Parse(time.RFC3339, nextEndStr)
-	if parseErr != nil {
-		log.Warn().Err(parseErr).Str("next_end_str", nextEndStr).Msg("GetFollowingEvent: failed to parse next end time")
+	next.Start, _ = time.Parse(time.RFC3339, nextStartStr)
+	if nextEndStr.Valid && nextEndStr.String != "" {
+		end, _ := time.Parse(time.RFC3339, nextEndStr.String)
+		next.End = &end
 	}
 
 	log.Debug().
 		Str("next_id", string(next.ID)).
 		Str("next_name", next.Name).
 		Str("next_start", nextStartStr).
-		Str("next_end", nextEndStr).
+		Str("next_end", nextEndStr.String).
 		Bool("same_as_current", next.ID == id).
 		Msg("GetFollowingEvent: result")
 
@@ -837,10 +958,6 @@ func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*
 		log.Error().
 			Str("event_id", string(id)).
 			Str("event_name", e.Name).
-			Str("db_start", dbStartStr).
-			Str("db_end", dbEndStr).
-			Str("formatted_start", startStr).
-			Str("formatted_end", endStr).
 			Msg("BUG: GetFollowingEvent returning same event as input!")
 	}
 
@@ -848,7 +965,7 @@ func (p *CachingServerClientDataProvider) GetFollowingEvent(id model.EventID) (*
 }
 
 // SumUpTimespanByCategory returns the total duration of events in the time range, grouped by category.
-func (p *CachingServerClientDataProvider) SumUpTimespanByCategory(start, end time.Time) (map[model.CategoryName]time.Duration, error) {
+func (p *CachingServerClientDataProvider) SumUpTimespanByCategory(start, end, fallbackEndForActiveEvents time.Time) (map[model.CategoryName]time.Duration, error) {
 	events, err := p.GetEventsCoveringTimerange(start, end)
 	if err != nil {
 		return nil, err
@@ -856,7 +973,7 @@ func (p *CachingServerClientDataProvider) SumUpTimespanByCategory(start, end tim
 
 	// Build event list and sum up
 	eventList := model.EventList{Events: events}
-	summary := eventList.SumUpByCategory(func(category model.CategoryName) int {
+	summary := eventList.SumUpByCategory(fallbackEndForActiveEvents, func(category model.CategoryName) int {
 		if p.categoryProvider == nil {
 			return 0
 		}
@@ -881,10 +998,12 @@ func (p *CachingServerClientDataProvider) AddEvent(e model.Event) (model.EventID
 	}
 
 	e.Start = e.Start.UTC()
-	e.End = e.End.UTC()
+	if e.End != nil {
+		*e.End = e.End.UTC()
 
-	if !e.Start.Before(e.End) {
-		return "", fmt.Errorf("start time is not before end time")
+		if !e.Start.Before(*e.End) {
+			return "", fmt.Errorf("start time is not before end time")
+		}
 	}
 
 	now := time.Now().UTC()
@@ -896,12 +1015,16 @@ func (p *CachingServerClientDataProvider) AddEvent(e model.Event) (model.EventID
 	}
 	defer tx.Rollback()
 
-	// 1. Insert locally
+	// 1. Insert locally (end_time can be NULL for active/ongoing events)
+	var endTimeVal any
+	if e.End != nil {
+		endTimeVal = e.End.Format(time.RFC3339)
+	}
 	_, err = tx.Exec(
 		`INSERT INTO events (id, name, category, start_time, end_time, deleted, updated_at)
 		 VALUES (?, ?, ?, ?, ?, 0, ?)`,
 		e.ID, e.Name, e.Category,
-		e.Start.Format(time.RFC3339), e.End.Format(time.RFC3339),
+		e.Start.Format(time.RFC3339), endTimeVal,
 		now.Format(time.RFC3339),
 	)
 	if err != nil {
@@ -993,11 +1116,17 @@ func (p *CachingServerClientDataProvider) updateEventLocal(e *model.Event) error
 	}
 	defer tx.Rollback()
 
+	// end_time can be NULL for active/ongoing events
+	var endTimeVal any
+	if e.End != nil {
+		endTimeVal = e.End.Format(time.RFC3339)
+	}
+
 	result, err := tx.Exec(
 		`UPDATE events SET name = ?, category = ?, start_time = ?, end_time = ?, updated_at = ?
 		 WHERE id = ? AND deleted = 0`,
 		e.Name, e.Category,
-		e.Start.Format(time.RFC3339), e.End.Format(time.RFC3339),
+		e.Start.Format(time.RFC3339), endTimeVal,
 		now.Format(time.RFC3339), e.ID,
 	)
 	if err != nil {
@@ -1037,10 +1166,13 @@ func (p *CachingServerClientDataProvider) SplitEvent(id model.EventID, splitTime
 	if err != nil {
 		return err
 	}
+	if e.End == nil {
+		return fmt.Errorf("Unable to split active event (no end)")
+	}
 
 	splitTime = splitTime.UTC()
 
-	if !(splitTime.After(e.Start) && splitTime.Before(e.End)) {
+	if !(splitTime.After(e.Start) && splitTime.Before(*e.End)) {
 		return fmt.Errorf("split time is not between start and end time of event")
 	}
 
@@ -1069,7 +1201,7 @@ func (p *CachingServerClientDataProvider) SetEventStart(id model.EventID, start 
 
 	start = start.UTC()
 
-	if !start.Before(e.End) {
+	if e.End != nil && !start.Before(*e.End) {
 		return fmt.Errorf("start time is not before end time")
 	}
 
@@ -1090,7 +1222,7 @@ func (p *CachingServerClientDataProvider) SetEventEnd(id model.EventID, end time
 		return fmt.Errorf("start time %s is not before end time %s", e.Start, end)
 	}
 
-	e.End = end
+	e.End = &end
 	return p.updateEventLocal(e)
 }
 
@@ -1109,7 +1241,7 @@ func (p *CachingServerClientDataProvider) SetEventTimes(id model.EventID, start,
 	}
 
 	e.Start = start
-	e.End = end
+	e.End = &end
 	return p.updateEventLocal(e)
 }
 
@@ -1121,7 +1253,7 @@ func (p *CachingServerClientDataProvider) OffsetEventStart(id model.EventID, off
 	}
 
 	newStart := e.Start.Add(offset).UTC()
-	if !newStart.Before(e.End) {
+	if e.End != nil && !newStart.Before(*e.End) {
 		return time.Time{}, fmt.Errorf("resulting start time would not be before end time")
 	}
 
@@ -1138,17 +1270,20 @@ func (p *CachingServerClientDataProvider) OffsetEventEnd(id model.EventID, offse
 	if err != nil {
 		return time.Time{}, err
 	}
+	if e.End == nil {
+		return time.Time{}, fmt.Errorf("Unable to offset event's nil end.")
+	}
 
 	newEnd := e.End.Add(offset).UTC()
 	if !e.Start.Before(newEnd) {
 		return time.Time{}, fmt.Errorf("resulting end time would not be after start time")
 	}
 
-	e.End = newEnd
+	e.End = &newEnd
 	if err := p.updateEventLocal(e); err != nil {
 		return time.Time{}, err
 	}
-	return e.End, nil
+	return *e.End, nil
 }
 
 // OffsetEventTimes offsets both start and end times of an event by a duration.
@@ -1157,14 +1292,18 @@ func (p *CachingServerClientDataProvider) OffsetEventTimes(id model.EventID, off
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
+	if e.End == nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("Unable to offset event's nil end.")
+	}
 
 	e.Start = e.Start.Add(offset).UTC()
-	e.End = e.End.Add(offset).UTC()
+	newEnd := e.End.Add(offset).UTC()
+	e.End = &newEnd
 
 	if err := p.updateEventLocal(e); err != nil {
 		return time.Time{}, time.Time{}, err
 	}
-	return e.Start, e.End, nil
+	return e.Start, *e.End, nil
 }
 
 // SnapEventStart snaps the start time of an event to the nearest interval.
@@ -1175,8 +1314,10 @@ func (p *CachingServerClientDataProvider) SnapEventStart(id model.EventID, inter
 	}
 
 	newStart := snapToInterval(e.Start, interval).UTC()
-	if !newStart.Before(e.End) {
-		return time.Time{}, fmt.Errorf("resulting start time would not be before end time")
+	if e.End != nil {
+		if !newStart.Before(*e.End) {
+			return time.Time{}, fmt.Errorf("resulting start time would not be before end time")
+		}
 	}
 
 	e.Start = newStart
@@ -1192,17 +1333,20 @@ func (p *CachingServerClientDataProvider) SnapEventEnd(id model.EventID, interva
 	if err != nil {
 		return time.Time{}, err
 	}
+	if e.End == nil {
+		return time.Time{}, fmt.Errorf("Unable to snap event's nil end.")
+	}
 
-	newEnd := snapToInterval(e.End, interval).UTC()
+	newEnd := snapToInterval(*e.End, interval).UTC()
 	if !e.Start.Before(newEnd) {
 		return time.Time{}, fmt.Errorf("resulting end time would not be after start time")
 	}
 
-	e.End = newEnd
+	e.End = &newEnd
 	if err := p.updateEventLocal(e); err != nil {
 		return time.Time{}, err
 	}
-	return e.End, nil
+	return *e.End, nil
 }
 
 // SnapEventTimes snaps both start and end times of an event to the nearest intervals.
@@ -1211,37 +1355,42 @@ func (p *CachingServerClientDataProvider) SnapEventTimes(id model.EventID, inter
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
+	if e.End == nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("Unable to snap event's nil end.")
+	}
 
 	newStart := snapToInterval(e.Start, interval).UTC()
-	newEnd := snapToInterval(e.End, interval).UTC()
+	newEnd := snapToInterval(*e.End, interval).UTC()
 
 	if !newStart.Before(newEnd) {
 		return time.Time{}, time.Time{}, fmt.Errorf("resulting start time would not be before end time")
 	}
 
 	e.Start = newStart
-	e.End = newEnd
+	e.End = &newEnd
 	if err := p.updateEventLocal(e); err != nil {
 		return time.Time{}, time.Time{}, err
 	}
-	return e.Start, e.End, nil
+	return e.Start, *e.End, nil
 }
 
 // SnapEventStartPreseveDuration snaps start and adjusts end to preserve duration.
-func (p *CachingServerClientDataProvider) SnapEventStartPreseveDuration(id model.EventID, interval time.Duration) (time.Time, time.Time, error) {
+func (p *CachingServerClientDataProvider) SnapEventStartPreseveDuration(id model.EventID, interval time.Duration) (time.Time, *time.Time, error) {
 	e, err := p.GetEvent(id)
 	if err != nil {
-		return time.Time{}, time.Time{}, err
+		return time.Time{}, nil, err
 	}
 
 	newStart := snapToInterval(e.Start, interval).UTC()
-	delta := newStart.Sub(e.Start)
-	newEnd := e.End.Add(delta).UTC()
+	if e.End != nil {
+		delta := newStart.Sub(e.Start)
+		newEnd := e.End.Add(delta).UTC()
+		e.End = &newEnd
+	}
 
 	e.Start = newStart
-	e.End = newEnd
 	if err := p.updateEventLocal(e); err != nil {
-		return time.Time{}, time.Time{}, err
+		return time.Time{}, nil, err
 	}
 	return e.Start, e.End, nil
 }
@@ -1252,17 +1401,20 @@ func (p *CachingServerClientDataProvider) SnapEventEndPreseveDuration(id model.E
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
+	if e.End == nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("Unable to snap event's nil end.")
+	}
 
-	newEnd := snapToInterval(e.End, interval).UTC()
-	delta := newEnd.Sub(e.End)
+	newEnd := snapToInterval(*e.End, interval).UTC()
+	delta := newEnd.Sub(*e.End)
 	newStart := e.Start.Add(delta).UTC()
 
 	e.Start = newStart
-	e.End = newEnd
+	e.End = &newEnd
 	if err := p.updateEventLocal(e); err != nil {
 		return time.Time{}, time.Time{}, err
 	}
-	return e.Start, e.End, nil
+	return e.Start, *e.End, nil
 }
 
 // SetEventName sets the name of an event.
@@ -1295,10 +1447,11 @@ func (p *CachingServerClientDataProvider) SetEventAllData(id model.EventID, newD
 
 	newData.ID = id
 	newData.Start = newData.Start.UTC()
-	newData.End = newData.End.UTC()
-
-	if !newData.Start.Before(newData.End) {
-		return fmt.Errorf("start time is not before end time")
+	if newData.End != nil {
+		*newData.End = newData.End.UTC()
+		if !newData.Start.Before(*newData.End) {
+			return fmt.Errorf("start time is not before end time")
+		}
 	}
 
 	return p.updateEventLocal(&newData)
@@ -1810,8 +1963,13 @@ func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) e
 	// RFC3339 format "2026-01-18T13:04:28Z". Lexicographic comparison of these
 	// differs because '.' < 'Z' in ASCII, causing navigation bugs.
 	startTime := normalizeTimeString(e.StartTime)
-	endTime := normalizeTimeString(e.EndTime)
 	updatedAt := normalizeTimeString(e.UpdatedAt)
+
+	// end_time can be empty/null for active/ongoing events
+	var endTimeVal any
+	if e.EndTime != "" {
+		endTimeVal = normalizeTimeString(e.EndTime)
+	}
 
 	_, err := p.db.Exec(
 		`INSERT INTO events (id, name, category, start_time, end_time, deleted, updated_at, server_updated_at)
@@ -1824,14 +1982,14 @@ func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) e
 		   deleted = excluded.deleted,
 		   updated_at = excluded.updated_at,
 		   server_updated_at = excluded.server_updated_at`,
-		e.ID, e.Name, e.Category, startTime, endTime, deleted, updatedAt, updatedAt,
+		e.ID, e.Name, e.Category, startTime, endTimeVal, deleted, updatedAt, updatedAt,
 	)
 	if err != nil {
 		p.log.Error().Err(err).
 			Str("eventID", e.ID).
 			Str("name", e.Name).
 			Str("startTime", startTime).
-			Str("endTime", endTime).
+			Interface("endTimeVal", endTimeVal).
 			Str("originalStartTime", e.StartTime).
 			Str("originalEndTime", e.EndTime).
 			Msg("failed to upsert event from server")
@@ -1854,7 +2012,8 @@ func (p *CachingServerClientDataProvider) storeConflict(recordType, recordID str
 			return err
 		}
 		e.Start, _ = time.Parse(time.RFC3339, startStr)
-		e.End, _ = time.Parse(time.RFC3339, endStr)
+		end, _ := time.Parse(time.RFC3339, endStr)
+		e.End = &end
 		localJSON, _ = json.Marshal(e)
 	}
 
@@ -2026,10 +2185,11 @@ func (p *CachingServerClientDataProvider) getAllEventsSorted() ([]*model.Event, 
 			return nil, err
 		}
 		e.Start, _ = time.Parse(time.RFC3339, startStr)
-		e.End, _ = time.Parse(time.RFC3339, endStr)
+		end, _ := time.Parse(time.RFC3339, endStr)
+		e.End = &end
 		events = append(events, &e)
 	}
 
-	sort.Sort(model.ByStartConsideringDuration(events))
+	sort.Sort(model.ByStartConsideringEnd(events))
 	return events, nil
 }

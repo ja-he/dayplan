@@ -42,11 +42,13 @@ type EventProvider interface {
 	// shortest one, in accordance with time-based event ordering.
 	GetEventBefore(time.Time) (*model.Event, error)
 	// GetPrecedingEvent returns the "preceding" event according to time-based
-	// event ordering rules.
-	GetPrecedingEvent(model.EventID) (*model.Event, error)
+	// event ordering rules. The fallbackEnd is used as the effective end time
+	// for active events (those with nil End), typically the current time.
+	GetPrecedingEvent(id model.EventID, fallbackEnd time.Time) (*model.Event, error)
 	// GetFollowingEvent returns the "following" event according to time-based
-	// event ordering rules.
-	GetFollowingEvent(model.EventID) (*model.Event, error)
+	// event ordering rules. The fallbackEnd is used as the effective end time
+	// for active events (those with nil End), typically the current time.
+	GetFollowingEvent(id model.EventID, fallbackEnd time.Time) (*model.Event, error)
 	// GetEventsCoveringTimerange returns all events that cover the given time
 	// range.
 	// None of the returned elements will be nil.
@@ -112,7 +114,7 @@ type EventProvider interface {
 	// SnapEventStartPreseveDuration adjusts the start of the event to a multiple
 	// of the given duration, but preserves the overall previous duration of the
 	// event by adjusting the end of the event by the delta.
-	SnapEventStartPreseveDuration(model.EventID, time.Duration) (time.Time, time.Time, error)
+	SnapEventStartPreseveDuration(model.EventID, time.Duration) (time.Time, *time.Time, error)
 	// SnapEventEndPreseveDuration adjusts the end of the event to a multiple of
 	// the given duration, but preserves the overall previous duration of the
 	// event by adjusting the start of the event by the delta.
@@ -129,7 +131,7 @@ type EventProvider interface {
 
 	// SumUpTimespanByCategory returns the total duration of all events in the
 	// given time range, grouped by category.
-	SumUpTimespanByCategory(start time.Time, end time.Time) (map[model.CategoryName]time.Duration, error)
+	SumUpTimespanByCategory(start time.Time, end time.Time, fallbackEndForActiveEvents time.Time) (map[model.CategoryName]time.Duration, error)
 
 	// need something here for mutability, e.g. constructing an editor...
 

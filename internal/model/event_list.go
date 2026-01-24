@@ -51,29 +51,8 @@ func (l *EventList) AddEvent(e *Event) error {
 }
 
 // ...
-func (l *EventList) GetPrevEventBefore(t time.Time) *Event {
-	for i := range l.Events {
-		e := l.Events[len(l.Events)-1-i]
-		if t.After(e.End) {
-			return e
-		}
-	}
-	return nil
-}
-
-// ...
-func (l *EventList) GetNextEventAfter(t time.Time) *Event {
-	for _, e := range l.Events {
-		if e.Start.After(t) {
-			return e
-		}
-	}
-	return nil
-}
-
-// ...
 func (l *EventList) UpdateEventOrder() {
-	sort.Sort(ByStartConsideringDuration(l.Events))
+	sort.Sort(ByStartConsideringEnd(l.Events))
 }
 
 // ...
@@ -88,7 +67,7 @@ func (l *EventList) SplitEvent(originalEvent *Event, timestamp time.Time) error 
 		Start:    timestamp,
 		End:      originalEvent.End,
 	}
-	originalEvent.End = timestamp
+	originalEvent.End = &timestamp
 
 	l.AddEvent(&secondEvent)
 	return nil
@@ -100,7 +79,7 @@ func (l *EventList) ResizeBy(event *Event, delta time.Duration) error {
 	if !newEnd.After(event.Start) {
 		return fmt.Errorf("refusing to resize event %s to negative length", event.String())
 	}
-	event.End = newEnd
+	event.End = &newEnd
 	l.UpdateEventOrder()
 	return nil
 }
@@ -117,14 +96,15 @@ func (l *EventList) MoveSingleEventBy(event *Event, duration time.Duration, snap
 	// TODO: snap
 	newEnd := event.End.Add(event.Start.Sub(newStart))
 	event.Start = newStart
-	event.End = newEnd
+	event.End = &newEnd
 	l.UpdateEventOrder()
 }
 
 func (l *EventList) MoveSingleEventTo(event *Event, newStart time.Time) {
 	delta := event.Start.Sub(newStart)
 	event.Start = event.Start.Add(delta)
-	event.End = event.End.Add(delta)
+	newEnd := event.End.Add(delta)
+	event.End = &newEnd
 	l.UpdateEventOrder()
 }
 
@@ -163,13 +143,18 @@ func (l *EventList) getEventsBefore(event *Event) []*Event {
 }
 
 func cloneEvent(e *Event) Event {
-	return Event{
+	clone := Event{
 		ID:       e.ID,
 		Name:     e.Name,
 		Category: e.Category,
 		Start:    e.Start,
-		End:      e.End,
 	}
+	// Deep-copy End pointer to avoid shared mutation
+	if e.End != nil {
+		endCopy := *e.End
+		clone.End = &endCopy
+	}
+	return clone
 }
 
 func (l *EventList) Clone() EventList {
@@ -185,15 +170,15 @@ func (l *EventList) Clone() EventList {
 // Time cannot be counted multiple times, so if multiple events overlap, only
 // one of them can have the time of the overlap counted. The prioritization for
 // this is according to category priority.
-func (l *EventList) SumUpByCategory(getCategoryPriority func(CategoryName) int) map[CategoryName]time.Duration {
+func (l *EventList) SumUpByCategory(fallbackEnd time.Time, getCategoryPriority func(CategoryName) int) map[CategoryName]time.Duration {
 	result := make(map[CategoryName]time.Duration)
 
 	flattened := l.Clone()
-	flattened.Flatten(getCategoryPriority)
+	flattened.Flatten(getCategoryPriority, fallbackEnd)
 
 	for i := range flattened.Events {
 		event := flattened.Events[i]
-		result[event.Category] += event.Duration()
+		result[event.Category] += event.Duration(fallbackEnd)
 	}
 
 	return result
@@ -201,14 +186,14 @@ func (l *EventList) SumUpByCategory(getCategoryPriority func(CategoryName) int) 
 
 // GetTimesheetEntry returns the TimesheetEntry for this day for a given
 // category (e.g. "work").
-func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCategoryPriority func(CategoryName) int, date Date, timezone *time.Location) (*TimesheetEntry, error) {
+func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCategoryPriority func(CategoryName) int, date Date, timezone *time.Location, fallbackEnd time.Time) (*TimesheetEntry, error) {
 	startFound := false
 	var firstStart time.Time
 	var lastEnd time.Time
 	var breakDurationCumulative time.Duration
 
 	flattened := l.Clone()
-	flattened.Flatten(getCategoryPriority)
+	flattened.Flatten(getCategoryPriority, fallbackEnd)
 
 	for _, event := range flattened.Events {
 
@@ -222,7 +207,10 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCatego
 			}
 
 			// Since the list was flattened, this is the end of the last event.
-			lastEnd = event.End
+			lastEnd = fallbackEnd
+			if event.End != nil {
+				lastEnd = *event.End
+			}
 		}
 
 	}
@@ -287,9 +275,16 @@ func (l *EventList) GetTimesheetEntry(matcher func(CategoryName) bool, getCatego
 //	    +-----+       +-------+
 //
 // It modifies the input in-place.
-func (l *EventList) Flatten(getCategoryPriority func(CategoryName) int) {
+func (l *EventList) Flatten(getCategoryPriority func(CategoryName) int, fallbackEnd time.Time) {
 	if len(l.Events) < 2 {
 		return
+	}
+
+	for i := range l.Events {
+		if l.Events[i].End == nil {
+			l.Events[i].End = new(time.Time)
+			*l.Events[i].End = fallbackEnd
+		}
 	}
 
 	current := 0
@@ -305,19 +300,19 @@ func (l *EventList) Flatten(getCategoryPriority func(CategoryName) int) {
 			if nextPrio > currentPrio {
 				// clone the current event for the remainder after the next event
 				currentRemainder := cloneEvent(l.Events[current])
-				currentRemainder.Start = l.Events[next].End
+				currentRemainder.Start = *l.Events[next].End
 
 				// trim the current until the next event
-				l.Events[current].End = l.Events[next].Start
+				*l.Events[current].End = l.Events[next].Start
 
 				// easiest to just append
-				if currentRemainder.Duration() > 0 {
+				if currentRemainder.Duration(fallbackEnd) > 0 {
 					l.Events = append(l.Events, &currentRemainder)
 				}
 
 				// if the current now has become zero-length, remove it (in which case
 				// we don't need to move the indices), else move the indices one up
-				if l.Events[current].Duration() == 0 {
+				if l.Events[current].Duration(fallbackEnd) == 0 {
 					l.Events = append(l.Events[:current], l.Events[current+1:]...)
 				} else {
 					current = next
@@ -330,8 +325,8 @@ func (l *EventList) Flatten(getCategoryPriority func(CategoryName) int) {
 		} else if l.Events[next].StartsDuring(l.Events[current]) {
 			if nextPrio > currentPrio {
 				// trim current
-				l.Events[current].End = l.Events[next].Start
-				if l.Events[current].Duration() == 0 {
+				*l.Events[current].End = l.Events[next].Start
+				if l.Events[current].Duration(fallbackEnd) == 0 {
 					// remove current
 					l.Events = append(l.Events[:current], l.Events[next:]...)
 				} else {
@@ -345,7 +340,7 @@ func (l *EventList) Flatten(getCategoryPriority func(CategoryName) int) {
 				l.Events = append(l.Events[:next], l.Events[next+1:]...)
 			} else {
 				// shorten next
-				l.Events[next].Start = l.Events[current].End
+				l.Events[next].Start = *l.Events[current].End
 			}
 		} else {
 			current = next

@@ -83,6 +83,17 @@ func setupTestInfrastructure(t *testing.T) *testInfrastructure {
 		testPassword: "testpw",
 	}
 
+	// Find the server binary (should be in repo root)
+	serverBinary, err := filepath.Abs("../../../server")
+	if err != nil {
+		infra.cleanup(t)
+		t.Fatalf("failed to get server binary path: %v", err)
+	}
+	if _, err := os.Stat(serverBinary); os.IsNotExist(err) {
+		infra.cleanup(t)
+		t.Fatalf("server binary not found at %s", serverBinary)
+	}
+
 	// Find free ports
 	infra.postgresPort = findFreePort(t)
 	infra.serverPort = findFreePort(t)
@@ -124,17 +135,6 @@ func setupTestInfrastructure(t *testing.T) *testInfrastructure {
 	if time.Now().After(deadline) {
 		infra.cleanup(t)
 		t.Fatalf("PostgreSQL did not become ready in time")
-	}
-
-	// Find the server binary (should be in repo root)
-	serverBinary, err := filepath.Abs("../../../server")
-	if err != nil {
-		infra.cleanup(t)
-		t.Fatalf("failed to get server binary path: %v", err)
-	}
-	if _, err := os.Stat(serverBinary); os.IsNotExist(err) {
-		infra.cleanup(t)
-		t.Fatalf("server binary not found at %s", serverBinary)
 	}
 
 	// Run migrations (with retry since pg_isready can return before connections are fully accepted)

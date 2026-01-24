@@ -144,7 +144,7 @@ func (command *DayplanAddCommand) Execute(args []string) error {
 	var events []model.Event
 	events = append(events, model.Event{
 		Start:    start,
-		End:      end,
+		End:      &end,
 		Name:     command.Name,
 		Category: categoryName,
 	})
@@ -168,9 +168,10 @@ func (command *DayplanAddCommand) Execute(args []string) error {
 		currentEnd := increment(end)
 
 		for !currentStart.After(repeatTilTime) {
+			currentEndCopy := currentEnd
 			event := model.Event{
 				Start:    currentStart,
-				End:      currentEnd,
+				End:      &currentEndCopy,
 				Name:     command.Name,
 				Category: categoryName,
 			}

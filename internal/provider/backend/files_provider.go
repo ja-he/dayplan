@@ -17,6 +17,9 @@ import (
 	"github.com/ja-he/dayplan/internal/provider"
 )
 
+// Ensure FilesDataProvider implements the required interfaces
+var _ provider.EventProvider = (*FilesDataProvider)(nil)
+
 var fileDateNamingRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 var filesProviderIDGenerator = func() model.EventID {
@@ -118,10 +121,11 @@ func (p *FilesDataProvider) AddEvent(e model.Event) (model.EventID, error) {
 	}
 
 	e.Start = e.Start.UTC()
-	e.End = e.End.UTC()
-
-	if !e.Start.Before(e.End) {
-		return "", fmt.Errorf("start time is not before end time")
+	if e.End != nil {
+		*e.End = e.End.UTC()
+		if !e.Start.Before(*e.End) {
+			return "", fmt.Errorf("start time is not before end time")
+		}
 	}
 
 	d := model.DateFromGotime(e.Start, time.UTC)
@@ -309,7 +313,7 @@ func (p *FilesDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
 		}
 		for i := len(fh.data.Events) - 1; i >= 0; i-- {
 			event := fh.data.Events[i]
-			if event.End.Equal(t) || event.End.Before(t) {
+			if event.End != nil && (event.End.Equal(t) || event.End.Before(t)) {
 				p.log.Trace().Msgf("found event ending before target time: %s", event.String())
 				return event, nil
 			}
@@ -319,7 +323,9 @@ func (p *FilesDataProvider) GetEventBefore(t time.Time) (*model.Event, error) {
 }
 
 // GetPrecedingEvent retrieves the event immediately preceding the event with the specified ID.
-func (p *FilesDataProvider) GetPrecedingEvent(id model.EventID) (*model.Event, error) {
+// The fallbackEnd parameter is accepted for interface compatibility but not used in this
+// implementation (files_provider uses file/index-based ordering).
+func (p *FilesDataProvider) GetPrecedingEvent(id model.EventID, fallbackEnd time.Time) (*model.Event, error) {
 	if !filesProviderIDValidator(id) {
 		return nil, fmt.Errorf("invalid event ID")
 	}
@@ -421,8 +427,10 @@ func (p *FilesDataProvider) getNextEventFromFH(d model.Date, id model.EventID) (
 	return fh.data.Events[eventIndex+1], nil
 }
 
-// TODO: doc GetFollowingEvent
-func (p *FilesDataProvider) GetFollowingEvent(id model.EventID) (*model.Event, error) {
+// GetFollowingEvent retrieves the event immediately following the event with the specified ID.
+// The fallbackEnd parameter is accepted for interface compatibility but not used in this
+// implementation (files_provider uses file/index-based ordering).
+func (p *FilesDataProvider) GetFollowingEvent(id model.EventID, fallbackEnd time.Time) (*model.Event, error) {
 	if !filesProviderIDValidator(id) {
 		return nil, fmt.Errorf("invalid event ID")
 	}
@@ -563,7 +571,7 @@ func (p *FilesDataProvider) GetEventsCoveringTimerange(start, end time.Time) ([]
 	for _, fh := range fhs {
 		fh.mutex.Lock()
 		for _, e := range fh.data.Events {
-			if e.End.Before(start) || e.Start.After(end) {
+			if e.End == nil || e.End.Before(start) || e.Start.After(end) {
 				continue
 			}
 			ec := e.Clone()
@@ -584,7 +592,7 @@ func (p *FilesDataProvider) SplitEvent(id model.EventID, splitTime time.Time) er
 
 	p.log.Debug().Msgf("will try to split event '%s' (%s til %s) at %s", id, e.Start, e.End, splitTime.String())
 
-	if !(splitTime.After(e.Start) && splitTime.Before(e.End)) {
+	if e.End != nil && !(splitTime.After(e.Start) && splitTime.Before(*e.End)) {
 		return fmt.Errorf("split time is not between start and end time of event in question")
 	}
 
@@ -596,7 +604,8 @@ func (p *FilesDataProvider) SplitEvent(id model.EventID, splitTime time.Time) er
 	firstHalfEvent := e
 	secondHalfEvent := *e
 
-	firstHalfEvent.End = splitTime
+	firstHalfEvent.End = new(time.Time)
+	*firstHalfEvent.End = splitTime
 	secondHalfEvent.Start = splitTime
 	secondHalfEvent.ID = filesProviderIDGenerator()
 
@@ -622,7 +631,7 @@ func (p *FilesDataProvider) SetEventStart(id model.EventID, start time.Time) err
 
 	start = start.UTC()
 
-	if !start.Before(e.End) {
+	if e.End != nil && !start.Before(*e.End) {
 		return fmt.Errorf("start time is not before end time")
 	}
 
@@ -677,7 +686,8 @@ func (p *FilesDataProvider) SetEventEnd(id model.EventID, end time.Time) error {
 		return fmt.Errorf("start time %s is not before end time %s", e.Start, end)
 	}
 
-	e.End = end
+	e.End = new(time.Time)
+	*e.End = end
 
 	if err := fh.UpdateEvent(e); err != nil {
 		return fmt.Errorf("error updating event (%w)", err)
@@ -706,7 +716,8 @@ func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, 
 	// with the file handler for that date
 	if oldStartDate == newStartDate {
 		e.Start = newStart
-		e.End = newEnd
+		e.End = new(time.Time)
+		*e.End = newEnd
 
 		if err := fh.UpdateEvent(e); err != nil {
 			return fmt.Errorf("error updating event (%w)", err)
@@ -727,7 +738,8 @@ func (p *FilesDataProvider) SetEventTimes(id model.EventID, newStart time.Time, 
 
 	eventClone := *e
 	eventClone.Start = newStart
-	eventClone.End = newEnd
+	eventClone.End = new(time.Time)
+	*eventClone.End = newEnd
 
 	newFH, err := p.getFileHandler(newStartDate)
 	if err != nil {
@@ -754,7 +766,7 @@ func (p *FilesDataProvider) OffsetEventStart(id model.EventID, offset time.Durat
 	originalStart := e.Start
 
 	newStart := e.Start.Add(offset).UTC()
-	if !newStart.Before(e.End) {
+	if e.End != nil && !newStart.Before(*e.End) {
 		return time.Time{}, fmt.Errorf("resulting start time would not be before end time")
 	}
 
@@ -801,18 +813,20 @@ func (p *FilesDataProvider) OffsetEventEnd(id model.EventID, offset time.Duratio
 	if err != nil {
 		return time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
+	if e.End == nil {
+		return time.Time{}, fmt.Errorf("Unable to offset event's nil end.")
+	}
 
 	newEnd := e.End.Add(offset).UTC()
 	if !e.Start.Before(newEnd) {
 		return time.Time{}, fmt.Errorf("resulting end time would not be after start time")
 	}
-
-	e.End = newEnd
+	e.End = &newEnd
 
 	if err := fh.UpdateEvent(e); err != nil {
 		return time.Time{}, fmt.Errorf("error updating event (%w)", err)
 	}
-	return e.End, nil
+	return *e.End, nil
 }
 
 // OffsetEventTimes offsets both the start and end times of an event with the specified ID by a duration.
@@ -820,6 +834,9 @@ func (p *FilesDataProvider) OffsetEventTimes(id model.EventID, offset time.Durat
 	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+	}
+	if e.End == nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("Unable to offset event's nil end.")
 	}
 
 	newStart := e.Start.Add(offset).UTC()
@@ -829,13 +846,13 @@ func (p *FilesDataProvider) OffsetEventTimes(id model.EventID, offset time.Durat
 	newStartDate := model.DateFromGotime(newStart, time.UTC)
 
 	e.Start = newStart
-	e.End = newEnd
+	e.End = &newEnd
 
 	if oldStartDate == newStartDate {
 		if err := fh.UpdateEvent(e); err != nil {
 			return time.Time{}, time.Time{}, fmt.Errorf("error updating event (%w)", err)
 		}
-		return e.Start, e.End, nil
+		return e.Start, *e.End, nil
 	}
 
 	// Start date changed - need to move event to a different file handler
@@ -860,7 +877,7 @@ func (p *FilesDataProvider) OffsetEventTimes(id model.EventID, offset time.Durat
 	}
 
 	p.setEventDateInMap(e.ID, newStartDate)
-	return e.Start, e.End, nil
+	return e.Start, *e.End, nil
 }
 
 // SnapEventStart snaps the start time of an event with the specified ID to the nearest interval.
@@ -868,38 +885,38 @@ func (p *FilesDataProvider) SnapEventStart(id model.EventID, interval time.Durat
 	newStart, _, err := p.snapEventStart(id, interval, false)
 	return newStart, err
 }
-func (p *FilesDataProvider) snapEventStart(id model.EventID, interval time.Duration, preserveDuration bool) (time.Time, time.Time, error) {
+func (p *FilesDataProvider) snapEventStart(id model.EventID, interval time.Duration, preserveDuration bool) (time.Time, *time.Time, error) {
 	fh, e, err := p.getEventWithFH(id)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
+		return time.Time{}, nil, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
 
 	newStart := snapToInterval(e.Start, interval).UTC()
 
-	if !newStart.Before(e.End) {
-		return time.Time{}, time.Time{}, fmt.Errorf("resulting start time would not be before end time")
+	if e.End != nil && !newStart.Before(*e.End) {
+		return time.Time{}, nil, fmt.Errorf("resulting start time would not be before end time")
 	}
 
 	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
 	newStartDate := model.DateFromGotime(newStart, time.UTC)
 
-	if preserveDuration {
+	if preserveDuration && e.End != nil {
 		delta := newStart.Sub(e.Start)
 		newEnd := e.End.Add(delta).UTC()
-		e.End = newEnd
+		e.End = &newEnd
 	}
 	e.Start = newStart
 
 	if oldStartDate == newStartDate {
 		if err := fh.UpdateEvent(e); err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("error updating event (%w)", err)
+			return time.Time{}, nil, fmt.Errorf("error updating event (%w)", err)
 		}
 		return e.Start, e.End, nil
 	}
 
 	// Start date changed - need to move event to a different file handler
 	if err := fh.RemoveEvent(id); err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error removing event from old file handler (%w)", err)
+		return time.Time{}, nil, fmt.Errorf("error removing event from old file handler (%w)", err)
 	}
 
 	newFH, err := p.getFileHandler(newStartDate)
@@ -907,13 +924,13 @@ func (p *FilesDataProvider) snapEventStart(id model.EventID, interval time.Durat
 		if addErr := fh.AddEvent(e); addErr != nil {
 			p.log.Warn().Msgf("error adding event back to file handler after error: %v", addErr)
 		}
-		return time.Time{}, time.Time{}, fmt.Errorf("error loading file handler for new date (%w)", err)
+		return time.Time{}, nil, fmt.Errorf("error loading file handler for new date (%w)", err)
 	}
 	if err := newFH.AddEvent(e); err != nil {
 		if addErr := fh.AddEvent(e); addErr != nil {
 			p.log.Warn().Msgf("error adding event back to file handler after error: %v", addErr)
 		}
-		return time.Time{}, time.Time{}, fmt.Errorf("error adding event to new file handler (%w)", err)
+		return time.Time{}, nil, fmt.Errorf("error adding event to new file handler (%w)", err)
 	}
 
 	p.setEventDateInMap(id, newStartDate)
@@ -931,24 +948,26 @@ func (p *FilesDataProvider) snapEventEnd(id model.EventID, interval time.Duratio
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
+	if e.End == nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("Unable to snap event's nil end.")
+	}
 
-	newEnd := snapToInterval(e.End, interval).UTC()
-
+	newEnd := snapToInterval(*e.End, interval).UTC()
 	if !e.Start.Before(newEnd) {
 		return time.Time{}, time.Time{}, fmt.Errorf("resulting end time would not be after start time")
 	}
 
 	if preserveDuration {
-		delta := newEnd.Sub(e.End)
+		delta := newEnd.Sub(*e.End)
 		newStart := e.Start.Add(delta).UTC()
 		e.Start = newStart
 	}
-	e.End = newEnd
+	e.End = &newEnd
 
 	if err := fh.UpdateEvent(e); err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error updating event (%w)", err)
 	}
-	return e.Start, e.End, nil
+	return e.Start, *e.End, nil
 }
 
 // SnapEventTimes snaps the start and end times of the event with the given ID to the nearest times that are multiples of the given duration.
@@ -959,9 +978,12 @@ func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Durat
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("error getting event with ID '%s' (%w)", id, err)
 	}
+	if e.End == nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("Unable to snap event's nil end.")
+	}
 
 	newStart := snapToInterval(e.Start, interval).UTC()
-	newEnd := snapToInterval(e.End, interval).UTC()
+	newEnd := snapToInterval(*e.End, interval).UTC()
 
 	if !newStart.Before(newEnd) {
 		return time.Time{}, time.Time{}, fmt.Errorf("resulting start time would not be before end time")
@@ -970,13 +992,13 @@ func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Durat
 	oldStartDate := model.DateFromGotime(e.Start, time.UTC)
 	newStartDate := model.DateFromGotime(newStart, time.UTC)
 
-	e.Start, e.End = newStart, newEnd
+	e.Start, e.End = newStart, &newEnd
 
 	if oldStartDate == newStartDate {
 		if err := fh.UpdateEvent(e); err != nil {
 			return time.Time{}, time.Time{}, fmt.Errorf("error updating event (%w)", err)
 		}
-		return e.Start, e.End, nil
+		return e.Start, *e.End, nil
 	}
 
 	// Start date changed - need to move event to a different file handler
@@ -999,10 +1021,10 @@ func (p *FilesDataProvider) SnapEventTimes(id model.EventID, interval time.Durat
 	}
 
 	p.setEventDateInMap(id, newStartDate)
-	return e.Start, e.End, nil
+	return e.Start, *e.End, nil
 }
 
-func (p *FilesDataProvider) SnapEventStartPreseveDuration(id model.EventID, interval time.Duration) (time.Time, time.Time, error) {
+func (p *FilesDataProvider) SnapEventStartPreseveDuration(id model.EventID, interval time.Duration) (time.Time, *time.Time, error) {
 	newStart, newEnd, err := p.snapEventStart(id, interval, true)
 	return newStart, newEnd, err
 }
@@ -1049,9 +1071,12 @@ func (p *FilesDataProvider) SetEventAllData(id model.EventID, newEventData model
 	}
 
 	newEventData.Start = newEventData.Start.UTC()
-	newEventData.End = newEventData.End.UTC()
+	if newEventData.End != nil {
+		newEnd := newEventData.End.UTC()
+		newEventData.End = &newEnd
+	}
 
-	if !newEventData.Start.Before(newEventData.End) {
+	if newEventData.End != nil && !newEventData.Start.Before(*newEventData.End) {
 		return fmt.Errorf("start time is not before end time")
 	}
 
@@ -1142,7 +1167,7 @@ func (p *FilesDataProvider) GetStorageLocationInfo() (string, error) {
 }
 
 // TODO: doc SumUpTimespanByCategory
-func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Time) (map[model.CategoryName]time.Duration, error) {
+func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Time, fallbackEnd time.Time) (map[model.CategoryName]time.Duration, error) {
 	fullEventList := model.EventList{
 		Events: []*model.Event{},
 	}
@@ -1193,7 +1218,7 @@ func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Ti
 		}
 	}
 
-	summary := fullEventList.SumUpByCategory(func(category model.CategoryName) int {
+	summary := fullEventList.SumUpByCategory(fallbackEnd, func(category model.CategoryName) int {
 		c := p.categoryProvider.GetCategory(category)
 		if c == nil {
 			p.log.Warn().Msgf("category '%s' not found in category provider", category)
@@ -1206,7 +1231,7 @@ func (p *FilesDataProvider) SumUpTimespanByCategory(start time.Time, end time.Ti
 }
 
 func eventStartsAndEndsOnSameDate(e *model.Event) bool {
-	return timesOnSameDate(e.Start, e.End)
+	return e.End == nil || timesOnSameDate(e.Start, *e.End)
 }
 
 func timesOnSameDate(a, b time.Time) bool {

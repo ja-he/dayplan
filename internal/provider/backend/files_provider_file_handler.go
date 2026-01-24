@@ -200,7 +200,7 @@ func (h *fileHandler) readFromDisk() error {
 			log.Debug().
 				Str("e.Name", e.Name).
 				Stringer("e.Start", e.Start).
-				Stringer("e.End", e.End).
+				Interface("e.End", e.End).
 				Msgf("generated temporary (until write) event ID '%s' to cope with legacy format", newID)
 			e.ID = newID
 		} else if !filesProviderIDValidator(e.ID) {
@@ -222,10 +222,16 @@ func newEventFromDaywiseFileLineLegacy(date model.Date, line string) *model.Even
 	nameString := args[3]
 
 	startTime := *model.NewTimestamp(startString)
-	endTime := *model.NewTimestamp(endString)
+	var endTime *model.Timestamp
+	if endString != "" {
+		endTime = model.NewTimestamp(endString)
+	}
 
 	e.Start = model.DateAndTimestampToGotime(date, startTime, time.Local).UTC()
-	e.End = model.DateAndTimestampToGotime(date, endTime, time.Local).UTC()
+	if endTime != nil {
+		e.End = new(time.Time)
+		*e.End = model.DateAndTimestampToGotime(date, *endTime, time.Local).UTC()
+	}
 
 	e.Name = nameString
 	e.Category = model.CategoryName(catString)
@@ -249,9 +255,12 @@ func newEventFromDaywiseFileLineNew(line string) (*model.Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse start timestamp '%s' (%w).", startString, err)
 	}
-	e.End, err = time.Parse(time.RFC3339, endString)
-	if err != nil {
-		return nil, fmt.Errorf("Could not parse end timestamp '%s' (%w).", endString, err)
+	if endString != "" {
+		e.End = new(time.Time)
+		*e.End, err = time.Parse(time.RFC3339, endString)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse end timestamp '%s' (%w).", endString, err)
+		}
 	}
 
 	e.Name = nameString

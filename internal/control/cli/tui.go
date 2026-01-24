@@ -132,12 +132,6 @@ func (command *DayplanTUICommand) Execute(_ []string) error {
 		return fmt.Errorf("could not create stylsheet from config: %w", err)
 	}
 
-	// now that the screen is initialized, we'll always want the TUI logger, so
-	// we're making it the global logger
-	previouslySetLogger := log.Logger
-	log.Logger = tuiLogger
-	log.Debug().Msg("set up logging to only TUI")
-
 	weatherHandler, suntimesProvider, err := createWeatherAndSuntimes(envData)
 	if err != nil {
 		return fmt.Errorf("Unable to initialize weather or suntimes handling (%w)", err)
@@ -160,9 +154,10 @@ func (command *DayplanTUICommand) Execute(_ []string) error {
 		defer providerCleanup()
 	}
 
-	controller, err := NewController(initialDay, envData, categoriesByName, *stylesheet, weatherHandler, suntimesProvider, eventsProvider)
+	ttyLogger := log.Logger
+	controller, err := NewController(ttyLogger, tuiLogger, initialDay, envData, categoriesByName, *stylesheet, weatherHandler, suntimesProvider, eventsProvider)
 	if err != nil {
-		log.Logger = previouslySetLogger
+		log.Logger = ttyLogger
 		log.Error().Err(err).Msgf("something went wrong setting up the TUI, will check unpublished logs and return error")
 
 		// The TUI was perhaps not set up and we have to assume that the logs have not been written anywhere.

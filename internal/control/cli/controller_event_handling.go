@@ -57,7 +57,7 @@ func (c *Controller) switchToNextEventInDay() {
 		}
 	}
 
-	next, err := c.eventsProvider.GetFollowingEvent(currentEventID)
+	next, err := c.eventsProvider.GetFollowingEvent(currentEventID, c.Now())
 	if err != nil {
 		c.log.Error().Err(err).Str("id", string(currentEventID)).Msg("could not get following event of current event")
 		return
@@ -99,7 +99,7 @@ func (c *Controller) switchToPreviousEventInDay() {
 		return
 	}
 
-	prev, err := c.eventsProvider.GetPrecedingEvent(*c.data.CurrentEventID)
+	prev, err := c.eventsProvider.GetPrecedingEvent(*c.data.CurrentEventID, c.Now())
 	if err != nil {
 		c.log.Error().Err(err).Stringer("date", c.data.CurrentDate).Msg("could not get prev for current date")
 		return
@@ -143,7 +143,9 @@ func (c *Controller) ensureCurrentEventVisible() {
 		return
 	}
 	c.ensureEventsPaneTimestampWithinVisibleScroll(e.Start)
-	c.ensureEventsPaneTimestampWithinVisibleScroll(e.End)
+	if e.End != nil {
+		c.ensureEventsPaneTimestampWithinVisibleScroll(*e.End)
+	}
 }
 
 func (c *Controller) moveEventsForwardPushing() error {
@@ -178,14 +180,14 @@ func (c *Controller) removeEvent(id *model.EventID) {
 	isCurrentEvent := c.data.CurrentEventID != nil && *c.data.CurrentEventID == *id
 	var newCurrentEventID *model.EventID
 	if isCurrentEvent {
-		nextEvent, err := c.eventsProvider.GetFollowingEvent(*id)
+		nextEvent, err := c.eventsProvider.GetFollowingEvent(*id, c.Now())
 		if err != nil {
 			c.log.Error().Err(err).Msg("could not get following event")
 		} else if nextEvent == nil || !c.data.CurrentDate.Is(nextEvent.Start, time.Local) {
-			prevEvent, err := c.eventsProvider.GetPrecedingEvent(*id)
+			prevEvent, err := c.eventsProvider.GetPrecedingEvent(*id, c.Now())
 			if err != nil {
 				c.log.Error().Err(err).Msg("could not get preceding event")
-			} else if nextEvent != nil && c.data.CurrentDate.Is(prevEvent.End, time.Local) {
+			} else if nextEvent != nil && prevEvent.End != nil && c.data.CurrentDate.Is(*prevEvent.End, time.Local) {
 				newCurrentEventID = new(model.EventID)
 				*newCurrentEventID = prevEvent.ID
 				c.log.Debug().Msgf("will switch to previous event: %s", *newCurrentEventID)

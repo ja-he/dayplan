@@ -54,7 +54,7 @@ func makeEvent(date model.Date, startHour, startMin, endHour, endMin int, name s
 		Name:     name,
 		Category: "test",
 		Start:    start,
-		End:      end,
+		End:      &end,
 	}
 }
 
@@ -69,17 +69,18 @@ func makeMultiDayEvent(startDate model.Date, startHour, startMin int, endDate mo
 		Name:     name,
 		Category: "test",
 		Start:    start,
-		End:      end,
+		End:      &end,
 	}
 }
 
 func TestComputeRects_EmptyEventList(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
 	eventList := &model.EventList{Events: []*model.Event{}}
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 0 {
 		t.Errorf("expected empty map for empty event list, got %d entries", len(result))
@@ -88,6 +89,7 @@ func TestComputeRects_EmptyEventList(t *testing.T) {
 
 func TestComputeRects_SingleEvent(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	// 6 rows per hour means 1 row = 10 minutes
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -97,7 +99,7 @@ func TestComputeRects_SingleEvent(t *testing.T) {
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
 	offsetX, offsetY, width, height := 10, 0, 100, 144
-	result := pane.computeRects(date, eventList, offsetX, offsetY, width, height)
+	result := pane.computeRects(date, eventList, offsetX, offsetY, width, height, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -133,6 +135,7 @@ func TestComputeRects_SingleEvent(t *testing.T) {
 
 func TestComputeRects_TwoNonOverlappingEvents(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -142,7 +145,7 @@ func TestComputeRects_TwoNonOverlappingEvents(t *testing.T) {
 	eventList := &model.EventList{Events: []*model.Event{event1, event2}}
 
 	offsetX, width := 0, 100
-	result := pane.computeRects(date, eventList, offsetX, 0, width, 144)
+	result := pane.computeRects(date, eventList, offsetX, 0, width, 144, fallbackTime)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 rects, got %d", len(result))
@@ -170,6 +173,7 @@ func TestComputeRects_TwoNonOverlappingEvents(t *testing.T) {
 
 func TestComputeRects_TwoOverlappingEvents(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -179,7 +183,7 @@ func TestComputeRects_TwoOverlappingEvents(t *testing.T) {
 	eventList := &model.EventList{Events: []*model.Event{event1, event2}}
 
 	offsetX, width := 0, 100
-	result := pane.computeRects(date, eventList, offsetX, 0, width, 144)
+	result := pane.computeRects(date, eventList, offsetX, 0, width, 144, fallbackTime)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 rects, got %d", len(result))
@@ -214,6 +218,7 @@ func TestComputeRects_TwoOverlappingEvents(t *testing.T) {
 
 func TestComputeRects_ThreeOverlappingEvents(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -224,7 +229,7 @@ func TestComputeRects_ThreeOverlappingEvents(t *testing.T) {
 	eventList := &model.EventList{Events: []*model.Event{event1, event2, event3}}
 
 	offsetX, width := 0, 100
-	result := pane.computeRects(date, eventList, offsetX, 0, width, 144)
+	result := pane.computeRects(date, eventList, offsetX, 0, width, 144, fallbackTime)
 
 	if len(result) != 3 {
 		t.Fatalf("expected 3 rects, got %d", len(result))
@@ -253,6 +258,7 @@ func TestComputeRects_ThreeOverlappingEvents(t *testing.T) {
 
 func TestComputeRects_MultiDayEventStartsBefore(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -261,7 +267,7 @@ func TestComputeRects_MultiDayEventStartsBefore(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 22, 0, date, 8, 0, "overnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -283,6 +289,7 @@ func TestComputeRects_MultiDayEventStartsBefore(t *testing.T) {
 
 func TestComputeRects_MultiDayEventEndsAfter(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -291,7 +298,7 @@ func TestComputeRects_MultiDayEventEndsAfter(t *testing.T) {
 	event := makeMultiDayEvent(date, 20, 0, nextDate, 6, 0, "overnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -314,6 +321,7 @@ func TestComputeRects_MultiDayEventEndsAfter(t *testing.T) {
 
 func TestComputeRects_VeryShortEvent(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -321,7 +329,7 @@ func TestComputeRects_VeryShortEvent(t *testing.T) {
 	event := makeEvent(date, 10, 0, 10, 5, "quick")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -337,6 +345,7 @@ func TestComputeRects_VeryShortEvent(t *testing.T) {
 
 func TestComputeRects_EventsUnstackWhenNoLongerOverlapping(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -349,7 +358,7 @@ func TestComputeRects_EventsUnstackWhenNoLongerOverlapping(t *testing.T) {
 	eventList := &model.EventList{Events: []*model.Event{event1, event2, event3}}
 
 	offsetX, width := 0, 100
-	result := pane.computeRects(date, eventList, offsetX, 0, width, 144)
+	result := pane.computeRects(date, eventList, offsetX, 0, width, 144, fallbackTime)
 
 	if len(result) != 3 {
 		t.Fatalf("expected 3 rects, got %d", len(result))
@@ -377,6 +386,7 @@ func TestComputeRects_EventsUnstackWhenNoLongerOverlapping(t *testing.T) {
 
 func TestComputeRects_CurrentEventIsWider(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 
 	event := makeEvent(date, 10, 0, 11, 0, "current")
@@ -386,7 +396,7 @@ func TestComputeRects_CurrentEventIsWider(t *testing.T) {
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
 	offsetX, width := 10, 100
-	result := pane.computeRects(date, eventList, offsetX, 0, width, 144)
+	result := pane.computeRects(date, eventList, offsetX, 0, width, 144, fallbackTime)
 
 	rect := result[event]
 
@@ -403,6 +413,7 @@ func TestComputeRects_CurrentEventIsWider(t *testing.T) {
 
 func TestComputeRects_ContainedEvent(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -413,7 +424,7 @@ func TestComputeRects_ContainedEvent(t *testing.T) {
 	eventList := &model.EventList{Events: []*model.Event{event1, event2}}
 
 	offsetX, width := 0, 100
-	result := pane.computeRects(date, eventList, offsetX, 0, width, 144)
+	result := pane.computeRects(date, eventList, offsetX, 0, width, 144, fallbackTime)
 
 	rect1 := result[event1]
 	rect2 := result[event2]
@@ -442,6 +453,7 @@ func TestComputeRects_ContainedEvent(t *testing.T) {
 
 func TestComputeRects_PositionsRespectOffsets(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -449,7 +461,7 @@ func TestComputeRects_PositionsRespectOffsets(t *testing.T) {
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
 	offsetX, offsetY, width := 50, 20, 100
-	result := pane.computeRects(date, eventList, offsetX, offsetY, width, 144)
+	result := pane.computeRects(date, eventList, offsetX, offsetY, width, 144, fallbackTime)
 
 	rect := result[event]
 
@@ -467,6 +479,7 @@ func TestComputeRects_PositionsRespectOffsets(t *testing.T) {
 
 func TestComputeRects_WithScrollOffset(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	// Scroll offset of 30 means we've scrolled down 30 rows (5 hours at 6 rows/hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 30}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -475,7 +488,7 @@ func TestComputeRects_WithScrollOffset(t *testing.T) {
 	event := makeEvent(date, 10, 0, 11, 0, "test")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	rect := result[event]
 
@@ -488,6 +501,7 @@ func TestComputeRects_WithScrollOffset(t *testing.T) {
 
 func TestComputeRects_PreservesEventPointers(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -495,7 +509,7 @@ func TestComputeRects_PreservesEventPointers(t *testing.T) {
 	event2 := makeEvent(date, 11, 0, 12, 0, "second")
 	eventList := &model.EventList{Events: []*model.Event{event1, event2}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	// Verify the returned map uses the exact same pointers
 	if _, ok := result[event1]; !ok {
@@ -511,6 +525,7 @@ func TestComputeRects_PreservesEventPointers(t *testing.T) {
 func TestComputeRects_PreviousDayEventEndingEarlyMorning(t *testing.T) {
 	// Event from previous day ending at 00:50 on the current date
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -519,7 +534,7 @@ func TestComputeRects_PreviousDayEventEndingEarlyMorning(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 22, 0, date, 0, 50, "overnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -548,6 +563,7 @@ func TestComputeRects_PreviousDayEventEndingAtMidnight(t *testing.T) {
 	// Event from previous day ending exactly at midnight (00:00)
 	// This event should NOT be rendered on the current date since it ends at the boundary
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -556,7 +572,7 @@ func TestComputeRects_PreviousDayEventEndingAtMidnight(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 22, 0, date, 0, 0, "until_midnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect (event ends at 00:00 on this date), got %d", len(result))
@@ -579,6 +595,7 @@ func TestComputeRects_PreviousDayEventWithSameDayEvent(t *testing.T) {
 	// Event from previous day ending at 00:50, plus an event starting at 09:00
 	// These should NOT overlap, so both should have full width
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -587,7 +604,7 @@ func TestComputeRects_PreviousDayEventWithSameDayEvent(t *testing.T) {
 	morning := makeEvent(date, 9, 0, 10, 0, "morning")
 	eventList := &model.EventList{Events: []*model.Event{overnight, morning}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 rects, got %d", len(result))
@@ -618,6 +635,7 @@ func TestComputeRects_PreviousDayEventWithSameDayEvent(t *testing.T) {
 func TestComputeRects_PreviousDayEventOverlappingWithEarlyMorningEvent(t *testing.T) {
 	// Event from previous day ending at 01:00, overlapping with event starting at 00:30
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -626,7 +644,7 @@ func TestComputeRects_PreviousDayEventOverlappingWithEarlyMorningEvent(t *testin
 	earlyMorning := makeEvent(date, 0, 30, 1, 30, "early_morning")
 	eventList := &model.EventList{Events: []*model.Event{overnight, earlyMorning}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 rects, got %d", len(result))
@@ -656,6 +674,7 @@ func TestComputeRects_PreviousDayEventOverlappingWithEarlyMorningEvent(t *testin
 func TestComputeRects_EventSpanningEntireDay(t *testing.T) {
 	// Event that starts before the date and ends after the date
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	nextDate := date.Next()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
@@ -665,7 +684,7 @@ func TestComputeRects_EventSpanningEntireDay(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 20, 0, nextDate, 8, 0, "multi_day")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -688,6 +707,7 @@ func TestComputeRects_EventSpanningEntireDay(t *testing.T) {
 func TestComputeRects_LateNightEventEndingNextDay(t *testing.T) {
 	// Event starting late at night (23:30) and ending next day (01:00)
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	nextDate := date.Next()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -695,7 +715,7 @@ func TestComputeRects_LateNightEventEndingNextDay(t *testing.T) {
 	event := makeMultiDayEvent(date, 23, 30, nextDate, 1, 0, "late_night")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -719,13 +739,14 @@ func TestComputeRects_LateNightEventEndingNextDay(t *testing.T) {
 func TestComputeRects_EventStartingAtMidnight(t *testing.T) {
 	// Event starting exactly at midnight
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
 	event := makeEvent(date, 0, 0, 1, 0, "midnight_start")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -747,6 +768,7 @@ func TestComputeRects_EventStartingAtMidnight(t *testing.T) {
 func TestComputeRects_TwoEventsFromPreviousDayOverlapping(t *testing.T) {
 	// Two events from previous day, both ending early morning, overlapping
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -757,7 +779,7 @@ func TestComputeRects_TwoEventsFromPreviousDayOverlapping(t *testing.T) {
 	event2 := makeMultiDayEvent(prevDate, 22, 0, date, 1, 0, "second_overnight")
 	eventList := &model.EventList{Events: []*model.Event{event1, event2}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 rects, got %d", len(result))
@@ -799,6 +821,7 @@ func TestComputeRects_PreviousDayEventUnstacksForLaterEvent(t *testing.T) {
 	// Previous day event ending at 00:50, then a gap, then an event at 09:00
 	// The 09:00 event should NOT be stacked under the overnight event
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -807,7 +830,7 @@ func TestComputeRects_PreviousDayEventUnstacksForLaterEvent(t *testing.T) {
 	morning := makeEvent(date, 9, 0, 10, 0, "morning")
 	eventList := &model.EventList{Events: []*model.Event{overnight, morning}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	rectMorning := result[morning]
 
@@ -825,6 +848,7 @@ func TestComputeRects_PreviousDayEventUnstacksForLaterEvent(t *testing.T) {
 func TestComputeRects_VeryShortOvernightEvent(t *testing.T) {
 	// Event from previous day ending just 5 minutes into current day
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -833,7 +857,7 @@ func TestComputeRects_VeryShortOvernightEvent(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 23, 55, date, 0, 5, "brief_overnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -855,6 +879,7 @@ func TestComputeRects_VeryShortOvernightEvent(t *testing.T) {
 func TestComputeRects_EventEndingExactlyAtEndOfDay(t *testing.T) {
 	// Event ending exactly at 24:00 (midnight of next day)
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	nextDate := date.Next()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -863,7 +888,7 @@ func TestComputeRects_EventEndingExactlyAtEndOfDay(t *testing.T) {
 	event := makeMultiDayEvent(date, 22, 0, nextDate, 0, 0, "until_midnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 rect, got %d", len(result))
@@ -887,6 +912,7 @@ func TestComputeRects_EventEndingExactlyAtEndOfDay(t *testing.T) {
 func TestComputeRects_OvernightEventWithScrollOffset(t *testing.T) {
 	// Previous day event with a scroll offset that could cause negative Y
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	// Scroll offset of 6 rows = 1 hour scrolled down
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 6}
@@ -896,7 +922,7 @@ func TestComputeRects_OvernightEventWithScrollOffset(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 22, 0, date, 0, 30, "overnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	rect := result[event]
 
@@ -917,6 +943,7 @@ func TestComputeRects_OvernightEventWithScrollOffset(t *testing.T) {
 func TestComputeRects_PreviousDayEventEndingAt0010(t *testing.T) {
 	// Specific test for event ending at 00:10 (exactly 1 row at 6 rows/hour)
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -924,7 +951,7 @@ func TestComputeRects_PreviousDayEventEndingAt0010(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 23, 0, date, 0, 10, "overnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	rect := result[event]
 
@@ -941,6 +968,7 @@ func TestComputeRects_PreviousDayEventEndingAt0010(t *testing.T) {
 func TestComputeRects_PreviousDayEventEndingAt0015(t *testing.T) {
 	// Test for event ending at 00:15 (1.5 rows, should round to 1)
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -948,7 +976,7 @@ func TestComputeRects_PreviousDayEventEndingAt0015(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 23, 0, date, 0, 15, "overnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	rect := result[event]
 
@@ -965,6 +993,7 @@ func TestComputeRects_PreviousDayEventEndingAt0015(t *testing.T) {
 func TestComputeRects_EventsAroundMidnightBoundary(t *testing.T) {
 	// Event ending at 00:01 (just past midnight)
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -972,7 +1001,7 @@ func TestComputeRects_EventsAroundMidnightBoundary(t *testing.T) {
 	event := makeMultiDayEvent(prevDate, 23, 50, date, 0, 1, "brief_overnight")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	rect := result[event]
 
@@ -990,6 +1019,7 @@ func TestComputeRects_EventsAroundMidnightBoundary(t *testing.T) {
 func TestComputeRects_HeightCalculation(t *testing.T) {
 	// Verify height calculation is correct: endY - startY
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
 
@@ -997,7 +1027,7 @@ func TestComputeRects_HeightCalculation(t *testing.T) {
 	event := makeEvent(date, 10, 0, 11, 30, "ninety_minutes")
 	eventList := &model.EventList{Events: []*model.Event{event}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	rect := result[event]
 
@@ -1016,6 +1046,7 @@ func TestComputeRects_HeightCalculation(t *testing.T) {
 func TestComputeRects_MixedEventsComplexScenario(t *testing.T) {
 	// Complex scenario: overnight event, early morning event, gap, then later events
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -1027,7 +1058,7 @@ func TestComputeRects_MixedEventsComplexScenario(t *testing.T) {
 	// Note: events should be in order by original start time
 	eventList := &model.EventList{Events: []*model.Event{overnight, breakfast, work}}
 
-	result := pane.computeRects(date, eventList, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventList, 0, 0, 100, 144, fallbackTime)
 
 	if len(result) != 3 {
 		t.Fatalf("expected 3 rects, got %d", len(result))
@@ -1077,6 +1108,7 @@ func TestComputeRects_MixedEventsComplexScenario(t *testing.T) {
 // This test shows the correct behavior with properly sorted input
 func TestComputeRects_SortedEventList(t *testing.T) {
 	date := model.Date{Year: 2025, Month: 1, Day: 15}
+	fallbackTime := date.ToGotime(time.Local).Add(14 * time.Hour)
 	prevDate := date.Prev()
 	viewParams := &testViewParams{rowsPerHour: 6, scrollOffset: 0}
 	pane := newTestEventsPane(viewParams, func() *model.EventID { return nil })
@@ -1096,7 +1128,7 @@ func TestComputeRects_SortedEventList(t *testing.T) {
 	// CORRECT ORDER: overnight first (starts earlier), then morning
 	eventListCorrectOrder := &model.EventList{Events: []*model.Event{overnight, morning}}
 
-	result := pane.computeRects(date, eventListCorrectOrder, 0, 0, 100, 144)
+	result := pane.computeRects(date, eventListCorrectOrder, 0, 0, 100, 144, fallbackTime)
 
 	rectOvernight := result[overnight]
 	rectMorning := result[morning]

@@ -142,8 +142,14 @@ func (command *DayplanTimesheetCommand) Execute(args []string) error {
 	if err != nil {
 		return fmt.Errorf("error while getting events for %s-%s (%w)", startDate.String(), finalDate.String(), err)
 	}
+	fallbackEnd := time.Now()
 	for _, event := range events {
-		if model.DateFromGotime(event.Start, timesheetTimezone) != model.DateFromGotime(event.End, timesheetTimezone) && isMidnight(event.End) {
+		if event.End == nil {
+			event.End = new(time.Time)
+			*event.End = fallbackEnd
+		}
+
+		if model.DateFromGotime(event.Start, timesheetTimezone) != model.DateFromGotime(*event.End, timesheetTimezone) && isMidnight(*event.End) {
 			log.Warn().Msgf("Event '%s' spans more than one day, current timesheet implementation does not consider such events (TODO).", event.ID)
 			continue
 		}
@@ -206,7 +212,7 @@ func (command *DayplanTimesheetCommand) Execute(args []string) error {
 
 	for _, date := range dates {
 		eventList := model.EventList{Events: data[date]}
-		timesheetEntry, err := eventList.GetTimesheetEntry(matcher, categoryPriorityProvider, date, timesheetTimezone)
+		timesheetEntry, err := eventList.GetTimesheetEntry(matcher, categoryPriorityProvider, date, timesheetTimezone, fallbackEnd)
 		if err != nil {
 			return fmt.Errorf("error while getting timesheet entry: %s", err)
 		}

@@ -69,12 +69,15 @@ func createEvent(name string, category model.CategoryName, start, end time.Time)
 		Name:     name,
 		Category: category,
 		Start:    start,
-		End:      end,
+		End:      &end,
 	}
 }
 
 // Reference date for tests - a fixed point in time
 var testBaseDate = time.Date(2023, 6, 15, 0, 0, 0, 0, time.UTC)
+
+// Fallback end time for tests (end of the test base date)
+var testFallbackEnd = testBaseDate.Add(24 * time.Hour)
 
 // Helper to create times on the same day
 func timeOnDay(hour, minute int) time.Time {
@@ -312,8 +315,10 @@ func testGetEvent(t *testing.T, factory EventProviderFactory) {
 		if !retrieved.Start.Equal(originalEvent.Start) {
 			t.Errorf("Start mismatch: expected %v, got %v", originalEvent.Start, retrieved.Start)
 		}
-		if !retrieved.End.Equal(originalEvent.End) {
-			t.Errorf("End mismatch: expected %v, got %v", originalEvent.End, retrieved.End)
+		if (retrieved.End == nil) != (originalEvent.End == nil) {
+			t.Errorf("End nil mismatch: expected %v, got %v", originalEvent.End, retrieved.End)
+		} else if retrieved.End != nil && !retrieved.End.Equal(*originalEvent.End) {
+			t.Errorf("End mismatch: expected %v, got %v", *originalEvent.End, *retrieved.End)
 		}
 	})
 
@@ -468,7 +473,7 @@ func testGetPrecedingEvent(t *testing.T, factory EventProviderFactory) {
 		id2, _ := p.AddEvent(createEvent("Event 2", "cat", timeOnDay(12, 0), timeOnDay(14, 0)))
 		p.AddEvent(createEvent("Event 3", "cat", timeOnDay(16, 0), timeOnDay(18, 0)))
 
-		event, err := p.GetPrecedingEvent(id2)
+		event, err := p.GetPrecedingEvent(id2, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetPrecedingEvent failed: %v", err)
 		}
@@ -485,7 +490,7 @@ func testGetPrecedingEvent(t *testing.T, factory EventProviderFactory) {
 
 		id1, _ := p.AddEvent(createEvent("Event 1", "cat", timeOnDay(8, 0), timeOnDay(9, 0)))
 
-		event, err := p.GetPrecedingEvent(id1)
+		event, err := p.GetPrecedingEvent(id1, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetPrecedingEvent failed: %v", err)
 		}
@@ -497,7 +502,7 @@ func testGetPrecedingEvent(t *testing.T, factory EventProviderFactory) {
 	t.Run("non-existent event ID", func(t *testing.T) {
 		p := factory(t)
 
-		_, err := p.GetPrecedingEvent("non-existent")
+		_, err := p.GetPrecedingEvent("non-existent", testFallbackEnd)
 		if err == nil {
 			t.Error("Expected error for non-existent event ID")
 		}
@@ -511,7 +516,7 @@ func testGetPrecedingEvent(t *testing.T, factory EventProviderFactory) {
 		id3, _ := p.AddEvent(createEvent("Event 3", "cat", timeOnDay(14, 0), timeOnDay(18, 0)))
 
 		// Event 2 should have Event 1 as preceding (starts before Event 2)
-		event, err := p.GetPrecedingEvent(id2)
+		event, err := p.GetPrecedingEvent(id2, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetPrecedingEvent failed: %v", err)
 		}
@@ -520,7 +525,7 @@ func testGetPrecedingEvent(t *testing.T, factory EventProviderFactory) {
 		}
 
 		// Event 3 should have Event 2 as preceding
-		event, err = p.GetPrecedingEvent(id3)
+		event, err = p.GetPrecedingEvent(id3, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetPrecedingEvent failed: %v", err)
 		}
@@ -545,7 +550,7 @@ func testGetPrecedingEvent(t *testing.T, factory EventProviderFactory) {
 		visited := make(map[model.EventID]bool)
 		current := idC
 		for i := 0; i < 10; i++ { // safety limit
-			event, err := p.GetPrecedingEvent(current)
+			event, err := p.GetPrecedingEvent(current, testFallbackEnd)
 			if err != nil {
 				t.Fatalf("GetPrecedingEvent failed: %v", err)
 			}
@@ -584,7 +589,7 @@ func testGetPrecedingEvent(t *testing.T, factory EventProviderFactory) {
 		var visitOrder []model.EventID
 		current := idD
 		for i := 0; i < 10; i++ {
-			event, err := p.GetPrecedingEvent(current)
+			event, err := p.GetPrecedingEvent(current, testFallbackEnd)
 			if err != nil {
 				t.Fatalf("GetPrecedingEvent failed: %v", err)
 			}
@@ -628,7 +633,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		id2, _ := p.AddEvent(createEvent("Event 2", "cat", timeOnDay(12, 0), timeOnDay(14, 0)))
 		p.AddEvent(createEvent("Event 3", "cat", timeOnDay(16, 0), timeOnDay(18, 0)))
 
-		event, err := p.GetFollowingEvent(id1)
+		event, err := p.GetFollowingEvent(id1, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetFollowingEvent failed: %v", err)
 		}
@@ -645,7 +650,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 
 		id1, _ := p.AddEvent(createEvent("Event 1", "cat", timeOnDay(8, 0), timeOnDay(9, 0)))
 
-		event, err := p.GetFollowingEvent(id1)
+		event, err := p.GetFollowingEvent(id1, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetFollowingEvent failed: %v", err)
 		}
@@ -657,7 +662,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 	t.Run("non-existent event ID", func(t *testing.T) {
 		p := factory(t)
 
-		_, err := p.GetFollowingEvent("non-existent")
+		_, err := p.GetFollowingEvent("non-existent", testFallbackEnd)
 		if err == nil {
 			t.Error("Expected error for non-existent event ID")
 		}
@@ -678,7 +683,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		visited := make(map[model.EventID]bool)
 		current := idA
 		for i := 0; i < 10; i++ { // safety limit
-			event, err := p.GetFollowingEvent(current)
+			event, err := p.GetFollowingEvent(current, testFallbackEnd)
 			if err != nil {
 				t.Fatalf("GetFollowingEvent failed: %v", err)
 			}
@@ -713,7 +718,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		visited := make(map[model.EventID]bool)
 		current := idA
 		for i := 0; i < 10; i++ {
-			event, err := p.GetFollowingEvent(current)
+			event, err := p.GetFollowingEvent(current, testFallbackEnd)
 			if err != nil {
 				t.Fatalf("GetFollowingEvent failed: %v", err)
 			}
@@ -752,7 +757,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		visited := make(map[model.EventID]bool)
 		current := idA
 		for i := 0; i < 10; i++ {
-			event, err := p.GetFollowingEvent(current)
+			event, err := p.GetFollowingEvent(current, testFallbackEnd)
 			if err != nil {
 				t.Fatalf("GetFollowingEvent failed: %v", err)
 			}
@@ -782,25 +787,25 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		idC, _ := p.AddEvent(createEvent("C", "cat", timeOnDay(14, 0), timeOnDay(15, 0)))
 
 		// next(A) should be B
-		nextA, err := p.GetFollowingEvent(idA)
+		nextA, err := p.GetFollowingEvent(idA, testFallbackEnd)
 		if err != nil || nextA == nil || nextA.ID != idB {
 			t.Fatalf("Expected next(A) = B, got %v", nextA)
 		}
 
 		// prev(B) should be A (symmetry)
-		prevB, err := p.GetPrecedingEvent(idB)
+		prevB, err := p.GetPrecedingEvent(idB, testFallbackEnd)
 		if err != nil || prevB == nil || prevB.ID != idA {
 			t.Errorf("Symmetry broken: next(A)=B but prev(B)=%v, expected A", prevB)
 		}
 
 		// next(B) should be C
-		nextB, err := p.GetFollowingEvent(idB)
+		nextB, err := p.GetFollowingEvent(idB, testFallbackEnd)
 		if err != nil || nextB == nil || nextB.ID != idC {
 			t.Fatalf("Expected next(B) = C, got %v", nextB)
 		}
 
 		// prev(C) should be B (symmetry)
-		prevC, err := p.GetPrecedingEvent(idC)
+		prevC, err := p.GetPrecedingEvent(idC, testFallbackEnd)
 		if err != nil || prevC == nil || prevC.ID != idB {
 			t.Errorf("Symmetry broken: next(B)=C but prev(C)=%v, expected B", prevC)
 		}
@@ -820,7 +825,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		// Total order should be: Outer (10:00, 14:00), Inner (11:00, 13:00), After (15:00, 16:00)
 
 		// Navigate forward from Outer
-		nextOuter, err := p.GetFollowingEvent(idOuter)
+		nextOuter, err := p.GetFollowingEvent(idOuter, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetFollowingEvent(Outer) failed: %v", err)
 		}
@@ -832,7 +837,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		}
 
 		// Navigate forward from Inner
-		nextInner, err := p.GetFollowingEvent(idInner)
+		nextInner, err := p.GetFollowingEvent(idInner, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetFollowingEvent(Inner) failed: %v", err)
 		}
@@ -844,7 +849,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		}
 
 		// Verify symmetry: prev(Inner) should be Outer
-		prevInner, err := p.GetPrecedingEvent(idInner)
+		prevInner, err := p.GetPrecedingEvent(idInner, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetPrecedingEvent(Inner) failed: %v", err)
 		}
@@ -853,7 +858,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		}
 
 		// Verify symmetry: prev(After) should be Inner
-		prevAfter, err := p.GetPrecedingEvent(idAfter)
+		prevAfter, err := p.GetPrecedingEvent(idAfter, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetPrecedingEvent(After) failed: %v", err)
 		}
@@ -882,7 +887,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		names := []string{"L1", "L2", "L3", "After"}
 
 		for i := 0; i < len(allIDs)-1; i++ {
-			next, err := p.GetFollowingEvent(allIDs[i])
+			next, err := p.GetFollowingEvent(allIDs[i], testFallbackEnd)
 			if err != nil {
 				t.Fatalf("GetFollowingEvent(%s) failed: %v", names[i], err)
 			}
@@ -893,7 +898,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 
 		// Backward navigation: After -> L3 -> L2 -> L1
 		for i := len(allIDs) - 1; i > 0; i-- {
-			prev, err := p.GetPrecedingEvent(allIDs[i])
+			prev, err := p.GetPrecedingEvent(allIDs[i], testFallbackEnd)
 			if err != nil {
 				t.Fatalf("GetPrecedingEvent(%s) failed: %v", names[i], err)
 			}
@@ -917,7 +922,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		// Total order: Long (end DESC for same start), Medium, Short, After
 
 		// Verify forward navigation from Long
-		nextLong, err := p.GetFollowingEvent(idLong)
+		nextLong, err := p.GetFollowingEvent(idLong, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetFollowingEvent(Long) failed: %v", err)
 		}
@@ -925,7 +930,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 			t.Errorf("Expected next(Long) = Medium, got %v (id: %v)", nextLong, nextLong)
 		}
 
-		nextMedium, err := p.GetFollowingEvent(idMedium)
+		nextMedium, err := p.GetFollowingEvent(idMedium, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetFollowingEvent(Medium) failed: %v", err)
 		}
@@ -933,7 +938,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 			t.Errorf("Expected next(Medium) = Short, got %v", nextMedium)
 		}
 
-		nextShort, err := p.GetFollowingEvent(idShort)
+		nextShort, err := p.GetFollowingEvent(idShort, testFallbackEnd)
 		if err != nil {
 			t.Fatalf("GetFollowingEvent(Short) failed: %v", err)
 		}
@@ -942,17 +947,17 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		}
 
 		// Verify backward navigation: After -> Short -> Medium -> Long
-		prevAfter, _ := p.GetPrecedingEvent(idAfter)
+		prevAfter, _ := p.GetPrecedingEvent(idAfter, testFallbackEnd)
 		if prevAfter == nil || prevAfter.ID != idShort {
 			t.Errorf("Expected prev(After) = Short, got %v", prevAfter)
 		}
 
-		prevShort, _ := p.GetPrecedingEvent(idShort)
+		prevShort, _ := p.GetPrecedingEvent(idShort, testFallbackEnd)
 		if prevShort == nil || prevShort.ID != idMedium {
 			t.Errorf("Expected prev(Short) = Medium, got %v", prevShort)
 		}
 
-		prevMedium, _ := p.GetPrecedingEvent(idMedium)
+		prevMedium, _ := p.GetPrecedingEvent(idMedium, testFallbackEnd)
 		if prevMedium == nil || prevMedium.ID != idLong {
 			t.Errorf("Expected prev(Medium) = Long, got %v", prevMedium)
 		}
@@ -982,7 +987,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		current := idA
 		visited := []model.EventID{idA}
 		for i := 0; i < 10; i++ {
-			next, err := p.GetFollowingEvent(current)
+			next, err := p.GetFollowingEvent(current, testFallbackEnd)
 			if err != nil {
 				t.Fatalf("GetFollowingEvent failed: %v", err)
 			}
@@ -999,12 +1004,12 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 
 		// Verify navigation symmetry for all adjacent pairs
 		for i := 0; i < len(allIDs)-1; i++ {
-			next, _ := p.GetFollowingEvent(allIDs[i])
+			next, _ := p.GetFollowingEvent(allIDs[i], testFallbackEnd)
 			if next == nil || next.ID != allIDs[i+1] {
 				t.Errorf("next(%s) should be %s, got %v", names[i], names[i+1], next)
 			}
 
-			prev, _ := p.GetPrecedingEvent(allIDs[i+1])
+			prev, _ := p.GetPrecedingEvent(allIDs[i+1], testFallbackEnd)
 			if prev == nil || prev.ID != allIDs[i] {
 				t.Errorf("Asymmetry: next(%s)=%s but prev(%s)=%v", names[i], names[i+1], names[i+1], prev)
 			}
@@ -1025,7 +1030,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		// Navigate forward 3 steps
 		current := idA
 		for i := 0; i < 3; i++ {
-			next, err := p.GetFollowingEvent(current)
+			next, err := p.GetFollowingEvent(current, testFallbackEnd)
 			if err != nil || next == nil {
 				t.Fatalf("Forward navigation failed at step %d", i)
 			}
@@ -1034,7 +1039,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 
 		// Now navigate backward 3 steps
 		for i := 0; i < 3; i++ {
-			prev, err := p.GetPrecedingEvent(current)
+			prev, err := p.GetPrecedingEvent(current, testFallbackEnd)
 			if err != nil || prev == nil {
 				t.Fatalf("Backward navigation failed at step %d", i)
 			}
@@ -1067,7 +1072,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 		names := []string{"Outer", "Middle", "Inner", "After"}
 
 		for i := 0; i < len(allIDs)-1; i++ {
-			next, _ := p.GetFollowingEvent(allIDs[i])
+			next, _ := p.GetFollowingEvent(allIDs[i], testFallbackEnd)
 			if next == nil || next.ID != allIDs[i+1] {
 				t.Errorf("next(%s) should be %s, got %v", names[i], names[i+1], next)
 			}
@@ -1075,7 +1080,7 @@ func testGetFollowingEvent(t *testing.T, factory EventProviderFactory) {
 
 		// Verify backward navigation
 		for i := len(allIDs) - 1; i > 0; i-- {
-			prev, _ := p.GetPrecedingEvent(allIDs[i])
+			prev, _ := p.GetPrecedingEvent(allIDs[i], testFallbackEnd)
 			if prev == nil || prev.ID != allIDs[i-1] {
 				t.Errorf("prev(%s) should be %s, got %v", names[i], names[i-1], prev)
 			}
@@ -2086,7 +2091,7 @@ func testSumUpTimespanByCategory(t *testing.T, factory EventProviderFactory) {
 		// 1 hour of work
 		p.AddEvent(createEvent("Work 2", "work", timeOnDay(14, 0), timeOnDay(15, 0)))
 
-		summary, err := p.SumUpTimespanByCategory(timeOnDay(0, 0), timeOnDay(23, 59))
+		summary, err := p.SumUpTimespanByCategory(timeOnDay(0, 0), timeOnDay(23, 59), testFallbackEnd)
 		if err != nil {
 			t.Fatalf("SumUpTimespanByCategory failed: %v", err)
 		}
@@ -2104,7 +2109,7 @@ func testSumUpTimespanByCategory(t *testing.T, factory EventProviderFactory) {
 		p.AddEvent(createEvent("Lunch", "break", timeOnDay(12, 0), timeOnDay(13, 0)))     // 1 hour
 		p.AddEvent(createEvent("Meeting", "meeting", timeOnDay(14, 0), timeOnDay(15, 0))) // 1 hour
 
-		summary, err := p.SumUpTimespanByCategory(timeOnDay(0, 0), timeOnDay(23, 59))
+		summary, err := p.SumUpTimespanByCategory(timeOnDay(0, 0), timeOnDay(23, 59), testFallbackEnd)
 		if err != nil {
 			t.Fatalf("SumUpTimespanByCategory failed: %v", err)
 		}
@@ -2127,7 +2132,7 @@ func testSumUpTimespanByCategory(t *testing.T, factory EventProviderFactory) {
 		p.AddEvent(createEvent("Work", "work", timeOnDay(8, 0), timeOnDay(12, 0)))
 
 		// Query a different day where no events exist
-		summary, err := p.SumUpTimespanByCategory(timeOnDayOffset(10, 8, 0), timeOnDayOffset(10, 16, 0))
+		summary, err := p.SumUpTimespanByCategory(timeOnDayOffset(10, 8, 0), timeOnDayOffset(10, 16, 0), testFallbackEnd)
 		if err != nil {
 			t.Fatalf("SumUpTimespanByCategory failed: %v", err)
 		}

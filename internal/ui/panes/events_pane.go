@@ -65,6 +65,8 @@ func gotimeToTimestampString(t time.Time) string {
 
 // Draw draws this pane.
 func (p *EventsPane) Draw() {
+	fallbackEnd := time.Now()
+
 	p.log.Debug().Msg("drawing...")
 	defer p.log.Debug().Msgf("drawn")
 
@@ -87,9 +89,13 @@ func (p *EventsPane) Draw() {
 		p.Renderer.DrawText(x, y, w, h, p.Stylesheet.CategoryFallback.DarkenedBG(20).LightenedFG(50).Italicized(), "nil day? (see log?)")
 		return
 	}
-	p.positions = p.computeRects(date, day, x+p.pad, y, w-(2*p.pad), h)
+	p.positions = p.computeRects(date, day, x+p.pad, y, w-(2*p.pad), h, fallbackEnd)
 	for _, e := range day.Events {
-		start, end := model.FromTime(e.Start, time.Local), model.FromTime(e.End, time.Local)
+		eventEnd := fallbackEnd
+		if e.End != nil {
+			eventEnd = *e.End
+		}
+		start, end := model.FromTime(e.Start, time.Local), model.FromTime(eventEnd, time.Local)
 		if start.Date.IsAfter(date) || end.Date.IsBefore(date) {
 			p.log.Warn().Stringer("date", date).Stringer("event", e).Msg("got an event where the start date is after the drawn date or end is before drawn date, which should not happen")
 			continue
@@ -166,7 +172,11 @@ func (p *EventsPane) Draw() {
 		if pos.H > 1 {
 			p.Renderer.DrawBox(pos.X, pos.Y+pos.H-1, pos.W, 1, bottomStyling)
 			if p.drawTimestamps {
-				p.Renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, gotimeToTimestampString(e.End))
+				endStr := "now"
+				if e.End != nil {
+					endStr = gotimeToTimestampString(*e.End)
+				}
+				p.Renderer.DrawText(pos.X+pos.W-5, pos.Y+pos.H-1, 5, 1, botTimestampStyling, endStr)
 			}
 		}
 
@@ -224,13 +234,17 @@ func (p *EventsPane) getEventForPos(x, y int) *ui.EventsPanePositionInfo {
 	}
 }
 
-func (p *EventsPane) computeRects(date model.Date, l *model.EventList, offsetX, offsetY, width, height int) map[*model.Event]util.Rect {
+func (p *EventsPane) computeRects(date model.Date, l *model.EventList, offsetX, offsetY, width, height int, fallbackEnd time.Time) map[*model.Event]util.Rect {
 	activeStack := make([]*model.Event, 0)
 	positions := make(map[*model.Event]util.Rect)
 	for _, e := range l.Events {
 		// remove all stacked elements that have finished
 		for i := len(activeStack) - 1; i >= 0; i-- {
-			if e.Start.After(activeStack[i].End) || e.Start.Equal(activeStack[i].End) {
+			activeIEnd := fallbackEnd
+			if activeStack[i].End != nil {
+				activeIEnd = *activeStack[i].End
+			}
+			if e.Start.After(activeIEnd) || e.Start.Equal(activeIEnd) {
 				activeStack = activeStack[:i]
 			} else {
 				break
@@ -239,7 +253,11 @@ func (p *EventsPane) computeRects(date model.Date, l *model.EventList, offsetX, 
 		activeStack = append(activeStack, e)
 
 		// the true start timestamps
-		start, end := model.FromTime(e.Start, time.Local), model.FromTime(e.End, time.Local)
+		eEnd := fallbackEnd
+		if e.End != nil {
+			eEnd = *e.End
+		}
+		start, end := model.FromTime(e.Start, time.Local), model.FromTime(eEnd, time.Local)
 		if start.Date.IsAfter(date) || end.Date.IsBefore(date) {
 			p.log.Warn().Stringer("date", date).Stringer("event", e).Msg("got an event where the start date is after the drawn date or end is before drawn date, which should not happen")
 			continue

@@ -10,6 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func timeptr(t time.Time) *time.Time {
+	r := new(time.Time)
+	*r = t
+	return r
+}
+
+var doesNotMatterFallbackTime = time.Time{} // for now
+
 // TestCachingServerClientDataProvider_TwoClientSync tests that changes sync between two clients.
 func TestCachingServerClientDataProvider_TwoClientSync(t *testing.T) {
 	if os.Getenv("INTEGRATION_TEST") != "1" {
@@ -60,7 +68,7 @@ func TestCachingServerClientDataProvider_TwoClientSync(t *testing.T) {
 		Name:     "Shared Event",
 		Category: "meeting",
 		Start:    time.Now().UTC().Add(time.Hour).Truncate(time.Second),
-		End:      time.Now().UTC().Add(2 * time.Hour).Truncate(time.Second),
+		End:      timeptr(time.Now().UTC().Add(2 * time.Hour).Truncate(time.Second)),
 	}
 	eventID, err := client1.AddEvent(event)
 	require.NoError(t, err)
@@ -161,7 +169,7 @@ func TestCachingServerClientDataProvider_Integration(t *testing.T) {
 			Name:     "Test Event",
 			Category: "work",
 			Start:    time.Now().UTC().Truncate(time.Second),
-			End:      time.Now().UTC().Add(time.Hour).Truncate(time.Second),
+			End:      timeptr(time.Now().UTC().Add(time.Hour).Truncate(time.Second)),
 		}
 
 		id, err := provider.AddEvent(event)
@@ -224,7 +232,8 @@ func TestCachingServerClientDataProvider_Integration(t *testing.T) {
 		// Verify original event was shortened
 		event, err = provider.GetEvent(eventID)
 		require.NoError(t, err)
-		assert.Equal(t, splitTime, event.End)
+		require.NotNil(t, event.End)
+		assert.Equal(t, splitTime, *event.End)
 
 		// Find the new event
 		events, err := provider.GetEventsCoveringTimerange(
@@ -338,7 +347,7 @@ func TestCachingServerClientDataProvider_NavigationSymmetry(t *testing.T) {
 		Name:     "A",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(11, 0),
+		End:      timeptr(testTimeOnDay(11, 0)),
 	})
 	require.NoError(t, err)
 
@@ -346,7 +355,7 @@ func TestCachingServerClientDataProvider_NavigationSymmetry(t *testing.T) {
 		Name:     "B",
 		Category: "cat",
 		Start:    testTimeOnDay(12, 0),
-		End:      testTimeOnDay(13, 0),
+		End:      timeptr(testTimeOnDay(13, 0)),
 	})
 	require.NoError(t, err)
 
@@ -354,30 +363,30 @@ func TestCachingServerClientDataProvider_NavigationSymmetry(t *testing.T) {
 		Name:     "C",
 		Category: "cat",
 		Start:    testTimeOnDay(14, 0),
-		End:      testTimeOnDay(15, 0),
+		End:      timeptr(testTimeOnDay(15, 0)),
 	})
 	require.NoError(t, err)
 
 	// Test: next(A) should be B
-	nextA, err := p.GetFollowingEvent(idA)
+	nextA, err := p.GetFollowingEvent(idA, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextA)
 	assert.Equal(t, idB, nextA.ID, "next(A) should be B")
 
 	// Test: prev(B) should be A (symmetry)
-	prevB, err := p.GetPrecedingEvent(idB)
+	prevB, err := p.GetPrecedingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevB)
 	assert.Equal(t, idA, prevB.ID, "prev(B) should be A")
 
 	// Test: next(B) should be C
-	nextB, err := p.GetFollowingEvent(idB)
+	nextB, err := p.GetFollowingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextB)
 	assert.Equal(t, idC, nextB.ID, "next(B) should be C")
 
 	// Test: prev(C) should be B (symmetry)
-	prevC, err := p.GetPrecedingEvent(idC)
+	prevC, err := p.GetPrecedingEvent(idC, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevC)
 	assert.Equal(t, idB, prevC.ID, "prev(C) should be B")
@@ -393,7 +402,7 @@ func TestCachingServerClientDataProvider_FullyNestedEvents(t *testing.T) {
 		Name:     "Outer",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(14, 0),
+		End:      timeptr(testTimeOnDay(14, 0)),
 	})
 	require.NoError(t, err)
 
@@ -401,7 +410,7 @@ func TestCachingServerClientDataProvider_FullyNestedEvents(t *testing.T) {
 		Name:     "Inner",
 		Category: "cat",
 		Start:    testTimeOnDay(11, 0),
-		End:      testTimeOnDay(13, 0),
+		End:      timeptr(testTimeOnDay(13, 0)),
 	})
 	require.NoError(t, err)
 
@@ -409,30 +418,30 @@ func TestCachingServerClientDataProvider_FullyNestedEvents(t *testing.T) {
 		Name:     "After",
 		Category: "cat",
 		Start:    testTimeOnDay(15, 0),
-		End:      testTimeOnDay(16, 0),
+		End:      timeptr(testTimeOnDay(16, 0)),
 	})
 	require.NoError(t, err)
 
 	// Total order: Outer (10:00, 14:00), Inner (11:00, 13:00), After (15:00, 16:00)
 
 	// Test forward: Outer -> Inner -> After
-	nextOuter, err := p.GetFollowingEvent(idOuter)
+	nextOuter, err := p.GetFollowingEvent(idOuter, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextOuter, "Expected Inner as next after Outer")
 	assert.Equal(t, idInner, nextOuter.ID, "next(Outer) should be Inner")
 
-	nextInner, err := p.GetFollowingEvent(idInner)
+	nextInner, err := p.GetFollowingEvent(idInner, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextInner, "Expected After as next after Inner")
 	assert.Equal(t, idAfter, nextInner.ID, "next(Inner) should be After")
 
 	// Test backward: After -> Inner -> Outer
-	prevAfter, err := p.GetPrecedingEvent(idAfter)
+	prevAfter, err := p.GetPrecedingEvent(idAfter, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevAfter)
 	assert.Equal(t, idInner, prevAfter.ID, "prev(After) should be Inner")
 
-	prevInner, err := p.GetPrecedingEvent(idInner)
+	prevInner, err := p.GetPrecedingEvent(idInner, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevInner)
 	assert.Equal(t, idOuter, prevInner.ID, "prev(Inner) should be Outer")
@@ -449,7 +458,7 @@ func TestCachingServerClientDataProvider_MultiLevelNesting(t *testing.T) {
 		Name:     "L1",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(18, 0),
+		End:      timeptr(testTimeOnDay(18, 0)),
 	})
 	require.NoError(t, err)
 
@@ -457,7 +466,7 @@ func TestCachingServerClientDataProvider_MultiLevelNesting(t *testing.T) {
 		Name:     "L2",
 		Category: "cat",
 		Start:    testTimeOnDay(11, 0),
-		End:      testTimeOnDay(17, 0),
+		End:      timeptr(testTimeOnDay(17, 0)),
 	})
 	require.NoError(t, err)
 
@@ -465,7 +474,7 @@ func TestCachingServerClientDataProvider_MultiLevelNesting(t *testing.T) {
 		Name:     "L3",
 		Category: "cat",
 		Start:    testTimeOnDay(12, 0),
-		End:      testTimeOnDay(16, 0),
+		End:      timeptr(testTimeOnDay(16, 0)),
 	})
 	require.NoError(t, err)
 
@@ -473,7 +482,7 @@ func TestCachingServerClientDataProvider_MultiLevelNesting(t *testing.T) {
 		Name:     "After",
 		Category: "cat",
 		Start:    testTimeOnDay(19, 0),
-		End:      testTimeOnDay(20, 0),
+		End:      timeptr(testTimeOnDay(20, 0)),
 	})
 	require.NoError(t, err)
 
@@ -483,7 +492,7 @@ func TestCachingServerClientDataProvider_MultiLevelNesting(t *testing.T) {
 
 	// Forward navigation: L1 -> L2 -> L3 -> After
 	for i := 0; i < len(allIDs)-1; i++ {
-		next, err := p.GetFollowingEvent(allIDs[i])
+		next, err := p.GetFollowingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, next, "Expected event after %s", names[i])
 		assert.Equal(t, allIDs[i+1], next.ID, "next(%s) should be %s", names[i], names[i+1])
@@ -491,7 +500,7 @@ func TestCachingServerClientDataProvider_MultiLevelNesting(t *testing.T) {
 
 	// Backward navigation: After -> L3 -> L2 -> L1
 	for i := len(allIDs) - 1; i > 0; i-- {
-		prev, err := p.GetPrecedingEvent(allIDs[i])
+		prev, err := p.GetPrecedingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev, "Expected event before %s", names[i])
 		assert.Equal(t, allIDs[i-1], prev.ID, "prev(%s) should be %s", names[i], names[i-1])
@@ -507,7 +516,7 @@ func TestCachingServerClientDataProvider_SameStartDifferentEnd(t *testing.T) {
 		Name:     "Short",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
@@ -515,7 +524,7 @@ func TestCachingServerClientDataProvider_SameStartDifferentEnd(t *testing.T) {
 		Name:     "Medium",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(14, 0),
+		End:      timeptr(testTimeOnDay(14, 0)),
 	})
 	require.NoError(t, err)
 
@@ -523,7 +532,7 @@ func TestCachingServerClientDataProvider_SameStartDifferentEnd(t *testing.T) {
 		Name:     "Long",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(18, 0),
+		End:      timeptr(testTimeOnDay(18, 0)),
 	})
 	require.NoError(t, err)
 
@@ -531,40 +540,40 @@ func TestCachingServerClientDataProvider_SameStartDifferentEnd(t *testing.T) {
 		Name:     "After",
 		Category: "cat",
 		Start:    testTimeOnDay(19, 0),
-		End:      testTimeOnDay(20, 0),
+		End:      timeptr(testTimeOnDay(20, 0)),
 	})
 	require.NoError(t, err)
 
 	// Total order: Long (end DESC for same start), Medium, Short, After
 
 	// Verify forward navigation from Long
-	nextLong, err := p.GetFollowingEvent(idLong)
+	nextLong, err := p.GetFollowingEvent(idLong, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextLong)
 	assert.Equal(t, idMedium, nextLong.ID, "next(Long) should be Medium")
 
-	nextMedium, err := p.GetFollowingEvent(idMedium)
+	nextMedium, err := p.GetFollowingEvent(idMedium, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextMedium)
 	assert.Equal(t, idShort, nextMedium.ID, "next(Medium) should be Short")
 
-	nextShort, err := p.GetFollowingEvent(idShort)
+	nextShort, err := p.GetFollowingEvent(idShort, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextShort)
 	assert.Equal(t, idAfter, nextShort.ID, "next(Short) should be After")
 
 	// Verify backward navigation: After -> Short -> Medium -> Long
-	prevAfter, err := p.GetPrecedingEvent(idAfter)
+	prevAfter, err := p.GetPrecedingEvent(idAfter, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevAfter)
 	assert.Equal(t, idShort, prevAfter.ID, "prev(After) should be Short")
 
-	prevShort, err := p.GetPrecedingEvent(idShort)
+	prevShort, err := p.GetPrecedingEvent(idShort, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevShort)
 	assert.Equal(t, idMedium, prevShort.ID, "prev(Short) should be Medium")
 
-	prevMedium, err := p.GetPrecedingEvent(idMedium)
+	prevMedium, err := p.GetPrecedingEvent(idMedium, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevMedium)
 	assert.Equal(t, idLong, prevMedium.ID, "prev(Medium) should be Long")
@@ -578,7 +587,7 @@ func TestCachingServerClientDataProvider_RoundTripNavigation(t *testing.T) {
 		Name:     "A",
 		Category: "cat",
 		Start:    testTimeOnDay(8, 0),
-		End:      testTimeOnDay(9, 0),
+		End:      timeptr(testTimeOnDay(9, 0)),
 	})
 	require.NoError(t, err)
 
@@ -586,7 +595,7 @@ func TestCachingServerClientDataProvider_RoundTripNavigation(t *testing.T) {
 		Name:     "B",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(11, 0),
+		End:      timeptr(testTimeOnDay(11, 0)),
 	})
 	require.NoError(t, err)
 
@@ -594,7 +603,7 @@ func TestCachingServerClientDataProvider_RoundTripNavigation(t *testing.T) {
 		Name:     "C",
 		Category: "cat",
 		Start:    testTimeOnDay(12, 0),
-		End:      testTimeOnDay(13, 0),
+		End:      timeptr(testTimeOnDay(13, 0)),
 	})
 	require.NoError(t, err)
 
@@ -602,7 +611,7 @@ func TestCachingServerClientDataProvider_RoundTripNavigation(t *testing.T) {
 		Name:     "D",
 		Category: "cat",
 		Start:    testTimeOnDay(14, 0),
-		End:      testTimeOnDay(15, 0),
+		End:      timeptr(testTimeOnDay(15, 0)),
 	})
 	require.NoError(t, err)
 
@@ -610,14 +619,14 @@ func TestCachingServerClientDataProvider_RoundTripNavigation(t *testing.T) {
 		Name:     "E",
 		Category: "cat",
 		Start:    testTimeOnDay(16, 0),
-		End:      testTimeOnDay(17, 0),
+		End:      timeptr(testTimeOnDay(17, 0)),
 	})
 	require.NoError(t, err)
 
 	// Navigate forward 3 steps
 	current := idA
 	for i := 0; i < 3; i++ {
-		next, err := p.GetFollowingEvent(current)
+		next, err := p.GetFollowingEvent(current, doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, next, "Forward navigation failed at step %d", i)
 		current = next.ID
@@ -625,7 +634,7 @@ func TestCachingServerClientDataProvider_RoundTripNavigation(t *testing.T) {
 
 	// Now navigate backward 3 steps
 	for i := 0; i < 3; i++ {
-		prev, err := p.GetPrecedingEvent(current)
+		prev, err := p.GetPrecedingEvent(current, doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev, "Backward navigation failed at step %d", i)
 		current = prev.ID
@@ -648,7 +657,7 @@ func TestCachingServerClientDataProvider_ComplexOverlapping(t *testing.T) {
 		Name:     "A",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(14, 0),
+		End:      timeptr(testTimeOnDay(14, 0)),
 	})
 	require.NoError(t, err)
 
@@ -656,7 +665,7 @@ func TestCachingServerClientDataProvider_ComplexOverlapping(t *testing.T) {
 		Name:     "B",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 30),
-		End:      testTimeOnDay(11, 30),
+		End:      timeptr(testTimeOnDay(11, 30)),
 	})
 	require.NoError(t, err)
 
@@ -664,7 +673,7 @@ func TestCachingServerClientDataProvider_ComplexOverlapping(t *testing.T) {
 		Name:     "C",
 		Category: "cat",
 		Start:    testTimeOnDay(12, 0),
-		End:      testTimeOnDay(13, 0),
+		End:      timeptr(testTimeOnDay(13, 0)),
 	})
 	require.NoError(t, err)
 
@@ -672,7 +681,7 @@ func TestCachingServerClientDataProvider_ComplexOverlapping(t *testing.T) {
 		Name:     "D",
 		Category: "cat",
 		Start:    testTimeOnDay(13, 30),
-		End:      testTimeOnDay(15, 0),
+		End:      timeptr(testTimeOnDay(15, 0)),
 	})
 	require.NoError(t, err)
 
@@ -680,7 +689,7 @@ func TestCachingServerClientDataProvider_ComplexOverlapping(t *testing.T) {
 		Name:     "E",
 		Category: "cat",
 		Start:    testTimeOnDay(16, 0),
-		End:      testTimeOnDay(17, 0),
+		End:      timeptr(testTimeOnDay(17, 0)),
 	})
 	require.NoError(t, err)
 
@@ -692,7 +701,7 @@ func TestCachingServerClientDataProvider_ComplexOverlapping(t *testing.T) {
 	current := idA
 	visited := []model.EventID{idA}
 	for i := 0; i < 10; i++ {
-		next, err := p.GetFollowingEvent(current)
+		next, err := p.GetFollowingEvent(current, doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		if next == nil {
 			break
@@ -705,12 +714,12 @@ func TestCachingServerClientDataProvider_ComplexOverlapping(t *testing.T) {
 
 	// Verify navigation symmetry for all adjacent pairs
 	for i := 0; i < len(allIDs)-1; i++ {
-		next, err := p.GetFollowingEvent(allIDs[i])
+		next, err := p.GetFollowingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, next)
 		assert.Equal(t, allIDs[i+1], next.ID, "next(%s) should be %s", names[i], names[i+1])
 
-		prev, err := p.GetPrecedingEvent(allIDs[i+1])
+		prev, err := p.GetPrecedingEvent(allIDs[i+1], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev)
 		assert.Equal(t, allIDs[i], prev.ID, "prev(%s) should be %s (symmetry)", names[i+1], names[i])
@@ -728,7 +737,7 @@ func TestCachingServerClientDataProvider_SameEndDifferentStart(t *testing.T) {
 		Name:     "Outer",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(14, 0),
+		End:      timeptr(testTimeOnDay(14, 0)),
 	})
 	require.NoError(t, err)
 
@@ -736,7 +745,7 @@ func TestCachingServerClientDataProvider_SameEndDifferentStart(t *testing.T) {
 		Name:     "Middle",
 		Category: "cat",
 		Start:    testTimeOnDay(11, 0),
-		End:      testTimeOnDay(14, 0),
+		End:      timeptr(testTimeOnDay(14, 0)),
 	})
 	require.NoError(t, err)
 
@@ -744,7 +753,7 @@ func TestCachingServerClientDataProvider_SameEndDifferentStart(t *testing.T) {
 		Name:     "Inner",
 		Category: "cat",
 		Start:    testTimeOnDay(12, 0),
-		End:      testTimeOnDay(14, 0),
+		End:      timeptr(testTimeOnDay(14, 0)),
 	})
 	require.NoError(t, err)
 
@@ -752,7 +761,7 @@ func TestCachingServerClientDataProvider_SameEndDifferentStart(t *testing.T) {
 		Name:     "After",
 		Category: "cat",
 		Start:    testTimeOnDay(15, 0),
-		End:      testTimeOnDay(16, 0),
+		End:      timeptr(testTimeOnDay(16, 0)),
 	})
 	require.NoError(t, err)
 
@@ -762,7 +771,7 @@ func TestCachingServerClientDataProvider_SameEndDifferentStart(t *testing.T) {
 
 	// Verify forward navigation
 	for i := 0; i < len(allIDs)-1; i++ {
-		next, err := p.GetFollowingEvent(allIDs[i])
+		next, err := p.GetFollowingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, next)
 		assert.Equal(t, allIDs[i+1], next.ID, "next(%s) should be %s", names[i], names[i+1])
@@ -770,7 +779,7 @@ func TestCachingServerClientDataProvider_SameEndDifferentStart(t *testing.T) {
 
 	// Verify backward navigation
 	for i := len(allIDs) - 1; i > 0; i-- {
-		prev, err := p.GetPrecedingEvent(allIDs[i])
+		prev, err := p.GetPrecedingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev)
 		assert.Equal(t, allIDs[i-1], prev.ID, "prev(%s) should be %s", names[i], names[i-1])
@@ -785,7 +794,7 @@ func TestCachingServerClientDataProvider_FirstLastEventBoundaries(t *testing.T) 
 		Name:     "First",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(11, 0),
+		End:      timeptr(testTimeOnDay(11, 0)),
 	})
 	require.NoError(t, err)
 
@@ -793,7 +802,7 @@ func TestCachingServerClientDataProvider_FirstLastEventBoundaries(t *testing.T) 
 		Name:     "Middle",
 		Category: "cat",
 		Start:    testTimeOnDay(12, 0),
-		End:      testTimeOnDay(13, 0),
+		End:      timeptr(testTimeOnDay(13, 0)),
 	})
 	require.NoError(t, err)
 
@@ -801,17 +810,17 @@ func TestCachingServerClientDataProvider_FirstLastEventBoundaries(t *testing.T) 
 		Name:     "Last",
 		Category: "cat",
 		Start:    testTimeOnDay(14, 0),
-		End:      testTimeOnDay(15, 0),
+		End:      timeptr(testTimeOnDay(15, 0)),
 	})
 	require.NoError(t, err)
 
 	// First event should have no predecessor
-	prevFirst, err := p.GetPrecedingEvent(idFirst)
+	prevFirst, err := p.GetPrecedingEvent(idFirst, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	assert.Nil(t, prevFirst, "First event should have no predecessor")
 
 	// Last event should have no successor
-	nextLast, err := p.GetFollowingEvent(idLast)
+	nextLast, err := p.GetFollowingEvent(idLast, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	assert.Nil(t, nextLast, "Last event should have no successor")
 }
@@ -827,7 +836,7 @@ func TestCachingServerClientDataProvider_IdenticalStartAndEnd_IDTiebreaker(t *te
 		Name:     "A",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
@@ -836,7 +845,7 @@ func TestCachingServerClientDataProvider_IdenticalStartAndEnd_IDTiebreaker(t *te
 		Name:     "B",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
@@ -845,30 +854,30 @@ func TestCachingServerClientDataProvider_IdenticalStartAndEnd_IDTiebreaker(t *te
 		Name:     "C",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
 	// Total order should be: A (aaa), B (bbb), C (ccc) due to ID ASC tiebreaker
 
 	// Forward: A -> B -> C
-	nextA, err := p.GetFollowingEvent(idA)
+	nextA, err := p.GetFollowingEvent(idA, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextA)
 	assert.Equal(t, idB, nextA.ID, "next(A) should be B (ID tiebreaker)")
 
-	nextB, err := p.GetFollowingEvent(idB)
+	nextB, err := p.GetFollowingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextB)
 	assert.Equal(t, idC, nextB.ID, "next(B) should be C (ID tiebreaker)")
 
 	// Backward: C -> B -> A
-	prevC, err := p.GetPrecedingEvent(idC)
+	prevC, err := p.GetPrecedingEvent(idC, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevC)
 	assert.Equal(t, idB, prevC.ID, "prev(C) should be B (ID tiebreaker)")
 
-	prevB, err := p.GetPrecedingEvent(idB)
+	prevB, err := p.GetPrecedingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevB)
 	assert.Equal(t, idA, prevB.ID, "prev(B) should be A (ID tiebreaker)")
@@ -883,7 +892,7 @@ func TestCachingServerClientDataProvider_SameStartAndEnd_ReversedCreationOrder(t
 		Name:     "C",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
@@ -892,7 +901,7 @@ func TestCachingServerClientDataProvider_SameStartAndEnd_ReversedCreationOrder(t
 		Name:     "B",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
@@ -901,30 +910,30 @@ func TestCachingServerClientDataProvider_SameStartAndEnd_ReversedCreationOrder(t
 		Name:     "A",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
 	// Total order should still be: A (aaa), B (bbb), C (ccc) regardless of creation order
 
 	// Forward: A -> B -> C
-	nextA, err := p.GetFollowingEvent(idA)
+	nextA, err := p.GetFollowingEvent(idA, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextA)
 	assert.Equal(t, idB, nextA.ID, "next(A) should be B")
 
-	nextB, err := p.GetFollowingEvent(idB)
+	nextB, err := p.GetFollowingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextB)
 	assert.Equal(t, idC, nextB.ID, "next(B) should be C")
 
 	// Backward: C -> B -> A
-	prevC, err := p.GetPrecedingEvent(idC)
+	prevC, err := p.GetPrecedingEvent(idC, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevC)
 	assert.Equal(t, idB, prevC.ID, "prev(C) should be B")
 
-	prevB, err := p.GetPrecedingEvent(idB)
+	prevB, err := p.GetPrecedingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevB)
 	assert.Equal(t, idA, prevB.ID, "prev(B) should be A")
@@ -944,7 +953,7 @@ func TestCachingServerClientDataProvider_DeepNesting4Levels(t *testing.T) {
 		Name:     "L1",
 		Category: "cat",
 		Start:    testTimeOnDay(8, 0),
-		End:      testTimeOnDay(20, 0),
+		End:      timeptr(testTimeOnDay(20, 0)),
 	})
 	require.NoError(t, err)
 
@@ -952,7 +961,7 @@ func TestCachingServerClientDataProvider_DeepNesting4Levels(t *testing.T) {
 		Name:     "L2",
 		Category: "cat",
 		Start:    testTimeOnDay(9, 0),
-		End:      testTimeOnDay(19, 0),
+		End:      timeptr(testTimeOnDay(19, 0)),
 	})
 	require.NoError(t, err)
 
@@ -960,7 +969,7 @@ func TestCachingServerClientDataProvider_DeepNesting4Levels(t *testing.T) {
 		Name:     "L3",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(18, 0),
+		End:      timeptr(testTimeOnDay(18, 0)),
 	})
 	require.NoError(t, err)
 
@@ -968,7 +977,7 @@ func TestCachingServerClientDataProvider_DeepNesting4Levels(t *testing.T) {
 		Name:     "L4",
 		Category: "cat",
 		Start:    testTimeOnDay(11, 0),
-		End:      testTimeOnDay(17, 0),
+		End:      timeptr(testTimeOnDay(17, 0)),
 	})
 	require.NoError(t, err)
 
@@ -976,7 +985,7 @@ func TestCachingServerClientDataProvider_DeepNesting4Levels(t *testing.T) {
 		Name:     "After",
 		Category: "cat",
 		Start:    testTimeOnDay(21, 0),
-		End:      testTimeOnDay(22, 0),
+		End:      timeptr(testTimeOnDay(22, 0)),
 	})
 	require.NoError(t, err)
 
@@ -986,7 +995,7 @@ func TestCachingServerClientDataProvider_DeepNesting4Levels(t *testing.T) {
 
 	// Forward navigation
 	for i := 0; i < len(allIDs)-1; i++ {
-		next, err := p.GetFollowingEvent(allIDs[i])
+		next, err := p.GetFollowingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, next, "Expected event after %s", names[i])
 		assert.Equal(t, allIDs[i+1], next.ID, "next(%s) should be %s", names[i], names[i+1])
@@ -994,7 +1003,7 @@ func TestCachingServerClientDataProvider_DeepNesting4Levels(t *testing.T) {
 
 	// Backward navigation
 	for i := len(allIDs) - 1; i > 0; i-- {
-		prev, err := p.GetPrecedingEvent(allIDs[i])
+		prev, err := p.GetPrecedingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev, "Expected event before %s", names[i])
 		assert.Equal(t, allIDs[i-1], prev.ID, "prev(%s) should be %s", names[i], names[i-1])
@@ -1003,7 +1012,7 @@ func TestCachingServerClientDataProvider_DeepNesting4Levels(t *testing.T) {
 	// Verify you can navigate from innermost (L4) all the way back to outermost (L1)
 	current := idL4
 	for steps := 0; steps < 3; steps++ {
-		prev, err := p.GetPrecedingEvent(current)
+		prev, err := p.GetPrecedingEvent(current, doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev, "Should be able to navigate back from L4, step %d", steps)
 		current = prev.ID
@@ -1025,7 +1034,7 @@ func TestCachingServerClientDataProvider_PartiallyOverlappingChain(t *testing.T)
 		Name:     "A",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1033,7 +1042,7 @@ func TestCachingServerClientDataProvider_PartiallyOverlappingChain(t *testing.T)
 		Name:     "B",
 		Category: "cat",
 		Start:    testTimeOnDay(11, 0),
-		End:      testTimeOnDay(13, 0),
+		End:      timeptr(testTimeOnDay(13, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1041,7 +1050,7 @@ func TestCachingServerClientDataProvider_PartiallyOverlappingChain(t *testing.T)
 		Name:     "C",
 		Category: "cat",
 		Start:    testTimeOnDay(12, 0),
-		End:      testTimeOnDay(14, 0),
+		End:      timeptr(testTimeOnDay(14, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1049,7 +1058,7 @@ func TestCachingServerClientDataProvider_PartiallyOverlappingChain(t *testing.T)
 		Name:     "D",
 		Category: "cat",
 		Start:    testTimeOnDay(13, 0),
-		End:      testTimeOnDay(15, 0),
+		End:      timeptr(testTimeOnDay(15, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1057,7 +1066,7 @@ func TestCachingServerClientDataProvider_PartiallyOverlappingChain(t *testing.T)
 		Name:     "E",
 		Category: "cat",
 		Start:    testTimeOnDay(14, 0),
-		End:      testTimeOnDay(16, 0),
+		End:      timeptr(testTimeOnDay(16, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1069,7 +1078,7 @@ func TestCachingServerClientDataProvider_PartiallyOverlappingChain(t *testing.T)
 	current := idA
 	visited := []model.EventID{idA}
 	for i := 0; i < 10; i++ {
-		next, err := p.GetFollowingEvent(current)
+		next, err := p.GetFollowingEvent(current, doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		if next == nil {
 			break
@@ -1082,12 +1091,12 @@ func TestCachingServerClientDataProvider_PartiallyOverlappingChain(t *testing.T)
 
 	// Verify exact order and symmetry
 	for i := 0; i < len(allIDs)-1; i++ {
-		next, err := p.GetFollowingEvent(allIDs[i])
+		next, err := p.GetFollowingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, next)
 		assert.Equal(t, allIDs[i+1], next.ID, "next(%s) should be %s", names[i], names[i+1])
 
-		prev, err := p.GetPrecedingEvent(allIDs[i+1])
+		prev, err := p.GetPrecedingEvent(allIDs[i+1], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev)
 		assert.Equal(t, allIDs[i], prev.ID, "prev(%s) should be %s (symmetry)", names[i+1], names[i])
@@ -1106,7 +1115,7 @@ func TestCachingServerClientDataProvider_CrossDayEvents(t *testing.T) {
 		Name:     "A",
 		Category: "cat",
 		Start:    day1.Add(10 * time.Hour),
-		End:      day1.Add(14 * time.Hour),
+		End:      timeptr(day1.Add(14 * time.Hour)),
 	})
 	require.NoError(t, err)
 
@@ -1115,7 +1124,7 @@ func TestCachingServerClientDataProvider_CrossDayEvents(t *testing.T) {
 		Name:     "B",
 		Category: "cat",
 		Start:    day1.Add(20 * time.Hour),
-		End:      day2.Add(2 * time.Hour),
+		End:      timeptr(day2.Add(2 * time.Hour)),
 	})
 	require.NoError(t, err)
 
@@ -1124,30 +1133,30 @@ func TestCachingServerClientDataProvider_CrossDayEvents(t *testing.T) {
 		Name:     "C",
 		Category: "cat",
 		Start:    day2.Add(10 * time.Hour),
-		End:      day2.Add(14 * time.Hour),
+		End:      timeptr(day2.Add(14 * time.Hour)),
 	})
 	require.NoError(t, err)
 
 	// Total order: A (day1 10:00), B (day1 20:00), C (day2 10:00)
 
 	// Forward: A -> B -> C
-	nextA, err := p.GetFollowingEvent(idA)
+	nextA, err := p.GetFollowingEvent(idA, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextA)
 	assert.Equal(t, idB, nextA.ID, "next(A) should be B")
 
-	nextB, err := p.GetFollowingEvent(idB)
+	nextB, err := p.GetFollowingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextB)
 	assert.Equal(t, idC, nextB.ID, "next(B) should be C")
 
 	// Backward: C -> B -> A
-	prevC, err := p.GetPrecedingEvent(idC)
+	prevC, err := p.GetPrecedingEvent(idC, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevC)
 	assert.Equal(t, idB, prevC.ID, "prev(C) should be B")
 
-	prevB, err := p.GetPrecedingEvent(idB)
+	prevB, err := p.GetPrecedingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevB)
 	assert.Equal(t, idA, prevB.ID, "prev(B) should be A")
@@ -1163,7 +1172,7 @@ func TestCachingServerClientDataProvider_MidnightBoundaryEvents(t *testing.T) {
 		Name:     "A",
 		Category: "cat",
 		Start:    day.Add(23 * time.Hour),
-		End:      day.Add(23*time.Hour + 59*time.Minute),
+		End:      timeptr(day.Add(23*time.Hour + 59*time.Minute)),
 	})
 	require.NoError(t, err)
 
@@ -1173,18 +1182,18 @@ func TestCachingServerClientDataProvider_MidnightBoundaryEvents(t *testing.T) {
 		Name:     "B",
 		Category: "cat",
 		Start:    nextDay,
-		End:      nextDay.Add(time.Hour),
+		End:      timeptr(nextDay.Add(time.Hour)),
 	})
 	require.NoError(t, err)
 
 	// Forward: A -> B
-	nextA, err := p.GetFollowingEvent(idA)
+	nextA, err := p.GetFollowingEvent(idA, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextA)
 	assert.Equal(t, idB, nextA.ID, "next(A) should be B")
 
 	// Backward: B -> A
-	prevB, err := p.GetPrecedingEvent(idB)
+	prevB, err := p.GetPrecedingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevB)
 	assert.Equal(t, idA, prevB.ID, "prev(B) should be A")
@@ -1198,7 +1207,7 @@ func TestCachingServerClientDataProvider_ShortDurationEvents(t *testing.T) {
 		Name:     "A",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 0),
-		End:      testTimeOnDay(10, 1), // 1 minute
+		End:      timeptr(testTimeOnDay(10, 1)), // 1 minute
 	})
 	require.NoError(t, err)
 
@@ -1206,7 +1215,7 @@ func TestCachingServerClientDataProvider_ShortDurationEvents(t *testing.T) {
 		Name:     "B",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 1),
-		End:      testTimeOnDay(10, 2), // 1 minute, immediately after A
+		End:      timeptr(testTimeOnDay(10, 2)), // 1 minute, immediately after A
 	})
 	require.NoError(t, err)
 
@@ -1214,28 +1223,28 @@ func TestCachingServerClientDataProvider_ShortDurationEvents(t *testing.T) {
 		Name:     "C",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 2),
-		End:      testTimeOnDay(10, 3), // 1 minute, immediately after B
+		End:      timeptr(testTimeOnDay(10, 3)), // 1 minute, immediately after B
 	})
 	require.NoError(t, err)
 
 	// Forward: A -> B -> C
-	nextA, err := p.GetFollowingEvent(idA)
+	nextA, err := p.GetFollowingEvent(idA, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextA)
 	assert.Equal(t, idB, nextA.ID, "next(A) should be B")
 
-	nextB, err := p.GetFollowingEvent(idB)
+	nextB, err := p.GetFollowingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, nextB)
 	assert.Equal(t, idC, nextB.ID, "next(B) should be C")
 
 	// Backward: C -> B -> A
-	prevC, err := p.GetPrecedingEvent(idC)
+	prevC, err := p.GetPrecedingEvent(idC, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevC)
 	assert.Equal(t, idB, prevC.ID, "prev(C) should be B")
 
-	prevB, err := p.GetPrecedingEvent(idB)
+	prevB, err := p.GetPrecedingEvent(idB, doesNotMatterFallbackTime)
 	require.NoError(t, err)
 	require.NotNil(t, prevB)
 	assert.Equal(t, idA, prevB.ID, "prev(B) should be A")
@@ -1256,7 +1265,7 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 		Name:     "A",
 		Category: "cat",
 		Start:    testTimeOnDay(8, 0),
-		End:      testTimeOnDay(12, 0),
+		End:      timeptr(testTimeOnDay(12, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1264,7 +1273,7 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 		Name:     "B",
 		Category: "cat",
 		Start:    testTimeOnDay(9, 0),
-		End:      testTimeOnDay(10, 0),
+		End:      timeptr(testTimeOnDay(10, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1272,7 +1281,7 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 		Name:     "C",
 		Category: "cat",
 		Start:    testTimeOnDay(10, 30),
-		End:      testTimeOnDay(11, 30),
+		End:      timeptr(testTimeOnDay(11, 30)),
 	})
 	require.NoError(t, err)
 
@@ -1280,7 +1289,7 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 		Name:     "D",
 		Category: "cat",
 		Start:    testTimeOnDay(14, 0),
-		End:      testTimeOnDay(18, 0),
+		End:      timeptr(testTimeOnDay(18, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1288,7 +1297,7 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 		Name:     "E",
 		Category: "cat",
 		Start:    testTimeOnDay(15, 0),
-		End:      testTimeOnDay(16, 0),
+		End:      timeptr(testTimeOnDay(16, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1296,7 +1305,7 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 		Name:     "F",
 		Category: "cat",
 		Start:    testTimeOnDay(20, 0),
-		End:      testTimeOnDay(21, 0),
+		End:      timeptr(testTimeOnDay(21, 0)),
 	})
 	require.NoError(t, err)
 
@@ -1308,7 +1317,7 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 	current := idA
 	visited := []model.EventID{idA}
 	for i := 0; i < 20; i++ {
-		next, err := p.GetFollowingEvent(current)
+		next, err := p.GetFollowingEvent(current, doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		if next == nil {
 			break
@@ -1321,12 +1330,12 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 
 	// Verify forward/backward symmetry
 	for i := 0; i < len(allIDs)-1; i++ {
-		next, err := p.GetFollowingEvent(allIDs[i])
+		next, err := p.GetFollowingEvent(allIDs[i], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, next)
 		assert.Equal(t, allIDs[i+1], next.ID, "next(%s) should be %s", names[i], names[i+1])
 
-		prev, err := p.GetPrecedingEvent(allIDs[i+1])
+		prev, err := p.GetPrecedingEvent(allIDs[i+1], doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev)
 		assert.Equal(t, allIDs[i], prev.ID, "prev(%s) should be %s", names[i+1], names[i])
@@ -1335,7 +1344,7 @@ func TestCachingServerClientDataProvider_MixedNestedAndSequential(t *testing.T) 
 	// Verify can navigate from innermost nested event (E) back to A
 	current = idE
 	for steps := 0; steps < 4; steps++ {
-		prev, err := p.GetPrecedingEvent(current)
+		prev, err := p.GetPrecedingEvent(current, doesNotMatterFallbackTime)
 		require.NoError(t, err)
 		require.NotNil(t, prev, "Should be able to navigate back from E, step %d", steps)
 		current = prev.ID
