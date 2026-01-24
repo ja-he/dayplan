@@ -16,7 +16,7 @@ func TestAdd(t *testing.T) {
 	t.Logf("Using tempdir '%s'", tmpHome)
 
 	cmd := exec.Command("go", "run", ".", "add", "-c", "default", "-s", "2025-12-07 14:00:00", "--timezone", "utc", "-e", "2025-12-07 14:30:00", "-n", "Foo")
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append([]string{},
 		"GOPATH="+path.Join(tmpHome, "go"),
 		"GOFLAGS=-modcacherw", // Keep module files writable
 		"HOME="+tmpHome,
