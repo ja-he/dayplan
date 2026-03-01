@@ -1965,6 +1965,14 @@ func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) e
 	startTime := normalizeTimeString(e.StartTime)
 	updatedAt := normalizeTimeString(e.UpdatedAt)
 
+	// server_updated_at must preserve the server's original precision.
+	// It is sent back as client_updated_at during push, where the server
+	// compares it against its stored updated_at for conflict detection.
+	// Normalizing it would truncate fractional seconds, making the value
+	// always less than the server's actual timestamp and causing every
+	// push of a modified event to be incorrectly treated as a conflict.
+	serverUpdatedAt := e.UpdatedAt
+
 	// end_time can be empty/null for active/ongoing events
 	var endTimeVal any
 	if e.EndTime != "" {
@@ -1982,7 +1990,7 @@ func (p *CachingServerClientDataProvider) upsertEventFromServer(e serverEvent) e
 		   deleted = excluded.deleted,
 		   updated_at = excluded.updated_at,
 		   server_updated_at = excluded.server_updated_at`,
-		e.ID, e.Name, e.Category, startTime, endTimeVal, deleted, updatedAt, updatedAt,
+		e.ID, e.Name, e.Category, startTime, endTimeVal, deleted, updatedAt, serverUpdatedAt,
 	)
 	if err != nil {
 		p.log.Error().Err(err).
