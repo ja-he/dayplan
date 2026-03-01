@@ -1571,10 +1571,14 @@ func (p *CachingServerClientDataProvider) ResolveConflict(recordType, recordID s
 		}
 
 		// Write resolved version to local DB
+		var endTimeVal any
+		if resolved.End != nil {
+			endTimeVal = resolved.End.Format(time.RFC3339)
+		}
 		_, err = tx.Exec(
 			`UPDATE events SET name = ?, category = ?, start_time = ?, end_time = ?, updated_at = ? WHERE id = ?`,
 			resolved.Name, resolved.Category,
-			resolved.Start.Format(time.RFC3339), resolved.End.Format(time.RFC3339),
+			resolved.Start.Format(time.RFC3339), endTimeVal,
 			now.Format(time.RFC3339), recordID,
 		)
 		if err != nil {
@@ -1775,9 +1779,14 @@ func (p *CachingServerClientDataProvider) push(ctx context.Context) ([]Conflict,
 			)
 			var se serverEvent
 			var deleted int
+			var endTime sql.NullString
 			var serverUpdatedAt sql.NullString
-			if err := row.Scan(&se.ID, &se.Name, &se.Category, &se.StartTime, &se.EndTime, &deleted, &se.UpdatedAt, &serverUpdatedAt); err != nil {
+			if err := row.Scan(&se.ID, &se.Name, &se.Category, &se.StartTime, &endTime, &deleted, &se.UpdatedAt, &serverUpdatedAt); err != nil {
+				p.log.Error().Err(err).Str("recordID", pc.RecordID).Msg("failed to scan event for push, skipping")
 				continue
+			}
+			if endTime.Valid {
+				se.EndTime = endTime.String
 			}
 			se.Deleted = deleted != 0
 			// Set client_updated_at to the last known server version (for conflict detection)
@@ -2015,13 +2024,16 @@ func (p *CachingServerClientDataProvider) storeConflict(recordType, recordID str
 			recordID,
 		)
 		var e model.Event
-		var startStr, endStr string
+		var startStr string
+		var endStr sql.NullString
 		if err := row.Scan(&e.ID, &e.Name, &e.Category, &startStr, &endStr); err != nil {
 			return err
 		}
 		e.Start, _ = time.Parse(time.RFC3339, startStr)
-		end, _ := time.Parse(time.RFC3339, endStr)
-		e.End = &end
+		if endStr.Valid && endStr.String != "" {
+			end, _ := time.Parse(time.RFC3339, endStr.String)
+			e.End = &end
+		}
 		localJSON, _ = json.Marshal(e)
 	}
 
@@ -2188,13 +2200,16 @@ func (p *CachingServerClientDataProvider) getAllEventsSorted() ([]*model.Event, 
 	var events []*model.Event
 	for rows.Next() {
 		var e model.Event
-		var startStr, endStr string
+		var startStr string
+		var endStr sql.NullString
 		if err := rows.Scan(&e.ID, &e.Name, &e.Category, &startStr, &endStr); err != nil {
 			return nil, err
 		}
 		e.Start, _ = time.Parse(time.RFC3339, startStr)
-		end, _ := time.Parse(time.RFC3339, endStr)
-		e.End = &end
+		if endStr.Valid && endStr.String != "" {
+			end, _ := time.Parse(time.RFC3339, endStr.String)
+			e.End = &end
+		}
 		events = append(events, &e)
 	}
 
